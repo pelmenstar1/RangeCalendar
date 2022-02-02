@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="previousMonthDescription">Попередній місяць</string>
+    <string name="nextMonthDescription">Наступний місяць</string>
+    <string name="clearSelectionDescription">Очистити вибір</string>
+</resources>

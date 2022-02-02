@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="previousMonthDescription">Previous month</string>
+    <string name="nextMonthDescription">Next month</string>
+    <string name="clearSelectionDescription">Clear selection</string>
+</resources>

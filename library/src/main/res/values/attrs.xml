@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="RangeCalendarView">
+        <attr name="rangeCalendar_selectionColor" format="color"/>
+        <attr name="rangeCalendar_dayNumberTextSize" format="dimension"/>
+        <attr name="rangeCalendar_currentMonthDayNumberColor" format="color"/>
+        <attr name="rangeCalendar_notCurrentMonthDayNumberColor" format="color"/>
+        <attr name="rangeCalendar_disabledDayNumberColor" format="color"/>
+        <attr name="rangeCalendar_todayColor" format="color"/>
+        <attr name="rangeCalendar_weekdayColor" format="color"/>
+        <attr name="rangeCalendar_weekdayTextSize" format="dimension"/>
+        <attr name="rangeCalendar_hoverColor" format="color"/>
+        <attr name="rangeCalendar_hoverOnSelectionColor" format="color"/>
+        <attr name="rangeCalendar_cellSize" format="dimension"/>
+        <attr name="rangeCalendar_weekdayType" format="enum">
+            <enum name="shortName" value="0"/>
+            <enum name="narrowName" value="1"/>
+        </attr>
+        <attr name="rangeCalendar_roundRectRadiusRatio" format="fraction"/>
+    </declare-styleable>
+
+</resources>

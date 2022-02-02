@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">RangeCalendar Demo</string>
+    <string name="switchTheme">Switch theme</string>
+</resources>

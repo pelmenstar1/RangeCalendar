@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="previousMonthDescription">Предыдущий месяц</string>
+    <string name="nextMonthDescription">Следущий месяц</string>
+    <string name="clearSelectionDescription">Очистить выбор</string>
+</resources>
