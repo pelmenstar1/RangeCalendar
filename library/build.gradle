@@ -1,6 +1,6 @@
 plugins {
     id 'com.android.library'
-    id 'maven-publish'
+    id "com.vanniktech.maven.publish"
 }
 
 android {
@@ -23,42 +23,6 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
-    }
-}
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            groupId = 'com.github.pelmenstar'
-            artifactId = 'rangeCalendar'
-            version = '1.0.0'
-
-            pom {
-                name = 'Range Calendar'
-                description = 'Select date ranges with improved calendar'
-                url = "https://github.com/pelmenstar1/rangeCalendar"
-
-                licenses {
-                    license {
-                        name = 'The Apache License, Version 2.0'
-                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = 'pelmenstar1'
-                        name = 'Khmaruk Oleg'
-                        email = 'pelmenstar1@gmail.com'
-                    }
-                }
-                scm {
-                    connection = 'scm:git:git://github.com/pelmenstar1/rangeCalendar.git'
-                    developerConnection = 'scm:git:ssh://git@github.com/pelmenstar1/rangeCalendar.git'
-                    url = 'https://github.com/pelmenstar1/rangeCalendar'
-                }
-            }
-        }
     }
 }
 
