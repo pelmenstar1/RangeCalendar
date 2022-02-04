@@ -8,7 +8,6 @@ import android.view.ViewGroup;
 import androidx.annotation.GravityInt;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * LayoutParams for calendar's selection view.
@@ -19,6 +18,7 @@ public final class CalendarSelectionViewLayoutParams extends ViewGroup.LayoutPar
             WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER
     );
 
+    @GravityInt
     public int gravity = Gravity.CENTER;
 
     public CalendarSelectionViewLayoutParams(@NotNull Context c, @NotNull AttributeSet attrs) {

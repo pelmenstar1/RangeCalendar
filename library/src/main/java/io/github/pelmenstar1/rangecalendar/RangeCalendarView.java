@@ -588,16 +588,38 @@ public final class RangeCalendarView extends ViewGroup {
 
         View sv = selectionView;
         if (sv != null) {
-            layoutRect.set(
-                    hasSvClearButton ? hPadding : prevRight, 0,
-                    nextLeft, buttonSize
-            );
+            int gravity = svLayoutParams.gravity;
+            int svWidth = sv.getMeasuredWidth();
+            int svHeight = sv.getMeasuredHeight();
 
-            Gravity.apply(
-                    svLayoutParams.gravity,
-                    sv.getMeasuredWidth(), sv.getMeasuredHeight(),
-                    layoutRect, layoutOutRect
-            );
+            // If selection view is wanted to be in center on x-axis,
+            // let it be actual center of the whole view.
+            if(gravity == Gravity.CENTER || gravity == Gravity.CENTER_HORIZONTAL) {
+                layoutRect.set(
+                        hPadding, 0,
+                        width - hPadding, buttonSize
+                );
+            } else {
+                layoutRect.set(
+                        hasSvClearButton ? hPadding : prevRight, 0,
+                        nextLeft, buttonSize
+                );
+            }
+
+            if(Build.VERSION.SDK_INT >= 17) {
+                Gravity.apply(
+                        svLayoutParams.gravity,
+                        svWidth, svHeight,
+                        layoutRect, layoutOutRect,
+                        getLayoutDirection()
+                );
+            } else {
+                Gravity.apply(
+                        svLayoutParams.gravity,
+                        svWidth, svHeight,
+                        layoutRect, layoutOutRect
+                );
+            }
 
             sv.layout(
                     layoutOutRect.left, layoutOutRect.top,
