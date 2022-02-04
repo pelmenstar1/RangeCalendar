@@ -142,7 +142,6 @@ public final class RangeCalendarView extends ViewGroup {
     private final Date cachedDate = new Date();
 
     private View selectionView;
-    private CalendarSelectionViewBridge selectionViewBridge;
 
     private long svTransitionDurationNanos = SV_TRANSITION_DURATION;
     private long svTransitionStartTime;
@@ -217,7 +216,6 @@ public final class RangeCalendarView extends ViewGroup {
             public void onDaySelected(int year, int month, int day) {
                 if (selectionView != null) {
                     startSelectionViewTransition(true);
-                    selectionViewBridge.bindOnDaySelection(year, month, day);
                 }
 
                 OnSelectionListener listener = onSelectionListener;
@@ -230,11 +228,6 @@ public final class RangeCalendarView extends ViewGroup {
             public void onWeekSelected(int weekIndex, int startYear, int startMonth, int startDay, int endYear, int endMonth, int endDay) {
                 if (selectionView != null) {
                     startSelectionViewTransition(true);
-                    selectionViewBridge.bindOnWeekSelection(
-                            weekIndex,
-                            startYear, startMonth, startDay,
-                            endYear, endMonth, endDay
-                    );
                 }
 
                 OnSelectionListener listener = onSelectionListener;
@@ -251,7 +244,6 @@ public final class RangeCalendarView extends ViewGroup {
             public void onMonthSelected(int year, int month) {
                 if (selectionView != null) {
                     startSelectionViewTransition(true);
-                    selectionViewBridge.bindOnMonthSelection(year, month);
                 }
 
                 OnSelectionListener listener = onSelectionListener;
@@ -674,31 +666,18 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     /**
-     * Gets bridge of selection view.
-     */
-    @Nullable
-    public CalendarSelectionViewBridge getSelectionViewBridge() {
-        return selectionViewBridge;
-    }
-
-    /**
-     * Sets selection view and its bridge.
+     * Sets selection view.
      * When user selects a day or range, this view replace "previous" button and current year & month text view.
      * "Next" button will become "Close" button which clears selection.
-     * Set to null not to show any view on selection
-     * <p>
+     * Set to null not to show any view on selection.
+     * <br>
      * Action button or another useful content can be shown.
      * This might be helpful for rational use of space.
      */
-    public void setSelectionView(@Nullable View view, @Nullable CalendarSelectionViewBridge bridge) {
-        if ((view == null && bridge != null) || (view != null && bridge == null)) {
-            throw new IllegalArgumentException("View and bridge should be both null or both not null");
-        }
-
+    public void setSelectionView(@Nullable View view) {
         View oldSelectionView = selectionView;
 
         this.selectionView = view;
-        this.selectionViewBridge = bridge;
 
         if (oldSelectionView != null) {
             // On 0 fraction, selection view will disappear
