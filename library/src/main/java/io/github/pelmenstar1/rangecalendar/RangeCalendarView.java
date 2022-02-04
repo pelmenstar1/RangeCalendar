@@ -1257,19 +1257,19 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     /**
-     * Returns behaviour of what to do when user clicks on already selected cell.
+     * Returns behavior of what to do when user clicks on already selected cell.
      */
     @ClickOnCellSelectionBehaviourInt
-    public int getClickOnCellSelectionBehaviour() {
+    public int getClickOnCellSelectionBehavior() {
         return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR);
     }
 
     /**
-     * Sets behaviour of what to do when user clicks on already selected cell.
+     * Sets behavior of what to do when user clicks on already selected cell.
      *
      * @param value {@link ClickOnCellSelectionBehavior#NONE} or {@link ClickOnCellSelectionBehavior#CLEAR}
      */
-    public void setClickOnCellSelectionBehaviour(int value) {
+    public void setClickOnCellSelectionBehavior(int value) {
         adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR, value);
     }
 

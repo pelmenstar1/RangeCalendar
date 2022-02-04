@@ -352,7 +352,7 @@ final class RangeCalendarGridView extends View {
 
     private int weekdayType = WeekdayType.SHORT;
 
-    int clickOnCellSelectionBehaviour;
+    int clickOnCellSelectionBehavior;
 
     private final InternalAnimationHandler weekAnimation = new InternalAnimationHandler() {
         @Override
@@ -813,7 +813,7 @@ final class RangeCalendarGridView extends View {
 
     private void selectCell(int index, boolean doAnimation, boolean isUser) {
         if(selectionType == SelectionType.CELL && selectedCell == index) {
-            if(isUser && clickOnCellSelectionBehaviour == ClickOnCellSelectionBehavior.CLEAR) {
+            if(isUser && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
                 clearSelection();
             }
 

@@ -254,7 +254,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                 gridView.setWeekdayType(data);
                 break;
             case STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR:
-                gridView.clickOnCellSelectionBehaviour = data;
+                gridView.clickOnCellSelectionBehavior = data;
                 break;
         }
     }
