@@ -305,13 +305,11 @@ public final class RangeCalendarView extends ViewGroup {
         clearSelectionDescription = res.getString(R.string.clearSelectionDescription);
 
         prevButton = new AppCompatImageButton(context);
-        prevButton.setBackground(selectableBg);
         prevButton.setImageDrawable(leftIcon);
         prevButton.setOnClickListener(v -> moveToPreviousMonth());
         prevButton.setContentDescription(res.getString(R.string.previousMonthDescription));
 
         nextOrClearButton = new AppCompatImageButton(context);
-        nextOrClearButton.setBackground(selectableBg.getConstantState().newDrawable(res));
         nextOrClearButton.setImageDrawable(nextIcon);
         nextOrClearButton.setContentDescription(nextMonthDescription);
         nextOrClearButton.setOnClickListener(v -> {
@@ -322,6 +320,11 @@ public final class RangeCalendarView extends ViewGroup {
                 moveToNextMonth();
             }
         });
+
+        if(selectableBg != null) {
+            prevButton.setBackground(selectableBg);
+            nextOrClearButton.setBackground(selectableBg.getConstantState().newDrawable(res));
+        }
 
         infoView = new AppCompatTextView(context);
         infoView.setTextColor(cr.textColor);
@@ -635,15 +638,17 @@ public final class RangeCalendarView extends ViewGroup {
         pager.layout(0, pagerTop, pager.getMeasuredWidth(), pagerTop + pager.getMeasuredHeight());
     }
 
-    @SuppressWarnings("ConstantConditions")
-    @NotNull
+    @Nullable
     private Drawable getSelectableItemBackground(@NotNull Context context) {
-        Resources.Theme theme = context.getTheme();
+        if(Build.VERSION.SDK_INT >= 21) {
+            Resources.Theme theme = context.getTheme();
 
-        TypedValue value = new TypedValue();
-        theme.resolveAttribute(R.attr.selectableItemBackgroundBorderless, value, true);
+            TypedValue value = new TypedValue();
+            theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, value, true);
 
-        return ResourcesCompat.getDrawable(context.getResources(), value.resourceId, theme);
+            return ResourcesCompat.getDrawable(context.getResources(), value.resourceId, theme);
+        }
+        return null;
     }
 
     private void registerReceiver() {
