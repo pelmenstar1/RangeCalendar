@@ -303,13 +303,13 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         int endIndex;
 
         if(minDateEpoch > startDateEpoch) {
-            startIndex = indexOfDate(minDate, 0, info) + 1;
+            startIndex = indexOfDate(minDate, 0, info);
         } else {
             startIndex = 0;
         }
 
         if(maxDateEpoch < endDateEpoch) {
-            endIndex = indexOfDate(maxDate, startIndex, info) + 1;
+            endIndex = indexOfDate(maxDate, startIndex, info);
         } else {
             endIndex = 42;
         }
@@ -343,6 +343,10 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         int daysInMonth = info.daysInMonth;
 
         int monthEnd = start + daysInMonth - 1;
+
+        if(isFirstDaySunday) {
+            start++;
+        }
 
         if (index < start) {
             int y = year;
@@ -397,7 +401,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
         int daysInPrevMonth = TimeUtils.getDaysInMonth(prevYear, prevMonth);
 
-        if (gridView.isFirstDaySunday) {
+        if (isFirstDaySunday) {
             start++;
         }
 
@@ -579,10 +583,6 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
     private void updateTodayIndex(@NotNull RangeCalendarGridView gridView, @NotNull CalendarInfo info) {
         int index = indexOfDate(today, 0, info);
         if(index >= 0) {
-            if(isFirstDaySunday) {
-                index++;
-            }
-
             gridView.setTodayIndex(index);
         }
     }
