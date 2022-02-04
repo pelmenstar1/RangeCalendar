@@ -16,7 +16,6 @@ import android.os.Build;
 import android.os.Parcelable;
 import android.text.format.DateFormat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -348,9 +347,9 @@ public final class RangeCalendarView extends ViewGroup {
 
         infoView = new AppCompatTextView(context);
         infoView.setTextColor(cr.textColor);
-        infoView.setOnClickListener(v -> {
-            adapter.select(SelectionType.MONTH, currentCalendarYm, true);
-        });
+        infoView.setOnClickListener(v ->
+                adapter.select(SelectionType.MONTH, currentCalendarYm, true)
+        );
 
         addView(pager);
         addView(prevButton);

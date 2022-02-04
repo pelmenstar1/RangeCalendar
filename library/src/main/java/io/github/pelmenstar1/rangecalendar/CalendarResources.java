@@ -1,5 +1,6 @@
 package io.github.pelmenstar1.rangecalendar;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -163,6 +164,7 @@ final class CalendarResources {
         return getColorFromAttribute(context, R.attr.colorPrimary, cachedValue);
     }
 
+    @SuppressLint("PrivateResource")
     private static int getTextColor(@NotNull Context context) {
         Resources.Theme theme = context.getTheme();
 

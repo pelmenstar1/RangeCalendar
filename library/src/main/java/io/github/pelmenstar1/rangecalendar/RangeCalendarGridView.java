@@ -1,5 +1,6 @@
 package io.github.pelmenstar1.rangecalendar;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -29,6 +30,7 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 
+@SuppressLint("ViewConstructor")
 final class RangeCalendarGridView extends View {
     private static final Choreographer choreographer = Choreographer.getInstance();
 
