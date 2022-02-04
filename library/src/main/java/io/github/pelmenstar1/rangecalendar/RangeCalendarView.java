@@ -60,6 +60,12 @@ public final class RangeCalendarView extends ViewGroup {
      */
     public interface OnSelectionListener {
         /**
+         * Fires when selection is cleared.
+         * It can happen when selection view is on screen and clear selection button is clicked
+         */
+        void onSelectionCleared();
+
+        /**
          * Fires when user selects a day
          *
          * @param year  year of selected date
@@ -213,6 +219,18 @@ public final class RangeCalendarView extends ViewGroup {
         adapter.setToday(today);
         adapter.setOnSelectionListener(new OnSelectionListener() {
             @Override
+            public void onSelectionCleared() {
+                if(selectionView != null) {
+                    startSelectionViewTransition(false);
+                }
+
+                OnSelectionListener listener = onSelectionListener;
+                if(listener != null) {
+                    listener.onSelectionCleared();
+                }
+            }
+
+            @Override
             public void onDaySelected(int year, int month, int day) {
                 if (selectionView != null) {
                     startSelectionViewTransition(true);
@@ -314,7 +332,6 @@ public final class RangeCalendarView extends ViewGroup {
         nextOrClearButton.setContentDescription(nextMonthDescription);
         nextOrClearButton.setOnClickListener(v -> {
             if (isSelectionViewOnScreen && hasSvClearButton) {
-                startSelectionViewTransition(false);
                 clearSelection();
             } else {
                 moveToNextMonth();
@@ -1229,6 +1246,23 @@ public final class RangeCalendarView extends ViewGroup {
      */
     public void setWeekdayType(@WeekdayTypeInt int type) {
         adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_WEEKDAY_TYPE, type);
+    }
+
+    /**
+     * Returns behaviour of what to do when user clicks on already selected cell.
+     */
+    @ClickOnCellSelectionBehaviourInt
+    public int getClickOnCellSelectionBehaviour() {
+        return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR);
+    }
+
+    /**
+     * Sets behaviour of what to do when user clicks on already selected cell.
+     *
+     * @param value {@link ClickOnCellSelectionBehavior#NONE} or {@link ClickOnCellSelectionBehavior#CLEAR}
+     */
+    public void setClickOnCellSelectionBehaviour(int value) {
+        adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR, value);
     }
 
     /**

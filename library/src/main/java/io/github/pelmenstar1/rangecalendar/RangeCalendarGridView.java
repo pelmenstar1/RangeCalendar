@@ -33,10 +33,9 @@ final class RangeCalendarGridView extends View {
     private static final Choreographer choreographer = Choreographer.getInstance();
 
     public interface OnSelectionListener {
+        void onSelectionCleared();
         void onCellSelected(int index);
-
         void onWeekSelected(int weekIndex, int startIndex, int endIndex);
-
         void onMonthSelected();
     }
 
@@ -223,7 +222,7 @@ final class RangeCalendarGridView extends View {
         @Override
         protected boolean onPerformActionForVirtualView(int virtualViewId, int action, @Nullable Bundle arguments) {
             if (action == AccessibilityNodeInfoCompat.ACTION_CLICK) {
-                grid.selectCell(virtualViewId, false);
+                grid.selectCell(virtualViewId, false, true);
                 return true;
             }
 
@@ -350,6 +349,8 @@ final class RangeCalendarGridView extends View {
     final TouchHelper touchHelper;
 
     private int weekdayType = WeekdayType.SHORT;
+
+    int clickOnCellSelectionBehaviour;
 
     private final InternalAnimationHandler weekAnimation = new InternalAnimationHandler() {
         @Override
@@ -635,7 +636,7 @@ final class RangeCalendarGridView extends View {
         int savedSelectedCell = selectedCell;
         int savedWeekIndex = selectedWeekIndex;
 
-        clearSelection();
+        clearSelection(false);
 
         switch (savedSelectionType) {
             case SelectionType.CELL:
@@ -711,28 +712,23 @@ final class RangeCalendarGridView extends View {
                     performClick();
 
                     if (isXInActiveZone(x)) {
-                        int hIndex = hoverIndex;
+                        int index = getGridIndexByPointOnScreen(x, y);
                         long touchTime = e.getDownTime();
 
-                        if (hIndex >= 0) {
-                            selectCell(hIndex, true);
-                            sendClickEventToAccessibility(hIndex);
+                        if (index >= 0) {
+                            if (lastTouchTime > 0 &&
+                                    touchTime - lastTouchTime < DOUBLE_TOUCH_MAX_MILLIS &&
+                                    lastTouchCell == index) {
+                                selectWeek(index / 7, true);
+                            } else {
+                                selectCell(index, true, true);
+                                sendClickEventToAccessibility(index);
 
-                            lastTouchCell = hIndex;
-                            lastTouchTime = touchTime;
-                            hoverIndex = -1;
-                        } else {
-                            int index = getGridIndexByPointOnScreen(x, y);
-
-                            if (index == selectedCell) {
-                                if (lastTouchTime > 0 &&
-                                        touchTime - lastTouchTime < DOUBLE_TOUCH_MAX_MILLIS &&
-                                        lastTouchCell == index) {
-                                    selectWeek(index / 7, true);
-                                }
-
+                                lastTouchCell = index;
                                 lastTouchTime = touchTime;
                             }
+
+                            hoverIndex = -1;
                         }
                     }
 
@@ -810,7 +806,15 @@ final class RangeCalendarGridView extends View {
     }
 
     private void selectCell(int index, boolean doAnimation) {
+        selectCell(index, doAnimation, false);
+    }
+
+    private void selectCell(int index, boolean doAnimation, boolean isUser) {
         if(selectionType == SelectionType.CELL && selectedCell == index) {
+            if(isUser && clickOnCellSelectionBehaviour == ClickOnCellSelectionBehavior.CLEAR) {
+                clearSelection();
+            }
+
             return;
         }
 
@@ -995,10 +999,23 @@ final class RangeCalendarGridView extends View {
     }
 
     public void clearSelection() {
+        clearSelection(true);
+    }
+
+    private void clearSelection(boolean fireEvent) {
+        if(selectionType == SelectionType.NONE) {
+            return;
+        }
+
         selectionType = SelectionType.NONE;
         selectedCell = -1;
         selectedWeekIndex = -1;
         selectedRange = 0;
+
+        OnSelectionListener listener = onSelectionListener;
+        if(fireEvent && listener != null) {
+            listener.onSelectionCleared();
+        }
 
         invalidate();
     }

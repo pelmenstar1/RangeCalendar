@@ -72,6 +72,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
     public static final int STYLE_RR_RADIUS_RATIO = 10;
     public static final int STYLE_CELL_SIZE = 11;
     public static final int STYLE_WEEKDAY_TYPE = 12;
+    public static final int STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR = 13;
 
     private static final class Payload {
         private final int type;
@@ -131,7 +132,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
     private final CalendarInfo calendarInfo = new CalendarInfo();
 
-    private final int[] styleData = new int[13];
+    private final int[] styleData = new int[14];
 
     private RangeCalendarView.OnSelectionListener onSelectionListener;
 
@@ -163,6 +164,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         styleData[STYLE_RR_RADIUS_RATIO] = Float.floatToIntBits(RangeCalendarGridView.RR_RADIUS_RATIO);
         styleData[STYLE_CELL_SIZE] = Float.floatToIntBits(cr.cellSize);
         styleData[STYLE_WEEKDAY_TYPE] = WeekdayType.SHORT;
+        styleData[STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR] = ClickOnCellSelectionBehavior.NONE;
     }
 
     public void setOnSelectionListener(@NotNull RangeCalendarView.OnSelectionListener value) {
@@ -250,6 +252,9 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                 break;
             case STYLE_WEEKDAY_TYPE:
                 gridView.setWeekdayType(data);
+                break;
+            case STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR:
+                gridView.clickOnCellSelectionBehaviour = data;
                 break;
         }
     }
@@ -440,6 +445,14 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         int ym = YearMonth.create(year, month);
 
         return new RangeCalendarGridView.OnSelectionListener() {
+            @Override
+            public void onSelectionCleared() {
+                RangeCalendarView.OnSelectionListener listener = onSelectionListener;
+                if(listener != null) {
+                    listener.onSelectionCleared();
+                }
+            }
+
             @Override
             public void onCellSelected(int index) {
                 clearSelectionOnAnotherPages();
