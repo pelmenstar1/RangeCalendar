@@ -133,7 +133,12 @@ final class CalendarResources {
         weekdayWidths = new int[weekdaysLength];
 
         shortWeekdayRowHeight = computeWeekdayWidthAndMaxHeight(SHORT_WEEKDAYS_OFFSET);
-        narrowWeekdayRowHeight = computeWeekdayWidthAndMaxHeight(NARROW_WEEKDAYS_OFFSET);
+
+        if(Build.VERSION.SDK_INT >= 24) {
+            narrowWeekdayRowHeight = computeWeekdayWidthAndMaxHeight(NARROW_WEEKDAYS_OFFSET);
+        } else {
+            narrowWeekdayRowHeight = Float.NaN;
+        }
     }
 
     private float computeWeekdayWidthAndMaxHeight(int offset) {
