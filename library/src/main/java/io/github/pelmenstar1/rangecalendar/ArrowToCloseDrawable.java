@@ -136,6 +136,11 @@ final class ArrowToCloseDrawable extends Drawable {
     }
 
     @Override
+    public boolean isStateful() {
+        return true;
+    }
+
+    @Override
     public void draw(@NonNull Canvas c) {
         c.drawLines(linePoints, paint);
     }
