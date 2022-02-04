@@ -476,6 +476,15 @@ public final class RangeCalendarView extends ViewGroup {
             if (!Float.isNaN(rrRadiusRatio)) {
                 setRoundRectRadiusRatio(rrRadiusRatio);
             }
+
+            int clickOnCellSelectionBehavior = a.getInt(R.styleable.RangeCalendarView_rangeCalendar_clickOnCellSelectionBehavior, -1);
+            if(clickOnCellSelectionBehavior != -1) {
+                if(clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.NONE ||
+                    clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR
+                ) {
+                    setClickOnCellSelectionBehavior(clickOnCellSelectionBehavior);
+                }
+            }
         } finally {
             a.recycle();
         }

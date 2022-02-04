@@ -16,6 +16,10 @@
             <enum name="shortName" value="0"/>
             <enum name="narrowName" value="1"/>
         </attr>
+        <attr name="rangeCalendar_clickOnCellSelectionBehavior" format="enum">
+            <enum name="none" value="0"/>
+            <enum name="clear" value="1"/>
+        </attr>
         <attr name="rangeCalendar_roundRectRadiusRatio" format="fraction"/>
     </declare-styleable>
 
