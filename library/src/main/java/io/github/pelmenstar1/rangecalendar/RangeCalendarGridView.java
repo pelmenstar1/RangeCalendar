@@ -1189,14 +1189,16 @@ final class RangeCalendarGridView extends View {
 
         int startIndex = isFirstDaySunday ? 0 : 1;
 
+        float halfColumnWidth = columnWidth * 0.5f;
+
         for (int i = offset + startIndex; i < offset + 7; i++) {
-            drawWeekday(c, i, x + columnWidth * 0.5f);
+            drawWeekday(c, i, x + halfColumnWidth);
 
             x += columnWidth;
         }
 
         if (!isFirstDaySunday) {
-            drawWeekday(c, offset, x);
+            drawWeekday(c, offset, x + halfColumnWidth);
         }
     }
 
