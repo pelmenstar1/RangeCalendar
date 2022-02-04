@@ -1,5 +1,8 @@
 package io.github.pelmenstar1.rangecalendar;
 
+import android.animation.PropertyValuesHolder;
+import android.animation.TimeInterpolator;
+import android.animation.ValueAnimator;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -13,11 +16,12 @@ import android.os.Build;
 import android.os.Parcelable;
 import android.text.format.DateFormat;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
-import android.view.Choreographer;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -104,9 +108,12 @@ public final class RangeCalendarView extends ViewGroup {
 
     private static final String DATE_FORMAT = "MMMM y";
 
-    private static final Choreographer choreographer = Choreographer.getInstance();
+    private static final TimeInterpolator DEFAULT_SV_INTERPOLATOR = new LinearInterpolator();
+    private static final PropertyValuesHolder[] VALUES_0_1 = {
+            PropertyValuesHolder.ofFloat("", 0f, 1f)
+    };
 
-    private static final long SV_TRANSITION_DURATION = 300 * 1_000_000;
+    private static final long SV_TRANSITION_DURATION = 300;
 
     static final int MIN_DATE = DateInt.create(1970, 1, 1);
     static final int MAX_DATE = DateInt.create(Short.MAX_VALUE, 12, 30);
@@ -149,10 +156,14 @@ public final class RangeCalendarView extends ViewGroup {
 
     private View selectionView;
 
-    private long svTransitionDurationNanos = SV_TRANSITION_DURATION;
-    private long svTransitionStartTime;
-    private boolean isSVTransitionForward;
+    @Nullable
+    private ValueAnimator svAnimator;
+    private TimeInterpolator svTransitionInterpolator = DEFAULT_SV_INTERPOLATOR;
+    private long svTransitionDuration = SV_TRANSITION_DURATION;
     private boolean hasSvClearButton = true;
+
+    @Nullable
+    private ValueAnimator.AnimatorUpdateListener svAnimatorUpdateListener;
 
     private boolean isSelectionViewOnScreen;
 
@@ -178,14 +189,6 @@ public final class RangeCalendarView extends ViewGroup {
                 refreshToday();
             }
         }
-    };
-
-    private final Choreographer.FrameCallback svTransitionTickCb = this::onSVTransitionTick;
-    private final Choreographer.FrameCallback svStartCb = time -> {
-        svTransitionStartTime = time;
-        onSVTransitionTickFraction(isSVTransitionForward ? 0f : 1f);
-
-        choreographer.postFrameCallback(svTransitionTickCb);
     };
 
     public RangeCalendarView(@NotNull Context context) {
@@ -722,7 +725,7 @@ public final class RangeCalendarView extends ViewGroup {
      * from "previous" button and year & month text view to selection view and vise verse.
      */
     public long getSelectionViewTransitionDuration() {
-        return svTransitionDurationNanos / 1_000_000;
+        return svTransitionDuration;
     }
 
     /**
@@ -730,7 +733,16 @@ public final class RangeCalendarView extends ViewGroup {
      * from "previous" button and year & month text view to selection view and vise verse.
      */
     public void setSelectionViewTransitionDuration(long duration) {
-        this.svTransitionDurationNanos = duration * 1_000_000;
+        this.svTransitionDuration = duration;
+    }
+
+    @NotNull
+    public TimeInterpolator getSelectionViewTransitionInterpolator() {
+        return svTransitionInterpolator;
+    }
+
+    public void setSelectionViewTransitionInterpolator(@NotNull TimeInterpolator value) {
+        svTransitionInterpolator = value;
     }
 
     @NotNull
@@ -798,30 +810,31 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     private void startSelectionViewTransition(boolean forward) {
-        if ((forward && isSelectionViewOnScreen) || (!forward && !isSelectionViewOnScreen)) {
+        if ((svAnimator != null && !svAnimator.isRunning()) && forward == isSelectionViewOnScreen) {
             return;
         }
 
-        isSVTransitionForward = forward;
+        if(svAnimator == null) {
+            svAnimator = new ValueAnimator();
+            svAnimator.setValues(VALUES_0_1);
 
-        choreographer.postFrameCallback(svStartCb);
-    }
+            // if svAnimator is null, then svAnimatorUpdateListener is also null.
+            svAnimatorUpdateListener = a -> onSVTransitionTickFraction(a.getAnimatedFraction());
+        }
 
-    private void onSVTransitionTick(long time) {
-        long elapsed = time - svTransitionStartTime;
+        ValueAnimator animator = svAnimator;
+        if(animator.isRunning()) {
+            animator.end();
+        }
 
-        if (elapsed >= svTransitionDurationNanos) {
-            onSVTransitionTickFraction(isSVTransitionForward ? 1f : 0f);
+        animator.setInterpolator(svTransitionInterpolator);
+        animator.setDuration(svTransitionDuration);
+        animator.addUpdateListener(svAnimatorUpdateListener);
+
+        if(forward) {
+            animator.start();
         } else {
-            float fraction = (float) elapsed / svTransitionDurationNanos;
-
-            if (!isSVTransitionForward) {
-                fraction = 1f - fraction;
-            }
-
-            onSVTransitionTickFraction(fraction);
-
-            choreographer.postFrameCallback(svTransitionTickCb);
+            animator.reverse();
         }
     }
 
@@ -849,14 +862,10 @@ public final class RangeCalendarView extends ViewGroup {
 
             sv.setTranslationY(f * sv.getBottom());
 
-
-
             if (!isSelectionViewOnScreen) {
                 setSelectionViewOnScreen(true);
             }
         }
-
-        invalidate();
     }
 
     /**
