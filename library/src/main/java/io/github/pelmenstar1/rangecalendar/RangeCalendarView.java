@@ -1026,6 +1026,14 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     /**
+     * Returns background color of selection
+     */
+    @ColorInt
+    public int getSelectionColor() {
+        return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_SELECTION_COLOR);
+    }
+
+    /**
      * Sets a background color of selection, by default it's primary color
      */
     public void setSelectionColor(@ColorInt int color) {
