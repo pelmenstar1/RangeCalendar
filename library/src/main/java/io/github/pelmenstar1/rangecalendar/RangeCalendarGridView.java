@@ -44,15 +44,6 @@ final class RangeCalendarGridView extends View {
     private static final class Radii {
         public static final float[] value = new float[8];
 
-        public static boolean isEmpty() {
-            int flag = 0;
-            for (int i = 0; i < 8; i++) {
-                flag |= Float.floatToRawIntBits(value[i]);
-            }
-
-            return flag == 0;
-        }
-
         public static void clear() {
             Arrays.fill(value, 0);
         }
@@ -1354,7 +1345,8 @@ final class RangeCalendarGridView extends View {
 
             path.addRoundRect(tempRect, radius, radius, Path.Direction.CW);
         } else {
-            float gridRight = getWidth() - cr.hPadding;
+            float firstCellOnRowX = cr.hPadding + (columnWidth - cellSize) * 0.5f;
+            float lastCellOnRowRight = cr.hPadding + columnWidth * 6.5f + cellSize * 0.5f;
 
             float startLeft = getCellLeft(startGridX);
             float startTop = getCellTop(startGridY);
@@ -1368,55 +1360,40 @@ final class RangeCalendarGridView extends View {
             Radii.lt(radius);
             Radii.rt(radius);
 
-            if (startLeft != cr.hPadding) {
+            if (startGridX != 0) {
                 Radii.lb(radius);
             }
 
-            tempRect.set(startLeft, startTop, gridRight, startBottom);
+            tempRect.set(startLeft, startTop, lastCellOnRowRight, startBottom);
 
-            path.addRoundRect(
-                    tempRect,
-                    Radii.value,
-                    Path.Direction.CW
-            );
+            path.addRoundRect(tempRect, Radii.value, Path.Direction.CW);
 
             Radii.clear();
             Radii.rb(radius);
             Radii.lb(radius);
 
-            if (endRight != gridRight) {
+            if (endGridX != 6) {
                 Radii.rt(radius);
             }
 
-            tempRect.set(cr.hPadding, endTop, endRight, endBottom);
-            path.addRoundRect(
-                    tempRect,
-                    Radii.value,
-                    Path.Direction.CW
-            );
+            tempRect.set(firstCellOnRowX, endTop, endRight, endBottom);
+            path.addRoundRect(tempRect, Radii.value, Path.Direction.CW);
 
             if (endTop > startBottom) {
                 Radii.clear();
-                if (cr.hPadding != startLeft) {
+                if (startGridX != 0) {
                     Radii.lt(radius);
                 }
 
-                if (gridRight != endRight) {
+                if (endGridX != 6) {
                     Radii.rb(radius);
                 }
 
-                if (Radii.isEmpty()) {
-                    path.addRect(
-                            cr.hPadding, startBottom, gridRight, endTop,
-                            Path.Direction.CW
-                    );
+                tempRect.set(firstCellOnRowX, startBottom, lastCellOnRowRight, endTop);
+                if (startGridX == 0 && endGridX == 6) {
+                    path.addRect(tempRect, Path.Direction.CW);
                 } else {
-                    tempRect.set(cr.hPadding, startBottom, gridRight, endTop);
-                    path.addRoundRect(
-                            tempRect,
-                            Radii.value,
-                            Path.Direction.CW
-                    );
+                    path.addRoundRect(tempRect, Radii.value, Path.Direction.CW);
                 }
             }
         }
@@ -1460,6 +1437,4 @@ final class RangeCalendarGridView extends View {
     private boolean isXInActiveZone(float x) {
         return x >= cr.hPadding && x <= getWidth() - cr.hPadding;
     }
-
-
 }
