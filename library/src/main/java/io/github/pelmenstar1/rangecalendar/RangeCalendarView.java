@@ -281,6 +281,7 @@ public final class RangeCalendarView extends ViewGroup {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
+        pager.setSaveFromParentEnabled(false);
 
         pager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
@@ -357,8 +358,7 @@ public final class RangeCalendarView extends ViewGroup {
         addView(infoView);
 
         int todayPos = adapter.getItemPositionForDate(today);
-        pager.setCurrentItem(todayPos, false);
-        setInfoViewYearMonth(YearMonth.forDate(today));
+        setYearAndMonthInternal(YearMonth.forDate(today), false);
 
         if(attrs != null) {
             initFromAttributes(context, attrs, defStyleAttr);
@@ -525,6 +525,7 @@ public final class RangeCalendarView extends ViewGroup {
         SavedState state = new SavedState(super.onSaveInstanceState());
         state.selectionType = adapter.selectionType;
         state.selectionData = adapter.selectionData;
+        state.selectionYm = adapter.selectionYm;
 
         state.ym = currentCalendarYm;
 
@@ -539,10 +540,10 @@ public final class RangeCalendarView extends ViewGroup {
 
             int ym = s.ym;
 
-            setYearAndMonthInternal(YearMonth.getYear(ym), YearMonth.getMonth(ym), false);
+            setYearAndMonthInternal(ym, false);
 
             if (s.selectionType != SelectionType.NONE) {
-                adapter.select(s.selectionType, s.selectionData, false);
+                adapter.select(s.selectionYm, s.selectionType, s.selectionData, false);
             }
         } else {
             super.onRestoreInstanceState(state);
@@ -1047,7 +1048,7 @@ public final class RangeCalendarView extends ViewGroup {
     private void onMinMaxChanged() {
         adapter.setRange(minDate, minDateEpoch, maxDate, maxDateEpoch);
 
-        pager.setCurrentItem(Math.max(0, adapter.getItemPositionForYearMonth(currentCalendarYm)));
+        setYearAndMonthInternal(currentCalendarYm, false);
     }
 
     /**
@@ -1353,7 +1354,11 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     private void setYearAndMonthInternal(int year, int month, boolean smoothScroll) {
-        currentCalendarYm = YearMonth.create(year, month);
+        setYearAndMonthInternal(YearMonth.create(year, month), smoothScroll);
+    }
+
+    private void setYearAndMonthInternal(int ym, boolean smoothScroll) {
+        currentCalendarYm = ym;
 
         int position = adapter.getItemPositionForYearMonth(currentCalendarYm);
 
@@ -1361,14 +1366,14 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     /**
-     * Selects a date in epoch days with animation
+     * Selects a date in epoch days with animation.
      */
     public void selectDay(int epochDay) {
         selectDay(epochDay, true);
     }
 
     /**
-     * Selects a date in epoch days
+     * Selects a date in epoch days.
      *
      * @param withAnimation whether to do it with animation or not
      */
@@ -1446,7 +1451,7 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     /**
-     * Selects a month with animation
+     * Selects a month with animation.
      *
      * @param year  year, should be in range [1970; 32767]
      * @param month month, 1-based
@@ -1456,7 +1461,7 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     /**
-     * Selects a month with animation
+     * Selects a month with animation.
      *
      * @param year          year, should be in range [1970; 32767]
      * @param month         month, 1-based
@@ -1467,8 +1472,12 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     private void selectInternal(int type, long data, boolean withAnimation) {
+        int position = adapter.getItemPositionForYearMonth(
+                adapter.getYearMonthForSelection(type, data)
+        );
+
         adapter.select(type, data, withAnimation);
-        pager.setCurrentItem(adapter.getItemPositionForSelection(type, data), withAnimation);
+        pager.setCurrentItem(position, withAnimation);
     }
 
     /**

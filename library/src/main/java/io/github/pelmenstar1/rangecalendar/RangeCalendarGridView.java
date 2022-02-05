@@ -38,7 +38,6 @@ final class RangeCalendarGridView extends View {
         void onSelectionCleared();
         void onCellSelected(int index);
         void onWeekSelected(int weekIndex, int startIndex, int endIndex);
-        void onMonthSelected();
     }
 
     private static final class Radii {
@@ -639,7 +638,7 @@ final class RangeCalendarGridView extends View {
                 selectWeek(savedWeekIndex, true);
                 break;
             case SelectionType.MONTH:
-                selectMonth(true);
+                selectMonth(true, true);
                 break;
         }
     }
@@ -805,7 +804,7 @@ final class RangeCalendarGridView extends View {
     private void selectCell(int index, boolean doAnimation, boolean isUser) {
         if(selectionType == SelectionType.CELL && selectedCell == index) {
             if(isUser && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
-                clearSelection();
+                clearSelection(true);
             }
 
             return;
@@ -925,11 +924,15 @@ final class RangeCalendarGridView extends View {
         dualAnimSelectionPaint.setAlpha(alpha);
     }
 
-    public void selectMonth() {
-        selectMonth(true);
+    public void selectMonth(boolean doAnimation) {
+        selectMonth(true, false);
     }
 
-    public void selectMonth(boolean doAnimation) {
+    public void selectMonth(boolean doAnimation, boolean reselect) {
+        if(!reselect && selectionType == SelectionType.MONTH) {
+            return;
+        }
+
         selectionType = SelectionType.MONTH;
 
         long oldSelectedMonthRange = selectedRange;
@@ -946,11 +949,6 @@ final class RangeCalendarGridView extends View {
             refreshSelectedMonthPath();
         } else {
             return;
-        }
-
-        OnSelectionListener listener = onSelectionListener;
-        if (listener != null) {
-            listener.onMonthSelected();
         }
 
         if (doAnimation) {
@@ -991,11 +989,7 @@ final class RangeCalendarGridView extends View {
         }
     }
 
-    public void clearSelection() {
-        clearSelection(true);
-    }
-
-    private void clearSelection(boolean fireEvent) {
+    public void clearSelection(boolean fireEvent) {
         if(selectionType == SelectionType.NONE) {
             return;
         }

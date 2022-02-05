@@ -11,7 +11,8 @@ final class SavedState extends AbsSavedState {
     public int ym;
 
     public int selectionType;
-    public long selectionData;
+    public int selectionYm;
+    public int selectionData;
 
     public SavedState(@NotNull Parcelable superState) {
         super(superState);
@@ -22,7 +23,8 @@ final class SavedState extends AbsSavedState {
 
         ym = source.readInt();
         selectionType = source.readInt();
-        selectionData = source.readLong();
+        selectionYm = source.readInt();
+        selectionData = source.readInt();
     }
 
     @Override
@@ -31,7 +33,8 @@ final class SavedState extends AbsSavedState {
 
         dest.writeInt(ym);
         dest.writeInt(selectionType);
-        dest.writeLong(selectionData);
+        dest.writeInt(selectionYm);
+        dest.writeInt(selectionYm);
     }
 
     @NotNull
