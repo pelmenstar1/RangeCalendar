@@ -1,6 +1,5 @@
 package io.github.pelmenstar1.rangecalendar;
 
-import android.animation.PropertyValuesHolder;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.content.BroadcastReceiver;
@@ -20,6 +19,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.BounceInterpolator;
 import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -107,11 +107,6 @@ public final class RangeCalendarView extends ViewGroup {
 
     private static final String DATE_FORMAT = "MMMM y";
 
-    private static final TimeInterpolator DEFAULT_SV_INTERPOLATOR = new LinearInterpolator();
-    private static final PropertyValuesHolder[] VALUES_0_1 = {
-            PropertyValuesHolder.ofFloat("", 0f, 1f)
-    };
-
     private static final long SV_TRANSITION_DURATION = 300;
 
     static final int MIN_DATE = DateInt.create(1970, 1, 1);
@@ -157,12 +152,13 @@ public final class RangeCalendarView extends ViewGroup {
 
     @Nullable
     private ValueAnimator svAnimator;
-    private TimeInterpolator svTransitionInterpolator = DEFAULT_SV_INTERPOLATOR;
+
+    // valid while svAnimator is running
+    private boolean isSvTransitionForward;
+
+    private TimeInterpolator svTransitionInterpolator = TimeInterpolators.LINEAR;
     private long svTransitionDuration = SV_TRANSITION_DURATION;
     private boolean hasSvClearButton = true;
-
-    @Nullable
-    private ValueAnimator.AnimatorUpdateListener svAnimatorUpdateListener;
 
     private boolean isSelectionViewOnScreen;
 
@@ -715,7 +711,7 @@ public final class RangeCalendarView extends ViewGroup {
 
         if (oldSelectionView != null) {
             // On 0 fraction, selection view will disappear
-            onSVTransitionTickFraction(0f);
+            onSVTransitionTick(0f);
 
             // selection view is always in end
             removeViewAt(getChildCount() - 1);
@@ -819,26 +815,32 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     private void startSelectionViewTransition(boolean forward) {
-        if ((svAnimator != null && !svAnimator.isRunning()) && forward == isSelectionViewOnScreen) {
+        // Don't continue if we want to show selection view and it's already shown and vise versa,
+        // but continue if animation is currently running and direction of current animation is not equals to new one.
+        if (svAnimator != null && (!svAnimator.isRunning() || isSvTransitionForward == forward) &&
+                forward == isSelectionViewOnScreen) {
             return;
         }
 
         if(svAnimator == null) {
-            svAnimator = new ValueAnimator();
-            svAnimator.setValues(VALUES_0_1);
-
-            // if svAnimator is null, then svAnimatorUpdateListener is also null.
-            svAnimatorUpdateListener = a -> onSVTransitionTickFraction(a.getAnimatedFraction());
+            svAnimator = AnimationHelper.createFractionAnimator(this::onSVTransitionTick);
         }
 
+        isSvTransitionForward = forward;
+
         ValueAnimator animator = svAnimator;
+        long startPlaytime = 0;
+
         if(animator.isRunning()) {
+            startPlaytime = animator.getCurrentPlayTime();
             animator.end();
         }
 
         animator.setInterpolator(svTransitionInterpolator);
         animator.setDuration(svTransitionDuration);
-        animator.addUpdateListener(svAnimatorUpdateListener);
+
+        // ValueAnimator.setCurrentFraction() could be used, but it's available only from API >= 22,
+        animator.setCurrentPlayTime(startPlaytime);
 
         if(forward) {
             animator.start();
@@ -847,7 +849,7 @@ public final class RangeCalendarView extends ViewGroup {
         }
     }
 
-    private void onSVTransitionTickFraction(float fraction) {
+    private void onSVTransitionTick(float fraction) {
         View sv = selectionView;
 
         if(hasSvClearButton) {
@@ -1281,6 +1283,76 @@ public final class RangeCalendarView extends ViewGroup {
      */
     public void setClickOnCellSelectionBehavior(int value) {
         adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR, value);
+    }
+
+    /**
+     * Returns duration (in ms) of common calendar animations like selecting cell, week, month, clearing selection etc.
+     * To be clear, it's duration of all animations except hover animation.
+     */
+    public int getCommonAnimationDuration() {
+        return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_COMMON_ANIMATION_DURATION);
+    }
+
+    /**
+     * Sets duration (in ms) of common calendar animations like selecting cell, week, month, clearing selection etc.
+     *
+     * @throws IllegalArgumentException if duration is negative
+     */
+    public void setCommonAnimationDuration(int duration) {
+        if(duration < 0) {
+            throw new IllegalArgumentException("duration");
+        }
+
+        adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_COMMON_ANIMATION_DURATION, duration);
+    }
+
+    /**
+     * Returns time interpolator of common calendar animations.
+     * By default, the interpolator is linear.
+     */
+    @NotNull
+    public TimeInterpolator getCommonAnimationInterpolator() {
+        return adapter.getStyleObject(RangeCalendarPagerAdapter.STYLE_COMMON_ANIMATION_INTERPOLATOR);
+    }
+
+    /**
+     * Sets interpolator of common calendar animations.
+     */
+    public void setCommonAnimationInterpolator(@NotNull TimeInterpolator value) {
+        adapter.setStyleObject(RangeCalendarPagerAdapter.STYLE_COMMON_ANIMATION_INTERPOLATOR, value);
+    }
+
+    /**
+     * Returns duration (in ms) of hover animation.
+     */
+    public int getHoverAnimationDuration() {
+        return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_HOVER_ANIMATION_DURATION);
+    }
+
+    /**
+     * Sets duration (in ms) of hover animation.
+     *
+     * @throws IllegalArgumentException if duration is negative
+     */
+    public void setHoverAnimationDuration(int duration) {
+        if(duration < 0) {
+            throw new IllegalArgumentException("duration");
+        }
+    }
+
+    /**
+     * Returns time interpolator of hover animation.
+     */
+    @NotNull
+    public TimeInterpolator getHoverAnimationInterpolator() {
+        return adapter.getStyleObject(RangeCalendarPagerAdapter.STYLE_HOVER_ANIMATION_INTERPOLATOR);
+    }
+
+    /**
+     * Sets time interpolator of hover animation.
+     */
+    public void setHoverAnimationInterpolator(@NotNull TimeInterpolator value) {
+        adapter.setStyleObject(RangeCalendarPagerAdapter.STYLE_HOVER_ANIMATION_INTERPOLATOR, value);
     }
 
     /**

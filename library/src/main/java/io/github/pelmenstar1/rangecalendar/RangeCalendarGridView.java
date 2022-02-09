@@ -1,5 +1,9 @@
 package io.github.pelmenstar1.rangecalendar;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.TimeInterpolator;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -11,8 +15,6 @@ import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.format.DateFormat;
-import android.util.Log;
-import android.view.Choreographer;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
@@ -32,11 +34,11 @@ import java.util.List;
 
 @SuppressLint("ViewConstructor")
 final class RangeCalendarGridView extends View {
-    private static final Choreographer choreographer = Choreographer.getInstance();
-
     public interface OnSelectionListener {
         void onSelectionCleared();
+
         void onCellSelected(int index);
+
         void onWeekSelected(int weekIndex, int startIndex, int endIndex);
     }
 
@@ -66,66 +68,6 @@ final class RangeCalendarGridView extends View {
         public static void lb(float v) {
             value[6] = value[7] = v;
         }
-    }
-
-    private abstract class InternalAnimationHandler {
-        private long startTime;
-        private final long duration;
-        protected boolean forward;
-
-        public final Choreographer.FrameCallback tickCallback = new Choreographer.FrameCallback() {
-            @Override
-            public void doFrame(long time) {
-                long elapsed = time - startTime;
-
-                if (elapsed >= duration) {
-                    onEnd();
-                } else {
-                    float fraction = (float) elapsed / duration;
-                    if (!forward) {
-                        fraction = 1f - fraction;
-                    }
-
-                    onTick(fraction);
-
-                    choreographer.postFrameCallback(this);
-                }
-
-                invalidate();
-            }
-        };
-
-        public final Choreographer.FrameCallback startCallback = new Choreographer.FrameCallback() {
-            @Override
-            public void doFrame(long time) {
-                startTime = time;
-                onTick(forward ? 0f : 1f);
-
-                choreographer.postFrameCallback(tickCallback);
-            }
-        };
-
-        public InternalAnimationHandler() {
-            duration = ANIM_DURATION;
-        }
-
-        public InternalAnimationHandler(long duration) {
-            this.duration = duration;
-        }
-
-        public final void start() {
-            start(true);
-        }
-
-        public final void start(boolean forward) {
-            this.forward = forward;
-
-            choreographer.postFrameCallback(startCallback);
-        }
-
-        public abstract void onEnd();
-
-        public abstract void onTick(float fraction);
     }
 
     public static final class PackedSelectionInfo {
@@ -189,9 +131,9 @@ final class RangeCalendarGridView extends View {
             int gridY = virtualViewId / 7;
             int gridX = virtualViewId - gridY * 7;
 
-            int x = (int)grid.getCellLeft(gridX);
-            int y = (int)grid.getCellTop(gridY);
-            int cellSize = (int)grid.cellSize;
+            int x = (int) grid.getCellLeft(gridX);
+            int y = (int) grid.getCellTop(gridY);
+            int cellSize = (int) grid.cellSize;
 
             tempRect.set(x, y, x + cellSize, y + cellSize);
 
@@ -251,7 +193,7 @@ final class RangeCalendarGridView extends View {
         }
     }
 
-    public static final float RR_RADIUS_RATIO = 0.5f;
+    public static final float DEFAULT_RR_RADIUS_RATIO = 0.5f;
 
     private static final int CELL_CURRENT_MONTH = 0;
     private static final int CELL_NOT_CURRENT_MONTH = 1;
@@ -260,21 +202,32 @@ final class RangeCalendarGridView extends View {
     private static final int CELL_TODAY = 4;
 
     private static final int CELL_HOVER_BIT = 1 << 31;
-    private static final int CELL_HOVER_ON_SELECTION_BIT = 1 << 30;
-    private static final int CELL_DATA_MASK = ~(CELL_HOVER_BIT | CELL_HOVER_ON_SELECTION_BIT);
+    private static final int CELL_DATA_MASK = ~CELL_HOVER_BIT;
 
     private static final long ALL_SELECTED = PositiveIntRange.create(0, 42);
 
-    private static final long ANIM_DURATION = 200 * 1000000;
-    private static final long HOVER_ALPHA_ANIM_DURATION = 100 * 1000000;
+    public static final int DEFAULT_COMMON_ANIM_DURATION = 250;
+    public static final int DEFAULT_HOVER_ANIM_DURATION = 100;
     private static final long DOUBLE_TOUCH_MAX_MILLIS = 500;
 
     private static final String TAG = "RangeCalendarGridView";
 
+    private static final int REVERSE_BIT = 1 << 31;
+    private static final int ANIMATION_DATA_MASK = ~REVERSE_BIT;
+
+    private static final int NO_ANIMATION = 0;
     private static final int WEEK_TO_CELL_ON_ROW_ANIMATION = 1;
-    private static final int CELL_TO_WEEK_ON_ROW_ANIMATION = 2;
-    private static final int MOVE_CELL_ON_ROW_ANIMATION = 3;
-    private static final int MOVE_CELL_ON_COLUMN_ANIMATION = 4;
+    private static final int MOVE_CELL_ON_ROW_ANIMATION = 2;
+    private static final int MOVE_CELL_ON_COLUMN_ANIMATION = 3;
+    private static final int HOVER_ANIMATION = 4;
+    private static final int DUAL_CELL_ALPHA_ANIMATION = 5;
+    private static final int CELL_ALPHA_ANIMATION = 6;
+    private static final int DUAL_WEEK_ANIMATION = 7;
+    private static final int WEEK_TO_CELL_ANIMATION = 8;
+    private static final int CLEAR_SELECTION_ANIMATION = 9;
+    private static final int MONTH_ALPHA_ANIMATION = 10;
+    private static final int CELL_TO_MONTH_ANIMATION = 11;
+    private static final int WEEK_TO_MONTH_ANIMATION = 12;
 
     static final String[] DAYS;
 
@@ -282,17 +235,14 @@ final class RangeCalendarGridView extends View {
 
     private final RectF tempRect = new RectF();
 
-    private int selectionType;
-
     private float cellSize;
     private float columnWidth;
 
-    private float rrRadiusRatio = RR_RADIUS_RATIO;
+    private float rrRadiusRatio = DEFAULT_RR_RADIUS_RATIO;
 
     private final Paint dayNumberPaint;
     private final Paint weekdayPaint;
 
-    private final Paint dualAnimSelectionPaint;
     private final Paint selectionPaint;
 
     private final Paint cellHoverPaint;
@@ -303,13 +253,8 @@ final class RangeCalendarGridView extends View {
     private int disabledDayNumberColor;
     private int todayColor;
 
-    @Nullable
-    private Path selectedMonthPath;
-
     private long lastTouchTime = -1;
     private int lastTouchCell = -1;
-
-    private float weekSelectionFraction = 0f;
 
     @Nullable
     private OnSelectionListener onSelectionListener;
@@ -323,18 +268,30 @@ final class RangeCalendarGridView extends View {
     int year;
     int month;
 
+    private int prevSelectionType;
+    private int selectionType;
+
     private int prevSelectedCell;
     int selectedCell;
+
+    private long prevSelectedRange;
     private long selectedRange;
 
-    private long dualAnimSelectedWeekRange;
     private int selectedWeekIndex;
 
-    private int customAnim = 0;
-    private float customAnimFraction = 0f;
+    @Nullable
+    private Path selectedMonthPath;
+    private long selectedMonthPathRange;
 
-    private boolean isDualAnimRunning = false;
-    private boolean isClearHoverAnimation;
+    private int animType = 0;
+    private float animFraction = 0f;
+
+    @Nullable
+    private ValueAnimator animator;
+
+    @Nullable
+    private Runnable onAnimationEnd;
+
     boolean isFirstDaySunday;
 
     final CalendarResources cr;
@@ -344,83 +301,16 @@ final class RangeCalendarGridView extends View {
 
     int clickOnCellSelectionBehavior;
 
-    private final InternalAnimationHandler weekAnimation = new InternalAnimationHandler() {
-        @Override
-        public void onEnd() {
-            isDualAnimRunning = false;
-            weekSelectionFraction = 1f;
+    int commonAnimationDuration = DEFAULT_COMMON_ANIM_DURATION;
+    int hoverAnimationDuration = DEFAULT_HOVER_ANIM_DURATION;
 
-            invalidate();
-        }
+    @NotNull
+    TimeInterpolator commonAnimationInterpolator = TimeInterpolators.LINEAR;
 
-        @Override
-        public void onTick(float fraction) {
-            weekSelectionFraction = fraction;
+    @NotNull
+    TimeInterpolator hoverAnimationInterpolator = TimeInterpolators.LINEAR;
 
-            if (isDualAnimRunning) {
-                setInvFractionAlphaOnDualPaint(fraction);
-            }
-        }
-    };
-
-    private final InternalAnimationHandler customFractionAnimation = new InternalAnimationHandler() {
-        @Override
-        public void onEnd() {
-            customAnim = 0;
-        }
-
-        @Override
-        public void onTick(float fraction) {
-            customAnimFraction = fraction;
-        }
-    };
-
-    private final InternalAnimationHandler selectionBgAnimation = new InternalAnimationHandler() {
-        @Override
-        public void onEnd() {
-            isDualAnimRunning = false;
-            selectionPaint.setAlpha(255);
-            dualAnimSelectionPaint.setAlpha(0);
-        }
-
-        @Override
-        public void onTick(float fraction) {
-            int alpha = (int) (fraction * 255);
-
-            selectionPaint.setAlpha(alpha);
-            dualAnimSelectionPaint.setAlpha(255 - alpha);
-        }
-    };
-
-    private final class HoverAnimationHandler extends InternalAnimationHandler {
-        private final Paint paint;
-        private final int originAlpha;
-
-        public HoverAnimationHandler(@NotNull Paint paint) {
-            super(HOVER_ALPHA_ANIM_DURATION);
-
-            this.paint = paint;
-            originAlpha = paint.getAlpha();
-        }
-
-        @Override
-        public void onEnd() {
-            paint.setAlpha(forward ? originAlpha : 0);
-            if (isClearHoverAnimation) {
-                hoverIndex = -1;
-            }
-
-            isClearHoverAnimation = false;
-        }
-
-        @Override
-        public void onTick(float fraction) {
-            paint.setAlpha((int) (fraction * originAlpha));
-        }
-    }
-
-    private final HoverAnimationHandler hoverAlphaAnimation;
-    private final HoverAnimationHandler hoverOnSelectionAnimation;
+    private final Runnable clearHoverIndexCallback = () -> hoverIndex = -1;
 
     static {
         DAYS = new String[31];
@@ -468,10 +358,6 @@ final class RangeCalendarGridView extends View {
         selectionPaint.setColor(colorPrimary);
         selectionPaint.setStyle(Paint.Style.FILL);
 
-        dualAnimSelectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        dualAnimSelectionPaint.setColor(colorPrimary);
-        dualAnimSelectionPaint.setStyle(Paint.Style.FILL);
-
         dayNumberPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         dayNumberPaint.setTextSize(dayNumberTextSize);
         dayNumberPaint.setColor(defTextColor);
@@ -488,9 +374,6 @@ final class RangeCalendarGridView extends View {
         cellHoverOnSelectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         cellHoverOnSelectionPaint.setStyle(Paint.Style.FILL);
         cellHoverOnSelectionPaint.setColor(cr.colorPrimaryDark);
-
-        hoverAlphaAnimation = new HoverAnimationHandler(cellHoverPaint);
-        hoverOnSelectionAnimation = new HoverAnimationHandler(cellHoverOnSelectionPaint);
     }
 
     public void setSelectionColor(@ColorInt int color) {
@@ -579,7 +462,7 @@ final class RangeCalendarGridView extends View {
         rrRadiusRatio = Math.min(ratio, 0.5f);
 
         if (selectionType == SelectionType.MONTH) {
-            refreshSelectedMonthPath();
+            forceResetMonthPath();
         }
 
         invalidate();
@@ -599,18 +482,18 @@ final class RangeCalendarGridView extends View {
 
     public void setWeekdayType(@WeekdayTypeInt int type) {
         // There is no narrow weekdays before API < 24
-        if(Build.VERSION.SDK_INT < 24 && type == WeekdayType.NARROW) {
+        if (Build.VERSION.SDK_INT < 24 && type == WeekdayType.NARROW) {
             type = WeekdayType.SHORT;
         }
 
-        if(!(type == WeekdayType.SHORT || type == WeekdayType.NARROW)) {
+        if (!(type == WeekdayType.SHORT || type == WeekdayType.NARROW)) {
             throw new IllegalArgumentException("Invalid weekday type. Use constants from WeekdayType");
         }
 
         this.weekdayType = type;
 
-        if(selectionType == SelectionType.MONTH) {
-            refreshSelectedMonthPath();
+        if (selectionType == SelectionType.MONTH) {
+            forceResetMonthPath();
         }
 
         invalidate();
@@ -628,7 +511,7 @@ final class RangeCalendarGridView extends View {
         int savedSelectedCell = selectedCell;
         int savedWeekIndex = selectedWeekIndex;
 
-        clearSelection(false);
+        clearSelection(false, true);
 
         switch (savedSelectionType) {
             case SelectionType.CELL:
@@ -671,8 +554,8 @@ final class RangeCalendarGridView extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         refreshColumnWidth();
 
-        if (selectionType == SelectionType.MONTH) {
-            refreshSelectedMonthPath();
+        if(selectionType == SelectionType.MONTH) {
+            forceResetMonthPath();
         }
     }
 
@@ -802,9 +685,9 @@ final class RangeCalendarGridView extends View {
     }
 
     private void selectCell(int index, boolean doAnimation, boolean isUser) {
-        if(selectionType == SelectionType.CELL && selectedCell == index) {
-            if(isUser && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
-                clearSelection(true);
+        if (selectionType == SelectionType.CELL && selectedCell == index) {
+            if (isUser && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
+                clearSelection(true, true);
             }
 
             return;
@@ -814,7 +697,7 @@ final class RangeCalendarGridView extends View {
             clearHoverIndex();
         }
 
-        int oldSelType = selectionType;
+        prevSelectionType = selectionType;
         prevSelectedCell = selectedCell;
 
         selectionType = SelectionType.CELL;
@@ -826,40 +709,43 @@ final class RangeCalendarGridView extends View {
         }
 
         if (doAnimation) {
-            if (oldSelType == SelectionType.WEEK) {
-                int weekStart = PositiveIntRange.getStart(selectedRange);
-                int weekEnd = PositiveIntRange.getEnd(selectedRange);
+            int animType = CELL_ALPHA_ANIMATION;
 
-                if (index >= weekStart && index <= weekEnd) {
-                    customAnim = WEEK_TO_CELL_ON_ROW_ANIMATION;
-                    customFractionAnimation.start();
+            switch (prevSelectionType) {
+                case SelectionType.CELL: {
+                    int gridY = index / 7;
+                    int prevGridY = prevSelectedCell / 7;
 
-                    return;
-                }
-            } else if (oldSelType == SelectionType.CELL) {
-                int gridY = index / 7;
-                int prevGridY = prevSelectedCell / 7;
-
-                if (prevGridY == gridY) {
-                    customAnim = MOVE_CELL_ON_ROW_ANIMATION;
-                    customFractionAnimation.start();
-                } else {
-                    int gridX = index - gridY * 7;
-                    int prevGridX = prevSelectedCell - prevGridY * 7;
-
-                    if (gridX == prevGridX) {
-                        customAnim = MOVE_CELL_ON_COLUMN_ANIMATION;
-                        customFractionAnimation.start();
+                    if (prevGridY == gridY) {
+                        animType = MOVE_CELL_ON_ROW_ANIMATION;
                     } else {
-                        isDualAnimRunning = true;
-                        startSelectionBackgroundAnimation();
-                    }
-                }
+                        int gridX = index - gridY * 7;
+                        int prevGridX = prevSelectedCell - prevGridY * 7;
 
-                return;
+                        if (gridX == prevGridX) {
+                            animType = MOVE_CELL_ON_COLUMN_ANIMATION;
+                        } else {
+                            animType = DUAL_CELL_ALPHA_ANIMATION;
+                        }
+                    }
+
+                    break;
+                }
+                case SelectionType.WEEK: {
+                    int weekStart = PositiveIntRange.getStart(selectedRange);
+                    int weekEnd = PositiveIntRange.getEnd(selectedRange);
+
+                    if (index >= weekStart && index <= weekEnd) {
+                        animType = WEEK_TO_CELL_ON_ROW_ANIMATION;
+                    } else {
+                        animType = WEEK_TO_CELL_ANIMATION;
+                    }
+
+                    break;
+                }
             }
 
-            startSelectionBackgroundAnimation();
+            startAnimation(animType, DEFAULT_COMMON_ANIM_DURATION);
         } else {
             invalidate();
         }
@@ -888,11 +774,12 @@ final class RangeCalendarGridView extends View {
             return;
         }
 
-        int oldSelType = selectionType;
-        long oldWeekRange = selectedRange;
+        prevSelectionType = selectionType;
 
         selectionType = SelectionType.WEEK;
         selectedWeekIndex = weekIndex;
+
+        prevSelectedRange = selectedRange;
         selectedRange = PositiveIntRange.create(start, end);
 
         OnSelectionListener listener = onSelectionListener;
@@ -901,27 +788,20 @@ final class RangeCalendarGridView extends View {
         }
 
         if (doAnimation) {
-            if (oldSelType == SelectionType.CELL && selectedCell >= start && selectedCell <= end) {
-                customAnim = CELL_TO_WEEK_ON_ROW_ANIMATION;
-                weekSelectionFraction = 1f;
+            int animType = -1;
 
-                customFractionAnimation.start();
-            } else {
-                dualAnimSelectedWeekRange = oldWeekRange;
-                isDualAnimRunning = (oldSelType == SelectionType.WEEK);
+            if (prevSelectionType == SelectionType.CELL && selectedCell >= start && selectedCell <= end) {
+                animType = WEEK_TO_CELL_ON_ROW_ANIMATION | REVERSE_BIT;
+            } else if (prevSelectionType == SelectionType.WEEK) {
+                animType = DUAL_WEEK_ANIMATION;
+            }
 
-                weekAnimation.start();
+            if (animType > 0) {
+                startAnimation(animType, DEFAULT_COMMON_ANIM_DURATION);
             }
         } else {
-            weekSelectionFraction = 1f;
             invalidate();
         }
-    }
-
-    private void setInvFractionAlphaOnDualPaint(float fraction) {
-        int alpha = 255 - (int) (fraction * 255f);
-
-        dualAnimSelectionPaint.setAlpha(alpha);
     }
 
     public void selectMonth(boolean doAnimation) {
@@ -929,13 +809,14 @@ final class RangeCalendarGridView extends View {
     }
 
     public void selectMonth(boolean doAnimation, boolean reselect) {
-        if(!reselect && selectionType == SelectionType.MONTH) {
+        if (!reselect && selectionType == SelectionType.MONTH) {
             return;
         }
 
+        prevSelectionType = selectionType;
         selectionType = SelectionType.MONTH;
 
-        long oldSelectedMonthRange = selectedRange;
+        prevSelectedRange = selectedRange;
         selectedRange = PositiveIntRange.findIntersection(
                 currentMonthRange,
                 enabledCellRange
@@ -945,24 +826,15 @@ final class RangeCalendarGridView extends View {
             if (selectedMonthPath != null) {
                 selectedMonthPath.rewind();
             }
-        } else if (oldSelectedMonthRange != selectedRange) {
-            refreshSelectedMonthPath();
-        } else {
+        } else if (prevSelectedRange == selectedRange) {
             return;
         }
 
         if (doAnimation) {
-            startSelectionBackgroundAnimation();
+            startAnimation(MONTH_ALPHA_ANIMATION, DEFAULT_COMMON_ANIM_DURATION);
         } else {
             invalidate();
         }
-    }
-
-    private void startSelectionBackgroundAnimation() {
-        selectionPaint.setAlpha(0);
-        dualAnimSelectionPaint.setAlpha(255);
-
-        selectionBgAnimation.start();
     }
 
     private void setHoverIndex(int index) {
@@ -972,27 +844,21 @@ final class RangeCalendarGridView extends View {
 
         hoverIndex = index;
 
-        if (isSelectionRangeContainsIndex(index)) {
-            hoverOnSelectionAnimation.start();
-        } else {
-            hoverAlphaAnimation.start();
-        }
+        startAnimation(HOVER_ANIMATION, DEFAULT_HOVER_ANIM_DURATION);
     }
 
     void clearHoverIndex() {
-        isClearHoverAnimation = true;
-
-        if (isSelectionRangeContainsIndex(hoverIndex)) {
-            hoverOnSelectionAnimation.start(false);
-        } else {
-            hoverAlphaAnimation.start(false);
-        }
+        startAnimation(HOVER_ANIMATION | REVERSE_BIT, DEFAULT_HOVER_ANIM_DURATION, clearHoverIndexCallback);
     }
 
-    public void clearSelection(boolean fireEvent) {
-        if(selectionType == SelectionType.NONE) {
+    public void clearSelection(boolean fireEvent, boolean doAnimation) {
+        if (selectionType == SelectionType.NONE) {
             return;
         }
+
+        prevSelectionType = selectionType;
+        prevSelectedCell = selectedCell;
+        prevSelectedRange = selectedRange;
 
         selectionType = SelectionType.NONE;
         selectedCell = -1;
@@ -1000,11 +866,64 @@ final class RangeCalendarGridView extends View {
         selectedRange = 0;
 
         OnSelectionListener listener = onSelectionListener;
-        if(fireEvent && listener != null) {
+        if (fireEvent && listener != null) {
             listener.onSelectionCleared();
         }
 
-        invalidate();
+        if (doAnimation) {
+            startAnimation(CLEAR_SELECTION_ANIMATION | REVERSE_BIT, DEFAULT_COMMON_ANIM_DURATION);
+        } else {
+            invalidate();
+        }
+    }
+
+    private void startAnimation(int type, int duration) {
+        startAnimation(type, duration, null);
+    }
+
+    private void startAnimation(int type, int duration, @Nullable Runnable onEnd) {
+        if (animator != null && animator.isRunning()) {
+            animator.end();
+        }
+
+        animType = type;
+        onAnimationEnd = onEnd;
+
+        if (animator == null) {
+            animator = AnimationHelper.createFractionAnimator(value -> {
+                animFraction = value;
+
+                invalidate();
+            });
+
+            animator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    Runnable runnable = onAnimationEnd;
+                    if (runnable != null) {
+                        runnable.run();
+                    }
+
+                    animType = NO_ANIMATION;
+                    invalidate();
+                }
+            });
+        }
+
+        animator.setDuration(duration);
+        if((type & ANIMATION_DATA_MASK) == HOVER_ANIMATION) {
+            animator.setDuration(hoverAnimationDuration);
+            animator.setInterpolator(hoverAnimationInterpolator);
+        } else {
+            animator.setDuration(commonAnimationDuration);
+            animator.setInterpolator(commonAnimationInterpolator);
+        }
+
+        if((type & REVERSE_BIT) != 0) {
+            animator.reverse();
+        } else {
+            animator.start();
+        }
     }
 
     public void onGridChanged() {
@@ -1016,59 +935,106 @@ final class RangeCalendarGridView extends View {
     public void onDraw(@NotNull Canvas c) {
         drawSelection(c);
         drawWeekdayRow(c);
+        drawHover(c);
         drawCells(c);
     }
 
     private void drawSelection(@NotNull Canvas c) {
-        switch (customAnim) {
-            case WEEK_TO_CELL_ON_ROW_ANIMATION:
-                drawWeekToCellSelection(c);
+        switch (animType & ANIMATION_DATA_MASK) {
+            case WEEK_TO_CELL_ON_ROW_ANIMATION: {
+                drawWeekCellSelection(c, animFraction);
+
                 break;
-            case CELL_TO_WEEK_ON_ROW_ANIMATION:
-                drawCellToWeekSelection(c);
+            }
+            case MOVE_CELL_ON_ROW_ANIMATION: {
+                drawCellSelection(c, selectedCell, animFraction, 1f);
+
                 break;
-            case MOVE_CELL_ON_ROW_ANIMATION:
-                drawCellSelection(
-                        c,
-                        selectedCell,
-                        customAnimFraction, 1f,
-                        selectionPaint
-                );
+            }
+            case MOVE_CELL_ON_COLUMN_ANIMATION: {
+                drawCellSelection(c, selectedCell, 1f, animFraction);
+
                 break;
-            case MOVE_CELL_ON_COLUMN_ANIMATION:
-                drawCellSelection(
-                        c,
-                        selectedCell,
-                        1f, customAnimFraction,
-                        selectionPaint
-                );
+            }
+            case DUAL_CELL_ALPHA_ANIMATION: {
+                int alpha = (int) (animFraction * 255f);
+
+                selectionPaint.setAlpha(alpha);
+                drawCellSelection(c, selectedCell, 1f, 1f);
+
+                selectionPaint.setAlpha(255 - alpha);
+                drawCellSelection(c, prevSelectedCell, 1f, 1f);
+
+                selectionPaint.setAlpha(255);
+
                 break;
+            }
+            case CELL_ALPHA_ANIMATION: {
+                int alpha = (int) (animFraction * 255f);
+
+                selectionPaint.setAlpha(alpha);
+                drawCellSelection(c, selectedCell, 1f, 1f);
+                selectionPaint.setAlpha(255);
+
+                break;
+            }
+            case DUAL_WEEK_ANIMATION: {
+                drawWeekFromCenterSelection(c, animFraction, selectedRange);
+
+                selectionPaint.setAlpha(255 - (int) (animFraction * 255));
+                drawWeekFromCenterSelection(c, 1f, prevSelectedRange);
+
+                selectionPaint.setAlpha(255);
+
+                break;
+            }
+            case WEEK_TO_CELL_ANIMATION: {
+                int alpha = (int)(animFraction * 255);
+                selectionPaint.setAlpha(255 - alpha);
+                drawWeekFromCenterSelection(c, 1f, selectedRange);
+
+                selectionPaint.setAlpha(alpha);
+                drawCellSelection(c, selectedCell, 1f, 1f);
+
+                selectionPaint.setAlpha(255);
+
+                break;
+            }
+            case MONTH_ALPHA_ANIMATION: {
+                selectionPaint.setAlpha((int)(animFraction * 255f));
+                drawMonthSelection(c, selectedRange);
+
+                selectionPaint.setAlpha(255);
+
+                break;
+            }
+            case CLEAR_SELECTION_ANIMATION: {
+                selectionPaint.setAlpha((int)(animFraction * 255));
+                drawSelectionNoAnimation(c, prevSelectionType, prevSelectedCell, prevSelectedRange);
+
+                selectionPaint.setAlpha(255);
+
+                break;
+            }
             default:
-                switch (selectionType) {
-                    case SelectionType.CELL:
-                        if (isDualAnimRunning) {
-                            drawCellSelection(c, prevSelectedCell, 1f, 1f, dualAnimSelectionPaint);
-                        }
+                drawSelectionNoAnimation(c, selectionType, selectedCell, selectedRange);
+        }
+    }
 
-                        drawCellSelection(c, selectedCell, 1f, 1f, selectionPaint);
-                        break;
-                    case SelectionType.WEEK:
-                        if (isDualAnimRunning) {
-                            drawWeekFromCenterSelection(
-                                    c,
-                                    1f,
-                                    dualAnimSelectedWeekRange,
-                                    dualAnimSelectionPaint
-                            );
-                        }
+    private void drawSelectionNoAnimation(@NotNull Canvas c, int sType, int cell, long range) {
+        switch (sType) {
+            case SelectionType.CELL:
+                drawCellSelection(c, cell, 1f, 1f);
 
-                        drawWeekFromCenterSelection(c, weekSelectionFraction, selectedRange, selectionPaint);
+                break;
+            case SelectionType.WEEK:
+                drawWeekFromCenterSelection(c, 1f, range);
 
-                        break;
-                    case SelectionType.MONTH:
-                        drawMonthSelection(c);
-                        break;
-                }
+                break;
+            case SelectionType.MONTH:
+                drawMonthSelection(c, range);
+
+                break;
         }
     }
 
@@ -1077,8 +1043,7 @@ final class RangeCalendarGridView extends View {
             float leftAnchor,
             float rightAnchor,
             float fraction,
-            long weekRange,
-            @NotNull Paint paint
+            long weekRange
     ) {
         int selStart = PositiveIntRange.getStart(weekRange);
         int selEnd = PositiveIntRange.getEnd(weekRange);
@@ -1100,53 +1065,40 @@ final class RangeCalendarGridView extends View {
 
         tempRect.set(left, rectTop, right, rectBottom);
 
-        c.drawRoundRect(tempRect, radius, radius, paint);
+        c.drawRoundRect(tempRect, radius, radius, selectionPaint);
     }
 
-    private void drawWeekFromCenterSelection(
-            @NotNull Canvas c,
-            float fraction,
-            long range,
-            @NotNull Paint paint
-    ) {
+    private void drawWeekFromCenterSelection(@NotNull Canvas c, float fraction, long range) {
         int selStart = PositiveIntRange.getStart(range);
         int selEnd = PositiveIntRange.getEnd(range);
 
         float midX = cr.hPadding +
                 (float) (selStart + selEnd - 14 * (selStart / 7) + 1) * cellSize * 0.5f;
 
-        drawWeekSelection(c, midX, midX, fraction, range, paint);
-    }
-
-    private void drawWeekToCellSelection(@NotNull Canvas c) {
-        drawWeekCellSelection(c, 1f - customAnimFraction);
-    }
-
-    private void drawCellToWeekSelection(@NotNull Canvas c) {
-        drawWeekCellSelection(c, customAnimFraction);
+        drawWeekSelection(c, midX, midX, fraction, range);
     }
 
     private void drawWeekCellSelection(@NotNull Canvas c, float fraction) {
-        float cellLeft = getCellLeft(selectedCell % 7);
+        int cell = selectedCell;
+        if(selectionType == SelectionType.NONE &&
+                clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR
+        ) {
+            cell = prevSelectedCell;
+        }
+
+        float cellLeft = getCellLeft(cell % 7);
         float cellRight = cellLeft + cellSize;
 
-        drawWeekSelection(c, cellLeft, cellRight, fraction, selectedRange, selectionPaint);
+        drawWeekSelection(c, cellLeft, cellRight, fraction, selectedRange);
     }
 
-    private void drawMonthSelection(@NotNull Canvas c) {
-        if (selectedMonthPath == null) {
-            Log.e(TAG, "selectionMonthPath == null");
-        } else {
-            c.drawPath(selectedMonthPath, selectionPaint);
-        }
+    private void drawMonthSelection(@NotNull Canvas c, long range) {
+        updateSelectedMonthPathIfChanged(range);
+
+        c.drawPath(selectedMonthPath, selectionPaint);
     }
 
-    private void drawCellSelection(
-            @NotNull Canvas c,
-            int cell,
-            float xFraction, float yFraction,
-            @NotNull Paint paint
-    ) {
+    private void drawCellSelection(@NotNull Canvas c, int cell, float xFraction, float yFraction) {
         int prevGridY = prevSelectedCell / 7;
         int prevGridX = prevSelectedCell - prevGridY * 7;
 
@@ -1182,7 +1134,7 @@ final class RangeCalendarGridView extends View {
 
         tempRect.set(left, top, right, bottom);
 
-        c.drawRoundRect(tempRect, radius, radius, paint);
+        c.drawRoundRect(tempRect, radius, radius, selectionPaint);
     }
 
     private void drawWeekdayRow(@NotNull Canvas c) {
@@ -1210,6 +1162,40 @@ final class RangeCalendarGridView extends View {
         float textX = midX - (float) (cr.weekdayWidths[index] / 2);
 
         c.drawText(cr.weekdays[index], textX, cr.shortWeekdayRowHeight, weekdayPaint);
+    }
+
+    private void drawHover(@NotNull Canvas c) {
+        int index = hoverIndex;
+        if (index >= 0) {
+            int gridY = index / 7;
+            int gridX = index - gridY * 7;
+
+            float left = getCellLeft(gridX);
+            float top = getCellTop(gridY);
+
+            float radius = rrRadius();
+
+            Paint paint;
+            if (isSelectionRangeContainsIndex(index)) {
+                paint = cellHoverOnSelectionPaint;
+            } else {
+                paint = cellHoverPaint;
+            }
+
+            int paintAlpha = paint.getAlpha();
+
+            int resultAlpha = paintAlpha;
+            if((animType & ANIMATION_DATA_MASK) == HOVER_ANIMATION) {
+                resultAlpha = (int) (paintAlpha * animFraction);
+            }
+
+            paint.setAlpha(resultAlpha);
+
+            tempRect.set(left, top, left + cellSize, top + cellSize);
+            c.drawRoundRect(tempRect, radius, radius, paint);
+
+            paint.setAlpha(paintAlpha);
+        }
     }
 
     private void drawCells(@NotNull Canvas c) {
@@ -1248,16 +1234,13 @@ final class RangeCalendarGridView extends View {
         }
 
         if (i == hoverIndex) {
-            cellType |= (isSelectionRangeContainsIndex(i) ?
-                    CELL_HOVER_ON_SELECTION_BIT :
-                    CELL_HOVER_BIT);
+            cellType |= CELL_HOVER_BIT;
         }
 
         return cellType;
     }
 
     private void drawCell(@NotNull Canvas c, float x, float y, int day, int cellType) {
-        boolean isAnyHover = (cellType & (CELL_HOVER_BIT | CELL_HOVER_ON_SELECTION_BIT)) != 0;
         int color = 0;
 
         switch (cellType & CELL_DATA_MASK) {
@@ -1272,27 +1255,8 @@ final class RangeCalendarGridView extends View {
                 color = disabledDayNumberColor;
                 break;
             case CELL_TODAY:
-                color = isAnyHover ? currentMonthColor : todayColor;
+                color = (cellType & CELL_HOVER_BIT) != 0 ? currentMonthColor : todayColor;
                 break;
-        }
-
-        if (isAnyHover) {
-            Paint hoverPaint;
-            if ((cellType & CELL_HOVER_BIT) != 0) {
-                hoverPaint = cellHoverPaint;
-            } else {
-                hoverPaint = cellHoverOnSelectionPaint;
-            }
-
-            float radius = rrRadius();
-
-            tempRect.set(x, y, x + cellSize, y + cellSize);
-
-            c.drawRoundRect(
-                    tempRect,
-                    radius, radius,
-                    hoverPaint
-            );
         }
 
         if (day > 0) {
@@ -1308,12 +1272,19 @@ final class RangeCalendarGridView extends View {
         }
     }
 
-    private void refreshSelectedMonthPath() {
+    private void updateSelectedMonthPathIfChanged(long range) {
+        if(selectedMonthPathRange == range) {
+            return;
+        }
+
+        selectedMonthPathRange = range;
+
         if (selectedMonthPath == null) {
             selectedMonthPath = new Path();
         } else {
             selectedMonthPath.rewind();
         }
+
 
         Path path = selectedMonthPath;
 
@@ -1393,9 +1364,55 @@ final class RangeCalendarGridView extends View {
         }
     }
 
+    private float getCircleRadiusForMonthAnimation(float x, float y) {
+        float distToLeftCorner = x - cr.hPadding;
+        float distToRightCorner = getWidth() - distToLeftCorner;
+
+        float distToTopCorner = y - gridTop();
+        float distToBottomCorner = getHeight() - distToTopCorner;
+
+        long intersection = PositiveIntRange.findIntersection(enabledCellRange, currentMonthRange);
+        if(intersection == PositiveIntRange.NO_INTERSECTION) {
+            return Float.NaN;
+        }
+
+        int startCell = PositiveIntRange.getStart(intersection);
+        int endCell = PositiveIntRange.getEnd(intersection);
+
+        int startCellGridY = startCell / 7;
+        int startCellGridX = startCell - startCellGridY * 7;
+
+        int endCellGridY = endCell / 7;
+        int endCellGridX = endCell * endCellGridY * 7;
+
+        float startCellLeft = getCellLeft(startCellGridX);
+        float startCellTop = getCellTop(startCellGridY);
+
+        float endCellLeft = getCellLeft(endCellGridX);
+        float endCellBottom = getCellTop(endCellGridY) + cellSize;
+
+        float distToStartCell = distance(startCellLeft, startCellTop, x, y);
+        float distToEndCell = distance(endCellLeft, endCellBottom, x, y);
+
+        return Math.max(distToLeftCorner, Math.max(distToRightCorner, Math.max(distToTopCorner,
+                                Math.max(distToBottomCorner, Math.max(distToStartCell, distToEndCell)))
+        ));
+    }
+
+    private float distance(float x1, float y1, float x2, float y2) {
+        float xDist = x2 - x1;
+        float yDist = y2 - y1;
+
+        return (float)Math.sqrt(xDist * xDist + yDist * yDist);
+    }
+
+    private void forceResetMonthPath() {
+        selectedMonthPathRange = 0;
+    }
+
     private float gridTop() {
         float height;
-        if(weekdayType == WeekdayType.SHORT) {
+        if (weekdayType == WeekdayType.SHORT) {
             height = cr.shortWeekdayRowHeight;
         } else {
             height = cr.narrowWeekdayRowHeight;
