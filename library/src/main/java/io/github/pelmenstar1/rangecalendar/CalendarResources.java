@@ -39,8 +39,8 @@ final class CalendarResources {
     public final int hoverColor;
 
     public final int textColor;
-    public final int textColorNotCurrentMonth;
-    public final int textColorDisabled;
+    public final int outMonthTextColor;
+    public final int disabledTextColor;
 
     public final float weekdayTextSize;
 
@@ -67,8 +67,8 @@ final class CalendarResources {
 
         colorControlNormal = getColorStateListFromAttribute(context, R.attr.colorControlNormal);
 
-        textColorNotCurrentMonth = colorControlNormal.getColorForState(ENABLED_STATE, 0);
-        textColorDisabled = colorControlNormal.getColorForState(EMPTY_STATE, 0);
+        outMonthTextColor = colorControlNormal.getColorForState(ENABLED_STATE, 0);
+        disabledTextColor = colorControlNormal.getColorForState(EMPTY_STATE, 0);
 
         hoverColor = getHoverColor(context);
 

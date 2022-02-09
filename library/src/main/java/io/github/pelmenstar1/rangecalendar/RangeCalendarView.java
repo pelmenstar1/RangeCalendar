@@ -19,8 +19,6 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.BounceInterpolator;
-import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -28,6 +26,7 @@ import android.widget.TextView;
 import androidx.annotation.AttrRes;
 import androidx.annotation.ColorInt;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.StyleableRes;
 import androidx.appcompat.widget.AppCompatImageButton;
 import androidx.appcompat.widget.AppCompatTextView;
 import androidx.core.content.res.ResourcesCompat;
@@ -114,6 +113,11 @@ public final class RangeCalendarView extends ViewGroup {
 
     public static final long MIN_DATE_EPOCH = DateInt.toEpochDay(MIN_DATE);
     public static final long MAX_DATE_EPOCH = DateInt.toEpochDay(MAX_DATE);
+
+    private static final int ATTR_COLOR = 0;
+    private static final int ATTR_DIMEN = 1;
+    private static final int ATTR_INT = 2;
+    private static final int ATTR_FRACTION = 3;
 
     private final ViewPager2 pager;
     private final ImageButton prevButton;
@@ -370,120 +374,124 @@ public final class RangeCalendarView extends ViewGroup {
         );
 
         try {
-            int selectionColor = a.getColor(
+            extractAndSetColorAttribute(
+                    a,
                     R.styleable.RangeCalendarView_rangeCalendar_selectionColor,
-                    0
+                    RangeCalendarPagerAdapter.STYLE_SELECTION_COLOR
             );
-            if(selectionColor != 0) {
-                setSelectionColor(selectionColor);
-            }
-
-            float dayNumberTextSize = a.getDimension(
-                    R.styleable.RangeCalendarView_rangeCalendar_dayNumberTextSize,
-                    Float.NaN
+            extractAndSetColorAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_inMonthDayNumberColor,
+                    RangeCalendarPagerAdapter.STYLE_IN_MONTH_DAY_NUMBER_COLOR
             );
-            if(!Float.isNaN(dayNumberTextSize)) {
-                setDayNumberTextSize(dayNumberTextSize);
-            }
-
-            int currentMonthDayNumberColor = a.getColor(
-                    R.styleable.RangeCalendarView_rangeCalendar_currentMonthDayNumberColor,
-                    0
+            extractAndSetColorAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_outMonthDayNumberColor,
+                    RangeCalendarPagerAdapter.STYLE_OUT_MONTH_DAY_NUMBER_COLOR
             );
-            if(currentMonthDayNumberColor != 0) {
-                setCurrentMonthDayNumberColor(currentMonthDayNumberColor);
-            }
-
-            int notCurrentMonthDayNumberColor = a.getColor(
-                    R.styleable.RangeCalendarView_rangeCalendar_notCurrentMonthDayNumberColor,
-                    0
-            );
-            if(notCurrentMonthDayNumberColor != 0) {
-                setNotCurrentMonthDayNumberColor(notCurrentMonthDayNumberColor);
-            }
-
-            int disabledDayNumberColor = a.getColor(
+            extractAndSetColorAttribute(
+                    a,
                     R.styleable.RangeCalendarView_rangeCalendar_disabledDayNumberColor,
-                    0
+                    RangeCalendarPagerAdapter.STYLE_DISABLED_DAY_NUMBER_COLOR
             );
-            if(disabledDayNumberColor != 0) {
-                setDisabledDayNumberColor(disabledDayNumberColor);
-            }
-
-            int todayColor = a.getColor(
+            extractAndSetColorAttribute(
+                    a,
                     R.styleable.RangeCalendarView_rangeCalendar_todayColor,
-                    0
+                    RangeCalendarPagerAdapter.STYLE_TODAY_COLOR
             );
-            if(todayColor != 0) {
-                setTodayColor(todayColor);
-            }
-
-            int weekdayColor = a.getColor(
+            extractAndSetColorAttribute(
+                    a,
                     R.styleable.RangeCalendarView_rangeCalendar_weekdayColor,
-                    0
+                    RangeCalendarPagerAdapter.STYLE_WEEKDAY_COLOR
             );
-            if(weekdayColor != 0) {
-                setWeekdayColor(weekdayColor);
-            }
-
-            float weekdayTextSize = a.getDimension(
-                    R.styleable.RangeCalendarView_rangeCalendar_weekdayTextSize,
-                    Float.NaN
-            );
-            if(!Float.isNaN(weekdayTextSize)) {
-                setWeekdayTextSize(weekdayTextSize);
-            }
-
-            int hoverColor = a.getColor(
+            extractAndSetColorAttribute(
+                    a,
                     R.styleable.RangeCalendarView_rangeCalendar_hoverColor,
-                    0
+                    RangeCalendarPagerAdapter.STYLE_HOVER_COLOR
             );
-            if(hoverColor != 0) {
-                setHoverColor(hoverColor);
-            }
-
-            int hoverOnSelectionColor = a.getColor(
+            extractAndSetColorAttribute(
+                    a,
                     R.styleable.RangeCalendarView_rangeCalendar_hoverOnSelectionColor,
-                    0
+                    RangeCalendarPagerAdapter.STYLE_HOVER_ON_SELECTION_COLOR
             );
-            if(hoverOnSelectionColor != 0) {
-                setHoverOnSelectionColor(hoverOnSelectionColor);
-            }
 
-            float cellSize = a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellSize, Float.NaN);
-            if(!Float.isNaN(cellSize)) {
-                setCellSize(cellSize);
-            }
+            extractAndSetDimenAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_dayNumberTextSize,
+                    RangeCalendarPagerAdapter.STYLE_DAY_NUMBER_TEXT_SIZE
+            );
+            extractAndSetDimenAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_weekdayTextSize,
+                    RangeCalendarPagerAdapter.STYLE_WEEKDAY_TEXT_SIZE
+            );
+            extractAndSetDimenAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_cellSize,
+                    RangeCalendarPagerAdapter.STYLE_CELL_SIZE
+            );
 
-            int weekdayType = a.getInteger(R.styleable.RangeCalendarView_rangeCalendar_weekdayType, -1);
-            if(weekdayType != -1) {
-                if(weekdayType == WeekdayType.SHORT || weekdayType == WeekdayType.NARROW) {
-                    setWeekdayType(weekdayType);
-                }
-            }
+            extractAndSetIntAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_weekdayType,
+                    RangeCalendarPagerAdapter.STYLE_WEEKDAY_TYPE
+            );
+            extractAndSetIntAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_clickOnCellSelectionBehavior,
+                    RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR
+            );
 
-            float rrRadiusRatio = a.getFraction(
+            extractAndSetFractionAttribute(
+                    a,
                     R.styleable.RangeCalendarView_rangeCalendar_roundRectRadiusRatio,
-                    1,
-                    1,
-                    Float.NaN
+                    RangeCalendarPagerAdapter.STYLE_RR_RADIUS_RATIO
             );
-
-            if (!Float.isNaN(rrRadiusRatio)) {
-                setRoundRectRadiusRatio(rrRadiusRatio);
-            }
-
-            int clickOnCellSelectionBehavior = a.getInt(R.styleable.RangeCalendarView_rangeCalendar_clickOnCellSelectionBehavior, -1);
-            if(clickOnCellSelectionBehavior != -1) {
-                if(clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.NONE ||
-                    clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR
-                ) {
-                    setClickOnCellSelectionBehavior(clickOnCellSelectionBehavior);
-                }
-            }
         } finally {
             a.recycle();
         }
+    }
+
+    private void extractAndSetAttribute(
+            @NotNull TypedArray attrs,
+            @StyleableRes int index,
+            int styleType, int attrType
+    ) {
+        if(attrs.hasValue(index)) {
+            int value = 0;
+            switch (attrType) {
+                case ATTR_COLOR:
+                    value = attrs.getColor(index, 0);
+                    break;
+                case ATTR_DIMEN:
+                    value = Float.floatToIntBits(attrs.getDimension(index, 0f));
+                    break;
+                case ATTR_INT:
+                    value = attrs.getInteger(index, 0);
+                    break;
+                case ATTR_FRACTION:
+                    value = Float.floatToIntBits(attrs.getFraction(index, 1, 1, 0));
+                    break;
+            }
+
+            adapter.setStyleInt(styleType, value, false);
+        }
+    }
+
+    private void extractAndSetColorAttribute(@NotNull TypedArray attrs, @StyleableRes int index, int styleType) {
+        extractAndSetAttribute(attrs, index, styleType, ATTR_COLOR);
+    }
+
+    private void extractAndSetDimenAttribute(@NotNull TypedArray attrs, @StyleableRes int index, int styleType) {
+        extractAndSetAttribute(attrs, index, styleType, ATTR_DIMEN);
+    }
+
+    private void extractAndSetIntAttribute(@NotNull TypedArray attrs, @StyleableRes int index, int styleType) {
+        extractAndSetAttribute(attrs, index, styleType, ATTR_INT);
+    }
+
+    private void extractAndSetFractionAttribute(@NotNull TypedArray attrs, @StyleableRes int index, int styleType) {
+        extractAndSetAttribute(attrs, index, styleType, ATTR_FRACTION);
     }
 
     private void refreshToday() {
@@ -1098,33 +1106,33 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     /**
-     * Returns color of day which is in range of current month
+     * Returns color of day which is in range of selected month
      */
     @ColorInt
-    public int getCurrentMonthDayNumberColor() {
-        return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_CURRENT_MONTH_DAY_NUMBER_COLOR);
+    public int getInMonthDayNumberColor() {
+        return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_IN_MONTH_DAY_NUMBER_COLOR);
     }
 
     /**
-     * Sets color of day which is in range of current month
+     * Sets color of day which is in range of selected month
      */
-    public void setCurrentMonthDayNumberColor(@ColorInt int color) {
-        adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_CURRENT_MONTH_DAY_NUMBER_COLOR, color);
+    public void setInMonthDayNumberColor(@ColorInt int color) {
+        adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_IN_MONTH_DAY_NUMBER_COLOR, color);
     }
 
     /**
-     * Returns color of day which is not in range of current month
+     * Returns color of day which is not in range of selected month
      */
     @ColorInt
-    public int getNotCurrentMonthDayNumberColor() {
-        return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_NOT_CURRENT_MONTH_DAY_NUMBER_COLOR);
+    public int getOutMonthDayNumberColor() {
+        return adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_OUT_MONTH_DAY_NUMBER_COLOR);
     }
 
     /**
      * Sets color of day which is not in range of current month
      */
-    public void setNotCurrentMonthDayNumberColor(@ColorInt int color) {
-        adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_NOT_CURRENT_MONTH_DAY_NUMBER_COLOR, color);
+    public void setOutMonthDayNumberColor(@ColorInt int color) {
+        adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_OUT_MONTH_DAY_NUMBER_COLOR, color);
     }
 
     /**

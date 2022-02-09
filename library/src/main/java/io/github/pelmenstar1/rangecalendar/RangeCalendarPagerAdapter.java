@@ -63,8 +63,8 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
     public static final int STYLE_SELECTION_COLOR = 0;
     public static final int STYLE_DAY_NUMBER_TEXT_SIZE = 1;
-    public static final int STYLE_CURRENT_MONTH_DAY_NUMBER_COLOR = 2;
-    public static final int STYLE_NOT_CURRENT_MONTH_DAY_NUMBER_COLOR = 3;
+    public static final int STYLE_IN_MONTH_DAY_NUMBER_COLOR = 2;
+    public static final int STYLE_OUT_MONTH_DAY_NUMBER_COLOR = 3;
     public static final int STYLE_DISABLED_DAY_NUMBER_COLOR = 4;
     public static final int STYLE_TODAY_COLOR = 5;
     public static final int STYLE_WEEKDAY_COLOR = 6;
@@ -179,9 +179,9 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
         initStyle(STYLE_SELECTION_COLOR, cr.colorPrimary);
         initStyle(STYLE_DAY_NUMBER_TEXT_SIZE, cr.dayNumberTextSize);
-        initStyle(STYLE_CURRENT_MONTH_DAY_NUMBER_COLOR, cr.textColor);
-        initStyle(STYLE_NOT_CURRENT_MONTH_DAY_NUMBER_COLOR, cr.textColorNotCurrentMonth);
-        initStyle(STYLE_DISABLED_DAY_NUMBER_COLOR, cr.textColorDisabled);
+        initStyle(STYLE_IN_MONTH_DAY_NUMBER_COLOR, cr.textColor);
+        initStyle(STYLE_OUT_MONTH_DAY_NUMBER_COLOR, cr.outMonthTextColor);
+        initStyle(STYLE_DISABLED_DAY_NUMBER_COLOR, cr.disabledTextColor);
         initStyle(STYLE_TODAY_COLOR, cr.colorPrimary);
 
         initStyle(STYLE_WEEKDAY_COLOR, cr.textColor);
@@ -240,11 +240,27 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
     }
 
     public void setStyleInt(int type, int value) {
-        setStyleInternal(type, value);
+        setStyleInt(type, value, true);
+    }
+
+    public void setStyleInt(int type, int value, boolean notify) {
+        styleData[type] = value;
+
+        if(notify) {
+            notifyItemRangeChanged(
+                    0,
+                    count,
+                    new Payload(PAYLOAD_UPDATE_STYLE, IntPair.create(type, value))
+            );
+        }
     }
 
     public void setStyleFloat(int type, float value) {
-        setStyleInternal(type, Float.floatToIntBits(value));
+        setStyleFloat(type, value, true);
+    }
+
+    public void setStyleFloat(int type, float value, boolean notify) {
+        setStyleInt(type, Float.floatToIntBits(value), notify);
     }
 
     public void setStyleObject(int type, Object data) {
@@ -254,16 +270,6 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                 0,
                 count,
                 new Payload(PAYLOAD_UPDATE_STYLE, type, data)
-        );
-    }
-
-    private void setStyleInternal(int type, int data) {
-        styleData[type] = data;
-
-        notifyItemRangeChanged(
-                0,
-                count,
-                new Payload(PAYLOAD_UPDATE_STYLE, IntPair.create(type, data))
         );
     }
 
@@ -284,11 +290,11 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
             case STYLE_SELECTION_COLOR:
                 gridView.setSelectionColor(data);
                 break;
-            case STYLE_CURRENT_MONTH_DAY_NUMBER_COLOR:
-                gridView.setCurrentMonthDayNumberColor(data);
+            case STYLE_IN_MONTH_DAY_NUMBER_COLOR:
+                gridView.setInMonthDayNumberColor(data);
                 break;
-            case STYLE_NOT_CURRENT_MONTH_DAY_NUMBER_COLOR:
-                gridView.setNotCurrentMonthDayNumberColor(data);
+            case STYLE_OUT_MONTH_DAY_NUMBER_COLOR:
+                gridView.setOutMonthDayNumberColor(data);
                 break;
             case STYLE_DISABLED_DAY_NUMBER_COLOR:
                 gridView.setDisabledDayNumberColor(data);
@@ -404,13 +410,13 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         gridView.setEnabledCellRange(PositiveIntRange.create(startIndex, endIndex));
     }
 
-    private void updateCurrentMonthRange(@NotNull RangeCalendarGridView gridView, @NotNull CalendarInfo info) {
+    private void updateInMonthRange(@NotNull RangeCalendarGridView gridView, @NotNull CalendarInfo info) {
         int s = info.start;
         if (isFirstDaySunday) {
             s++;
         }
 
-        gridView.setCurrentMonthRange(IntPair.create(s, s + info.daysInMonth - 1));
+        gridView.setInMonthRange(IntPair.create(s, s + info.daysInMonth - 1));
     }
 
     public int indexOfDate(int date, int offset, @NotNull CalendarInfo info) {
@@ -763,7 +769,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         updateGrid(gridView, calendarInfo);
         updateEnabledRange(gridView, calendarInfo);
         updateSelection(gridView, calendarInfo, position);
-        updateCurrentMonthRange(gridView, calendarInfo);
+        updateInMonthRange(gridView, calendarInfo);
 
         for (int type = 0; type < styleData.length; type++) {
             updateStyle(gridView, type, styleData[type]);

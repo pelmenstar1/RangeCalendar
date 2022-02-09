@@ -165,8 +165,8 @@ final class RangeCalendarGridView extends View {
 
         @NotNull
         private CharSequence getDayDescriptionForIndex(int index) {
-            int currentMonthStart = PositiveIntRange.getStart(grid.currentMonthRange);
-            int currentMonthEnd = PositiveIntRange.getEnd(grid.currentMonthRange);
+            int currentMonthStart = PositiveIntRange.getStart(grid.inMonthRange);
+            int currentMonthEnd = PositiveIntRange.getEnd(grid.inMonthRange);
 
             int year = grid.year;
             int month = grid.month;
@@ -195,8 +195,8 @@ final class RangeCalendarGridView extends View {
 
     public static final float DEFAULT_RR_RADIUS_RATIO = 0.5f;
 
-    private static final int CELL_CURRENT_MONTH = 0;
-    private static final int CELL_NOT_CURRENT_MONTH = 1;
+    private static final int CELL_IN_MONTH = 0;
+    private static final int CELL_OUT_MONTH = 1;
     private static final int CELL_SELECTED = 2;
     private static final int CELL_DISABLED = 3;
     private static final int CELL_TODAY = 4;
@@ -248,8 +248,8 @@ final class RangeCalendarGridView extends View {
     private final Paint cellHoverPaint;
     private final Paint cellHoverOnSelectionPaint;
 
-    private int currentMonthColor;
-    private int notCurrentMonthColor;
+    private int inMonthColor;
+    private int outMonthColor;
     private int disabledDayNumberColor;
     private int todayColor;
 
@@ -259,7 +259,7 @@ final class RangeCalendarGridView extends View {
     @Nullable
     private OnSelectionListener onSelectionListener;
 
-    private long currentMonthRange;
+    private long inMonthRange;
     private long enabledCellRange = ALL_SELECTED;
 
     private int todayIndex = -1;
@@ -349,9 +349,9 @@ final class RangeCalendarGridView extends View {
 
         cellSize = cr.cellSize;
 
-        currentMonthColor = defTextColor;
-        notCurrentMonthColor = cr.textColorNotCurrentMonth;
-        disabledDayNumberColor = cr.textColorDisabled;
+        inMonthColor = defTextColor;
+        outMonthColor = cr.outMonthTextColor;
+        disabledDayNumberColor = cr.disabledTextColor;
         todayColor = colorPrimary;
 
         selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -386,13 +386,14 @@ final class RangeCalendarGridView extends View {
         invalidate();
     }
 
-    public void setCurrentMonthDayNumberColor(@ColorInt int color) {
-        currentMonthColor = color;
+    public void setInMonthDayNumberColor(@ColorInt int color) {
+        inMonthColor = color;
         invalidate();
     }
 
-    public void setNotCurrentMonthDayNumberColor(@ColorInt int color) {
-        notCurrentMonthColor = color;
+    public void setOutMonthDayNumberColor(@ColorInt int color) {
+        outMonthColor = color;
+        invalidate();
     }
 
     public void setDisabledDayNumberColor(@ColorInt int color) {
@@ -468,8 +469,8 @@ final class RangeCalendarGridView extends View {
         invalidate();
     }
 
-    public void setCurrentMonthRange(long range) {
-        this.currentMonthRange = range;
+    public void setInMonthRange(long range) {
+        this.inMonthRange = range;
 
         reselect();
     }
@@ -818,7 +819,7 @@ final class RangeCalendarGridView extends View {
 
         prevSelectedRange = selectedRange;
         selectedRange = PositiveIntRange.findIntersection(
-                currentMonthRange,
+                inMonthRange,
                 enabledCellRange
         );
 
@@ -1216,18 +1217,18 @@ final class RangeCalendarGridView extends View {
         if (selectionType == SelectionType.CELL && selectedCell == i) {
             cellType = CELL_SELECTED;
         } else if (PositiveIntRange.contains(enabledCellRange, i)) {
-            if (PositiveIntRange.contains(currentMonthRange, i)) {
+            if (PositiveIntRange.contains(inMonthRange, i)) {
                 if (i == todayIndex) {
                     if (isSelectionRangeContainsIndex(i)) {
-                        cellType = CELL_CURRENT_MONTH;
+                        cellType = CELL_IN_MONTH;
                     } else {
                         cellType = CELL_TODAY;
                     }
                 } else {
-                    cellType = CELL_CURRENT_MONTH;
+                    cellType = CELL_IN_MONTH;
                 }
             } else {
-                cellType = CELL_NOT_CURRENT_MONTH;
+                cellType = CELL_OUT_MONTH;
             }
         } else {
             cellType = CELL_DISABLED;
@@ -1245,17 +1246,17 @@ final class RangeCalendarGridView extends View {
 
         switch (cellType & CELL_DATA_MASK) {
             case CELL_SELECTED:
-            case CELL_CURRENT_MONTH:
-                color = currentMonthColor;
+            case CELL_IN_MONTH:
+                color = inMonthColor;
                 break;
-            case CELL_NOT_CURRENT_MONTH:
-                color = notCurrentMonthColor;
+            case CELL_OUT_MONTH:
+                color = outMonthColor;
                 break;
             case CELL_DISABLED:
                 color = disabledDayNumberColor;
                 break;
             case CELL_TODAY:
-                color = (cellType & CELL_HOVER_BIT) != 0 ? currentMonthColor : todayColor;
+                color = (cellType & CELL_HOVER_BIT) != 0 ? inMonthColor : todayColor;
                 break;
         }
 
@@ -1371,7 +1372,7 @@ final class RangeCalendarGridView extends View {
         float distToTopCorner = y - gridTop();
         float distToBottomCorner = getHeight() - distToTopCorner;
 
-        long intersection = PositiveIntRange.findIntersection(enabledCellRange, currentMonthRange);
+        long intersection = PositiveIntRange.findIntersection(enabledCellRange, inMonthRange);
         if(intersection == PositiveIntRange.NO_INTERSECTION) {
             return Float.NaN;
         }

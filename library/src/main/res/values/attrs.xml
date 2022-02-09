@@ -3,8 +3,8 @@
     <declare-styleable name="RangeCalendarView">
         <attr name="rangeCalendar_selectionColor" format="color"/>
         <attr name="rangeCalendar_dayNumberTextSize" format="dimension"/>
-        <attr name="rangeCalendar_currentMonthDayNumberColor" format="color"/>
-        <attr name="rangeCalendar_notCurrentMonthDayNumberColor" format="color"/>
+        <attr name="rangeCalendar_inMonthDayNumberColor" format="color"/>
+        <attr name="rangeCalendar_outMonthDayNumberColor" format="color"/>
         <attr name="rangeCalendar_disabledDayNumberColor" format="color"/>
         <attr name="rangeCalendar_todayColor" format="color"/>
         <attr name="rangeCalendar_weekdayColor" format="color"/>
