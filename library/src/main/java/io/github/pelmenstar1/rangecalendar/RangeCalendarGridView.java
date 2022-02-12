@@ -14,12 +14,20 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.text.format.DateFormat;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
+import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.customview.widget.ExploreByTouchHelper;
@@ -27,8 +35,8 @@ import androidx.customview.widget.ExploreByTouchHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 
@@ -40,51 +48,99 @@ final class RangeCalendarGridView extends View {
         void onCellSelected(int index);
 
         void onWeekSelected(int weekIndex, int startIndex, int endIndex);
+
+        void onCustomRangeSelected(int startIndex, int endIndex);
     }
 
     private static final class Radii {
-        public static final float[] value = new float[8];
+        private static final float[] value = new float[8];
+        private static int flags = 0;
+
+        private static final int LT_SHIFT = 0;
+        private static final int RT_SHIFT = 1;
+        private static final int RB_SHIFT = 2;
+        private static final int LB_SHIFT = 3;
 
         public static void clear() {
-            Arrays.fill(value, 0);
+            flags = 0;
+        }
+
+        private static void setFlag(int shift) {
+            flags |= (1 << shift);
+        }
+
+        private static void setFlag(int shift, boolean condition) {
+            flags |= ((condition ? 1 : 0) << shift);
         }
 
         // left top
-        public static void lt(float v) {
-            value[0] = value[1] = v;
+        public static void lt() {
+            setFlag(LT_SHIFT);
+        }
+
+        public static void lt(boolean condition) {
+            setFlag(LT_SHIFT, condition);
         }
 
         // right top
-        public static void rt(float v) {
-            value[2] = value[3] = v;
+        public static void rt() {
+            setFlag(RT_SHIFT);
+        }
+
+        public static void rt(boolean condition) {
+            setFlag(RT_SHIFT, condition);
         }
 
         // right bottom
-        public static void rb(float v) {
-            value[4] = value[5] = v;
+        public static void rb() {
+            setFlag(RB_SHIFT);
+        }
+
+        public static void rb(boolean condition) {
+            setFlag(RB_SHIFT, condition);
         }
 
         // left bottom
-        public static void lb(float v) {
-            value[6] = value[7] = v;
+        public static void lb() {
+            setFlag(LB_SHIFT);
+        }
+
+        public static void lb(boolean condition) {
+            setFlag(LB_SHIFT, condition);
+        }
+
+        private static int createMask(int shift) {
+            // The idea: to create mask which is 0xFFFFFFFF if bit at specified position (shift) is set, otherwise mask is 0
+            return 0xFFFFFFFF * ((flags >> shift) & 1);
+        }
+
+        public static float @NotNull [] result(float radius) {
+            int radiusBits = Float.floatToRawIntBits(radius);
+
+            value[0] = value[1] = Float.intBitsToFloat(radiusBits & createMask(LT_SHIFT));
+            value[2] = value[3] = Float.intBitsToFloat(radiusBits & createMask(RT_SHIFT));
+            value[4] = value[5] = Float.intBitsToFloat(radiusBits & createMask(RB_SHIFT));
+            value[6] = value[7] = Float.intBitsToFloat(radiusBits & createMask(LB_SHIFT));
+
+            return value;
         }
     }
 
     public static final class PackedSelectionInfo {
-        public static int create(int type, int data, boolean withAnimation) {
-            return (type << 24) | (data << 8) | (withAnimation ? 1 : 0);
+        public static long create(int type, int data, boolean withAnimation) {
+            return (long) data << 32 | (long) type << 24 | ((withAnimation ? 1 : 0) << 16);
         }
 
-        public static int getType(int packed) {
-            return packed >> 24;
+        public static int getType(long packed) {
+            return (int) (packed >> 24) & 0xFF;
         }
 
-        public static int getData(int packed) {
-            return (packed >> 8) & 0xFFFF;
+        public static int getData(long packed) {
+            return (int) (packed >> 32);
         }
 
-        public static boolean getWithAnimation(int packed) {
-            return (packed & 0xFF) == 1;
+        public static boolean getWithAnimation(long packed) {
+            return ((packed >> 16) & 0xFF) == 1;
         }
     }
 
@@ -145,7 +201,7 @@ final class RangeCalendarGridView extends View {
             node.setSelected(grid.selectionType == SelectionType.CELL && virtualViewId == grid.selectedCell);
             node.setClickable(true);
 
-            if (PositiveIntRange.contains(grid.enabledCellRange, virtualViewId)) {
+            if (ShortRange.contains(grid.enabledCellRange, virtualViewId)) {
                 node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK);
                 node.setEnabled(true);
             } else {
@@ -165,8 +221,8 @@ final class RangeCalendarGridView extends View {
 
         @NotNull
         private CharSequence getDayDescriptionForIndex(int index) {
-            int currentMonthStart = PositiveIntRange.getStart(grid.inMonthRange);
-            int currentMonthEnd = PositiveIntRange.getEnd(grid.inMonthRange);
+            int currentMonthStart = ShortRange.getStart(grid.inMonthRange);
+            int currentMonthEnd = ShortRange.getEnd(grid.inMonthRange);
 
             int year = grid.year;
             int month = grid.month;
@@ -193,6 +249,26 @@ final class RangeCalendarGridView extends View {
         }
     }
 
+    private static final class LongPressHandler extends Handler {
+        private final WeakReference<RangeCalendarGridView> ref;
+
+        public LongPressHandler(@NotNull RangeCalendarGridView gridView) {
+            super(Looper.getMainLooper());
+
+            ref = new WeakReference<>(gridView);
+        }
+
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            RangeCalendarGridView obj = ref.get();
+            if(obj == null) {
+                return;
+            }
+
+            obj.onCellLongPress(msg.arg1);
+        }
+    }
+
     public static final float DEFAULT_RR_RADIUS_RATIO = 0.5f;
 
     private static final int CELL_IN_MONTH = 0;
@@ -204,19 +280,21 @@ final class RangeCalendarGridView extends View {
     private static final int CELL_HOVER_BIT = 1 << 31;
     private static final int CELL_DATA_MASK = ~CELL_HOVER_BIT;
 
-    private static final long ALL_SELECTED = PositiveIntRange.create(0, 42);
+    private static final int ALL_SELECTED = ShortRange.create(0, 42);
+    private static final int INVALID_RANGE = ShortRange.create(-1, -1);
 
     public static final int DEFAULT_COMMON_ANIM_DURATION = 250;
     public static final int DEFAULT_HOVER_ANIM_DURATION = 100;
     private static final long DOUBLE_TOUCH_MAX_MILLIS = 500;
+    private static final int VIBRATE_DURATION = 50;
 
     private static final String TAG = "RangeCalendarGridView";
 
-    private static final int REVERSE_BIT = 1 << 31;
-    private static final int ANIMATION_DATA_MASK = ~REVERSE_BIT;
+    private static final int ANIMATION_REVERSE_BIT = 1 << 31;
+    private static final int ANIMATION_DATA_MASK = ~ANIMATION_REVERSE_BIT;
 
     private static final int NO_ANIMATION = 0;
-    private static final int WEEK_TO_CELL_ON_ROW_ANIMATION = 1;
+    private static final int CELL_TO_WEEK_ON_ROW_ANIMATION = 1;
     private static final int MOVE_CELL_ON_ROW_ANIMATION = 2;
     private static final int MOVE_CELL_ON_COLUMN_ANIMATION = 3;
     private static final int HOVER_ANIMATION = 4;
@@ -259,8 +337,8 @@ final class RangeCalendarGridView extends View {
     @Nullable
     private OnSelectionListener onSelectionListener;
 
-    private long inMonthRange;
-    private long enabledCellRange = ALL_SELECTED;
+    private int inMonthRange;
+    private int enabledCellRange = ALL_SELECTED;
 
     private int todayIndex = -1;
     private int hoverIndex = -1;
@@ -274,16 +352,19 @@ final class RangeCalendarGridView extends View {
     private int prevSelectedCell;
     int selectedCell;
 
-    private long prevSelectedRange;
-    private long selectedRange;
+    private int prevSelectedRange;
+    private int selectedRange;
 
     private int selectedWeekIndex;
 
     @Nullable
-    private Path selectedMonthPath;
-    private long selectedMonthPathRange;
+    private Path customRangePath;
+    private int customPathRange;
 
-    private int animType = 0;
+    private int customRangeStartCell;
+    private boolean isSelectingCustomRange;
+
+    private int animation = 0;
     private float animFraction = 0f;
 
     @Nullable
@@ -310,7 +391,13 @@ final class RangeCalendarGridView extends View {
     @NotNull
     TimeInterpolator hoverAnimationInterpolator = TimeInterpolators.LINEAR;
 
+    private final Vibrator vibrator;
+    private boolean allowCustomRanges = true;
+    boolean vibrateOnSelectingCustomRange = true;
+
     private final Runnable clearHoverIndexCallback = () -> hoverIndex = -1;
+
+    private final LongPressHandler longPressHandler = new LongPressHandler(this);
 
     static {
         DAYS = new String[31];
@@ -374,6 +461,8 @@ final class RangeCalendarGridView extends View {
         cellHoverOnSelectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         cellHoverOnSelectionPaint.setStyle(Paint.Style.FILL);
         cellHoverOnSelectionPaint.setColor(cr.colorPrimaryDark);
+
+        vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
     }
 
     public void setSelectionColor(@ColorInt int color) {
@@ -463,19 +552,19 @@ final class RangeCalendarGridView extends View {
         rrRadiusRatio = Math.min(ratio, 0.5f);
 
         if (selectionType == SelectionType.MONTH) {
-            forceResetMonthPath();
+            forceResetCustomPath();
         }
 
         invalidate();
     }
 
-    public void setInMonthRange(long range) {
+    public void setInMonthRange(int range) {
         this.inMonthRange = range;
 
         reselect();
     }
 
-    public void setEnabledCellRange(long range) {
+    public void setEnabledCellRange(int range) {
         this.enabledCellRange = range;
 
         reselect();
@@ -494,7 +583,7 @@ final class RangeCalendarGridView extends View {
         this.weekdayType = type;
 
         if (selectionType == SelectionType.MONTH) {
-            forceResetMonthPath();
+            forceResetCustomPath();
         }
 
         invalidate();
@@ -507,10 +596,19 @@ final class RangeCalendarGridView extends View {
         invalidate();
     }
 
+    public void setAllowCustomRanges(boolean state) {
+        allowCustomRanges = state;
+
+        if(selectionType == SelectionType.CUSTOM) {
+            clearSelection(true, true);
+        }
+    }
+
     private void reselect() {
         int savedSelectionType = selectionType;
         int savedSelectedCell = selectedCell;
         int savedWeekIndex = selectedWeekIndex;
+        int savedRange = selectedRange;
 
         clearSelection(false, true);
 
@@ -524,6 +622,8 @@ final class RangeCalendarGridView extends View {
             case SelectionType.MONTH:
                 selectMonth(true, true);
                 break;
+            case SelectionType.CUSTOM:
+                selectCustom(savedRange);
         }
     }
 
@@ -555,8 +655,8 @@ final class RangeCalendarGridView extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         refreshColumnWidth();
 
-        if(selectionType == SelectionType.MONTH) {
-            forceResetMonthPath();
+        if (selectionType == SelectionType.MONTH) {
+            forceResetCustomPath();
         }
     }
 
@@ -578,16 +678,25 @@ final class RangeCalendarGridView extends View {
                     if (isXInActiveZone(x)) {
                         int index = getGridIndexByPointOnScreen(x, y);
 
-                        if (PositiveIntRange.contains(enabledCellRange, index)) {
+                        if (ShortRange.contains(enabledCellRange, index)) {
                             setHoverIndex(index);
-                        }
 
+                            if(allowCustomRanges) {
+                                long time = e.getEventTime() + ViewConfiguration.getLongPressTimeout() +
+                                        ViewConfiguration.getTapTimeout();
+
+                                Message msg = Message.obtain();
+                                msg.arg1 = index;
+
+                                longPressHandler.sendMessageAtTime(msg, time);
+                            }
+                        }
                     }
                     break;
                 case MotionEvent.ACTION_UP:
                     performClick();
 
-                    if (isXInActiveZone(x)) {
+                    if (!isSelectingCustomRange && isXInActiveZone(x)) {
                         int index = getGridIndexByPointOnScreen(x, y);
                         long touchTime = e.getDownTime();
 
@@ -603,14 +712,44 @@ final class RangeCalendarGridView extends View {
                                 lastTouchCell = index;
                                 lastTouchTime = touchTime;
                             }
-
-                            hoverIndex = -1;
                         }
                     }
+
+                    hoverIndex = -1;
+                    customRangeStartCell = -1;
+                    isSelectingCustomRange = false;
+
+                    longPressHandler.removeCallbacksAndMessages(null);
 
                     break;
                 case MotionEvent.ACTION_CANCEL:
                     clearHoverIndex();
+                    longPressHandler.removeCallbacksAndMessages(null);
+                    customRangeStartCell = -1;
+                    isSelectingCustomRange = false;
+
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    if (isSelectingCustomRange && isXInActiveZone(x) && y > gridTop()) {
+                        ViewParent parent = getParent();
+                        if (parent != null) {
+                            parent.requestDisallowInterceptTouchEvent(true);
+                        }
+
+                        int index = getGridIndexByPointOnScreen(x, y);
+                        int newRange;
+
+                        if (index > customRangeStartCell) {
+                            newRange = ShortRange.create(customRangeStartCell, index);
+                        } else {
+                            newRange = ShortRange.create(index, customRangeStartCell);
+                        }
+
+                        if (selectedRange != newRange) {
+                            selectCustom(newRange);
+                        }
+                    }
+
                     break;
             }
         }
@@ -618,6 +757,21 @@ final class RangeCalendarGridView extends View {
         invalidate();
 
         return true;
+    }
+
+    private void onCellLongPress(int cell) {
+        if(vibrateOnSelectingCustomRange) {
+            if(Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(VibrationEffect.createOneShot(VIBRATE_DURATION,  VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                vibrator.vibrate(VIBRATE_DURATION);
+            }
+        }
+
+        customRangeStartCell = cell;
+        isSelectingCustomRange = true;
+        clearHoverIndex();
+        selectCustom(ShortRange.create(cell, cell));
     }
 
     @Override
@@ -638,11 +792,10 @@ final class RangeCalendarGridView extends View {
                 r.set(left, top, left + size, top + size);
                 break;
             }
-
             case SelectionType.WEEK: {
-                int startIndex = PositiveIntRange.getStart(selectedRange);
+                int startIndex = ShortRange.getStart(selectedRange);
                 int left = (int) getCellLeft(startIndex);
-                int right = (int) getCellRight(PositiveIntRange.getEnd(selectedRange));
+                int right = (int) getCellRight(ShortRange.getEnd(selectedRange));
                 int top = (int) getCellTop(startIndex);
 
                 r.set(left, top, right, top + size);
@@ -659,7 +812,7 @@ final class RangeCalendarGridView extends View {
         touchHelper.sendEventForVirtualView(index, AccessibilityEvent.TYPE_VIEW_CLICKED);
     }
 
-    public void select(int packed) {
+    public void select(long packed) {
         select(
                 PackedSelectionInfo.getType(packed),
                 PackedSelectionInfo.getData(packed),
@@ -677,6 +830,9 @@ final class RangeCalendarGridView extends View {
                 break;
             case SelectionType.MONTH:
                 selectMonth(doAnimation);
+                break;
+            case SelectionType.CUSTOM:
+                selectCustom(data);
                 break;
         }
     }
@@ -733,11 +889,11 @@ final class RangeCalendarGridView extends View {
                     break;
                 }
                 case SelectionType.WEEK: {
-                    int weekStart = PositiveIntRange.getStart(selectedRange);
-                    int weekEnd = PositiveIntRange.getEnd(selectedRange);
+                    int weekStart = ShortRange.getStart(selectedRange);
+                    int weekEnd = ShortRange.getEnd(selectedRange);
 
                     if (index >= weekStart && index <= weekEnd) {
-                        animType = WEEK_TO_CELL_ON_ROW_ANIMATION;
+                        animType = CELL_TO_WEEK_ON_ROW_ANIMATION | ANIMATION_REVERSE_BIT;
                     } else {
                         animType = WEEK_TO_CELL_ANIMATION;
                     }
@@ -746,7 +902,7 @@ final class RangeCalendarGridView extends View {
                 }
             }
 
-            startAnimation(animType, DEFAULT_COMMON_ANIM_DURATION);
+            startAnimation(animType);
         } else {
             invalidate();
         }
@@ -756,16 +912,14 @@ final class RangeCalendarGridView extends View {
         int start = weekIndex * 7;
         int end = start + 6;
 
-        long weekRange = PositiveIntRange.findIntersection(
-                PositiveIntRange.create(start, end),
-                enabledCellRange
-        );
-        if (weekRange == PositiveIntRange.NO_INTERSECTION) {
+        int weekRange = ShortRange.findIntersection(ShortRange.create(start, end), enabledCellRange, INVALID_RANGE);
+
+        if (weekRange == INVALID_RANGE) {
             return;
         }
 
-        start = PositiveIntRange.getStart(weekRange);
-        end = PositiveIntRange.getEnd(weekRange);
+        start = ShortRange.getStart(weekRange);
+        end = ShortRange.getEnd(weekRange);
 
         if (selectionType == SelectionType.WEEK && selectedRange == weekRange) {
             return;
@@ -781,7 +935,7 @@ final class RangeCalendarGridView extends View {
         selectedWeekIndex = weekIndex;
 
         prevSelectedRange = selectedRange;
-        selectedRange = PositiveIntRange.create(start, end);
+        selectedRange = ShortRange.create(start, end);
 
         OnSelectionListener listener = onSelectionListener;
         if (listener != null) {
@@ -789,16 +943,10 @@ final class RangeCalendarGridView extends View {
         }
 
         if (doAnimation) {
-            int animType = -1;
-
             if (prevSelectionType == SelectionType.CELL && selectedCell >= start && selectedCell <= end) {
-                animType = WEEK_TO_CELL_ON_ROW_ANIMATION | REVERSE_BIT;
+                startAnimation(CELL_TO_WEEK_ON_ROW_ANIMATION);
             } else if (prevSelectionType == SelectionType.WEEK) {
-                animType = DUAL_WEEK_ANIMATION;
-            }
-
-            if (animType > 0) {
-                startAnimation(animType, DEFAULT_COMMON_ANIM_DURATION);
+                startAnimation(DUAL_WEEK_ANIMATION);
             }
         } else {
             invalidate();
@@ -818,24 +966,44 @@ final class RangeCalendarGridView extends View {
         selectionType = SelectionType.MONTH;
 
         prevSelectedRange = selectedRange;
-        selectedRange = PositiveIntRange.findIntersection(
-                inMonthRange,
-                enabledCellRange
-        );
+        selectedRange = ShortRange.findIntersection(inMonthRange, enabledCellRange, INVALID_RANGE);
 
-        if (selectedRange == PositiveIntRange.NO_INTERSECTION) {
-            if (selectedMonthPath != null) {
-                selectedMonthPath.rewind();
+        if (selectedRange == INVALID_RANGE) {
+            if (customRangePath != null) {
+                customRangePath.rewind();
             }
         } else if (prevSelectedRange == selectedRange) {
             return;
         }
 
         if (doAnimation) {
-            startAnimation(MONTH_ALPHA_ANIMATION, DEFAULT_COMMON_ANIM_DURATION);
+            startAnimation(MONTH_ALPHA_ANIMATION);
         } else {
             invalidate();
         }
+    }
+
+    public void selectCustom(int range) {
+        prevSelectionType = selectionType;
+        selectionType = SelectionType.CUSTOM;
+
+        prevSelectedRange = selectedRange;
+        selectedRange = ShortRange.findIntersection(range, enabledCellRange, INVALID_RANGE);
+
+        if (selectedRange == INVALID_RANGE) {
+            if (customRangePath != null) {
+                customRangePath.rewind();
+            }
+        } else if (prevSelectedRange == selectedRange) {
+            return;
+        }
+
+        OnSelectionListener listener = onSelectionListener;
+        if (listener != null) {
+            listener.onCustomRangeSelected(ShortRange.getStart(range), ShortRange.getEnd(range));
+        }
+
+        invalidate();
     }
 
     private void setHoverIndex(int index) {
@@ -845,11 +1013,11 @@ final class RangeCalendarGridView extends View {
 
         hoverIndex = index;
 
-        startAnimation(HOVER_ANIMATION, DEFAULT_HOVER_ANIM_DURATION);
+        startAnimation(HOVER_ANIMATION);
     }
 
     void clearHoverIndex() {
-        startAnimation(HOVER_ANIMATION | REVERSE_BIT, DEFAULT_HOVER_ANIM_DURATION, clearHoverIndexCallback);
+        startAnimation(HOVER_ANIMATION | ANIMATION_REVERSE_BIT, clearHoverIndexCallback);
     }
 
     public void clearSelection(boolean fireEvent, boolean doAnimation) {
@@ -872,22 +1040,22 @@ final class RangeCalendarGridView extends View {
         }
 
         if (doAnimation) {
-            startAnimation(CLEAR_SELECTION_ANIMATION | REVERSE_BIT, DEFAULT_COMMON_ANIM_DURATION);
+            startAnimation(CLEAR_SELECTION_ANIMATION | ANIMATION_REVERSE_BIT);
         } else {
             invalidate();
         }
     }
 
-    private void startAnimation(int type, int duration) {
-        startAnimation(type, duration, null);
+    private void startAnimation(int type) {
+        startAnimation(type, null);
     }
 
-    private void startAnimation(int type, int duration, @Nullable Runnable onEnd) {
+    private void startAnimation(int type, @Nullable Runnable onEnd) {
         if (animator != null && animator.isRunning()) {
             animator.end();
         }
 
-        animType = type;
+        animation = type;
         onAnimationEnd = onEnd;
 
         if (animator == null) {
@@ -905,14 +1073,13 @@ final class RangeCalendarGridView extends View {
                         runnable.run();
                     }
 
-                    animType = NO_ANIMATION;
+                    RangeCalendarGridView.this.animation = NO_ANIMATION;
                     invalidate();
                 }
             });
         }
 
-        animator.setDuration(duration);
-        if((type & ANIMATION_DATA_MASK) == HOVER_ANIMATION) {
+        if ((type & ANIMATION_DATA_MASK) == HOVER_ANIMATION) {
             animator.setDuration(hoverAnimationDuration);
             animator.setInterpolator(hoverAnimationInterpolator);
         } else {
@@ -920,7 +1087,7 @@ final class RangeCalendarGridView extends View {
             animator.setInterpolator(commonAnimationInterpolator);
         }
 
-        if((type & REVERSE_BIT) != 0) {
+        if ((type & ANIMATION_REVERSE_BIT) != 0) {
             animator.reverse();
         } else {
             animator.start();
@@ -941,8 +1108,8 @@ final class RangeCalendarGridView extends View {
     }
 
     private void drawSelection(@NotNull Canvas c) {
-        switch (animType & ANIMATION_DATA_MASK) {
-            case WEEK_TO_CELL_ON_ROW_ANIMATION: {
+        switch (animation & ANIMATION_DATA_MASK) {
+            case CELL_TO_WEEK_ON_ROW_ANIMATION: {
                 drawWeekCellSelection(c, animFraction);
 
                 break;
@@ -990,7 +1157,7 @@ final class RangeCalendarGridView extends View {
                 break;
             }
             case WEEK_TO_CELL_ANIMATION: {
-                int alpha = (int)(animFraction * 255);
+                int alpha = (int) (animFraction * 255);
                 selectionPaint.setAlpha(255 - alpha);
                 drawWeekFromCenterSelection(c, 1f, selectedRange);
 
@@ -1002,15 +1169,15 @@ final class RangeCalendarGridView extends View {
                 break;
             }
             case MONTH_ALPHA_ANIMATION: {
-                selectionPaint.setAlpha((int)(animFraction * 255f));
-                drawMonthSelection(c, selectedRange);
+                selectionPaint.setAlpha((int) (animFraction * 255f));
+                drawCustomRange(c, selectedRange);
 
                 selectionPaint.setAlpha(255);
 
                 break;
             }
             case CLEAR_SELECTION_ANIMATION: {
-                selectionPaint.setAlpha((int)(animFraction * 255));
+                selectionPaint.setAlpha((int) (animFraction * 255));
                 drawSelectionNoAnimation(c, prevSelectionType, prevSelectedCell, prevSelectedRange);
 
                 selectionPaint.setAlpha(255);
@@ -1022,7 +1189,7 @@ final class RangeCalendarGridView extends View {
         }
     }
 
-    private void drawSelectionNoAnimation(@NotNull Canvas c, int sType, int cell, long range) {
+    private void drawSelectionNoAnimation(@NotNull Canvas c, int sType, int cell, int range) {
         switch (sType) {
             case SelectionType.CELL:
                 drawCellSelection(c, cell, 1f, 1f);
@@ -1033,7 +1200,8 @@ final class RangeCalendarGridView extends View {
 
                 break;
             case SelectionType.MONTH:
-                drawMonthSelection(c, range);
+            case SelectionType.CUSTOM:
+                drawCustomRange(c, range);
 
                 break;
         }
@@ -1044,10 +1212,10 @@ final class RangeCalendarGridView extends View {
             float leftAnchor,
             float rightAnchor,
             float fraction,
-            long weekRange
+            int weekRange
     ) {
-        int selStart = PositiveIntRange.getStart(weekRange);
-        int selEnd = PositiveIntRange.getEnd(weekRange);
+        int selStart = ShortRange.getStart(weekRange);
+        int selEnd = ShortRange.getEnd(weekRange);
 
         int selY = selStart / 7;
         int alignedSelX = selY * 7;
@@ -1069,9 +1237,9 @@ final class RangeCalendarGridView extends View {
         c.drawRoundRect(tempRect, radius, radius, selectionPaint);
     }
 
-    private void drawWeekFromCenterSelection(@NotNull Canvas c, float fraction, long range) {
-        int selStart = PositiveIntRange.getStart(range);
-        int selEnd = PositiveIntRange.getEnd(range);
+    private void drawWeekFromCenterSelection(@NotNull Canvas c, float fraction, int range) {
+        int selStart = ShortRange.getStart(range);
+        int selEnd = ShortRange.getEnd(range);
 
         float midX = cr.hPadding +
                 (float) (selStart + selEnd - 14 * (selStart / 7) + 1) * cellSize * 0.5f;
@@ -1080,23 +1248,18 @@ final class RangeCalendarGridView extends View {
     }
 
     private void drawWeekCellSelection(@NotNull Canvas c, float fraction) {
-        int cell = selectedCell;
-        if(selectionType == SelectionType.NONE &&
-                clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR
-        ) {
-            cell = prevSelectedCell;
-        }
-
-        float cellLeft = getCellLeft(cell % 7);
+        float cellLeft = getCellLeft(selectedCell % 7);
         float cellRight = cellLeft + cellSize;
 
         drawWeekSelection(c, cellLeft, cellRight, fraction, selectedRange);
     }
 
-    private void drawMonthSelection(@NotNull Canvas c, long range) {
-        updateSelectedMonthPathIfChanged(range);
+    private void drawCustomRange(@NotNull Canvas c, int range) {
+        updateCustomRangePath(range);
 
-        c.drawPath(selectedMonthPath, selectionPaint);
+        if(customRangePath != null) {
+            c.drawPath(customRangePath, selectionPaint);
+        }
     }
 
     private void drawCellSelection(@NotNull Canvas c, int cell, float xFraction, float yFraction) {
@@ -1186,7 +1349,7 @@ final class RangeCalendarGridView extends View {
             int paintAlpha = paint.getAlpha();
 
             int resultAlpha = paintAlpha;
-            if((animType & ANIMATION_DATA_MASK) == HOVER_ANIMATION) {
+            if ((animation & ANIMATION_DATA_MASK) == HOVER_ANIMATION) {
                 resultAlpha = (int) (paintAlpha * animFraction);
             }
 
@@ -1216,8 +1379,8 @@ final class RangeCalendarGridView extends View {
 
         if (selectionType == SelectionType.CELL && selectedCell == i) {
             cellType = CELL_SELECTED;
-        } else if (PositiveIntRange.contains(enabledCellRange, i)) {
-            if (PositiveIntRange.contains(inMonthRange, i)) {
+        } else if (ShortRange.contains(enabledCellRange, i)) {
+            if (ShortRange.contains(inMonthRange, i)) {
                 if (i == todayIndex) {
                     if (isSelectionRangeContainsIndex(i)) {
                         cellType = CELL_IN_MONTH;
@@ -1273,24 +1436,23 @@ final class RangeCalendarGridView extends View {
         }
     }
 
-    private void updateSelectedMonthPathIfChanged(long range) {
-        if(selectedMonthPathRange == range) {
+    private void updateCustomRangePath(int range) {
+        if(customPathRange == range) {
             return;
         }
 
-        selectedMonthPathRange = range;
+        customPathRange = range;
 
-        if (selectedMonthPath == null) {
-            selectedMonthPath = new Path();
+        if (customRangePath == null) {
+            customRangePath = new Path();
         } else {
-            selectedMonthPath.rewind();
+            customRangePath.rewind();
         }
 
+        Path path = customRangePath;
 
-        Path path = selectedMonthPath;
-
-        int start = PositiveIntRange.getStart(selectedRange);
-        int end = PositiveIntRange.getEnd(selectedRange);
+        int start = ShortRange.getStart(range);
+        int end = ShortRange.getEnd(range);
 
         int startGridY = start / 7;
         int startGridX = start - startGridY * 7;
@@ -1322,44 +1484,37 @@ final class RangeCalendarGridView extends View {
             float endTop = getCellTop(endGridY);
             float endBottom = endTop + cellSize;
 
-            Radii.clear();
-            Radii.lt(radius);
-            Radii.rt(radius);
+            int gridYDiff = endGridY - startGridY;
 
-            if (startGridX != 0) {
-                Radii.lb(radius);
-            }
+            Radii.clear();
+            Radii.lt();
+            Radii.rt();
+            Radii.lb(startGridX != 0);
+            Radii.rb(gridYDiff == 1 && endGridX != 6);
 
             tempRect.set(startLeft, startTop, lastCellOnRowRight, startBottom);
 
-            path.addRoundRect(tempRect, Radii.value, Path.Direction.CW);
+            path.addRoundRect(tempRect, Radii.result(radius), Path.Direction.CW);
 
             Radii.clear();
-            Radii.rb(radius);
-            Radii.lb(radius);
+            Radii.rb();
+            Radii.lb();
+            Radii.rt(endGridX != 6);
+            Radii.lt(gridYDiff == 1 && startGridX != 0);
 
-            if (endGridX != 6) {
-                Radii.rt(radius);
-            }
+            tempRect.set(firstCellOnRowX, gridYDiff == 1 ? startBottom : endTop, endRight, endBottom);
+            path.addRoundRect(tempRect, Radii.result(radius), Path.Direction.CW);
 
-            tempRect.set(firstCellOnRowX, endTop, endRight, endBottom);
-            path.addRoundRect(tempRect, Radii.value, Path.Direction.CW);
-
-            if (endTop > startBottom) {
+            if (gridYDiff > 1f) {
                 Radii.clear();
-                if (startGridX != 0) {
-                    Radii.lt(radius);
-                }
-
-                if (endGridX != 6) {
-                    Radii.rb(radius);
-                }
+                Radii.lt(startGridX != 0);
+                Radii.rb(endGridX != 6);
 
                 tempRect.set(firstCellOnRowX, startBottom, lastCellOnRowRight, endTop);
                 if (startGridX == 0 && endGridX == 6) {
                     path.addRect(tempRect, Path.Direction.CW);
                 } else {
-                    path.addRoundRect(tempRect, Radii.value, Path.Direction.CW);
+                    path.addRoundRect(tempRect, Radii.result(radius), Path.Direction.CW);
                 }
             }
         }
@@ -1372,13 +1527,13 @@ final class RangeCalendarGridView extends View {
         float distToTopCorner = y - gridTop();
         float distToBottomCorner = getHeight() - distToTopCorner;
 
-        long intersection = PositiveIntRange.findIntersection(enabledCellRange, inMonthRange);
-        if(intersection == PositiveIntRange.NO_INTERSECTION) {
+        int intersection = ShortRange.findIntersection(enabledCellRange, inMonthRange, INVALID_RANGE);
+        if (intersection == INVALID_RANGE) {
             return Float.NaN;
         }
 
-        int startCell = PositiveIntRange.getStart(intersection);
-        int endCell = PositiveIntRange.getEnd(intersection);
+        int startCell = ShortRange.getStart(intersection);
+        int endCell = ShortRange.getEnd(intersection);
 
         int startCellGridY = startCell / 7;
         int startCellGridX = startCell - startCellGridY * 7;
@@ -1396,7 +1551,7 @@ final class RangeCalendarGridView extends View {
         float distToEndCell = distance(endCellLeft, endCellBottom, x, y);
 
         return Math.max(distToLeftCorner, Math.max(distToRightCorner, Math.max(distToTopCorner,
-                                Math.max(distToBottomCorner, Math.max(distToStartCell, distToEndCell)))
+                Math.max(distToBottomCorner, Math.max(distToStartCell, distToEndCell)))
         ));
     }
 
@@ -1404,11 +1559,11 @@ final class RangeCalendarGridView extends View {
         float xDist = x2 - x1;
         float yDist = y2 - y1;
 
-        return (float)Math.sqrt(xDist * xDist + yDist * yDist);
+        return (float) Math.sqrt(xDist * xDist + yDist * yDist);
     }
 
-    private void forceResetMonthPath() {
-        selectedMonthPathRange = 0;
+    private void forceResetCustomPath() {
+        customPathRange = 0;
     }
 
     private float gridTop() {
@@ -1435,8 +1590,8 @@ final class RangeCalendarGridView extends View {
     }
 
     private boolean isSelectionRangeContainsIndex(int index) {
-        return ((selectionType == SelectionType.WEEK || selectionType == SelectionType.MONTH) &&
-                PositiveIntRange.contains(selectedRange, index));
+        return ((selectionType != SelectionType.NONE && selectionType != SelectionType.CELL) &&
+                ShortRange.contains(selectedRange, index));
     }
 
     public int getGridIndexByPointOnScreen(float x, float y) {

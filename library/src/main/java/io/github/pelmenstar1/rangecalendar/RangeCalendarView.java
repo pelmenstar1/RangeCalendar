@@ -53,7 +53,7 @@ import java.util.Locale;
 public final class RangeCalendarView extends ViewGroup {
     /**
      * Fires appropriate method when user selects day, week or month.
-     * <p>
+     * <br>
      * Because of problems with dates in Java, there is no methods like: <br/>
      * {@code void onDateSelected(LocalDate)} <br/>
      * because you would need to implement multiple methods (like {@code onDateSelected(LocalDate)}, {@code onDateSelected(Calendar)}, {@code onDateSelected(int, int, int)})
@@ -68,7 +68,7 @@ public final class RangeCalendarView extends ViewGroup {
         void onSelectionCleared();
 
         /**
-         * Fires when user selects a day
+         * Fires when user selects a day.
          *
          * @param year  year of selected date
          * @param month month of selected date, 1-based
@@ -77,7 +77,7 @@ public final class RangeCalendarView extends ViewGroup {
         void onDaySelected(int year, int month, int day);
 
         /**
-         * Fires when user selects a week
+         * Fires when user selects a week.
          *
          * @param weekIndex  index of the week, 0-based
          * @param startYear  year of selection's start
@@ -94,12 +94,28 @@ public final class RangeCalendarView extends ViewGroup {
         );
 
         /**
-         * Fires when user selects a month
+         * Fires when user selects a month.
          *
          * @param year  year of selection
          * @param month month of selection, 1-based
          */
         void onMonthSelected(int year, int month);
+
+        /**
+         * Fires when user selects a custom range.
+         *
+         * @param startYear year of start of the range
+         * @param startMonth month of start of the range, 1-based
+         * @param startDay day of start of the range, 1-based
+         *
+         * @param endYear year of end of the range
+         * @param endMonth year of end of the range, 1-based
+         * @param endDay year of end of the range, 1-based
+         */
+        void onCustomRangeSelected(
+                int startYear, int startMonth, int startDay,
+                int endYear, int endMonth, int endDay
+        );
     }
 
     private static final String TAG = RangeCalendarView.class.getSimpleName();
@@ -118,6 +134,7 @@ public final class RangeCalendarView extends ViewGroup {
     private static final int ATTR_DIMEN = 1;
     private static final int ATTR_INT = 2;
     private static final int ATTR_FRACTION = 3;
+    private static final int ATTR_BOOL = 4;
 
     private final ViewPager2 pager;
     private final ImageButton prevButton;
@@ -269,6 +286,24 @@ public final class RangeCalendarView extends ViewGroup {
                 OnSelectionListener listener = onSelectionListener;
                 if (listener != null) {
                     listener.onMonthSelected(year, month);
+                }
+            }
+
+            @Override
+            public void onCustomRangeSelected(
+                    int startYear, int startMonth, int startDay,
+                    int endYear, int endMonth, int endDay
+            ) {
+                if(selectionView != null) {
+                    startSelectionViewTransition(true);
+                }
+
+                OnSelectionListener listener = onSelectionListener;
+                if(listener != null) {
+                    listener.onCustomRangeSelected(
+                            startYear, startMonth, startDay,
+                            endYear, endMonth, endDay
+                    );
                 }
             }
         });
@@ -447,6 +482,17 @@ public final class RangeCalendarView extends ViewGroup {
                     R.styleable.RangeCalendarView_rangeCalendar_roundRectRadiusRatio,
                     RangeCalendarPagerAdapter.STYLE_RR_RADIUS_RATIO
             );
+
+            extractAndSetBoolAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_allowCustomRanges,
+                    RangeCalendarPagerAdapter.STYLE_ALLOW_CUSTOM_RANGES
+            );
+            extractAndSetBoolAttribute(
+                    a,
+                    R.styleable.RangeCalendarView_rangeCalendar_vibrateOnSelectingCustomRange,
+                    RangeCalendarPagerAdapter.STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE
+            );
         } finally {
             a.recycle();
         }
@@ -472,6 +518,9 @@ public final class RangeCalendarView extends ViewGroup {
                 case ATTR_FRACTION:
                     value = Float.floatToIntBits(attrs.getFraction(index, 1, 1, 0));
                     break;
+                case ATTR_BOOL:
+                    value = attrs.getBoolean(index, false) ? 1 : 0;
+                    break;
             }
 
             adapter.setStyleInt(styleType, value, false);
@@ -492,6 +541,10 @@ public final class RangeCalendarView extends ViewGroup {
 
     private void extractAndSetFractionAttribute(@NotNull TypedArray attrs, @StyleableRes int index, int styleType) {
         extractAndSetAttribute(attrs, index, styleType, ATTR_FRACTION);
+    }
+
+    private void extractAndSetBoolAttribute(@NotNull TypedArray attrs, @StyleableRes int index, int styleType) {
+        extractAndSetAttribute(attrs, index, styleType, ATTR_BOOL);
     }
 
     private void refreshToday() {
@@ -1361,6 +1414,35 @@ public final class RangeCalendarView extends ViewGroup {
      */
     public void setHoverAnimationInterpolator(@NotNull TimeInterpolator value) {
         adapter.setStyleObject(RangeCalendarPagerAdapter.STYLE_HOVER_ANIMATION_INTERPOLATOR, value);
+    }
+
+    /**
+     * Returns whether selecting custom ranges (by long press) is allowed. By default, it's true.
+     */
+    public boolean getAllowCustomRanges() {
+        return adapter.getStyleBool(RangeCalendarPagerAdapter.STYLE_ALLOW_CUSTOM_RANGES);
+    }
+
+    /**
+     * Sets whether selecting custom ranges (by long press) is allowed.
+     * If you disable custom ranges and custom range is selected, selection will be cleared.
+     */
+    public void setAllowCustomRanges(boolean state) {
+        adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_ALLOW_CUSTOM_RANGES, state);
+    }
+
+    /**
+     * Returns whether device should vibrate when user starts to select custom range. By default, it's true.
+     */
+    public boolean getVibrateOnSelectingCustomRange() {
+        return adapter.getStyleBool(RangeCalendarPagerAdapter.STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE);
+    }
+
+    /**
+     * Sets whether device should vibrate when user starts to select custom range.
+     */
+    public void setVibrateOnSelectingCustomRange(boolean state) {
+        adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, state);
     }
 
     /**
