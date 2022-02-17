@@ -305,7 +305,6 @@ final class RangeCalendarGridView extends View {
     private static final int CLEAR_SELECTION_ANIMATION = 9;
     private static final int MONTH_ALPHA_ANIMATION = 10;
     private static final int CELL_TO_MONTH_ANIMATION = 11;
-    private static final int WEEK_TO_MONTH_ANIMATION = 12;
 
     static final String[] DAYS;
 
@@ -900,6 +899,9 @@ final class RangeCalendarGridView extends View {
 
                     break;
                 }
+                case SelectionType.MONTH: {
+                    animType = CELL_TO_MONTH_ANIMATION | ANIMATION_REVERSE_BIT;
+                }
             }
 
             startAnimation(animType);
@@ -972,12 +974,16 @@ final class RangeCalendarGridView extends View {
             if (customRangePath != null) {
                 customRangePath.rewind();
             }
-        } else if (prevSelectedRange == selectedRange) {
+        } else if (prevSelectedRange == selectedRange && prevSelectionType == SelectionType.MONTH) {
             return;
         }
 
         if (doAnimation) {
-            startAnimation(MONTH_ALPHA_ANIMATION);
+            if(prevSelectionType == SelectionType.CELL) {
+                startAnimation(CELL_TO_MONTH_ANIMATION);
+            } else {
+                startAnimation(MONTH_ALPHA_ANIMATION);
+            }
         } else {
             invalidate();
         }
@@ -1184,6 +1190,12 @@ final class RangeCalendarGridView extends View {
 
                 break;
             }
+
+            case CELL_TO_MONTH_ANIMATION: {
+                drawCellMonthSelection(c);
+                break;
+            }
+
             default:
                 drawSelectionNoAnimation(c, selectionType, selectedCell, selectedRange);
         }
@@ -1205,6 +1217,30 @@ final class RangeCalendarGridView extends View {
 
                 break;
         }
+    }
+
+    private void drawCellMonthSelection(@NotNull Canvas c) {
+        updateCustomRangePath(selectedRange);
+
+        int gridY = selectedCell / 7;
+        int gridX = selectedCell - gridY * 7;
+
+        float cellLeft = getCellLeft(gridX);
+        float cellTop = getCellTop(gridY);
+
+        float halfCellSize = cellSize * 0.5f;
+        float startX = cellLeft + halfCellSize;
+        float startY = cellTop + halfCellSize;
+
+        float startRadius = halfCellSize;
+        float finalRadius = getCircleRadiusForMonthAnimation(startX, startY);
+
+        float currentRadius = MathUtils.fraction(startRadius, finalRadius, animFraction);
+
+        int count = c.save();
+        c.clipPath(customRangePath);
+        c.drawCircle(startX, startY, currentRadius, selectionPaint);
+        c.restoreToCount(count);
     }
 
     private void drawWeekSelection(
@@ -1505,7 +1541,7 @@ final class RangeCalendarGridView extends View {
             tempRect.set(firstCellOnRowX, gridYDiff == 1 ? startBottom : endTop, endRight, endBottom);
             path.addRoundRect(tempRect, Radii.result(radius), Path.Direction.CW);
 
-            if (gridYDiff > 1f) {
+            if (gridYDiff > 1) {
                 Radii.clear();
                 Radii.lt(startGridX != 0);
                 Radii.rb(endGridX != 6);
@@ -1539,7 +1575,7 @@ final class RangeCalendarGridView extends View {
         int startCellGridX = startCell - startCellGridY * 7;
 
         int endCellGridY = endCell / 7;
-        int endCellGridX = endCell * endCellGridY * 7;
+        int endCellGridX = endCell - endCellGridY * 7;
 
         float startCellLeft = getCellLeft(startCellGridX);
         float startCellTop = getCellTop(startCellGridY);
@@ -1547,19 +1583,22 @@ final class RangeCalendarGridView extends View {
         float endCellLeft = getCellLeft(endCellGridX);
         float endCellBottom = getCellTop(endCellGridY) + cellSize;
 
-        float distToStartCell = distance(startCellLeft, startCellTop, x, y);
-        float distToEndCell = distance(endCellLeft, endCellBottom, x, y);
+        float distToStartCellSq = distanceSq(startCellLeft, startCellTop, x, y);
+        float distToEndCellSq = distanceSq(endCellLeft, endCellBottom, x, y);
 
-        return Math.max(distToLeftCorner, Math.max(distToRightCorner, Math.max(distToTopCorner,
-                Math.max(distToBottomCorner, Math.max(distToStartCell, distToEndCell)))
-        ));
+        float maxDist = Math.max(distToLeftCorner, distToRightCorner);
+        maxDist = Math.max(maxDist, distToTopCorner);
+        maxDist = Math.max(maxDist, distToRightCorner);
+        maxDist = Math.max(maxDist, (float)Math.sqrt(Math.max(distToStartCellSq, distToEndCellSq)));
+
+        return maxDist;
     }
 
-    private float distance(float x1, float y1, float x2, float y2) {
+    private float distanceSq(float x1, float y1, float x2, float y2) {
         float xDist = x2 - x1;
         float yDist = y2 - y1;
 
-        return (float) Math.sqrt(xDist * xDist + yDist * yDist);
+        return xDist * xDist + yDist * yDist;
     }
 
     private void forceResetCustomPath() {
