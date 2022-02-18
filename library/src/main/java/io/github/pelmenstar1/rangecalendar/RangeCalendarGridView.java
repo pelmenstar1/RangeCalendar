@@ -341,6 +341,7 @@ final class RangeCalendarGridView extends View {
 
     private int todayIndex = -1;
     private int hoverIndex = -1;
+    private int animationHoverIndex = -1;
 
     int year;
     int month;
@@ -369,9 +370,6 @@ final class RangeCalendarGridView extends View {
     @Nullable
     private ValueAnimator animator;
 
-    @Nullable
-    private Runnable onAnimationEnd;
-
     boolean isFirstDaySunday;
 
     final CalendarResources cr;
@@ -393,8 +391,6 @@ final class RangeCalendarGridView extends View {
     private final Vibrator vibrator;
     private boolean allowCustomRanges = true;
     boolean vibrateOnSelectingCustomRange = true;
-
-    private final Runnable clearHoverIndexCallback = () -> hoverIndex = -1;
 
     private final LongPressHandler longPressHandler = new LongPressHandler(this);
 
@@ -1017,13 +1013,15 @@ final class RangeCalendarGridView extends View {
             return;
         }
 
+        animationHoverIndex = index;
         hoverIndex = index;
 
         startAnimation(HOVER_ANIMATION);
     }
 
     void clearHoverIndex() {
-        startAnimation(HOVER_ANIMATION | ANIMATION_REVERSE_BIT, clearHoverIndexCallback);
+        hoverIndex = -1;
+        startAnimation(HOVER_ANIMATION | ANIMATION_REVERSE_BIT);
     }
 
     public void clearSelection(boolean fireEvent, boolean doAnimation) {
@@ -1053,16 +1051,11 @@ final class RangeCalendarGridView extends View {
     }
 
     private void startAnimation(int type) {
-        startAnimation(type, null);
-    }
-
-    private void startAnimation(int type, @Nullable Runnable onEnd) {
         if (animator != null && animator.isRunning()) {
             animator.end();
         }
 
         animation = type;
-        onAnimationEnd = onEnd;
 
         if (animator == null) {
             animator = AnimationHelper.createFractionAnimator(value -> {
@@ -1073,13 +1066,8 @@ final class RangeCalendarGridView extends View {
 
             animator.addListener(new AnimatorListenerAdapter() {
                 @Override
-                public void onAnimationEnd(Animator animation) {
-                    Runnable runnable = onAnimationEnd;
-                    if (runnable != null) {
-                        runnable.run();
-                    }
-
-                    RangeCalendarGridView.this.animation = NO_ANIMATION;
+                public void onAnimationEnd(Animator a) {
+                    animation = NO_ANIMATION;
                     invalidate();
                 }
             });
@@ -1365,29 +1353,24 @@ final class RangeCalendarGridView extends View {
     }
 
     private void drawHover(@NotNull Canvas c) {
-        int index = hoverIndex;
-        if (index >= 0) {
+        boolean isHoverAnimation = (animation & ANIMATION_DATA_MASK) == HOVER_ANIMATION;
+
+        if ((isHoverAnimation && animationHoverIndex >= 0) || hoverIndex >= 0) {
+            int index = isHoverAnimation ? animationHoverIndex : hoverIndex;
+            float radius = rrRadius();
+
+            Paint paint = isSelectionRangeContainsIndex(index) ?
+                    cellHoverOnSelectionPaint :
+                    cellHoverPaint;
+
+            int paintAlpha = paint.getAlpha();
+            int resultAlpha = isHoverAnimation ? (int)(paintAlpha * animFraction) : paintAlpha;
+
             int gridY = index / 7;
             int gridX = index - gridY * 7;
 
             float left = getCellLeft(gridX);
             float top = getCellTop(gridY);
-
-            float radius = rrRadius();
-
-            Paint paint;
-            if (isSelectionRangeContainsIndex(index)) {
-                paint = cellHoverOnSelectionPaint;
-            } else {
-                paint = cellHoverPaint;
-            }
-
-            int paintAlpha = paint.getAlpha();
-
-            int resultAlpha = paintAlpha;
-            if ((animation & ANIMATION_DATA_MASK) == HOVER_ANIMATION) {
-                resultAlpha = (int) (paintAlpha * animFraction);
-            }
 
             paint.setAlpha(resultAlpha);
 
