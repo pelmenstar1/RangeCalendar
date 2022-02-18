@@ -16,6 +16,8 @@ import java.text.DateFormatSymbols;
 import java.util.Locale;
 
 final class CalendarResources {
+    private static final String[] DAYS;
+
     private static final int[] SINGLE_INT_ARRAY = new int[1];
     private static final int[] HOVER_STATE = new int[] { android.R.attr.state_hovered, android.R.attr.state_enabled };
     private static final int[] ENABLED_STATE = new int[] { android.R.attr.state_enabled };
@@ -54,6 +56,26 @@ final class CalendarResources {
     @NotNull
     public final ColorStateList colorControlNormal;
 
+    static {
+        DAYS = new String[31];
+        char[] buffer = new char[2];
+
+        for (int i = 0; i < 31; i++) {
+            int textLength;
+            int day = i + 1;
+
+            if (day < 10) {
+                textLength = 1;
+                buffer[0] = (char) ('0' + day);
+            } else {
+                textLength = 2;
+                StringUtils.writeTwoDigits(buffer, 0, day);
+            }
+
+            DAYS[i] = new String(buffer, 0, textLength);
+        }
+    }
+
     public CalendarResources(@NotNull Context context) {
         Resources res = context.getResources();
         Resources.Theme theme = context.getTheme();
@@ -81,22 +103,9 @@ final class CalendarResources {
 
         // Compute text size of numbers in [0; 31]
         dayNumberSizes = new long[31];
-        char[] buffer = new char[2];
 
         for (int i = 0; i < 31; i++) {
-            int textLength;
-            int day = i + 1;
-
-            if (day < 10) {
-                textLength = 1;
-                buffer[0] = (char) ('0' + day);
-            } else {
-                textLength = 2;
-
-                StringUtils.writeTwoDigits(buffer, 0, day);
-            }
-
-            dayNumberSizes[i] = TextUtils.getTextBounds(buffer, 0, textLength, weekdayTextSize);
+            dayNumberSizes[i] = TextUtils.getTextBounds(DAYS[i], weekdayTextSize);
         }
 
         // First element in getShortWeekDays() is empty and actual items start from 1
@@ -140,6 +149,11 @@ final class CalendarResources {
         } else {
             narrowWeekdayRowHeight = Float.NaN;
         }
+    }
+
+    @NotNull
+    public static String getDayText(int day) {
+        return DAYS[day - 1];
     }
 
     private float computeWeekdayWidthAndMaxHeight(int offset) {

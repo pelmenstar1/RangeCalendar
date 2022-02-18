@@ -197,7 +197,7 @@ final class RangeCalendarGridView extends View {
             node.setBoundsInParent(tempRect);
 
             node.setContentDescription(getDayDescriptionForIndex(virtualViewId));
-            node.setText(RangeCalendarGridView.DAYS[grid.cells[virtualViewId] - 1]);
+            node.setText(CalendarResources.getDayText(grid.cells[virtualViewId]));
             node.setSelected(grid.selectionType == SelectionType.CELL && virtualViewId == grid.selectedCell);
             node.setClickable(true);
 
@@ -306,8 +306,6 @@ final class RangeCalendarGridView extends View {
     private static final int MONTH_ALPHA_ANIMATION = 10;
     private static final int CELL_TO_MONTH_ANIMATION = 11;
 
-    static final String[] DAYS;
-
     final byte[] cells = new byte[42];
 
     private final RectF tempRect = new RectF();
@@ -394,25 +392,7 @@ final class RangeCalendarGridView extends View {
 
     private final LongPressHandler longPressHandler = new LongPressHandler(this);
 
-    static {
-        DAYS = new String[31];
-        char[] buffer = new char[2];
 
-        for (int i = 0; i < 31; i++) {
-            int textLength;
-            int day = i + 1;
-
-            if (day < 10) {
-                textLength = 1;
-                buffer[0] = (char) ('0' + day);
-            } else {
-                textLength = 2;
-                StringUtils.writeTwoDigits(buffer, 0, day);
-            }
-
-            DAYS[i] = new String(buffer, 0, textLength);
-        }
-    }
 
     public RangeCalendarGridView(
             @NotNull Context context,
@@ -1451,7 +1431,7 @@ final class RangeCalendarGridView extends View {
             float textY = y + halfCellSize + (float) (PackedSize.getHeight(size) / 2);
 
             dayNumberPaint.setColor(color);
-            c.drawText(DAYS[day - 1], textX, textY, dayNumberPaint);
+            c.drawText(CalendarResources.getDayText(day), textX, textY, dayNumberPaint);
         }
     }
 
