@@ -46,7 +46,7 @@ import java.util.Locale;
  * Minimum and maximum dates can be set by {@link RangeCalendarView#setMinDateEpoch(long)} and {@link RangeCalendarView#setMaxDateEpoch(long)}.
  * There also another convenience versions of these methods.
  * To listen when day, week or month is selected, use {@link RangeCalendarView#setOnSelectionListener(OnSelectionListener)}.
- * To select programmatically, use {@link RangeCalendarView#selectDay(int)}, {@link RangeCalendarView#selectWeek(int, int, int)}, {@link RangeCalendarView#selectMonth(int, int)}.
+ * To select programmatically, use {@link RangeCalendarView#selectDay(long)}, {@link RangeCalendarView#selectWeek(int, int, int)}, {@link RangeCalendarView#selectMonth(int, int)}.
  * <br/>
  * Most appropriate colors are automatically extracted from attributes, but you can still change it.
  */
@@ -1530,7 +1530,7 @@ public final class RangeCalendarView extends ViewGroup {
     /**
      * Selects a date in epoch days with animation.
      */
-    public void selectDay(int epochDay) {
+    public void selectDay(long epochDay) {
         selectDay(epochDay, true);
     }
 
@@ -1539,7 +1539,7 @@ public final class RangeCalendarView extends ViewGroup {
      *
      * @param withAnimation whether to do it with animation or not
      */
-    public void selectDay(int epochDay, boolean withAnimation) {
+    public void selectDay(long epochDay, boolean withAnimation) {
         ensureEpochDayValid(epochDay, "epochDay");
 
         selectDayInternal(DateInt.fromEpochDay(epochDay), withAnimation);
@@ -1631,6 +1631,75 @@ public final class RangeCalendarView extends ViewGroup {
      */
     public void selectMonth(int year, int month, boolean withAnimation) {
         selectInternal(SelectionType.MONTH, YearMonth.create(year, month), withAnimation);
+    }
+
+    /**
+     * Selects a custom range with animation.
+     *
+     * @param startEpoch start of the range epoch day, inclusive
+     * @param endEpoch end of the range epoch day, inclusive
+     */
+    public void selectCustom(long startEpoch, long endEpoch) {
+        selectCustom(startEpoch, endEpoch, true);
+    }
+
+    /**
+     * Selects a custom range.
+     *
+     * @param startEpoch start of the range epoch day, inclusive
+     * @param endEpoch end of the range epoch day, inclusive
+     * @param withAnimation whether to do it with animation or not
+     */
+    public void selectCustom(long startEpoch, long endEpoch, boolean withAnimation) {
+        selectCustomInternal(DateInt.fromEpochDay(startEpoch), DateInt.fromEpochDay(endEpoch), withAnimation);
+    }
+
+    /**
+     * Selects a custom range with animation.
+     *
+     * @param startDate start of the range defined by {@link Calendar}, inclusive
+     * @param endDate end of the range defined by {@link Calendar}, inclusive
+     */
+    public void selectCustom(@NotNull Calendar startDate, @NotNull Calendar endDate) {
+        selectCustom(startDate, endDate, true);
+    }
+
+    /**
+     * Selects a custom range.
+     *
+     * @param startDate start of the range defined by {@link Calendar}, inclusive
+     * @param endDate end of the range defined by {@link Calendar}, inclusive
+     * @param withAnimation whether to do it with animation or not
+     */
+    public void selectCustom(@NotNull Calendar startDate, @NotNull Calendar endDate, boolean withAnimation) {
+        selectCustomInternal(DateInt.fromCalendar(startDate), DateInt.fromCalendar(endDate), withAnimation);
+    }
+
+    /**
+     * Selects a custom range with animation. Can be used if API >= 26
+     *
+     * @param startDate start of the range, inclusive
+     * @param endDate end of the range, inclusive
+     */
+    @RequiresApi(26)
+    public void selectCustom(@NotNull LocalDate startDate, @NotNull LocalDate endDate) {
+        selectCustom(startDate, endDate, true);
+    }
+
+    /**
+     * Selects a custom range. Can be used if API >= 26
+     *
+     * @param startDate start of the range, inclusive
+     * @param endDate end of the range, inclusive
+     * @param withAnimation whether to do it with animation of not
+     */
+    @RequiresApi(26)
+    public void selectCustom(@NotNull LocalDate startDate, @NotNull LocalDate endDate, boolean withAnimation) {
+        selectCustomInternal(DateInt.fromLocalDate(startDate), DateInt.fromLocalDate(endDate), withAnimation);
+    }
+
+    private void selectCustomInternal(int startDate, int endDate, boolean withAnimation) {
+        selectInternal(SelectionType.CUSTOM, IntPair.create(startDate, endDate), withAnimation);
     }
 
     private void selectInternal(int type, long data, boolean withAnimation) {

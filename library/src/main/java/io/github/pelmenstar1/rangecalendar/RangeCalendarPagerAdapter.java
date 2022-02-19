@@ -734,6 +734,8 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
             if (type == SelectionType.MONTH) {
                 onMonthSelected(selectionYm, ym);
+            } else if(type == SelectionType.CUSTOM) {
+                verifyCustomRange(data);
             }
 
             setSelectionValues(type, RangeCalendarGridView.PackedSelectionInfo.getData(gridSelectionInfo), ym);
@@ -760,6 +762,15 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                 PAYLOAD_SELECT,
                 RangeCalendarGridView.PackedSelectionInfo.create(type, data, withAnimation)
         ));
+    }
+
+    private void verifyCustomRange(long range) {
+        int start = IntRange.getStart(range);
+        int end = IntRange.getEnd(range);
+
+        if(YearMonth.forDate(start) != YearMonth.forDate(end)) {
+            throw new IllegalArgumentException("Calendar page position for start date of the range differ from calendar page position for the end");
+        }
     }
 
     private void onMonthSelected(int prevYm, int ym) {
