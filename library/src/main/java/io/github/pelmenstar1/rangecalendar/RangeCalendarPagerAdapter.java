@@ -77,8 +77,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
     public static final int STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR = 13;
     public static final int STYLE_COMMON_ANIMATION_DURATION = 14;
     public static final int STYLE_HOVER_ANIMATION_DURATION = 15;
-    public static final int STYLE_ALLOW_CUSTOM_RANGES = 16;
-    public static final int STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 17;
+    public static final int STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 16;
 
     private static final int STYLE_OBJ_START = 32;
     public static final int STYLE_COMMON_ANIMATION_INTERPOLATOR = 32;
@@ -158,7 +157,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
     private final CalendarInfo calendarInfo = new CalendarInfo();
 
-    private final int[] styleData = new int[18];
+    private final int[] styleData = new int[17];
     private final Object[] styleObjData = new Object[2];
 
     private RangeCalendarView.OnSelectionListener onSelectionListener;
@@ -202,7 +201,6 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         initStyle(STYLE_HOVER_ANIMATION_DURATION, RangeCalendarGridView.DEFAULT_HOVER_ANIM_DURATION);
         initStyle(STYLE_HOVER_ANIMATION_INTERPOLATOR, TimeInterpolators.LINEAR);
 
-        initStyle(STYLE_ALLOW_CUSTOM_RANGES, true);
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true);
     }
 
@@ -352,9 +350,6 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                 gridView.hoverAnimationDuration = data;
                 break;
 
-            case STYLE_ALLOW_CUSTOM_RANGES:
-                gridView.setAllowCustomRanges(b);
-                break;
             case STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE:
                 gridView.vibrateOnSelectingCustomRange = b;
                 break;
@@ -572,7 +567,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
             }
 
             @Override
-            public void onCellSelected(int index) {
+            public boolean onCellSelected(int index) {
                 clearSelectionOnAnotherPages();
 
                 setSelectionValues(SelectionType.CELL, index, ym);
@@ -582,12 +577,16 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                     calendarInfo.set(ym);
                     int date = getDateAtIndex(index, calendarInfo);
 
-                    listener.onDaySelected(DateInt.getYear(date), DateInt.getMonth(date), DateInt.getDayOfMonth(date));
+                    return listener.onDaySelected(
+                            DateInt.getYear(date), DateInt.getMonth(date), DateInt.getDayOfMonth(date)
+                    );
                 }
+
+                return true;
             }
 
             @Override
-            public void onWeekSelected(int weekIndex, int startIndex, int endIndex) {
+            public boolean onWeekSelected(int weekIndex, int startIndex, int endIndex) {
                 clearSelectionOnAnotherPages();
 
                 setSelectionValues(SelectionType.WEEK, weekIndex, ym);
@@ -599,16 +598,18 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                     int startDate = getDateAtIndex(startIndex, calendarInfo);
                     int endDate = getDateAtIndex(endIndex, calendarInfo);
 
-                    listener.onWeekSelected(
+                    return listener.onWeekSelected(
                             weekIndex,
                             DateInt.getYear(startDate), DateInt.getMonth(startDate), DateInt.getDayOfMonth(startDate),
                             DateInt.getYear(endDate), DateInt.getMonth(endDate), DateInt.getDayOfMonth(endDate)
                     );
                 }
+
+                return true;
             }
 
             @Override
-            public void onCustomRangeSelected(int startIndex, int endIndex) {
+            public boolean onCustomRangeSelected(int startIndex, int endIndex) {
                 clearSelectionOnAnotherPages();
 
                 setSelectionValues(SelectionType.CUSTOM, ShortRange.create(startIndex, endIndex), ym);
@@ -620,11 +621,13 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                     int startDate = getDateAtIndex(startIndex, calendarInfo);
                     int endDate = getDateAtIndex(endIndex, calendarInfo);
 
-                    listener.onCustomRangeSelected(
+                    return listener.onCustomRangeSelected(
                             DateInt.getYear(startDate), DateInt.getMonth(startDate), DateInt.getDayOfMonth(startDate),
                             DateInt.getYear(endDate), DateInt.getMonth(endDate), DateInt.getDayOfMonth(endDate)
                     );
                 }
+
+                return true;
             }
 
             // should be called before changing selection values
@@ -733,7 +736,10 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
             long gridSelectionInfo = transformToGridSelection(position, type, data, withAnimation);
 
             if (type == SelectionType.MONTH) {
-                onMonthSelected(selectionYm, ym);
+                boolean allowed = onMonthSelected(selectionYm, ym);
+                if(!allowed) {
+                    return;
+                }
             } else if(type == SelectionType.CUSTOM) {
                 verifyCustomRange(data);
             }
@@ -753,7 +759,10 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         int position = getItemPositionForYearMonth(ym);
 
         if (type == SelectionType.MONTH) {
-            onMonthSelected(selectionYm, ym);
+            boolean allowed = onMonthSelected(selectionYm, ym);
+            if(!allowed) {
+                return;
+            }
         }
 
         setSelectionValues(type, data, ym);
@@ -773,18 +782,20 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         }
     }
 
-    private void onMonthSelected(int prevYm, int ym) {
+    private boolean onMonthSelected(int prevYm, int ym) {
         if (prevYm != ym) {
             clearSelection();
         }
 
         RangeCalendarView.OnSelectionListener listener = onSelectionListener;
         if (listener != null) {
-            listener.onMonthSelected(
+            return listener.onMonthSelected(
                     YearMonth.getYear(ym),
                     YearMonth.getMonth(ym)
             );
         }
+
+        return true;
     }
 
     private void updateTodayIndex(@NotNull RangeCalendarGridView gridView, @NotNull CalendarInfo info) {

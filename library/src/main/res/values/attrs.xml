@@ -21,7 +21,6 @@
             <enum name="clear" value="1"/>
         </attr>
         <attr name="rangeCalendar_roundRectRadiusRatio" format="fraction"/>
-        <attr name="rangeCalendar_allowCustomRanges" format="boolean"/>
         <attr name="rangeCalendar_vibrateOnSelectingCustomRange" format="boolean"/>
     </declare-styleable>
 

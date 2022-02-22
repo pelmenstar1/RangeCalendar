@@ -73,8 +73,9 @@ public final class RangeCalendarView extends ViewGroup {
          * @param year  year of selected date
          * @param month month of selected date, 1-based
          * @param day   day of month of selected date, 1-based
+         * @return if for some reasons selected day is not valid, returns false, otherwise true
          */
-        void onDaySelected(int year, int month, int day);
+        boolean onDaySelected(int year, int month, int day);
 
         /**
          * Fires when user selects a week.
@@ -86,8 +87,9 @@ public final class RangeCalendarView extends ViewGroup {
          * @param endYear    year of selection's end
          * @param endMonth   month of selection's end, 1-based
          * @param endDay     day of month of selection's end, 1-based
+         * @return if for some reasons selected week is not valid, returns false, otherwise true
          */
-        void onWeekSelected(
+        boolean onWeekSelected(
                 int weekIndex,
                 int startYear, int startMonth, int startDay,
                 int endYear, int endMonth, int endDay
@@ -98,8 +100,10 @@ public final class RangeCalendarView extends ViewGroup {
          *
          * @param year  year of selection
          * @param month month of selection, 1-based
+         *
+         * @return if for some reasons selected range is not valid, returns false, otherwise true
          */
-        void onMonthSelected(int year, int month);
+        boolean onMonthSelected(int year, int month);
 
         /**
          * Fires when user selects a custom range.
@@ -111,11 +115,65 @@ public final class RangeCalendarView extends ViewGroup {
          * @param endYear year of end of the range
          * @param endMonth year of end of the range, 1-based
          * @param endDay year of end of the range, 1-based
+         *
+         * @return if for some reasons selected range is not valid, returns false, otherwise true
          */
-        void onCustomRangeSelected(
+        boolean onCustomRangeSelected(
                 int startYear, int startMonth, int startDay,
                 int endYear, int endMonth, int endDay
         );
+    }
+
+    public final class AllowedSelectionTypes {
+        /**
+         * Sets whether selecting a cell is enabled or not.
+         *
+         * @return current instance
+         */
+        @NotNull
+        public AllowedSelectionTypes cell(boolean state) {
+            return setFlag(SelectionType.CELL, state);
+        }
+
+        /**
+         * Sets whether selecting a week is enabled or not.
+         *
+         * @return current instance
+         */
+        @NotNull
+        public AllowedSelectionTypes week(boolean state) {
+            return setFlag(SelectionType.WEEK, state);
+        }
+
+        /**
+         * Sets whether selecting a month is enabled or not.
+         *
+         * @return current instance
+         */
+        @NotNull
+        public AllowedSelectionTypes month(boolean state) {
+            return setFlag(SelectionType.MONTH, state);
+        }
+
+        /**
+         * Sets whether selecting a custom range is enabled or not.
+         *
+         * @return current instance
+         */
+        @NotNull
+        public AllowedSelectionTypes customRange(boolean state) {
+            return setFlag(SelectionType.CUSTOM, state);
+        }
+
+        @NotNull
+        private AllowedSelectionTypes setFlag(int shift, boolean state) {
+            int bit = 1 << shift;
+            int newFlags = state ? (allowedSelectionFlags | bit) : (allowedSelectionFlags & ~bit);
+
+            setAllowedSelectionFlags(newFlags);
+
+            return this;
+        }
     }
 
     private static final String TAG = RangeCalendarView.class.getSimpleName();
@@ -135,6 +193,11 @@ public final class RangeCalendarView extends ViewGroup {
     private static final int ATTR_INT = 2;
     private static final int ATTR_FRACTION = 3;
     private static final int ATTR_BOOL = 4;
+
+    private static final int SELECTION_DAY_FLAG = 1 << SelectionType.CELL;
+    private static final int SELECTION_WEEK_FLAG = 1 << SelectionType.WEEK;
+    private static final int SELECTION_MONTH_FLAG = 1 << SelectionType.MONTH;
+    private static final int SELECTION_CUSTOM_FLAG = 1 << SelectionType.CUSTOM;
 
     private final ViewPager2 pager;
     private final ImageButton prevButton;
@@ -156,6 +219,13 @@ public final class RangeCalendarView extends ViewGroup {
 
     private int currentCalendarYm;
     private final RangeCalendarPagerAdapter adapter;
+
+    @Nullable
+    private AllowedSelectionTypes allowedSelectionTypesObj;
+    private int allowedSelectionFlags = SELECTION_DAY_FLAG |
+            SELECTION_WEEK_FLAG |
+            SELECTION_MONTH_FLAG |
+            SELECTION_CUSTOM_FLAG;
 
     private final int buttonSize;
     private final int hPadding;
@@ -250,47 +320,65 @@ public final class RangeCalendarView extends ViewGroup {
             }
 
             @Override
-            public void onDaySelected(int year, int month, int day) {
+            public boolean onDaySelected(int year, int month, int day) {
                 if (selectionView != null) {
                     startSelectionViewTransition(true);
                 }
 
+                if((allowedSelectionFlags & SELECTION_DAY_FLAG) == 0) {
+                    return false;
+                }
+
                 OnSelectionListener listener = onSelectionListener;
                 if (listener != null) {
-                    listener.onDaySelected(year, month, day);
+                    return listener.onDaySelected(year, month, day);
                 }
+
+                return true;
             }
 
             @Override
-            public void onWeekSelected(int weekIndex, int startYear, int startMonth, int startDay, int endYear, int endMonth, int endDay) {
+            public boolean onWeekSelected(int weekIndex, int startYear, int startMonth, int startDay, int endYear, int endMonth, int endDay) {
                 if (selectionView != null) {
                     startSelectionViewTransition(true);
                 }
 
+                if((allowedSelectionFlags & SELECTION_WEEK_FLAG) == 0) {
+                    return false;
+                }
+
                 OnSelectionListener listener = onSelectionListener;
                 if (listener != null) {
-                    listener.onWeekSelected(
+                    return listener.onWeekSelected(
                             weekIndex,
                             startYear, startMonth, startDay,
                             endYear, endMonth, endDay
                     );
                 }
+
+                return true;
             }
 
             @Override
-            public void onMonthSelected(int year, int month) {
+            public boolean onMonthSelected(int year, int month) {
                 if (selectionView != null) {
                     startSelectionViewTransition(true);
                 }
 
+                if((allowedSelectionFlags & SELECTION_MONTH_FLAG) == 0) {
+                    return false;
+                }
+
                 OnSelectionListener listener = onSelectionListener;
                 if (listener != null) {
-                    listener.onMonthSelected(year, month);
+                    return listener.onMonthSelected(year, month);
                 }
+
+                return true;
             }
 
             @Override
-            public void onCustomRangeSelected(
+            public boolean onCustomRangeSelected(
                     int startYear, int startMonth, int startDay,
                     int endYear, int endMonth, int endDay
             ) {
@@ -298,13 +386,19 @@ public final class RangeCalendarView extends ViewGroup {
                     startSelectionViewTransition(true);
                 }
 
+                if((allowedSelectionFlags & SELECTION_CUSTOM_FLAG) == 0) {
+                    return false;
+                }
+
                 OnSelectionListener listener = onSelectionListener;
                 if(listener != null) {
-                    listener.onCustomRangeSelected(
+                    return listener.onCustomRangeSelected(
                             startYear, startMonth, startDay,
                             endYear, endMonth, endDay
                     );
                 }
+
+                return true;
             }
         });
 
@@ -481,12 +575,6 @@ public final class RangeCalendarView extends ViewGroup {
                     a,
                     R.styleable.RangeCalendarView_rangeCalendar_roundRectRadiusRatio,
                     RangeCalendarPagerAdapter.STYLE_RR_RADIUS_RATIO
-            );
-
-            extractAndSetBoolAttribute(
-                    a,
-                    R.styleable.RangeCalendarView_rangeCalendar_allowCustomRanges,
-                    RangeCalendarPagerAdapter.STYLE_ALLOW_CUSTOM_RANGES
             );
             extractAndSetBoolAttribute(
                     a,
@@ -1417,21 +1505,6 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     /**
-     * Returns whether selecting custom ranges (by long press) is allowed. By default, it's true.
-     */
-    public boolean getAllowCustomRanges() {
-        return adapter.getStyleBool(RangeCalendarPagerAdapter.STYLE_ALLOW_CUSTOM_RANGES);
-    }
-
-    /**
-     * Sets whether selecting custom ranges (by long press) is allowed.
-     * If you disable custom ranges and custom range is selected, selection will be cleared.
-     */
-    public void setAllowCustomRanges(boolean state) {
-        adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_ALLOW_CUSTOM_RANGES, state);
-    }
-
-    /**
      * Returns whether device should vibrate when user starts to select custom range. By default, it's true.
      */
     public boolean getVibrateOnSelectingCustomRange() {
@@ -1716,6 +1789,40 @@ public final class RangeCalendarView extends ViewGroup {
      */
     public void clearSelection() {
         adapter.clearSelection();
+    }
+
+    /**
+     * Returns instance of object which encapsulates changing availability of selection types.
+     * <br/>
+     * Notes:
+     * <ul>
+     *     <li>
+     *         Each method is mutating and if you call, for example, {@code cell(false)} and cell is currently selected,
+     *         then selection will be cleared.
+     *         So, after {@code allowedSelectionTypes().cell(false).cell(true)}, when cell is selected,
+     *         selection will be cleared although it's enabled.
+     *     </li>
+     *     <li>
+     *         If selection type is disabled, it won't trigger the selection listener.
+     *     </li>
+     * </ul>
+     */
+    @NotNull
+    public AllowedSelectionTypes allowedSelectionTypes() {
+        if(allowedSelectionTypesObj == null) {
+            allowedSelectionTypesObj = new AllowedSelectionTypes();
+        }
+
+        return allowedSelectionTypesObj;
+    }
+
+    private void setAllowedSelectionFlags(int flags) {
+        allowedSelectionFlags = flags;
+
+        int selectionType = adapter.selectionType;
+        if(selectionType != SelectionType.NONE && (flags & (1 << selectionType)) == 0) {
+            clearSelection();
+        }
     }
 
     private void updateMoveButtons() {

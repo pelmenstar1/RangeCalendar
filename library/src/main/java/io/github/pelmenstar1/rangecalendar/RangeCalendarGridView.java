@@ -45,11 +45,9 @@ final class RangeCalendarGridView extends View {
     public interface OnSelectionListener {
         void onSelectionCleared();
 
-        void onCellSelected(int index);
-
-        void onWeekSelected(int weekIndex, int startIndex, int endIndex);
-
-        void onCustomRangeSelected(int startIndex, int endIndex);
+        boolean onCellSelected(int index);
+        boolean onWeekSelected(int weekIndex, int startIndex, int endIndex);
+        boolean onCustomRangeSelected(int startIndex, int endIndex);
     }
 
     private static final class Radii {
@@ -387,12 +385,9 @@ final class RangeCalendarGridView extends View {
     TimeInterpolator hoverAnimationInterpolator = TimeInterpolators.LINEAR;
 
     private final Vibrator vibrator;
-    private boolean allowCustomRanges = true;
     boolean vibrateOnSelectingCustomRange = true;
 
     private final LongPressHandler longPressHandler = new LongPressHandler(this);
-
-
 
     public RangeCalendarGridView(
             @NotNull Context context,
@@ -571,14 +566,6 @@ final class RangeCalendarGridView extends View {
         invalidate();
     }
 
-    public void setAllowCustomRanges(boolean state) {
-        allowCustomRanges = state;
-
-        if(selectionType == SelectionType.CUSTOM) {
-            clearSelection(true, true);
-        }
-    }
-
     private void reselect() {
         int savedSelectionType = selectionType;
         int savedSelectedCell = selectedCell;
@@ -656,15 +643,13 @@ final class RangeCalendarGridView extends View {
                         if (ShortRange.contains(enabledCellRange, index)) {
                             setHoverIndex(index);
 
-                            if(allowCustomRanges) {
-                                long time = e.getEventTime() + ViewConfiguration.getLongPressTimeout() +
-                                        ViewConfiguration.getTapTimeout();
+                            long time = e.getEventTime() + ViewConfiguration.getLongPressTimeout() +
+                                    ViewConfiguration.getTapTimeout();
 
-                                Message msg = Message.obtain();
-                                msg.arg1 = index;
+                            Message msg = Message.obtain();
+                            msg.arg1 = index;
 
-                                longPressHandler.sendMessageAtTime(msg, time);
-                            }
+                            longPressHandler.sendMessageAtTime(msg, time);
                         }
                     }
                     break;
@@ -691,17 +676,16 @@ final class RangeCalendarGridView extends View {
                     }
 
                     hoverIndex = -1;
-                    customRangeStartCell = -1;
-                    isSelectingCustomRange = false;
 
                     longPressHandler.removeCallbacksAndMessages(null);
+                    stopSelectingCustomRange();
 
                     break;
                 case MotionEvent.ACTION_CANCEL:
-                    clearHoverIndex();
                     longPressHandler.removeCallbacksAndMessages(null);
-                    customRangeStartCell = -1;
-                    isSelectingCustomRange = false;
+
+                    clearHoverIndex();
+                    stopSelectingCustomRange();
 
                     break;
                 case MotionEvent.ACTION_MOVE:
@@ -734,6 +718,11 @@ final class RangeCalendarGridView extends View {
         return true;
     }
 
+    private void stopSelectingCustomRange() {
+        isSelectingCustomRange = false;
+        customRangeStartCell = -1;
+    }
+
     private void onCellLongPress(int cell) {
         if(vibrateOnSelectingCustomRange) {
             if(Build.VERSION.SDK_INT >= 26) {
@@ -745,7 +734,7 @@ final class RangeCalendarGridView extends View {
 
         customRangeStartCell = cell;
         isSelectingCustomRange = true;
-        clearHoverIndex();
+
         selectCustom(ShortRange.create(cell, cell));
     }
 
@@ -825,6 +814,14 @@ final class RangeCalendarGridView extends View {
             return;
         }
 
+        OnSelectionListener listener = onSelectionListener;
+        if (listener != null) {
+            boolean allowed = listener.onCellSelected(index);
+            if(!allowed) {
+                return;
+            }
+        }
+
         if (hoverIndex >= 0) {
             clearHoverIndex();
         }
@@ -834,11 +831,6 @@ final class RangeCalendarGridView extends View {
 
         selectionType = SelectionType.CELL;
         selectedCell = index;
-
-        OnSelectionListener listener = onSelectionListener;
-        if (listener != null) {
-            listener.onCellSelected(index);
-        }
 
         if (doAnimation) {
             int animType = CELL_ALPHA_ANIMATION;
@@ -907,6 +899,14 @@ final class RangeCalendarGridView extends View {
             return;
         }
 
+        OnSelectionListener listener = onSelectionListener;
+        if (listener != null) {
+            boolean allowed = listener.onWeekSelected(weekIndex, start, end);
+            if(!allowed) {
+                return;
+            }
+        }
+
         prevSelectionType = selectionType;
 
         selectionType = SelectionType.WEEK;
@@ -914,11 +914,6 @@ final class RangeCalendarGridView extends View {
 
         prevSelectedRange = selectedRange;
         selectedRange = ShortRange.create(start, end);
-
-        OnSelectionListener listener = onSelectionListener;
-        if (listener != null) {
-            listener.onWeekSelected(weekIndex, start, end);
-        }
 
         if (doAnimation) {
             if (prevSelectionType == SelectionType.CELL && selectedCell >= start && selectedCell <= end) {
@@ -966,6 +961,20 @@ final class RangeCalendarGridView extends View {
     }
 
     public void selectCustom(int range) {
+        OnSelectionListener listener = onSelectionListener;
+        if (listener != null) {
+            boolean allowed = listener.onCustomRangeSelected(ShortRange.getStart(range), ShortRange.getEnd(range));
+            if(!allowed) {
+                stopSelectingCustomRange();
+
+                return;
+            }
+        }
+
+        // Clear hover here and not in onCellLongPress() because custom range might be disallowed and
+        // hover will be cleared but it shouldn't
+        clearHoverIndex();
+
         prevSelectionType = selectionType;
         selectionType = SelectionType.CUSTOM;
 
@@ -978,11 +987,6 @@ final class RangeCalendarGridView extends View {
             }
         } else if (prevSelectedRange == selectedRange) {
             return;
-        }
-
-        OnSelectionListener listener = onSelectionListener;
-        if (listener != null) {
-            listener.onCustomRangeSelected(ShortRange.getStart(range), ShortRange.getEnd(range));
         }
 
         invalidate();
@@ -1000,8 +1004,10 @@ final class RangeCalendarGridView extends View {
     }
 
     void clearHoverIndex() {
-        hoverIndex = -1;
-        startAnimation(HOVER_ANIMATION | ANIMATION_REVERSE_BIT);
+        if(hoverIndex >= 0) {
+            hoverIndex = -1;
+            startAnimation(HOVER_ANIMATION | ANIMATION_REVERSE_BIT);
+        }
     }
 
     public void clearSelection(boolean fireEvent, boolean doAnimation) {
