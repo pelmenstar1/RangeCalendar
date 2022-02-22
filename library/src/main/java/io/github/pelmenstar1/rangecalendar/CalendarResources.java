@@ -69,7 +69,12 @@ final class CalendarResources {
                 buffer[0] = (char) ('0' + day);
             } else {
                 textLength = 2;
-                StringUtils.writeTwoDigits(buffer, 0, day);
+
+                int d1 = day / 10;
+                int d2 = day - d1 * 10;
+
+                buffer[0] = (char)('0' + d1);
+                buffer[1] = (char)('0' + d2);
             }
 
             DAYS[i] = new String(buffer, 0, textLength);
