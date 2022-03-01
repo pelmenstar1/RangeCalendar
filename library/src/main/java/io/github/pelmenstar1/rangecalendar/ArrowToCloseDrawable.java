@@ -27,8 +27,6 @@ final class ArrowToCloseDrawable extends Drawable {
 
     private static final int[] ENABLED_STATE = new int[] { android.R.attr.state_enabled };
 
-    private static final Choreographer choreographer = Choreographer.getInstance();
-
     private final ColorStateList colorList;
     private final Paint paint;
     private int color;

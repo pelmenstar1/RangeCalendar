@@ -660,7 +660,7 @@ final class RangeCalendarGridView extends View {
                         int index = getGridIndexByPointOnScreen(x, y);
                         long touchTime = e.getDownTime();
 
-                        if (index >= 0) {
+                        if (ShortRange.contains(enabledCellRange, index)) {
                             if (lastTouchTime > 0 &&
                                     touchTime - lastTouchTime < DOUBLE_TOUCH_MAX_MILLIS &&
                                     lastTouchCell == index) {
@@ -811,6 +811,10 @@ final class RangeCalendarGridView extends View {
                 clearSelection(true, true);
             }
 
+            return;
+        }
+
+        if(!ShortRange.contains(enabledCellRange, index)) {
             return;
         }
 

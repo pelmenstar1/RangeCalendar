@@ -228,8 +228,9 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         today = date;
 
         int position = getItemPositionForDate(date);
-
-        notifyItemChanged(position, new Payload(PAYLOAD_UPDATE_TODAY_INDEX, date));
+        if(position >= 0 && position < count) {
+            notifyItemChanged(position, new Payload(PAYLOAD_UPDATE_TODAY_INDEX, date));
+        }
     }
 
     public int getStyleInt(int type) {
@@ -732,7 +733,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         int position = getItemPositionForYearMonth(ym);
 
         // position can be negative if selection is out of min-max range
-        if (position >= 0) {
+        if (position >= 0 && position < count) {
             long gridSelectionInfo = transformToGridSelection(position, type, data, withAnimation);
 
             if (type == SelectionType.MONTH) {

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="rangeCalendar_actionButtonSize">40dp</dimen>
-    <dimen name="rangeCalendar_weekdayRowMarginBottom">7dp</dimen>
+    <dimen name="rangeCalendar_weekdayRowMarginBottom">10dp</dimen>
     <dimen name="rangeCalendar_dayNumberTextSize">14sp</dimen>
     <dimen name="rangeCalendar_weekdayTextSize">15sp</dimen>
     <dimen name="rangeCalendar_topContainerMarginBottom">4dp</dimen>

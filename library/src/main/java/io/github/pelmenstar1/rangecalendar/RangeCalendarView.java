@@ -1487,6 +1487,8 @@ public final class RangeCalendarView extends ViewGroup {
         if(duration < 0) {
             throw new IllegalArgumentException("duration");
         }
+
+        adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_HOVER_ANIMATION_DURATION, duration);
     }
 
     /**
@@ -1593,11 +1595,13 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     private void setYearAndMonthInternal(int ym, boolean smoothScroll) {
-        currentCalendarYm = ym;
+        int position = adapter.getItemPositionForYearMonth(ym);
+        if(position >= 0 && position < adapter.getItemCount()) {
+            currentCalendarYm = ym;
 
-        int position = adapter.getItemPositionForYearMonth(currentCalendarYm);
-
-        pager.setCurrentItem(position, smoothScroll);
+            pager.setCurrentItem(position, smoothScroll);
+            updateMoveButtons();
+        }
     }
 
     /**
