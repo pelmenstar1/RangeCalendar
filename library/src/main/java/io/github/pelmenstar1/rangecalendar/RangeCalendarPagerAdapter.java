@@ -78,47 +78,59 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
     public static final int STYLE_COMMON_ANIMATION_DURATION = 14;
     public static final int STYLE_HOVER_ANIMATION_DURATION = 15;
     public static final int STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 16;
+    public static final int STYLE_GRID_GRADIENT_ENABLED = 17;
+    public static final int STYLE_GRID_GRADIENT_START_END_COLORS = 18;
 
     private static final int STYLE_OBJ_START = 32;
+
     public static final int STYLE_COMMON_ANIMATION_INTERPOLATOR = 32;
     public static final int STYLE_HOVER_ANIMATION_INTERPOLATOR = 33;
 
     private static final class Payload {
         private final int type;
-        private final long data;
+        private final long arg1;
+        private final long arg2;
 
-        private final Object dataObj;
+        private final Object argObj;
 
         public Payload(int type) {
-            this(type, 0L);
+            this(type, 0L, 0L);
         }
 
-        public Payload(int type, int data) {
-            this(type, (long) data);
+        public Payload(int type, int arg1) {
+            this(type, arg1, 0L);
         }
 
-        public Payload(int type, boolean data) {
-            this(type, data ? 1 : 0);
+        public Payload(int type, boolean arg1) {
+            this(type, arg1 ? 1 : 0, 0L);
         }
 
-        public Payload(int type, @Nullable Object dataObj) {
-            this(type, 0, dataObj);
+        public Payload(int type, @Nullable Object argObj) {
+            this(type, 0, argObj);
         }
 
-        public Payload(int type, long data) {
+        public Payload(int type, long arg1) {
+            this(type, arg1, 0);
+        }
+
+        public Payload(int type, long arg1, long arg2) {
             this.type = type;
-            this.data = data;
-            dataObj = null;
+            this.arg1 = arg1;
+            this.arg2 = arg2;
+
+            argObj = null;
         }
 
-        public Payload(int type, long data, @Nullable Object dataObj) {
+        public Payload(int type, long arg1, @Nullable Object argObj) {
             this.type = type;
-            this.data = data;
-            this.dataObj = dataObj;
+            this.arg1 = arg1;
+            this.arg2 = 0;
+
+            this.argObj = argObj;
         }
 
         public boolean bool() {
-            return data == 1;
+            return arg1 == 1;
         }
     }
 
@@ -157,8 +169,8 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
     private final CalendarInfo calendarInfo = new CalendarInfo();
 
-    private final int[] styleData = new int[17];
-    private final Object[] styleObjData = new Object[2];
+    private final long[] styleData = new long[19];
+    private final Object[] styleObjData = new Object[4];
 
     private RangeCalendarView.OnSelectionListener onSelectionListener;
 
@@ -202,6 +214,13 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         initStyle(STYLE_HOVER_ANIMATION_INTERPOLATOR, TimeInterpolators.LINEAR);
 
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true);
+
+        initStyle(STYLE_GRID_GRADIENT_ENABLED, true);
+        initStyle(STYLE_GRID_GRADIENT_START_END_COLORS, IntPair.create(cr.colorPrimary, cr.colorPrimaryDark));
+    }
+
+    private void initStyle(int type, long data) {
+        styleData[type] = data;
     }
 
     private void initStyle(int type, boolean data) {
@@ -228,21 +247,25 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         today = date;
 
         int position = getItemPositionForDate(date);
-        if(position >= 0 && position < count) {
+        if (position >= 0 && position < count) {
             notifyItemChanged(position, new Payload(PAYLOAD_UPDATE_TODAY_INDEX, date));
         }
     }
 
-    public int getStyleInt(int type) {
+    public long getStyleLong(int type) {
         return styleData[type];
     }
 
+    public int getStyleInt(int type) {
+        return (int)getStyleLong(type);
+    }
+
     public boolean getStyleBool(int type) {
-        return styleData[type] == 1;
+        return getStyleLong(type) == 1;
     }
 
     public float getStyleFloat(int type) {
-        return Float.floatToIntBits(styleData[type]);
+        return Float.floatToIntBits(getStyleInt(type));
     }
 
     @SuppressWarnings("unchecked")
@@ -255,13 +278,21 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
     }
 
     public void setStyleInt(int type, int value, boolean notify) {
+        setStyleLong(type, value, notify);
+    }
+
+    public void setStyleLong(int type, long value) {
+        setStyleLong(type, value, true);
+    }
+
+    public void setStyleLong(int type, long value, boolean notify) {
         styleData[type] = value;
 
         if (notify) {
             notifyItemRangeChanged(
                     0,
                     count,
-                    new Payload(PAYLOAD_UPDATE_STYLE, IntPair.create(type, value))
+                    new Payload(PAYLOAD_UPDATE_STYLE, type, value)
             );
         }
     }
@@ -294,10 +325,11 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
     private void updateStyle(
             @NotNull RangeCalendarGridView gridView,
-            int type, int data
+            int type, long data
     ) {
+        int i = (int)data;
         boolean b = data == 1;
-        float f = Float.intBitsToFloat(data);
+        float f = Float.intBitsToFloat(i);
 
         switch (type) {
             case STYLE_DAY_NUMBER_TEXT_SIZE:
@@ -308,28 +340,28 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                 break;
 
             case STYLE_SELECTION_COLOR:
-                gridView.setSelectionColor(data);
+                gridView.setSelectionColor(i);
                 break;
             case STYLE_IN_MONTH_DAY_NUMBER_COLOR:
-                gridView.setInMonthDayNumberColor(data);
+                gridView.setInMonthDayNumberColor(i);
                 break;
             case STYLE_OUT_MONTH_DAY_NUMBER_COLOR:
-                gridView.setOutMonthDayNumberColor(data);
+                gridView.setOutMonthDayNumberColor(i);
                 break;
             case STYLE_DISABLED_DAY_NUMBER_COLOR:
-                gridView.setDisabledDayNumberColor(data);
+                gridView.setDisabledDayNumberColor(i);
                 break;
             case STYLE_TODAY_COLOR:
-                gridView.setTodayColor(data);
+                gridView.setTodayColor(i);
                 break;
             case STYLE_WEEKDAY_COLOR:
-                gridView.setDayNameColor(data);
+                gridView.setDayNameColor(i);
                 break;
             case STYLE_HOVER_COLOR:
-                gridView.setHoverColor(data);
+                gridView.setHoverColor(i);
                 break;
             case STYLE_HOVER_ON_SELECTION_COLOR:
-                gridView.setHoverOnSelectionColor(data);
+                gridView.setHoverOnSelectionColor(i);
                 break;
 
             case STYLE_RR_RADIUS_RATIO:
@@ -339,20 +371,29 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
                 gridView.setCellSize(f);
                 break;
             case STYLE_WEEKDAY_TYPE:
-                gridView.setWeekdayType(data);
+                gridView.setWeekdayType(i);
                 break;
             case STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR:
-                gridView.clickOnCellSelectionBehavior = data;
+                gridView.clickOnCellSelectionBehavior = i;
                 break;
             case STYLE_COMMON_ANIMATION_DURATION:
-                gridView.commonAnimationDuration = data;
+                gridView.commonAnimationDuration = i;
                 break;
             case STYLE_HOVER_ANIMATION_DURATION:
-                gridView.hoverAnimationDuration = data;
+                gridView.hoverAnimationDuration = i;
                 break;
 
             case STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE:
                 gridView.vibrateOnSelectingCustomRange = b;
+                break;
+            case STYLE_GRID_GRADIENT_ENABLED:
+                gridView.setGradientEnabled(b);
+                break;
+            case STYLE_GRID_GRADIENT_START_END_COLORS:
+                int start = IntPair.getFirst(data);
+                int end = IntPair.getSecond(data);
+
+                gridView.setGradientColors(start, end);
                 break;
         }
     }
@@ -738,10 +779,10 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
             if (type == SelectionType.MONTH) {
                 boolean allowed = onMonthSelected(selectionYm, ym);
-                if(!allowed) {
+                if (!allowed) {
                     return;
                 }
-            } else if(type == SelectionType.CUSTOM) {
+            } else if (type == SelectionType.CUSTOM) {
                 verifyCustomRange(data);
             }
 
@@ -761,7 +802,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
         if (type == SelectionType.MONTH) {
             boolean allowed = onMonthSelected(selectionYm, ym);
-            if(!allowed) {
+            if (!allowed) {
                 return;
             }
         }
@@ -778,7 +819,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
         int start = IntRange.getStart(range);
         int end = IntRange.getEnd(range);
 
-        if(YearMonth.forDate(start) != YearMonth.forDate(end)) {
+        if (YearMonth.forDate(start) != YearMonth.forDate(end)) {
             throw new IllegalArgumentException("Calendar page position for start date of the range differ from calendar page position for the end");
         }
     }
@@ -874,7 +915,7 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
                     break;
                 case PAYLOAD_SELECT:
-                    gridView.select(payload.data);
+                    gridView.select(payload.arg1);
 
                     break;
                 case PAYLOAD_UPDATE_TODAY_INDEX:
@@ -883,12 +924,11 @@ final class RangeCalendarPagerAdapter extends RecyclerView.Adapter<RangeCalendar
 
                     break;
                 case PAYLOAD_UPDATE_STYLE:
-                    long packed = payload.data;
-                    int type = IntPair.getFirst(packed);
-                    int value = IntPair.getSecond(packed);
+                    int type = (int)payload.arg1;
+                    long value = payload.arg2;
 
                     if (type >= STYLE_OBJ_START) {
-                        updateStyle(gridView, type, payload.dataObj);
+                        updateStyle(gridView, type, payload.argObj);
                     } else {
                         updateStyle(gridView, type, value);
                     }

@@ -1520,6 +1520,35 @@ public final class RangeCalendarView extends ViewGroup {
         adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, state);
     }
 
+    public boolean getGridGradientEnabled() {
+        return adapter.getStyleBool(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_ENABLED);
+    }
+
+    public void setGridGradientEnabled(boolean state) {
+        adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_ENABLED, state);
+    }
+
+    private long getGradientStartEndColorPair() {
+        return adapter.getStyleLong(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS);
+    }
+
+    @ColorInt
+    public int getGradientStartColor() {
+        return IntPair.getFirst(getGradientStartEndColorPair());
+    }
+
+    @ColorInt
+    public int getGradientEndColor() {
+        return IntPair.getSecond(getGradientStartEndColorPair());
+    }
+
+    public void setGradientColors(@ColorInt int start, @ColorInt int end) {
+        adapter.setStyleLong(
+                RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS,
+                IntPair.create(start, end)
+        );
+    }
+
     /**
      * Moves (if it's possible) to previous month with animation.
      *

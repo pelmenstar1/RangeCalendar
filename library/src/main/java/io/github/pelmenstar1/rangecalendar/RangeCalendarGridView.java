@@ -7,10 +7,12 @@ import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
@@ -387,6 +389,11 @@ final class RangeCalendarGridView extends View {
     private final Vibrator vibrator;
     boolean vibrateOnSelectingCustomRange = true;
 
+    @Nullable
+    private LinearGradient gradient;
+
+    private int[] gradientColors;
+
     private final LongPressHandler longPressHandler = new LongPressHandler(this);
 
     public RangeCalendarGridView(
@@ -566,6 +573,50 @@ final class RangeCalendarGridView extends View {
         invalidate();
     }
 
+    public void setGradientEnabled(boolean state) {
+        if(state) {
+            if(gradientColors == null) {
+                gradientColors = new int[] { cr.colorPrimary, cr.colorPrimaryDark };
+            }
+
+            updateGradient();
+        } else {
+            // Don't clear gradientColors because it should be used if gradient is enabled next time.
+            selectionPaint.setShader(null);
+            gradient = null;
+
+            invalidate();
+        }
+    }
+
+    public void setGradientColors(@ColorInt int start, @ColorInt int end) {
+        if(gradientColors == null) {
+            gradientColors = new int[2];
+        }
+
+        if(gradientColors[0] != start || gradientColors[1] != end) {
+            gradientColors[0] = start;
+            gradientColors[1] = end;
+
+            updateGradient();
+        }
+    }
+
+    private void updateGradient() {
+        float fw = getWidth();
+        float fh = getHeight();
+
+        this.gradient = new LinearGradient(
+                cr.hPadding, gridTop(),
+                fw - cr.hPadding, fh,
+                gradientColors, null,
+                Shader.TileMode.CLAMP
+        );
+        selectionPaint.setShader(gradient);
+
+        invalidate();
+    }
+
     private void reselect() {
         int savedSelectionType = selectionType;
         int savedSelectedCell = selectedCell;
@@ -619,6 +670,10 @@ final class RangeCalendarGridView extends View {
 
         if (selectionType == SelectionType.MONTH) {
             forceResetCustomPath();
+        }
+
+        if(gradient != null) {
+            updateGradient();
         }
     }
 
