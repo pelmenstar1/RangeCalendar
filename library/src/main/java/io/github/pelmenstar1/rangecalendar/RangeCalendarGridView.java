@@ -1268,7 +1268,7 @@ final class RangeCalendarGridView extends View {
         float startRadius = halfCellSize;
         float finalRadius = getCircleRadiusForMonthAnimation(startX, startY);
 
-        float currentRadius = MathUtils.fraction(startRadius, finalRadius, animFraction);
+        float currentRadius = MathUtils.lerp(startRadius, finalRadius, animFraction);
 
         int count = c.save();
         c.clipPath(customRangePath);

@@ -1,5 +1,7 @@
 package io.github.pelmenstar1.rangecalendar;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.content.BroadcastReceiver;
@@ -256,7 +258,8 @@ public final class RangeCalendarView extends ViewGroup {
     @NotNull
     private CalendarSelectionViewLayoutParams svLayoutParams = CalendarSelectionViewLayoutParams.DEFAULT;
 
-    private final ArrowToCloseDrawable nextIcon;
+    private final MoveButtonDrawable prevIcon;
+    private final MoveButtonDrawable nextIcon;
 
     private boolean isFirstDaySunday;
 
@@ -292,7 +295,6 @@ public final class RangeCalendarView extends ViewGroup {
         Resources.Theme theme = context.getTheme();
 
         buttonSize = res.getDimensionPixelSize(R.dimen.rangeCalendar_actionButtonSize);
-
         topContainerMarginBottom = res.getDimensionPixelOffset(R.dimen.rangeCalendar_topContainerMarginBottom);
 
         initLocaleDependentValues();
@@ -443,19 +445,26 @@ public final class RangeCalendarView extends ViewGroup {
             }
         });
 
-        ArrowToCloseDrawable leftIcon = new ArrowToCloseDrawable(
-                context, cr.colorControlNormal, ArrowToCloseDrawable.DIRECTION_LEFT
+        prevIcon = new MoveButtonDrawable(
+                context, cr.colorControlNormal,
+                MoveButtonDrawable.DIRECTION_LEFT, MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
+        );
+        prevIcon.setAnimationFraction(1f);
+
+        nextIcon = new MoveButtonDrawable(
+                context, cr.colorControlNormal,
+                MoveButtonDrawable.DIRECTION_RIGHT, MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CLOSE
         );
 
-        nextIcon = new ArrowToCloseDrawable(
-                context, cr.colorControlNormal, ArrowToCloseDrawable.DIRECTION_RIGHT
-        );
+        long stateChangeDuration = SV_TRANSITION_DURATION / 2;
+        prevIcon.setStateChangeDuration(stateChangeDuration);
+        nextIcon.setStateChangeDuration(stateChangeDuration);
 
         nextMonthDescription = res.getString(R.string.nextMonthDescription);
         clearSelectionDescription = res.getString(R.string.clearSelectionDescription);
 
         prevButton = new AppCompatImageButton(context);
-        prevButton.setImageDrawable(leftIcon);
+        prevButton.setImageDrawable(prevIcon);
         prevButton.setOnClickListener(v -> moveToPreviousMonth());
         prevButton.setContentDescription(res.getString(R.string.previousMonthDescription));
 
@@ -888,6 +897,10 @@ public final class RangeCalendarView extends ViewGroup {
      */
     public void setSelectionViewTransitionDuration(long duration) {
         this.svTransitionDuration = duration;
+
+        long stateChangeDuration = duration / 2;
+        prevIcon.setStateChangeDuration(stateChangeDuration);
+        nextIcon.setStateChangeDuration(stateChangeDuration);
     }
 
     @NotNull
@@ -948,7 +961,6 @@ public final class RangeCalendarView extends ViewGroup {
 
             if(hasSvClearButton) {
                 nextOrClearButton.setContentDescription(clearSelectionDescription);
-                prevButton.setVisibility(INVISIBLE);
             }
         } else {
             sv.setVisibility(INVISIBLE);
@@ -956,7 +968,6 @@ public final class RangeCalendarView extends ViewGroup {
 
             if(hasSvClearButton) {
                 nextOrClearButton.setContentDescription(nextMonthDescription);
-                prevButton.setVisibility(VISIBLE);
             }
         }
 
@@ -973,6 +984,21 @@ public final class RangeCalendarView extends ViewGroup {
 
         if(svAnimator == null) {
             svAnimator = AnimationHelper.createFractionAnimator(this::onSVTransitionTick);
+            svAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+                    if (!isSvTransitionForward) {
+                        prevButton.setVisibility(VISIBLE);
+                    }
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    if (isSvTransitionForward) {
+                        prevButton.setVisibility(GONE);
+                    }
+                }
+            });
         }
 
         isSvTransitionForward = forward;
@@ -1002,15 +1028,12 @@ public final class RangeCalendarView extends ViewGroup {
         View sv = selectionView;
 
         if(hasSvClearButton) {
-            nextIcon.onAnimationFraction(fraction);
+            prevIcon.setAnimationFraction(1f - fraction);
+            nextIcon.setAnimationFraction(fraction);
         }
 
         if (fraction < 0.5f) {
             float f = fraction * -2f;
-
-            if(hasSvClearButton) {
-                prevButton.setTranslationY(prevButton.getBottom() * f);
-            }
 
             infoView.setTranslationY(infoView.getBottom() * f);
 
