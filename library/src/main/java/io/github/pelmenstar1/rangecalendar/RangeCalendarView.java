@@ -719,8 +719,10 @@ public final class RangeCalendarView extends ViewGroup {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
 
-        unregisterReceiver();
-        isReceiverRegistered = false;
+        if(isReceiverRegistered) {
+            unregisterReceiver();
+            isReceiverRegistered = false;
+        }
     }
 
     @Override
