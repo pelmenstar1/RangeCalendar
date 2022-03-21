@@ -323,17 +323,21 @@ public final class RangeCalendarView extends ViewGroup {
 
             @Override
             public boolean onDaySelected(int year, int month, int day) {
-                if (selectionView != null) {
-                    startSelectionViewTransition(true);
-                }
-
                 if((allowedSelectionFlags & SELECTION_DAY_FLAG) == 0) {
                     return false;
                 }
 
                 OnSelectionListener listener = onSelectionListener;
                 if (listener != null) {
-                    return listener.onDaySelected(year, month, day);
+                    boolean allowed = listener.onDaySelected(year, month, day);
+
+                    if (allowed) {
+                        startSelectionViewTransition(true);
+                    }
+
+                    return allowed;
+                } else {
+                    startSelectionViewTransition(true);
                 }
 
                 return true;
@@ -341,21 +345,25 @@ public final class RangeCalendarView extends ViewGroup {
 
             @Override
             public boolean onWeekSelected(int weekIndex, int startYear, int startMonth, int startDay, int endYear, int endMonth, int endDay) {
-                if (selectionView != null) {
-                    startSelectionViewTransition(true);
-                }
-
                 if((allowedSelectionFlags & SELECTION_WEEK_FLAG) == 0) {
                     return false;
                 }
 
                 OnSelectionListener listener = onSelectionListener;
                 if (listener != null) {
-                    return listener.onWeekSelected(
+                    boolean allowed = listener.onWeekSelected(
                             weekIndex,
                             startYear, startMonth, startDay,
                             endYear, endMonth, endDay
                     );
+
+                    if (allowed) {
+                        startSelectionViewTransition(true);
+                    }
+
+                    return allowed;
+                } else {
+                    startSelectionViewTransition(true);
                 }
 
                 return true;
@@ -363,17 +371,21 @@ public final class RangeCalendarView extends ViewGroup {
 
             @Override
             public boolean onMonthSelected(int year, int month) {
-                if (selectionView != null) {
-                    startSelectionViewTransition(true);
-                }
-
                 if((allowedSelectionFlags & SELECTION_MONTH_FLAG) == 0) {
                     return false;
                 }
 
                 OnSelectionListener listener = onSelectionListener;
                 if (listener != null) {
-                    return listener.onMonthSelected(year, month);
+                    boolean allowed = listener.onMonthSelected(year, month);
+
+                    if (allowed) {
+                        startSelectionViewTransition(true);
+                    }
+
+                    return allowed;
+                } else {
+                    startSelectionViewTransition(true);
                 }
 
                 return true;
@@ -384,20 +396,24 @@ public final class RangeCalendarView extends ViewGroup {
                     int startYear, int startMonth, int startDay,
                     int endYear, int endMonth, int endDay
             ) {
-                if(selectionView != null) {
-                    startSelectionViewTransition(true);
-                }
-
                 if((allowedSelectionFlags & SELECTION_CUSTOM_FLAG) == 0) {
                     return false;
                 }
 
                 OnSelectionListener listener = onSelectionListener;
                 if(listener != null) {
-                    return listener.onCustomRangeSelected(
+                    boolean allowed = listener.onCustomRangeSelected(
                             startYear, startMonth, startDay,
                             endYear, endMonth, endDay
                     );
+
+                    if(allowed) {
+                        startSelectionViewTransition(true);
+                    }
+
+                    return allowed;
+                } else {
+                    startSelectionViewTransition(true);
                 }
 
                 return true;
@@ -977,6 +993,10 @@ public final class RangeCalendarView extends ViewGroup {
     }
 
     private void startSelectionViewTransition(boolean forward) {
+        if(selectionView == null) {
+            return;
+        }
+
         // Don't continue if we want to show selection view and it's already shown and vise versa,
         // but continue if animation is currently running and direction of current animation is not equals to new one.
         if (svAnimator != null && (!svAnimator.isRunning() || isSvTransitionForward == forward) &&

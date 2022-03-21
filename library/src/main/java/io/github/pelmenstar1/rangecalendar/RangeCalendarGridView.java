@@ -648,7 +648,7 @@ final class RangeCalendarGridView extends View {
                 selectMonth(true, true);
                 break;
             case SelectionType.CUSTOM:
-                selectCustom(savedRange);
+                selectCustom(savedRange, false);
         }
     }
 
@@ -778,7 +778,7 @@ final class RangeCalendarGridView extends View {
                         }
 
                         if (selectedRange != newRange) {
-                            selectCustom(newRange);
+                            selectCustom(newRange, false);
                         }
                     }
 
@@ -797,18 +797,10 @@ final class RangeCalendarGridView extends View {
     }
 
     private void onCellLongPress(int cell) {
-        if(vibrateOnSelectingCustomRange) {
-            if(Build.VERSION.SDK_INT >= 26) {
-                vibrator.vibrate(VibrationEffect.createOneShot(VIBRATE_DURATION,  VibrationEffect.DEFAULT_AMPLITUDE));
-            } else {
-                vibrator.vibrate(VIBRATE_DURATION);
-            }
-        }
-
         customRangeStartCell = cell;
         isSelectingCustomRange = true;
 
-        selectCustom(ShortRange.create(cell, cell));
+        selectCustom(ShortRange.create(cell, cell), true);
     }
 
     @Override
@@ -869,7 +861,7 @@ final class RangeCalendarGridView extends View {
                 selectMonth(doAnimation);
                 break;
             case SelectionType.CUSTOM:
-                selectCustom(data);
+                selectCustom(data, false);
                 break;
         }
     }
@@ -1037,7 +1029,7 @@ final class RangeCalendarGridView extends View {
         }
     }
 
-    public void selectCustom(int range) {
+    public void selectCustom(int range, boolean startSelecting) {
         OnSelectionListener listener = onSelectionListener;
         if (listener != null) {
             boolean allowed = listener.onCustomRangeSelected(ShortRange.getStart(range), ShortRange.getEnd(range));
@@ -1045,6 +1037,14 @@ final class RangeCalendarGridView extends View {
                 stopSelectingCustomRange();
 
                 return;
+            }
+        }
+
+        if(vibrateOnSelectingCustomRange && startSelecting) {
+            if (Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(VibrationEffect.createOneShot(VIBRATE_DURATION, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                vibrator.vibrate(VIBRATE_DURATION);
             }
         }
 
