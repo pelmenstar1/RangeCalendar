@@ -8,8 +8,6 @@ import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.view.Choreographer;
@@ -20,6 +18,23 @@ import androidx.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 
 final class MoveButtonDrawable extends Drawable {
+    private static final class AnimationState {
+        private int startColor;
+        private int endColor;
+
+        private boolean isRunning;
+        private boolean isCancelledBecauseOfQueue;
+
+        public void set(@NotNull AnimationState other) {
+            set(other.startColor, other.endColor);
+        }
+
+        public void set(int startColor, int endColor) {
+            this.startColor = startColor;
+            this.endColor = endColor;
+        }
+    }
+
     public static final int DIRECTION_LEFT = 0;
     public static final int DIRECTION_RIGHT = 1;
 
@@ -28,13 +43,12 @@ final class MoveButtonDrawable extends Drawable {
 
     private static final int MIN_VISIBLE_ALPHA = 40;
 
-    private static final int[] ENABLED_STATE = new int[] { android.R.attr.state_enabled };
+    private static final int[] ENABLED_STATE = new int[]{android.R.attr.state_enabled};
     private static final Choreographer choreographer = Choreographer.getInstance();
 
     private final ColorStateList colorList;
     private final Paint paint;
 
-    private int prevColor;
     private int color;
 
     private final int size;
@@ -51,10 +65,13 @@ final class MoveButtonDrawable extends Drawable {
     private float invStateChangeDuration;
     private long stateChangeStartTime;
 
+    private AnimationState currentAnimationState;
+    private AnimationState queuedAnimationState;
+
     private final Choreographer.FrameCallback stateChangeAnimTickCb = this::onStateChangeAnimTick;
     private final Choreographer.FrameCallback startStateChangeAnimCb = time -> {
         stateChangeStartTime = time;
-        onStateChangeAnimTickFraction(0f);
+        setPaintColor(currentAnimationState.startColor);
 
         choreographer.postFrameCallback(stateChangeAnimTickCb);
     };
@@ -74,13 +91,9 @@ final class MoveButtonDrawable extends Drawable {
         strokeWidth = res.getDimension(R.dimen.rangeCalendar_arrowStrokeWidth);
         size = res.getDimensionPixelSize(R.dimen.rangeCalendar_arrowSize);
 
-        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         color = colorList.getColorForState(ENABLED_STATE, 0);
 
-        // Lines have intersection point in the center. But if stroke color has alpha,
-        // then pixels of the intersection point will be brighter than other pixels.
-        // But this behavior can be controlled by Paint.setXfermode
-        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setColor(color);
         paint.setStrokeWidth(strokeWidth);
     }
@@ -94,25 +107,66 @@ final class MoveButtonDrawable extends Drawable {
 
     public void setStateChangeDuration(long millis) {
         // convert to nanos and then, invert
-        invStateChangeDuration = 1f / (1_000_000 * millis);
+        invStateChangeDuration = 1f / (float)(1_000_000 * millis);
     }
 
     private void onStateChangeAnimTick(long time) {
-        float fraction = (time - stateChangeStartTime) * invStateChangeDuration;
+        // currentAnimationState can't be null, because the animation has started
+        if (!currentAnimationState.isRunning && currentAnimationState.isCancelledBecauseOfQueue) {
+            currentAnimationState.isRunning = true;
+            currentAnimationState.isCancelledBecauseOfQueue = false;
 
-        if(fraction >= 1f) {
-            onStateChangeAnimTickFraction(1f);
-        } else {
-            onStateChangeAnimTickFraction(fraction);
+            // if current animation state is cancelled because of another state staying in a queue, that
+            // means queuedAnimationState can't be null
+            currentAnimationState.set(queuedAnimationState);
+            stateChangeStartTime = time;
+
+            setPaintColor(currentAnimationState.startColor);
 
             choreographer.postFrameCallback(stateChangeAnimTickCb);
+        } else {
+            float fraction = (float) (time - stateChangeStartTime) * invStateChangeDuration;
+
+            if (fraction >= 1f) {
+                onStateChangeAnimTickFraction(1f);
+
+                currentAnimationState.isRunning = false;
+            } else {
+                onStateChangeAnimTickFraction(fraction);
+
+                choreographer.postFrameCallback(stateChangeAnimTickCb);
+            }
+        }
+    }
+
+    private void startStateChangeAnimation(int startColor, int endColor) {
+        if (currentAnimationState != null && currentAnimationState.isRunning) {
+            currentAnimationState.isRunning = false;
+            currentAnimationState.isCancelledBecauseOfQueue = true;
+
+            if (queuedAnimationState == null) {
+                queuedAnimationState = new AnimationState();
+            }
+
+            queuedAnimationState.set(startColor, endColor);
+        } else {
+            if(currentAnimationState == null) {
+                currentAnimationState = new AnimationState();
+            }
+
+            currentAnimationState.set(startColor, endColor);
+            choreographer.postFrameCallback(startStateChangeAnimCb);
         }
     }
 
     private void onStateChangeAnimTickFraction(float fraction) {
-        int c = MathUtils.colorLerp(prevColor, color, fraction);
+        int c = MathUtils.colorLerp(currentAnimationState.startColor, currentAnimationState.endColor, fraction);
 
-        paint.setColor(c);
+        setPaintColor(c);
+    }
+
+    private void setPaintColor(int color) {
+        paint.setColor(color);
         invalidateSelf();
     }
 
@@ -136,34 +190,37 @@ final class MoveButtonDrawable extends Drawable {
 
         float[] points = linePoints;
 
-        if(animationType == ANIM_TYPE_ARROW_TO_CLOSE) {
-            float line1EndY = MathUtils.lerp(midY, actualBottom, fraction);
-            float line2EndY = MathUtils.lerp(midY, actualTop, fraction);
+        if (animationType == ANIM_TYPE_ARROW_TO_CLOSE) {
+            float line1EndY = MathUtils.lerp(midY - halfStrokeWidth + 0.5f, actualBottom, fraction);
+            float line2EndY = MathUtils.lerp(midY - halfStrokeWidth, actualTop, fraction);
 
-            float lineEndX;
+            float line1EndX;
+            float line2EndX;
             float anchorX;
 
             if (direction == DIRECTION_RIGHT) {
-                lineEndX = MathUtils.lerp(midX, actualRight, fraction);
+                line1EndX = MathUtils.lerp(midX - halfStrokeWidth + 1, actualRight, fraction);
+                line2EndX = MathUtils.lerp(midX + halfStrokeWidth, actualRight, fraction);
                 anchorX = actualLeft;
             } else {
-                lineEndX = MathUtils.lerp(midX, actualLeft, fraction);
+                line1EndX = MathUtils.lerp(midX - halfStrokeWidth, actualLeft, fraction);
+                line2EndX = MathUtils.lerp(midX - halfStrokeWidth, actualLeft, fraction);
                 anchorX = actualRight;
             }
 
             points[0] = anchorX;
             points[1] = actualTop;
-            points[2] = lineEndX;
+            points[2] = line1EndX;
             points[3] = line1EndY;
 
             points[4] = anchorX;
             points[5] = actualBottom;
-            points[6] = lineEndX;
+            points[6] = line2EndX;
             points[7] = line2EndY;
         } else {
             float anchorX = direction == DIRECTION_LEFT ? actualRight : actualLeft;
 
-            if(fraction <= 0.5f) {
+            if (fraction <= 0.5f) {
                 float sFr = fraction * 2f;
 
                 points[0] = anchorX;
@@ -178,13 +235,13 @@ final class MoveButtonDrawable extends Drawable {
 
                 points[0] = anchorX;
                 points[1] = actualBottom;
-                points[2] = midX;
-                points[3] = midY;
+                points[2] = midX - halfStrokeWidth;
+                points[3] = midY - halfStrokeWidth;
 
-                points[4] = midX;
-                points[5] = midY;
-                points[6] = MathUtils.lerp(midX, anchorX, sFr);
-                points[7] = MathUtils.lerp(midY, actualTop, sFr);
+                points[4] = midX + halfStrokeWidth - 2.5f;
+                points[5] = midY - halfStrokeWidth - 0.5f;
+                points[6] = MathUtils.lerp(points[4], anchorX, sFr);
+                points[7] = MathUtils.lerp(points[5], actualTop, sFr);
 
                 linePointsLength = 8;
             }
@@ -193,7 +250,7 @@ final class MoveButtonDrawable extends Drawable {
 
     @Override
     protected void onBoundsChange(Rect bounds) {
-       computeLinePoints();
+        computeLinePoints();
     }
 
     @Override
@@ -201,10 +258,10 @@ final class MoveButtonDrawable extends Drawable {
         int oldColor = color;
         int newColor = colorList.getColorForState(state, colorList.getDefaultColor());
 
-        if(oldColor != newColor) {
-            prevColor = oldColor;
+        if (oldColor != newColor) {
             color = newColor;
-            choreographer.postFrameCallback(startStateChangeAnimCb);
+
+            startStateChangeAnimation(oldColor, newColor);
 
             return true;
         } else {
@@ -219,29 +276,17 @@ final class MoveButtonDrawable extends Drawable {
 
     @Override
     public void draw(@NonNull Canvas c) {
-        c.drawLines(linePoints, 0, linePointsLength, paint);
-
-        if(animationType == ANIM_TYPE_ARROW_TO_CLOSE ||
-                (animationType == ANIM_TYPE_VOID_TO_ARROW && animationFraction >= 0.5f)) {
-            Rect bounds = getBounds();
-
-            float cx = bounds.centerX();
-            float cy = bounds.centerY();
-            float radius = strokeWidth * 0.5f;
-
-            c.drawCircle(cx, cy, radius, paint);
+        float[] points = linePoints;
+        if (linePointsLength == 4) {
+            c.drawLine(points[0], points[1], points[2], points[3], paint);
+        } else {
+            c.drawLines(points, 0, linePointsLength, paint);
         }
     }
 
     @Override
     public void setAlpha(int alpha) {
-        // With PorterDuff.Mode.SRC, Stranger Things is happening when alpha is less than about 40.
-        // Color become black, despite the documentation of PorterDuff.Mode.SRC.
-        // So, constrain alpha to be from 40 to original alpha of color
-        int constrained = MIN_VISIBLE_ALPHA + ((alpha * (Color.alpha(color) - MIN_VISIBLE_ALPHA)) / 255);
-
-        paint.setColor(ColorHelper.withAlpha(color, constrained));
-        invalidateSelf();
+        setPaintColor(ColorHelper.withAlpha(color, alpha));
     }
 
     @Nullable
