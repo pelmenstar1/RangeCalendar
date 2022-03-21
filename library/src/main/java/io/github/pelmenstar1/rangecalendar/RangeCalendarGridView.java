@@ -249,10 +249,10 @@ final class RangeCalendarGridView extends View {
         }
     }
 
-    private static final class LongPressHandler extends Handler {
+    private static final class PressTimeoutHandler extends Handler {
         private final WeakReference<RangeCalendarGridView> ref;
 
-        public LongPressHandler(@NotNull RangeCalendarGridView gridView) {
+        public PressTimeoutHandler(@NotNull RangeCalendarGridView gridView) {
             super(Looper.getMainLooper());
 
             ref = new WeakReference<>(gridView);
@@ -265,11 +265,22 @@ final class RangeCalendarGridView extends View {
                 return;
             }
 
-            obj.onCellLongPress(msg.arg1);
+            switch (msg.what) {
+                case MSG_LONG_PRESS:
+                    obj.onCellLongPress(msg.arg1);
+                    break;
+                case MSG_HOVER_PRESS:
+                    obj.setHoverIndex(msg.arg1);
+                    break;
+            }
+
         }
     }
 
     public static final float DEFAULT_RR_RADIUS_RATIO = 0.5f;
+
+    private static final int MSG_LONG_PRESS = 0;
+    private static final int MSG_HOVER_PRESS = 1;
 
     private static final int CELL_IN_MONTH = 0;
     private static final int CELL_OUT_MONTH = 1;
@@ -285,6 +296,7 @@ final class RangeCalendarGridView extends View {
 
     public static final int DEFAULT_COMMON_ANIM_DURATION = 250;
     public static final int DEFAULT_HOVER_ANIM_DURATION = 100;
+    private static final int HOVER_DELAY = ViewConfiguration.getTapTimeout();
     private static final long DOUBLE_TOUCH_MAX_MILLIS = 500;
     private static final int VIBRATE_DURATION = 50;
 
@@ -394,7 +406,7 @@ final class RangeCalendarGridView extends View {
 
     private int[] gradientColors;
 
-    private final LongPressHandler longPressHandler = new LongPressHandler(this);
+    private final PressTimeoutHandler pressTimeoutHandler = new PressTimeoutHandler(this);
 
     public RangeCalendarGridView(
             @NotNull Context context,
@@ -696,15 +708,21 @@ final class RangeCalendarGridView extends View {
                         int index = getGridIndexByPointOnScreen(x, y);
 
                         if (ShortRange.contains(enabledCellRange, index)) {
-                            setHoverIndex(index);
+                            long eTime = e.getEventTime();
+                            long longPressTime = eTime + ViewConfiguration.getLongPressTimeout();
+                            long hoverTime = eTime + HOVER_DELAY;
 
-                            long time = e.getEventTime() + ViewConfiguration.getLongPressTimeout() +
-                                    ViewConfiguration.getTapTimeout();
+                            Message msg1 = Message.obtain();
+                            Message msg2 = Message.obtain();
 
-                            Message msg = Message.obtain();
-                            msg.arg1 = index;
+                            msg1.what = MSG_LONG_PRESS;
+                            msg2.what = MSG_HOVER_PRESS;
 
-                            longPressHandler.sendMessageAtTime(msg, time);
+                            msg1.arg1 = index;
+                            msg2.arg1 = index;
+
+                            pressTimeoutHandler.sendMessageAtTime(msg1, longPressTime);
+                            pressTimeoutHandler.sendMessageAtTime(msg2, hoverTime);
                         }
                     }
                     break;
@@ -732,12 +750,12 @@ final class RangeCalendarGridView extends View {
 
                     hoverIndex = -1;
 
-                    longPressHandler.removeCallbacksAndMessages(null);
+                    pressTimeoutHandler.removeCallbacksAndMessages(null);
                     stopSelectingCustomRange();
 
                     break;
                 case MotionEvent.ACTION_CANCEL:
-                    longPressHandler.removeCallbacksAndMessages(null);
+                    pressTimeoutHandler.removeCallbacksAndMessages(null);
 
                     clearHoverIndex();
                     stopSelectingCustomRange();
