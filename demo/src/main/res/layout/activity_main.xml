@@ -6,7 +6,7 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
-    <com.github.pelmenstar1.rangecalendar.RangeCalendarView
+    <io.github.pelmenstar1.rangecalendar.RangeCalendarView
         android:id="@+id/rangeCalendar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>
