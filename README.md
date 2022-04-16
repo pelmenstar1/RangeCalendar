@@ -76,6 +76,10 @@ calendar.onSelectionListener = object : RangeCalendarView.OnSelectionListener {
 
 ```
 
+## Demo
+
+[Try it yourself](https://github.com/pelmenstar1/RangeCalendar/releases/download/0.9.2/demo.apk)
+
 ## Selection view
 
 It's a view that will be shown when user selects date or range. <br/>
