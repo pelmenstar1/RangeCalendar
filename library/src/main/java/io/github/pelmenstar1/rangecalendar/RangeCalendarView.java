@@ -126,6 +126,20 @@ public final class RangeCalendarView extends ViewGroup {
         );
     }
 
+    /**
+     * A functional interface which responds when calendar page is changed
+     */
+    @FunctionalInterface
+    public interface OnCalendarChangeListener {
+        /**
+         * This method will be invoked when calendar page is changed
+         *
+         * @param year year of selected page
+         * @param month month of selected page, 1-based
+         */
+        void onPageChanged(int year, int month);
+    }
+
     public final class AllowedSelectionTypes {
         /**
          * Sets whether selecting a cell is enabled or not.
@@ -209,8 +223,8 @@ public final class RangeCalendarView extends ViewGroup {
     @Nullable
     private OnSelectionListener onSelectionListener;
 
-    private int minDate = MIN_DATE;
-    private int maxDate = MAX_DATE;
+    @Nullable
+    private OnCalendarChangeListener onCalendarChangeListener;
 
     private long minDateEpoch = MIN_DATE_EPOCH;
     private long maxDateEpoch = MAX_DATE_EPOCH;
@@ -451,6 +465,10 @@ public final class RangeCalendarView extends ViewGroup {
                 setButtonAlphaIfEnabled(prevButton, 255);
                 setButtonAlphaIfEnabled(nextOrClearButton, 255);
                 updateMoveButtons();
+
+                if (onCalendarChangeListener != null) {
+                    onCalendarChangeListener.onPageChanged(YearMonth.getYear(ym), YearMonth.getMonth(ym));
+                }
             }
 
             @Override
@@ -1260,6 +1278,35 @@ public final class RangeCalendarView extends ViewGroup {
      */
     public void setOnSelectionListener(@Nullable OnSelectionListener value) {
         this.onSelectionListener = value;
+    }
+
+    /**
+     * Returns current {@link OnCalendarChangeListener}
+     */
+    @Nullable
+    public OnCalendarChangeListener getOnPageChangeListener() {
+        return onCalendarChangeListener;
+    }
+
+    /**
+     * Sets a listener which responds when calendar page is changed (by user or from code)
+     */
+    public void setOnPageChangeListener(@Nullable OnCalendarChangeListener value) {
+        this.onCalendarChangeListener = value;
+    }
+
+    /**
+     * Returns year of selected calendar
+     */
+    public int getSelectedCalendarYear() {
+        return YearMonth.getYear(currentCalendarYm);
+    }
+
+    /**
+     * Returns month of selected calendar, 1-based
+     */
+    public int getSelectedCalendarMonth() {
+        return YearMonth.getMonth(currentCalendarYm);
     }
 
     /**
