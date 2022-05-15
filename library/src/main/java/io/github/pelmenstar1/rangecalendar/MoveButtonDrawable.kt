@@ -6,6 +6,9 @@ import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.view.Choreographer
 import android.view.Choreographer.FrameCallback
+import io.github.pelmenstar1.rangecalendar.utils.colorLerp
+import io.github.pelmenstar1.rangecalendar.utils.lerp
+import io.github.pelmenstar1.rangecalendar.utils.withAlpha
 
 internal class MoveButtonDrawable(
     context: Context,

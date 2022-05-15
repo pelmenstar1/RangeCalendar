@@ -20,6 +20,8 @@ import androidx.core.graphics.withSave
 import androidx.customview.widget.ExploreByTouchHelper
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
+import io.github.pelmenstar1.rangecalendar.utils.distanceSquare
+import io.github.pelmenstar1.rangecalendar.utils.lerp
 import java.lang.ref.WeakReference
 import java.util.*
 import kotlin.math.max

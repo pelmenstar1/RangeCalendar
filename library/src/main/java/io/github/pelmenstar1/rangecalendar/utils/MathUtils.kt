@@ -1,4 +1,4 @@
-package io.github.pelmenstar1.rangecalendar
+package io.github.pelmenstar1.rangecalendar.utils
 
 internal fun floorMod(x: Long, y: Long): Long {
     val r = x / y

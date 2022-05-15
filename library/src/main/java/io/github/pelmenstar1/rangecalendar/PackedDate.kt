@@ -3,6 +3,7 @@ package io.github.pelmenstar1.rangecalendar
 import androidx.annotation.RequiresApi
 import io.github.pelmenstar1.rangecalendar.TimeUtils.currentLocalTimeMillis
 import io.github.pelmenstar1.rangecalendar.TimeUtils.isLeapYear
+import io.github.pelmenstar1.rangecalendar.utils.floorMod
 import java.time.LocalDate
 import java.util.*
 
