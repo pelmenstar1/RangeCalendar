@@ -733,7 +733,7 @@ internal class RangeCalendarPagerAdapter(
                     }
                 }
                 Payload.CLEAR_HOVER -> {
-                    gridView.clearHoverIndex()
+                    gridView.clearHoverCellWithAnimation()
                 }
 
                 Payload.CLEAR_SELECTION -> {

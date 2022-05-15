@@ -27,6 +27,7 @@ import java.util.*
 import kotlin.math.max
 import kotlin.math.sqrt
 
+// It will never be XML layout, so there's no need to match conventions
 @SuppressLint("ViewConstructor")
 internal class RangeCalendarGridView(
     context: Context,
@@ -55,10 +56,12 @@ internal class RangeCalendarGridView(
         }
 
         private fun setFlag(shift: Int) {
+            // Set bit at 'shift' position.
             flags = flags or (1 shl shift)
         }
 
         private fun setFlag(shift: Int, condition: Boolean) {
+            // Set bit at 'shift' position if 'condition' is true, otherwise do nothing.
             flags = flags or ((if (condition) 1 else 0) shl shift)
         }
 
@@ -79,18 +82,27 @@ internal class RangeCalendarGridView(
         fun lb(condition: Boolean) = setFlag(LB_SHIFT, condition)
 
         private fun createMask(shift: Int): Int {
-            // The idea: to create mask which is 0xFFFFFFFF if bit at specified position (shift) is set, otherwise mask is 0
+            // Creates conditional select mask.
+            // If bit at 'shift' position is set, all bits set in mask, otherwise it's 0
+            // Steps:
+            // 1. Right-shift flags by 'shift' value to have the bit at LSB position.
+            // 2. Then when we have 0 or 1 value, multiply it by -0x1 to get all bits set if the bit is set
+            // and 0 if isn't.
+            // (-0x1 in Kotlin because Int is signed and 0xFFFFFFFF fits on in Long,
+            // so -0x1 is the way to get all bits set in 32-bit signed int).
+
             return -0x1 * (flags shr shift and 1)
         }
 
         inline fun withRadius(radius: Float, block: Radii.() -> Unit) {
             clear()
+
             currentRadius = radius
             block(this)
         }
 
         fun radii(): FloatArray {
-            val radiusBits = java.lang.Float.floatToRawIntBits(currentRadius)
+            val radiusBits = currentRadius.toBits()
 
             initCorner(radiusBits, 0, LT_SHIFT)
             initCorner(radiusBits, 2, RT_SHIFT)
@@ -101,13 +113,28 @@ internal class RangeCalendarGridView(
         }
 
         private fun initCorner(radiusBits: Int, offset: Int, shift: Int) {
-            value[offset] = java.lang.Float.intBitsToFloat(radiusBits and createMask(shift))
-            value[offset + 1] = value[offset]
+            // createMask(shift) creates mask which is all bits set mask if bit at 'shift' position is set,
+            // and 0 if isn't.
+            // So, we need to binary AND bits of radius float to get the same value if the bit is set,
+            // and 0 if isn't.
+            //
+            // Then we convert it back to float and init 'value' array.
+            //
+            // (0.0f in bit representation is 0, so Float.intBitsToFloat(0) = 0.0f).
+            val cornerRadius = Float.fromBits(radiusBits and createMask(shift))
+
+            value[offset] = cornerRadius
+            value[offset + 1] = cornerRadius
         }
     }
 
     @JvmInline
     value class SetSelectionInfo(val bits: Long) {
+        // Packed values positions:
+        // 64-32 bits - data
+        // 32-24 bits - type
+        // 24-16 bits - withAnimation (1 if true, 0 if false)
+
         val type: Int
             get() = (bits shr 24).toInt() and 0xFF
 
@@ -473,6 +500,8 @@ internal class RangeCalendarGridView(
         }
 
         invalidate()
+
+        // y-axis of entries depends on type of weekday, so we need to refresh accessibility info
         touchHelper.invalidateRoot()
     }
 
@@ -489,7 +518,7 @@ internal class RangeCalendarGridView(
 
             updateGradient()
         } else {
-            // Don't clear gradientColors because it should be used if gradient is enabled next time.
+            // Don't clear gradientColors because it can be used if gradient is enabled next time.
             selectionPaint.shader = null
             gradient = null
             invalidate()
@@ -565,10 +594,12 @@ internal class RangeCalendarGridView(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         refreshColumnWidth()
 
+        // Custom-path depends on size, we need to refresh it.
         if (selectionType == SelectionType.MONTH) {
             forceResetCustomPath()
         }
 
+        // Gradient depends on size too.
         updateGradient()
     }
 
@@ -586,6 +617,7 @@ internal class RangeCalendarGridView(
             when (action) {
                 MotionEvent.ACTION_DOWN -> if (isXInActiveZone(x)) {
                     val cell = getCellByPointOnScreen(x, y)
+
                     if (enabledCellRange.contains(cell)) {
                         val eTime = e.eventTime
 
@@ -601,6 +633,15 @@ internal class RangeCalendarGridView(
                             arg1 = cell.index
                         }
 
+                        // Send messages in future to detect long-press or hover.
+                        // If MotionEvent.ACTION_UP event happens, these messages will be cancelled.
+                        //
+                        // In other words, if these messages aren't cancelled (when pointer is up),
+                        // then pointer is down long enough to treat this touch as long-press or
+                        // to start hover.
+                        // In pressTimeoutHandler.handleMessage we start long-press or hover,
+                        // but pressTimeoutHandler.handleMessage won't be invoked we messages are cancelled
+                        // (removed from queue).
                         pressTimeoutHandler.sendMessageAtTime(msg1, longPressTime)
                         pressTimeoutHandler.sendMessageAtTime(msg2, hoverTime)
                     }
@@ -629,32 +670,42 @@ internal class RangeCalendarGridView(
                         }
                     }
 
+                    // Delete all messages from queue, long-press or hover may already happened or not.
                     pressTimeoutHandler.removeCallbacksAndMessages(null)
 
+                    // Don't call clearHoverIndex() because it will start animation,
+                    // but we don't need it, because we selected something else.
+                    // Or we selected nothing, but in that hover won't happen and we don't need animation too.
                     hoverCell = Cell.Undefined
+
                     stopSelectingCustomRange()
 
+                    // There's something to update.
                     invalidate()
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    // Delete all messages from queue, long-press or hover may already happened or not.
                     pressTimeoutHandler.removeCallbacksAndMessages(null)
 
-                    clearHoverIndex()
+                    // If event is cancelled, then we don't select anything and animation is necessary.
+                    clearHoverCellWithAnimation()
                     stopSelectingCustomRange()
 
                     invalidate()
                 }
-                MotionEvent.ACTION_MOVE -> if (isSelectingCustomRange && isXInActiveZone(x) && y > gridTop()) {
-                    parent?.requestDisallowInterceptTouchEvent(true)
+                MotionEvent.ACTION_MOVE -> {
+                    if (isSelectingCustomRange && isXInActiveZone(x) && y > gridTop()) {
+                        parent?.requestDisallowInterceptTouchEvent(true)
 
-                    val cell = getCellByPointOnScreen(x, y)
-                    val newRange = CellRange(customRangeStartCell, cell).normalize()
+                        val cell = getCellByPointOnScreen(x, y)
+                        val newRange = CellRange(customRangeStartCell, cell).normalize()
 
-                    if (selectedRange != newRange) {
-                        selectCustom(newRange, false)
+                        if (selectedRange != newRange) {
+                            selectCustom(newRange, false)
+                        }
+
+                        invalidate()
                     }
-
-                    invalidate()
                 }
             }
         }
@@ -718,6 +769,8 @@ internal class RangeCalendarGridView(
 
     private fun selectCell(cell: Cell, doAnimation: Boolean, isUser: Boolean = false) {
         if (selectionType == SelectionType.CELL && selectedRange.cell == cell) {
+            // If it was user and behavior on selecting the same cell is CLEAR,
+            // then we need to do it.
             if (isUser && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
                 clearSelection(fireEvent = true, doAnimation = true)
             }
@@ -725,10 +778,12 @@ internal class RangeCalendarGridView(
             return
         }
 
+        // Check if cell is enabled
         if (!enabledCellRange.contains(cell)) {
             return
         }
 
+        // Call listeners and check if such selection is allowed.
         val listener = onSelectionListener
         if (listener != null) {
             val allowed = listener.onCellSelected(cell.index)
@@ -738,7 +793,7 @@ internal class RangeCalendarGridView(
         }
 
         if (hoverCell.isDefined) {
-            clearHoverIndex()
+            clearHoverCellWithAnimation()
         }
 
         prevSelectionType = selectionType
@@ -747,6 +802,7 @@ internal class RangeCalendarGridView(
         selectionType = SelectionType.CELL
         selectedRange = CellRange.cell(cell)
 
+        // Start appropriate animation if it's necessary.
         if (doAnimation) {
             var animType = CELL_ALPHA_ANIMATION
 
@@ -783,6 +839,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun selectWeek(weekIndex: Int, doAnimation: Boolean) {
+        // 1. Resolve week range.
         var start = Cell(weekIndex * 7)
         var end = start + 6
 
@@ -795,6 +852,7 @@ internal class RangeCalendarGridView(
         start = weekRange.start
         end = weekRange.end
 
+        // 2. If we're selecting the same range or range is cell, stop it or redirect to selectCell().
         if (selectionType == SelectionType.WEEK && selectedRange == weekRange) {
             return
         } else if (end == start) {
@@ -802,6 +860,7 @@ internal class RangeCalendarGridView(
             return
         }
 
+        // 3. Call listeners and check if such selection is allowed.
         val listener = onSelectionListener
         if (listener != null) {
             val allowed = listener.onWeekSelected(weekIndex, start.index, end.index)
@@ -809,6 +868,8 @@ internal class RangeCalendarGridView(
                 return
             }
         }
+
+        // 4. Update fields
 
         prevSelectionType = selectionType
         selectionType = SelectionType.WEEK
@@ -818,6 +879,7 @@ internal class RangeCalendarGridView(
         prevSelectedRange = selectedRange
         selectedRange = weekRange
 
+        // 5. Start appropriate animation if it's necessary.
         if (doAnimation) {
             if (prevSelectionType == SelectionType.CELL && weekRange.contains(prevSelectedRange.cell)) {
                 startAnimation(CELL_TO_WEEK_ON_ROW_ANIMATION)
@@ -843,12 +905,14 @@ internal class RangeCalendarGridView(
         prevSelectedRange = selectedRange
         selectedRange = inMonthRange.intersectionWidth(enabledCellRange)
 
+        // If selectedRange is empty, clear path.
         if (selectedRange == CellRange.Invalid) {
             customRangePath?.rewind()
         } else if (prevSelectedRange == selectedRange && prevSelectionType == SelectionType.MONTH) {
             return
         }
 
+        // Start appropriate animation if it's necessary.
         if (doAnimation) {
             if (prevSelectionType == SelectionType.CELL) {
                 startAnimation(CELL_TO_MONTH_ANIMATION)
@@ -886,8 +950,9 @@ internal class RangeCalendarGridView(
         }
 
         // Clear hover here and not in onCellLongPress() because custom range might be disallowed and
-        // hover will be cleared but it shouldn't
-        clearHoverIndex()
+        // hover will be cleared but it shouldn't.
+        clearHoverCellWithAnimation()
+
         prevSelectionType = selectionType
         selectionType = SelectionType.CUSTOM
         prevSelectedRange = selectedRange
@@ -913,7 +978,7 @@ internal class RangeCalendarGridView(
         startAnimation(HOVER_ANIMATION)
     }
 
-    fun clearHoverIndex() {
+    fun clearHoverCellWithAnimation() {
         if (hoverCell.isDefined) {
             hoverCell = Cell.Undefined
 
@@ -922,15 +987,19 @@ internal class RangeCalendarGridView(
     }
 
     fun clearSelection(fireEvent: Boolean, doAnimation: Boolean) {
+        // Check if there's any select
         if (selectionType == SelectionType.NONE) {
             return
         }
 
+        // Clear all fields.
         prevSelectionType = selectionType
         prevSelectedRange = selectedRange
         selectionType = SelectionType.NONE
         selectedWeekIndex = -1
         selectedRange = CellRange.Invalid
+
+        // Fire event if it's demanded
 
         val listener = onSelectionListener
         if (fireEvent && listener != null) {
@@ -988,8 +1057,16 @@ internal class RangeCalendarGridView(
     }
 
     public override fun onDraw(c: Canvas) {
-        drawSelection(c)
+        // No matter where is it, either way weekday row doesn't overlap anything.
         drawWeekdayRow(c)
+
+        // Order is important here:
+        // - Cells should be on top of everything and that's why it's the last one,
+        //   selection or hover shouldn't overlap text.
+        // - Then hover, it should overlap selection but not cells
+        // - Finally (first), selection it should be on bottom of everything.
+
+        drawSelection(c)
         drawHover(c)
         drawCells(c)
     }
@@ -1005,12 +1082,15 @@ internal class RangeCalendarGridView(
             DUAL_CELL_ALPHA_ANIMATION -> {
                 val alpha = (animFraction * 255f).toInt()
 
+                // One cell is appearing, draw it with increasing alpha
                 selectionPaint.alpha = alpha
                 drawCellSelection(c, selectedRange.cell, 1f, 1f)
 
+                // Another cell is fading, draw it with decreasing alpha
                 selectionPaint.alpha = 255 - alpha
                 drawCellSelection(c, prevSelectedRange.cell, 1f, 1f)
 
+                // Restore alpha
                 selectionPaint.alpha = 255
             }
             CELL_ALPHA_ANIMATION -> {
@@ -1027,21 +1107,30 @@ internal class RangeCalendarGridView(
                 drawWeekToCellOnRowSelection(c, animFraction)
             }
             DUAL_WEEK_ANIMATION -> {
+                // Selected week is appearing with two-way slide animation
                 drawWeekFromCenterSelection(c, animFraction, selectedRange)
-                selectionPaint.alpha = 255 - (animFraction * 255).toInt()
 
+                // Previous selected week is fading with alpha animation (which decreases to 0)
+                selectionPaint.alpha = 255 - (animFraction * 255).toInt()
                 drawWeekFromCenterSelection(c, 1f, prevSelectedRange)
+
+                // Restore alpha
                 selectionPaint.alpha = 255
             }
             WEEK_TO_CELL_ANIMATION -> {
+                // Week to cell animation (not on row, it's another animation)
+
                 val alpha = (animFraction * 255).toInt()
 
+                // Previous selected week is fading with alpha animation
                 selectionPaint.alpha = 255 - alpha
                 drawWeekFromCenterSelection(c, 1f, prevSelectedRange)
 
+                // Newly selected cell is appearing with alpha animation
                 selectionPaint.alpha = alpha
                 drawCellSelection(c, selectedRange.cell, 1f, 1f)
 
+                // Restore alpha
                 selectionPaint.alpha = 255
             }
             MONTH_ALPHA_ANIMATION -> {
@@ -1131,6 +1220,7 @@ internal class RangeCalendarGridView(
         val selStart = range.start.index
         val selEnd = range.end.index
 
+        // It's merged from getCellLeft() and getCellRight() and Cell.gridX
         val midX =
             cr.hPadding + (selStart + selEnd - 14 * (selStart / 7) + 1).toFloat() * cellSize * 0.5f
 
@@ -1303,6 +1393,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun updateCustomRangePath(range: CellRange) {
+        // Check whether we need to proceed
         if (customPathRange == range) {
             return
         }
@@ -1388,6 +1479,10 @@ internal class RangeCalendarGridView(
     }
 
     private fun getCircleRadiusForMonthAnimation(x: Float, y: Float): Float {
+        // Find max radius for circle (with center in (x; y)) to fully fit in month selection.
+        // Try distance to left, top, right, bottom corners.
+        // Then try distance to start and end cells.
+
         val distToLeftCorner = x - cr.hPadding
         val distToRightCorner = width - distToLeftCorner
         val distToTopCorner = y - gridTop()
@@ -1410,16 +1505,21 @@ internal class RangeCalendarGridView(
 
         var maxDist = max(distToLeftCorner, distToRightCorner)
         maxDist = max(maxDist, distToTopCorner)
+
+        // Save on expensive sqrt() call: max(sqrt(a), sqrt(b)) => sqrt(max(a, b))
         maxDist = max(maxDist, sqrt(max(distToStartCellSq, distToEndCellSq)))
 
         return maxDist
     }
 
     private fun forceResetCustomPath() {
+        // By setting it to CellRange.Invalid, up-to-date check in updateCustomRangePath() will fail
+        // and by that, custom path will be updated on first demand.
         customPathRange = CellRange.Invalid
     }
 
     private fun gridTop(): Float {
+        // Top of grid is height of weekday row plus bottom margin of weekday row
         val height = if (weekdayType == WeekdayType.SHORT) {
             cr.shortWeekdayRowHeight
         } else {
@@ -1457,9 +1557,13 @@ internal class RangeCalendarGridView(
         return Cell(gridY * 7 + gridX)
     }
 
+    // Checks whether x in active (touchable) zone
     private fun isXInActiveZone(x: Float): Boolean {
         return x >= cr.hPadding && x <= width - cr.hPadding
     }
+
+    // Compat versions of some drawing ops.
+    // Each of them are available only since API level 21 (current one is 16)
 
     private fun Canvas.drawRoundRectCompat(
         left: Float, top: Float, right: Float, bottom: Float,
