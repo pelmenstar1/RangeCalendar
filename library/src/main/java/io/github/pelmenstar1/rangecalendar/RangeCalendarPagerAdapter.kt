@@ -3,6 +3,8 @@ package io.github.pelmenstar1.rangecalendar
 import android.animation.TimeInterpolator
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import io.github.pelmenstar1.rangecalendar.selection.Cell
+import io.github.pelmenstar1.rangecalendar.selection.CellRange
 
 internal class RangeCalendarPagerAdapter(
     private val cr: CalendarResources,
@@ -280,7 +282,7 @@ internal class RangeCalendarPagerAdapter(
             indexOfDate(maxDate, startIndex, info)
         } else 42
 
-        gridView.setEnabledCellRange(ShortRange.create(startIndex, endIndex))
+        gridView.setEnabledCellRange(CellRange(startIndex, endIndex))
     }
 
     private fun updateInMonthRange(gridView: RangeCalendarGridView, info: CalendarInfo) {
@@ -288,7 +290,7 @@ internal class RangeCalendarPagerAdapter(
         if (isFirstDaySunday) {
             s++
         }
-        gridView.setInMonthRange(ShortRange.create(s, s + info.daysInMonth - 1))
+        gridView.setInMonthRange(CellRange(s, s + info.daysInMonth - 1))
     }
 
     private fun indexOfDate(date: PackedDate, offset: Int, info: CalendarInfo): Int {
@@ -606,7 +608,7 @@ internal class RangeCalendarPagerAdapter(
         val index = indexOfDate(today, 0, info)
 
         if (index >= 0) {
-            gridView.setTodayIndex(index)
+            gridView.setTodayCell(Cell(index))
         }
     }
 
