@@ -640,8 +640,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
             if (state.selectionType != SelectionType.NONE) {
                 adapter.select(
-                    state.selectionYm, state.selectionType, state.selectionData,
-                    false
+                    state.selectionYm, state.selectionType, state.selectionData
                 )
             }
         } else {

@@ -104,23 +104,41 @@ internal class RangeCalendarGridView(
         }
     }
 
-    object PackedSelectionInfo {
-        fun create(type: Int, data: Int, withAnimation: Boolean): Long {
-            return (data.toLong() shl 32) or
-                    (type.toLong() shl 24) or
-                    ((if (withAnimation) 1L else 0L) shl 16)
-        }
+    @JvmInline
+    value class SetSelectionInfo(val bits: Long) {
+        val type: Int
+            get() = (bits shr 24).toInt() and 0xFF
 
-        fun getType(packed: Long): Int {
-            return (packed shr 24).toInt() and 0xFF
-        }
+        val data: Int
+            get() = (bits shr 32).toInt()
 
-        fun getData(packed: Long): Int {
-            return (packed shr 32).toInt()
-        }
+        val withAnimation: Boolean
+            get() = (bits shr 16) and 0xFF == 1L
 
-        fun getWithAnimation(packed: Long): Boolean {
-            return packed shr 16 and 0xFF == 1L
+        companion object {
+            val Undefined = create(-1, -1, false)
+
+            fun create(type: Int, data: Int, withAnimation: Boolean): SetSelectionInfo {
+                return SetSelectionInfo((data.toLong() shl 32) or
+                        (type.toLong() shl 24) or
+                        ((if (withAnimation) 1L else 0L) shl 16))
+            }
+
+            fun cell(cell: Cell, withAnimation: Boolean): SetSelectionInfo {
+                return create(SelectionType.CELL, cell.index, withAnimation)
+            }
+
+            fun week(index: Int, withAnimation: Boolean): SetSelectionInfo {
+                return create(SelectionType.WEEK, index, withAnimation)
+            }
+
+            fun month(withAnimation: Boolean): SetSelectionInfo {
+                return create(SelectionType.MONTH, 0, withAnimation)
+            }
+
+            fun customRange(range: CellRange, withAnimation: Boolean): SetSelectionInfo {
+                return create(SelectionType.CUSTOM, range.range, withAnimation)
+            }
         }
     }
 
@@ -683,12 +701,8 @@ internal class RangeCalendarGridView(
         touchHelper.sendEventForVirtualView(cell.index, AccessibilityEvent.TYPE_VIEW_CLICKED)
     }
 
-    fun select(packed: Long) {
-        select(
-            PackedSelectionInfo.getType(packed),
-            PackedSelectionInfo.getData(packed),
-            PackedSelectionInfo.getWithAnimation(packed)
-        )
+    fun select(info: SetSelectionInfo) {
+        select(info.type, info.data, info.withAnimation)
     }
 
     fun select(type: Int, data: Int, doAnimation: Boolean) {
