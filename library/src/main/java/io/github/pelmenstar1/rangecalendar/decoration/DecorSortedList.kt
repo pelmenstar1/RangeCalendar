@@ -55,13 +55,13 @@ internal class DecorSortedList {
         return indexOf(value) >= 0
     }
 
-    fun add(value: CellDecor<*>) {
+    fun add(value: CellDecor<*>): Int {
         val index = findIndexForNewElement(value)
-
-        val oldSize = elements.size
 
         allocatePlaceForInsert(index, 1)
         elements[index] = value
+
+        return index
     }
 
     private fun allocatePlaceForInsert(pos: Int, length: Int) {

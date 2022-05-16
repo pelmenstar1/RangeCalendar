@@ -1606,29 +1606,56 @@ class RangeCalendarView @JvmOverloads constructor(
         }
     }
 
-    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, epochDay: Long) {
-        addDecorationInternal(decor, PackedDate.fromEpochDay(epochDay))
+    @JvmOverloads
+    fun <T : CellDecor<T>> addDecoration(
+        decor: CellDecor<T>,
+        epochDay: Long,
+        withAnimation: Boolean = true
+    ) {
+        addDecorationInternal(decor, PackedDate.fromEpochDay(epochDay), withAnimation)
     }
 
     @RequiresApi(26)
-    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, date: LocalDate) {
-        addDecorationInternal(decor, PackedDate.fromLocalDate(date))
+    @JvmOverloads
+    fun <T : CellDecor<T>> addDecoration(
+        decor: CellDecor<T>,
+        date: LocalDate,
+        withAnimation: Boolean = true
+    ) {
+        addDecorationInternal(decor, PackedDate.fromLocalDate(date), withAnimation)
     }
 
-    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, calendar: Calendar) {
-        addDecorationInternal(decor, PackedDate.fromCalendar(calendar))
+    @JvmOverloads
+    fun <T : CellDecor<T>> addDecoration(
+        decor: CellDecor<T>,
+        calendar: Calendar,
+        withAnimation: Boolean = true
+    ) {
+        addDecorationInternal(decor, PackedDate.fromCalendar(calendar), withAnimation)
     }
 
-    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, year: Int, month: Int, day: Int) {
-        addDecorationInternal(decor, PackedDate(year, month, day))
+    @JvmOverloads
+    fun <T : CellDecor<T>> addDecoration(
+        decor: CellDecor<T>,
+        year: Int,
+        month: Int,
+        day: Int,
+        withAnimation: Boolean = true
+    ) {
+        addDecorationInternal(decor, PackedDate(year, month, day), withAnimation)
     }
 
-    private fun<T : CellDecor<T>> addDecorationInternal(decor: CellDecor<T>, date: PackedDate) {
-        adapter.addDecoration(decor, date)
+    private fun <T : CellDecor<T>> addDecorationInternal(
+        decor: CellDecor<T>,
+        date: PackedDate,
+        withAnimation: Boolean
+    ) {
+        adapter.addDecoration(decor, date, withAnimation)
     }
 
-    fun<T: CellDecor<T>> removeDecoration(decor: CellDecor<T>) {
-        adapter.removeDecoration(decor)
+    @JvmOverloads
+    fun <T : CellDecor<T>> removeDecoration(decor: CellDecor<T>, withAnimation: Boolean = true) {
+        adapter.removeDecoration(decor, withAnimation)
     }
 
     private fun updateMoveButtons() {

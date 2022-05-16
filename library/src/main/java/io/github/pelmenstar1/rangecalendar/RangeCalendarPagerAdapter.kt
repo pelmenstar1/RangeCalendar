@@ -77,12 +77,17 @@ internal class RangeCalendarPagerAdapter(
                 return Payload(SELECT, info.bits)
             }
 
-            fun addDecoration(decor: CellDecor<*>, cell: Cell): Payload {
-                return Payload(ADD_DECORATION, arg1 = cell.index.toLong(), obj = decor)
+            fun addDecoration(decor: CellDecor<*>, cell: Cell, withAnimation: Boolean): Payload {
+                return Payload(
+                    ADD_DECORATION,
+                    arg1 = cell.index.toLong(),
+                    arg2 = if (withAnimation) 1 else 0,
+                    obj = decor
+                )
             }
 
-            fun removeDecoration(decor: CellDecor<*>): Payload {
-                return Payload(REMOVE_DECORATION, obj = decor)
+            fun removeDecoration(decor: CellDecor<*>, withAnimation: Boolean): Payload {
+                return Payload(REMOVE_DECORATION, arg1 = if (withAnimation) 1 else 0, obj = decor)
             }
         }
     }
@@ -520,7 +525,7 @@ internal class RangeCalendarPagerAdapter(
 
             discardSelectionValues()
 
-            if(position in 0 until count) {
+            if (position in 0 until count) {
                 notifyItemChanged(position, Payload.clearSelection())
             }
 
@@ -577,7 +582,10 @@ internal class RangeCalendarPagerAdapter(
                 val startCell = getCellByDate(startDate)
                 val endCell = getCellByDate(endDate, startCell.index)
 
-                RangeCalendarGridView.SetSelectionInfo.customRange(CellRange(startCell, endCell), withAnimation)
+                RangeCalendarGridView.SetSelectionInfo.customRange(
+                    CellRange(startCell, endCell),
+                    withAnimation
+                )
             }
             else -> RangeCalendarGridView.SetSelectionInfo.Undefined
         }
@@ -595,7 +603,7 @@ internal class RangeCalendarPagerAdapter(
         if (position in 0 until count) {
             val gridSelectionInfo = transformToGridSelection(position, type, data, withAnimation)
 
-            when(type) {
+            when (type) {
                 SelectionType.MONTH -> {
                     val allowed = onMonthSelected(selectionYm, ym)
 
@@ -632,7 +640,7 @@ internal class RangeCalendarPagerAdapter(
 
         setSelectionValues(type, data, ym)
 
-        if(position in 0 until count) {
+        if (position in 0 until count) {
             notifyItemChanged(
                 position,
                 Payload.select(
@@ -669,26 +677,26 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, date: PackedDate) {
+    fun <T : CellDecor<T>> addDecoration(decor: CellDecor<T>, date: PackedDate, withAnimation: Boolean) {
         val position = getItemPositionForDate(date)
 
-        if(position in 0 until count) {
+        if (position in 0 until count) {
             decor.date = date
 
             calendarInfo.set(getYearMonthForCalendar(position))
             val cell = getCellByDate(date)
 
-            notifyItemChanged(position, Payload.addDecoration(decor, cell))
+            notifyItemChanged(position, Payload.addDecoration(decor, cell, withAnimation))
         }
     }
 
-    fun<T: CellDecor<T>> removeDecoration(decor: CellDecor<T>) {
+    fun <T : CellDecor<T>> removeDecoration(decor: CellDecor<T>, withAnimation: Boolean) {
         val position = getItemPositionForDate(decor.date)
 
-        if(position in 0 until count) {
+        if (position in 0 until count) {
             decor.date = PackedDate(0)
 
-            notifyItemChanged(position, Payload.removeDecoration(decor))
+            notifyItemChanged(position, Payload.removeDecoration(decor, withAnimation))
         }
     }
 
@@ -779,12 +787,12 @@ internal class RangeCalendarPagerAdapter(
                     val decor = payload.obj as CellDecor<*>
                     val cell = Cell(payload.arg1.toInt())
 
-                    gridView.addDecoration(decor, cell)
+                    gridView.addDecoration(decor, cell, payload.arg2 == 1L)
                 }
                 Payload.REMOVE_DECORATION -> {
                     val decor = payload.obj as CellDecor<*>
 
-                    gridView.removeDecoration(decor)
+                    gridView.removeDecoration(decor, payload.arg1 == 1L)
                 }
             }
         }
