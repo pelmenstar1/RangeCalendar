@@ -3,6 +3,7 @@ package io.github.pelmenstar1.rangecalendar
 import android.animation.TimeInterpolator
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
 
@@ -51,6 +52,8 @@ internal class RangeCalendarPagerAdapter(
             const val UPDATE_STYLE = 3
             const val CLEAR_HOVER = 4
             const val CLEAR_SELECTION = 5
+            const val ADD_DECORATION = 6
+            const val REMOVE_DECORATION = 7
 
             private val CLEAR_HOVER_PAYLOAD = Payload(CLEAR_HOVER)
             private val CLEAR_SELECTION_PAYLOAD = Payload(CLEAR_SELECTION)
@@ -72,6 +75,14 @@ internal class RangeCalendarPagerAdapter(
 
             fun select(info: RangeCalendarGridView.SetSelectionInfo): Payload {
                 return Payload(SELECT, info.bits)
+            }
+
+            fun addDecoration(decor: CellDecor<*>, cell: Cell): Payload {
+                return Payload(ADD_DECORATION, arg1 = cell.index.toLong(), obj = decor)
+            }
+
+            fun removeDecoration(decor: CellDecor<*>): Payload {
+                return Payload(REMOVE_DECORATION, obj = decor)
             }
         }
     }
@@ -658,6 +669,29 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
+    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, date: PackedDate) {
+        val position = getItemPositionForDate(date)
+
+        if(position in 0 until count) {
+            decor.date = date
+
+            calendarInfo.set(getYearMonthForCalendar(position))
+            val cell = getCellByDate(date)
+
+            notifyItemChanged(position, Payload.addDecoration(decor, cell))
+        }
+    }
+
+    fun<T: CellDecor<T>> removeDecoration(decor: CellDecor<T>) {
+        val position = getItemPositionForDate(decor.date)
+
+        if(position in 0 until count) {
+            decor.date = PackedDate(0)
+
+            notifyItemChanged(position, Payload.removeDecoration(decor))
+        }
+    }
+
     override fun getItemCount() = count
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -739,6 +773,18 @@ internal class RangeCalendarPagerAdapter(
                 Payload.CLEAR_SELECTION -> {
                     // Don't fire event here. If it's needed, it will be fired in clearSelection()
                     gridView.clearSelection(fireEvent = false, doAnimation = true)
+                }
+
+                Payload.ADD_DECORATION -> {
+                    val decor = payload.obj as CellDecor<*>
+                    val cell = Cell(payload.arg1.toInt())
+
+                    gridView.addDecoration(decor, cell)
+                }
+                Payload.REMOVE_DECORATION -> {
+                    val decor = payload.obj as CellDecor<*>
+
+                    gridView.removeDecoration(decor)
                 }
             }
         }

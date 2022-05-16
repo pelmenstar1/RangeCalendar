@@ -33,6 +33,7 @@ import androidx.annotation.StyleableRes
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
+import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -1603,6 +1604,31 @@ class RangeCalendarView @JvmOverloads constructor(
         if (selectionType != SelectionType.NONE && flags and (1 shl selectionType) == 0) {
             clearSelection()
         }
+    }
+
+    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, epochDay: Long) {
+        addDecorationInternal(decor, PackedDate.fromEpochDay(epochDay))
+    }
+
+    @RequiresApi(26)
+    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, date: LocalDate) {
+        addDecorationInternal(decor, PackedDate.fromLocalDate(date))
+    }
+
+    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, calendar: Calendar) {
+        addDecorationInternal(decor, PackedDate.fromCalendar(calendar))
+    }
+
+    fun<T: CellDecor<T>> addDecoration(decor: CellDecor<T>, year: Int, month: Int, day: Int) {
+        addDecorationInternal(decor, PackedDate(year, month, day))
+    }
+
+    private fun<T : CellDecor<T>> addDecorationInternal(decor: CellDecor<T>, date: PackedDate) {
+        adapter.addDecoration(decor, date)
+    }
+
+    fun<T: CellDecor<T>> removeDecoration(decor: CellDecor<T>) {
+        adapter.removeDecoration(decor)
     }
 
     private fun updateMoveButtons() {

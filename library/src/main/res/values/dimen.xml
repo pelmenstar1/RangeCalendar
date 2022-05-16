@@ -11,4 +11,7 @@
 
     <dimen name="rangeCalendar_arrowSize">9dp</dimen>
     <dimen name="rangeCalendar_arrowStrokeWidth">1.85dp</dimen>
+
+    <dimen name="rangeCalendar_stripeMarginTop">1dp</dimen>
+    <dimen name="rangeCalendar_stripeHorizontalMargin">2dp</dimen>
 </resources>

@@ -14,16 +14,22 @@ import android.graphics.*
 import androidx.core.view.ViewCompat
 import android.os.*
 import android.text.format.DateFormat
+import android.util.Log
 import android.view.View
 import androidx.annotation.ColorInt
 import androidx.core.graphics.withSave
 import androidx.customview.widget.ExploreByTouchHelper
+import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
+import io.github.pelmenstar1.rangecalendar.decoration.CellDecorRenderer
+import io.github.pelmenstar1.rangecalendar.decoration.CellInfo
+import io.github.pelmenstar1.rangecalendar.decoration.DecorSortedList
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
 import io.github.pelmenstar1.rangecalendar.utils.distanceSquare
 import io.github.pelmenstar1.rangecalendar.utils.lerp
 import java.lang.ref.WeakReference
 import java.util.*
+import kotlin.collections.HashMap
 import kotlin.math.max
 import kotlin.math.sqrt
 
@@ -148,9 +154,11 @@ internal class RangeCalendarGridView(
             val Undefined = create(-1, -1, false)
 
             fun create(type: Int, data: Int, withAnimation: Boolean): SetSelectionInfo {
-                return SetSelectionInfo((data.toLong() shl 32) or
-                        (type.toLong() shl 24) or
-                        ((if (withAnimation) 1L else 0L) shl 16))
+                return SetSelectionInfo(
+                    (data.toLong() shl 32) or
+                            (type.toLong() shl 24) or
+                            ((if (withAnimation) 1L else 0L) shl 16)
+                )
             }
 
             fun cell(cell: Cell, withAnimation: Boolean): SetSelectionInfo {
@@ -341,6 +349,10 @@ internal class RangeCalendarGridView(
 
     private var gradient: LinearGradient? = null
     private var gradientColors: IntArray? = null
+
+    private val decorations = DecorSortedList()
+    private var decorRenderers = HashMap<Class<*>, CellDecorRenderer<*>>()
+    private val cellInfo = CellInfo()
 
     private val pressTimeoutHandler = PressTimeoutHandler(this)
 
@@ -822,7 +834,7 @@ internal class RangeCalendarGridView(
                 }
                 SelectionType.WEEK -> {
                     animType = if (prevSelectedRange.contains(cell)) {
-                       WEEK_TO_CELL_ON_ROW_ANIMATION
+                        WEEK_TO_CELL_ON_ROW_ANIMATION
                     } else {
                         WEEK_TO_CELL_ANIMATION
                     }
@@ -1013,6 +1025,66 @@ internal class RangeCalendarGridView(
         }
     }
 
+    private fun <T : CellDecor<T>> checkDecor(decor: CellDecor<T>, cell: Cell) {
+        if (decor.cell.isDefined) {
+            throw IllegalStateException("Decoration is already added to the calendar")
+        }
+
+        val region = decorations.getRegionByCell(cell)
+
+        if (region.isDefined) {
+            val expectedClass = decorations[region.start].javaClass
+            val actualClass = decor.javaClass
+
+            if (actualClass != expectedClass) {
+                throw IllegalStateException("Only one class of decoration can be in one cell. Expected class: $expectedClass, actual class: $actualClass")
+            }
+        }
+    }
+
+    fun <T : CellDecor<T>> addDecoration(decor: CellDecor<T>, cell: Cell) {
+        checkDecor(decor, cell)
+
+        decor.cell = cell
+        decor.animationFraction = 1f
+
+        decorations.add(decor)
+
+        val decorClass = decor.javaClass
+
+        if(!decorRenderers.containsKey(decorClass)) {
+            decorRenderers[decorClass] = decor.newRenderer(context)
+        }
+
+        invalidate()
+    }
+
+    fun <T : CellDecor<T>> removeDecoration(decor: CellDecor<T>) {
+        val isRemoved = decorations.remove(decor)
+
+        if (isRemoved) {
+            decor.cell = Cell.Undefined
+
+            val decorClass = decor.javaClass
+
+            var removeRenderer = true
+            decorations.forEachBreakable {
+                if(it.javaClass == decorClass) {
+                    removeRenderer = false
+                    true
+                } else {
+                    false
+                }
+            }
+
+            if(removeRenderer) {
+                decorRenderers.remove(decor.javaClass)
+            }
+
+            invalidate()
+        }
+    }
+
     private fun startAnimation(type: Int) {
         var animator = animator
         if (animator != null && animator.isRunning) {
@@ -1068,6 +1140,7 @@ internal class RangeCalendarGridView(
 
         drawSelection(c)
         drawHover(c)
+        drawDecorations(c)
         drawCells(c)
     }
 
@@ -1173,7 +1246,12 @@ internal class RangeCalendarGridView(
         drawCellMonthAnimation(c, 1f - animFraction, selectedRange.cell, prevSelectedRange)
     }
 
-    private fun drawCellMonthAnimation(c: Canvas, fraction: Float, cell: Cell, monthRange: CellRange) {
+    private fun drawCellMonthAnimation(
+        c: Canvas,
+        fraction: Float,
+        cell: Cell,
+        monthRange: CellRange
+    ) {
         updateCustomRangePath(monthRange)
 
         val cellLeft = getCellLeft(cell)
@@ -1235,7 +1313,12 @@ internal class RangeCalendarGridView(
         drawWeekSelectionOnRowFromCell(c, fraction, prevSelectedRange.cell, selectedRange)
     }
 
-    private fun drawWeekSelectionOnRowFromCell(c: Canvas, fraction: Float, cell: Cell, weekRange: CellRange) {
+    private fun drawWeekSelectionOnRowFromCell(
+        c: Canvas,
+        fraction: Float,
+        cell: Cell,
+        weekRange: CellRange
+    ) {
         val cellLeft = getCellLeft(cell)
         val cellRight = cellLeft + cellSize
 
@@ -1390,6 +1473,40 @@ internal class RangeCalendarGridView(
             dayNumberPaint.color = color
             c.drawText(CalendarResources.getDayText(day), textX, textY, dayNumberPaint)
         }
+    }
+
+    private fun drawDecorations(c: Canvas) {
+        var regionIndex = 0
+        val roDecorations = decorations.readonlyElements
+
+        cellInfo.apply {
+            size = cellSize
+            radius = rrRadius()
+        }
+
+        Log.i(TAG,"Render decor started: ${decorations.elements.joinToString { "${it.cell}" }}")
+        decorations.iterateRegions { region, cell ->
+            Log.i(TAG, "Render decor range: [${region.start}; ${region.end})")
+
+            val decorClass = decorations[region.start].javaClass
+            val renderer = decorRenderers[decorClass]!!
+
+            val dx = getCellLeft(cell)
+            val dy = getCellTop(cell)
+
+            c.translate(dx, dy)
+            renderer.render(
+                c,
+                roDecorations,
+                region.start,
+                region.end,
+                cellInfo
+            )
+            c.translate(-dx, -dy)
+
+            regionIndex++
+        }
+        Log.i(TAG,"Render decor ended")
     }
 
     private fun updateCustomRangePath(range: CellRange) {
