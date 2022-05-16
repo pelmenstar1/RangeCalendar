@@ -1,10 +1,10 @@
-package io.github.pelmenstar1.rangecalendar
+package io.github.pelmenstar1.rangecalendar.utils
 
 import android.content.Context
 import android.os.Build
 import java.util.*
 
-fun Context.getLocaleCompat(): Locale {
+internal fun Context.getLocaleCompat(): Locale {
     val config = resources.configuration
 
     return if (Build.VERSION.SDK_INT >= 24) {

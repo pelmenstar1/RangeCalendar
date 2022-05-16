@@ -3,6 +3,7 @@ package io.github.pelmenstar1.rangecalendar
 import androidx.annotation.RequiresApi
 import io.github.pelmenstar1.rangecalendar.TimeUtils.currentLocalTimeMillis
 import io.github.pelmenstar1.rangecalendar.TimeUtils.isLeapYear
+import io.github.pelmenstar1.rangecalendar.utils.floorMod
 import java.time.LocalDate
 import java.util.*
 
@@ -18,6 +19,11 @@ internal fun PackedDate(ym: YearMonth, dayOfMonth: Int): PackedDate {
 // https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/time/LocalDate.java
 @JvmInline
 internal value class PackedDate(val bits: Int) {
+    // Packed values positions:
+    // 32-16 bits - year
+    // 16-8 bits - month
+    // 8-0 bits - day
+
     val year: Int
         get() = bits shr 16
 
@@ -33,6 +39,7 @@ internal value class PackedDate(val bits: Int) {
         }
 
     fun toCalendar(calendar: Calendar) {
+        // month in Calendar is in [0; 11], but "our" month is in [1; 12], so we need to minus 1
         calendar.set(year, month - 1, dayOfMonth)
     }
 
@@ -104,9 +111,10 @@ internal value class PackedDate(val bits: Int) {
         }
 
         fun fromCalendar(calendar: Calendar): PackedDate {
+            // month in Calendar is in [0; 11], but "our" month is in [1; 12], so we need to plus 1
             return PackedDate(
                 calendar[Calendar.YEAR],
-                calendar[Calendar.MONTH] + 1,  // month in Calendar is in [0; 11], so +1
+                calendar[Calendar.MONTH] + 1,
                 calendar[Calendar.DAY_OF_MONTH]
             )
         }

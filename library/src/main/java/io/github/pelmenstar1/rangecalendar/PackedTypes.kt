@@ -1,8 +1,5 @@
 package io.github.pelmenstar1.rangecalendar
 
-import kotlin.math.max
-import kotlin.math.min
-
 internal object IntPair {
     fun create(first: Int, second: Int): Long {
         return second.toLong() shl 32 or (first.toLong() and 0xffffffffL)
@@ -49,29 +46,6 @@ internal object ShortRange {
 
     fun getEnd(range: Int): Int {
         return range shr 16
-    }
-
-    fun findIntersection(a: Int, b: Int, invalidRange: Int): Int {
-        val aStart = getStart(a)
-        val aEnd = getEnd(a)
-        val bStart = getStart(b)
-        val bEnd = getEnd(b)
-
-        if (bStart > aEnd || aStart > bEnd) {
-            return invalidRange
-        }
-
-        val start = max(aStart, bStart)
-        val end = min(aEnd, bEnd)
-
-        return create(start, end)
-    }
-
-    fun contains(range: Int, value: Int): Boolean {
-        val start = getStart(range)
-        val end = getEnd(range)
-
-        return value in start..end
     }
 }
 

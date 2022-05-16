@@ -1,4 +1,4 @@
-package io.github.pelmenstar1.rangecalendar
+package io.github.pelmenstar1.rangecalendar.utils
 
 internal fun floorMod(x: Long, y: Long): Long {
     val r = x / y
@@ -7,6 +7,13 @@ internal fun floorMod(x: Long, y: Long): Long {
         aligned -= y
     }
     return x - aligned
+}
+
+internal fun distanceSquare(x1: Float, y1: Float, x2: Float, y2: Float): Float {
+    val xDist = x2 - x1
+    val yDist = y2 - y1
+
+    return xDist * xDist + yDist * yDist
 }
 
 internal fun lerp(start: Float, end: Float, fraction: Float): Float {

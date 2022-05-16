@@ -33,6 +33,7 @@ import androidx.annotation.StyleableRes
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
+import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.*
@@ -176,6 +177,8 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         private fun setFlag(shift: Int, state: Boolean): AllowedSelectionTypes {
+            // Set the bit at 'shift' position if 'state' is true, otherwise unset the bit.
+
             val bit = 1 shl shift
             val flags = allowedSelectionFlags
 
@@ -219,16 +222,21 @@ class RangeCalendarView @JvmOverloads constructor(
             if (attrs.hasValue(index)) {
                 var value = 0
                 when (attrType) {
-                    ATTR_COLOR ->
+                    ATTR_COLOR -> {
                         value = attrs.getColor(index, 0)
-                    ATTR_DIMEN ->
-                        value = java.lang.Float.floatToIntBits(attrs.getDimension(index, 0f))
-                    ATTR_INT ->
+                    }
+                    ATTR_DIMEN -> {
+                        value = attrs.getDimension(index, 0f).toBits()
+                    }
+                    ATTR_INT -> {
                         value = attrs.getInteger(index, 0)
-                    ATTR_FRACTION -> value =
-                        java.lang.Float.floatToIntBits(attrs.getFraction(index, 1, 1, 0f))
-                    ATTR_BOOL ->
+                    }
+                    ATTR_FRACTION -> {
+                        value = attrs.getFraction(index, 1, 1, 0f).toBits()
+                    }
+                    ATTR_BOOL -> {
                         value = if (attrs.getBoolean(index, false)) 1 else 0
+                    }
                 }
 
                 calendarView.adapter.setStyleInt(styleType, value, false)
@@ -597,12 +605,13 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun refreshToday() {
-        val today = PackedDate.today()
-        adapter.setToday(today)
+        adapter.setToday(PackedDate.today())
     }
 
     private fun initLocaleDependentValues() {
         val locale = context.getLocaleCompat()
+
+        // Find best format and create formatter
         val dateFormat = if (Build.VERSION.SDK_INT >= 18) {
             DateFormat.getBestDateTimePattern(locale, DATE_FORMAT)
         } else {
@@ -636,12 +645,17 @@ class RangeCalendarView @JvmOverloads constructor(
             super.onRestoreInstanceState(state.superState)
 
             val ym = state.ym
-            setYearAndMonthInternal(ym, false)
 
+            // There's no need to 'smooth-scroll' it, because if there's smooth-scroll,
+            // then it will look ugly.
+            // For example, it would be strange if the calendar started to scroll from min page to
+            // previous selected page when you rotate the screen.
+            setYearAndMonthInternal(ym, smoothScroll = false)
+
+            // Restore selection if there's one.
             if (state.selectionType != SelectionType.NONE) {
                 adapter.select(
-                    state.selectionYm, state.selectionType, state.selectionData,
-                    false
+                    state.selectionYm, state.selectionType, state.selectionData
                 )
             }
         } else {
@@ -721,7 +735,12 @@ class RangeCalendarView @JvmOverloads constructor(
             if (gravity == Gravity.CENTER || gravity == Gravity.CENTER_HORIZONTAL) {
                 layoutRect.set(hPadding, 0, width - hPadding, buttonSize)
             } else {
-                layoutRect.set(if (_hasSvClearButton) hPadding else prevRight, 0, nextLeft, buttonSize)
+                layoutRect.set(
+                    if (_hasSvClearButton) hPadding else prevRight,
+                    0,
+                    nextLeft,
+                    buttonSize
+                )
             }
 
             if (Build.VERSION.SDK_INT >= 17) {
@@ -809,7 +828,10 @@ class RangeCalendarView @JvmOverloads constructor(
 
         // Don't continue if we want to show selection view and it's already shown and vise versa,
         // but continue if animation is currently running and direction of current animation is not equals to new one.
-        if (animator != null && (!animator.isRunning || isSvTransitionForward == forward) && forward == isSelectionViewOnScreen) {
+        if (animator != null &&
+            (!animator.isRunning || isSvTransitionForward == forward) &&
+            forward == isSelectionViewOnScreen
+        ) {
             return
         }
 
@@ -1362,6 +1384,7 @@ class RangeCalendarView @JvmOverloads constructor(
     fun moveToPreviousMonth(withAnimation: Boolean = true) {
         val pos = pager.currentItem
 
+        // Check if there's a previous page
         if (pos > 0) {
             pager.setCurrentItem(pos - 1, withAnimation)
         }
@@ -1377,6 +1400,7 @@ class RangeCalendarView @JvmOverloads constructor(
         val pos = pager.currentItem
         val count = adapter.itemCount
 
+        // Check if there's next page
         if (pos < count - 1) {
             pager.setCurrentItem(pos + 1, withAnimation)
         }
@@ -1468,7 +1492,11 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @JvmOverloads
     fun selectMonth(year: Int, month: Int, withAnimation: Boolean = true) {
-        selectInternal(SelectionType.MONTH, YearMonth(year, month).totalMonths.toLong(), withAnimation)
+        selectInternal(
+            SelectionType.MONTH,
+            YearMonth(year, month).totalMonths.toLong(),
+            withAnimation
+        )
     }
 
     /**
@@ -1519,8 +1547,16 @@ class RangeCalendarView @JvmOverloads constructor(
         )
     }
 
-    private fun selectCustomInternal(startDate: PackedDate, endDate: PackedDate, withAnimation: Boolean) {
-        selectInternal(SelectionType.CUSTOM, IntPair.create(startDate.bits, endDate.bits), withAnimation)
+    private fun selectCustomInternal(
+        startDate: PackedDate,
+        endDate: PackedDate,
+        withAnimation: Boolean
+    ) {
+        selectInternal(
+            SelectionType.CUSTOM,
+            IntPair.create(startDate.bits, endDate.bits),
+            withAnimation
+        )
     }
 
     private fun selectInternal(type: Int, data: Long, withAnimation: Boolean) {
@@ -1563,6 +1599,7 @@ class RangeCalendarView @JvmOverloads constructor(
         allowedSelectionFlags = flags
         val selectionType = adapter.selectionType
 
+        // Clear selection if current selection type become disallowed.
         if (selectionType != SelectionType.NONE && flags and (1 shl selectionType) == 0) {
             clearSelection()
         }

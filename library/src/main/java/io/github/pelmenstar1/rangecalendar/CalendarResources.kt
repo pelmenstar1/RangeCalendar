@@ -8,6 +8,9 @@ import android.icu.text.DateFormatSymbols
 import android.os.Build
 import androidx.annotation.AttrRes
 import androidx.core.content.res.ResourcesCompat
+import io.github.pelmenstar1.rangecalendar.utils.darkerColor
+import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
+import io.github.pelmenstar1.rangecalendar.utils.getTextBounds
 import java.lang.IllegalArgumentException
 
 internal class CalendarResources(context: Context) {
