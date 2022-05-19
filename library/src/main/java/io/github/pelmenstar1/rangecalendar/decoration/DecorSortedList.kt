@@ -83,17 +83,6 @@ internal class DecorSortedList {
         elements = newElements
     }
 
-    fun ensureCapacity(capacity: Int) {
-        val size = elements.size
-
-        if (capacity > size - 1) {
-            val newElements = unsafeNewArray(capacity)
-            System.arraycopy(elements, 0, newElements, 0, size)
-
-            elements = newElements
-        }
-    }
-
     inline fun iterateRegions(block: (PackedIntRange, Cell) -> Unit) {
         if (elements.isEmpty()) return
 
@@ -109,10 +98,6 @@ internal class DecorSortedList {
 
             i = end + 1
         }
-
-       // if (prevStart != size - 1) {
-            //block(Region(prevStart, size), currentRangeCell)
-        //}
     }
 
     fun getRegionByCell(cell: Cell): PackedIntRange {
@@ -156,7 +141,7 @@ internal class DecorSortedList {
         return if(region.isUndefined) {
             elements.size
         } else {
-            region.endInclusive
+            region.endInclusive + 1
         }
     }
 
@@ -188,7 +173,7 @@ internal class DecorSortedList {
 
         val newElements = unsafeNewArray(elements.size - rangeLength)
         System.arraycopy(elements, 0, newElements, 0, start)
-        System.arraycopy(elements, endInclusive + 1, newElements, start, size - rangeLength)
+        System.arraycopy(elements, endInclusive + 1, newElements, start, size - endInclusive - 1)
 
         elements = newElements
     }
