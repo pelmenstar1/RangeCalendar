@@ -19,13 +19,12 @@ import android.view.View
 import androidx.annotation.ColorInt
 import androidx.core.graphics.withSave
 import androidx.customview.widget.ExploreByTouchHelper
-import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
-import io.github.pelmenstar1.rangecalendar.decoration.CellDecorRenderer
-import io.github.pelmenstar1.rangecalendar.decoration.CellInfo
+import io.github.pelmenstar1.rangecalendar.decoration.*
 import io.github.pelmenstar1.rangecalendar.decoration.DecorSortedList
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
 import io.github.pelmenstar1.rangecalendar.utils.distanceSquare
+import io.github.pelmenstar1.rangecalendar.utils.interpolateFractionOnItems
 import io.github.pelmenstar1.rangecalendar.utils.lerp
 import java.lang.ref.WeakReference
 import java.util.*
@@ -174,7 +173,7 @@ internal class RangeCalendarGridView(
             }
 
             fun customRange(range: CellRange, withAnimation: Boolean): SetSelectionInfo {
-                return create(SelectionType.CUSTOM, range.range, withAnimation)
+                return create(SelectionType.CUSTOM, range.bits, withAnimation)
             }
         }
     }
@@ -334,6 +333,7 @@ internal class RangeCalendarGridView(
     private var animFraction = 0f
     private var animator: ValueAnimator? = null
     private var onAnimationEnd: Runnable? = null
+    private var animationHandler: (() -> Unit)? = null
 
     var isFirstDaySunday = false
     private val touchHelper: TouchHelper
@@ -355,7 +355,9 @@ internal class RangeCalendarGridView(
     private var decorRenderers = HashMap<Class<*>, CellDecorRenderer<*>>()
     private val cellInfo = CellInfo()
 
-    private var animatedDecorAbsIndex = 0
+    private var decorAnimationMethod = DecorAnimationMethod.NONE
+    private var decorAnimationRangeConnector: DecorAnimationRangeConnector? = null
+    private var handleDecorAnimationCb: (() -> Unit)? = null
 
     private val pressTimeoutHandler = PressTimeoutHandler(this)
 
@@ -1045,41 +1047,113 @@ internal class RangeCalendarGridView(
         }
     }
 
-    fun <T : CellDecor<T>> addDecoration(decor: CellDecor<T>, cell: Cell, withAnimation: Boolean) {
+    private fun <T : CellDecor<T>> checkDecors(decors: Array<out CellDecor<T>>, cell: Cell) {
+        val region = decorations.getRegionByCell(cell)
+
+        val firstDecorClass = decors[0].javaClass
+        for (i in 1 until decors.size) {
+            val decor = decors[i]
+
+            require(decor.cell.isUndefined) {
+                "One of decorations is already added to the calendar"
+            }
+
+            require(firstDecorClass == decor.javaClass) {
+                "All decorations should be one class"
+            }
+        }
+
+        if (region.isDefined) {
+            val expectedClass = decorations[region.start].javaClass
+
+            for (decor in decors) {
+                val actualClass = decor.javaClass
+
+                if (actualClass != expectedClass) {
+                    throw IllegalStateException("Only one class of decoration can be in one cell. Expected class: $expectedClass, actual class: $actualClass")
+                }
+            }
+        }
+    }
+
+    private fun <T : CellDecor<T>> cacheDecorRendererIfNeeded(decor: CellDecor<T>) {
+        val renderers = decorRenderers
+        val decorClass = decor.javaClass
+
+        if (!renderers.containsKey(decorClass)) {
+            renderers[decorClass] = decor.newRenderer(context)
+        }
+    }
+
+    fun addDecoration(decor: CellDecor<*>, cell: Cell, withAnimation: Boolean) {
         checkDecor(decor, cell)
 
         decor.cell = cell
-        decor.animationFraction = 1f
 
         val additionIndex = decorations.add(decor)
 
-        val decorClass = decor.javaClass
+        cacheDecorRendererIfNeeded(decor)
 
-        if(!decorRenderers.containsKey(decorClass)) {
-            decorRenderers[decorClass] = decor.newRenderer(context)
+        if (withAnimation) {
+            val range = PackedIntRange(additionIndex, additionIndex)
+            decorAnimationRangeConnector = DecorAnimationRangeConnector(range)
+            decorAnimationMethod = DecorAnimationMethod.SIMULTANEOUSLY
+
+            startAnimation(DECOR_APPEAR_ANIMATION, handler = getHandleDecorationAnimationCallback())
+        } else {
+            decor.animationFraction = 1f
+
+            invalidate()
+        }
+    }
+
+    fun addDecorations(decors: Array<out CellDecor<*>>, cell: Cell, animationMethod: Int) {
+        when (decors.size) {
+            0 -> return
+            1 -> {
+                addDecoration(decors[0], cell, animationMethod != DecorAnimationMethod.NONE)
+                return
+            }
         }
 
-        if(withAnimation) {
-            animatedDecorAbsIndex = additionIndex
+        checkDecors(decors, cell)
+        decors.forEach { it.cell = cell }
 
-            startAnimation(SINGLE_DECOR_APPEAR_ANIMATION)
+        val additionIndex = decorations.addAll(decors)
+
+        cacheDecorRendererIfNeeded(decors[0])
+
+        if (animationMethod != DecorAnimationMethod.NONE) {
+            val range = PackedIntRange(additionIndex, additionIndex + decors.size - 1)
+            decorAnimationRangeConnector = DecorAnimationRangeConnector(range)
+            decorAnimationMethod = animationMethod
+
+            startAnimation(DECOR_APPEAR_ANIMATION, handler = getHandleDecorationAnimationCallback())
         } else {
+            decors.forEach { it.animationFraction = 1f }
+
             invalidate()
         }
     }
 
     fun <T : CellDecor<T>> removeDecoration(decor: CellDecor<T>, withAnimation: Boolean) {
-        if(withAnimation) {
+        if (withAnimation) {
             val decorIndex = decorations.indexOf(decor)
 
-            if(decorIndex >= 0) {
-                animatedDecorAbsIndex = decorIndex
+            if (decorIndex >= 0) {
+                val range = PackedIntRange(decorIndex, decorIndex)
+                decorAnimationRangeConnector = DecorAnimationRangeConnector(range)
+                decorAnimationMethod = DecorAnimationMethod.SIMULTANEOUSLY
 
-                startAnimation(SINGLE_DECOR_APPEAR_ANIMATION or ANIMATION_REVERSE_BIT, onEnd = {
-                    decorations.remove(decorIndex)
+                startAnimation(
+                    DECOR_APPEAR_ANIMATION or ANIMATION_REVERSE_BIT,
+                    handler = getHandleDecorationAnimationCallback(),
+                    onEnd = {
+                        decorations.remove(decorIndex)
 
-                    onDecorRemoved(decor)
-                })
+                        onDecorRemoved(decor)
+                    }
+                )
             }
         } else {
             val isRemoved = decorations.remove(decor)
@@ -1092,8 +1166,53 @@ internal class RangeCalendarGridView(
         }
     }
 
+    fun removeDecorationRange(start: Int, endInclusive: Int, cell: Cell, animationMethod: Int) {
+        val region = decorations.getRegionByCell(cell)
+
+        when {
+            start < 0 -> throw IllegalStateException("start is negative")
+            endInclusive < 0 -> throw IllegalStateException("endInclusive is negative")
+            start > endInclusive -> throw IllegalStateException("start is greater than endInclusive")
+            endInclusive - start > region.endInclusive - region.start -> throw IllegalStateException(
+                "Range [start; endInclusive] is out of decorations range"
+            )
+        }
+
+        val range = PackedIntRange(region.start + start, region.start + endInclusive)
+
+        removeDecorationRangeInternal(range, animationMethod)
+    }
+
+    fun removeAllDecorationsFromCell(cell: Cell, animationMethod: Int) {
+        val region = decorations.getRegionByCell(cell)
+
+        removeDecorationRangeInternal(region, animationMethod)
+    }
+
+    private fun removeDecorationRangeInternal(absoluteRange: PackedIntRange, animationMethod: Int) {
+        if (animationMethod != DecorAnimationMethod.NONE) {
+            decorAnimationRangeConnector = DecorAnimationRangeConnector(absoluteRange)
+            decorAnimationMethod = animationMethod
+
+            startAnimation(
+                DECOR_APPEAR_ANIMATION or ANIMATION_REVERSE_BIT,
+                handler = getHandleDecorationAnimationCallback(),
+                onEnd = {
+                    onDecorRangePreRemoved(absoluteRange)
+                    decorations.removeRange(absoluteRange.start, absoluteRange.endInclusive)
+                }
+            )
+        } else {
+            onDecorRangePreRemoved(absoluteRange)
+            decorations.removeRange(absoluteRange.start, absoluteRange.endInclusive)
+
+            invalidate()
+        }
+    }
+
     private fun onDecorRemoved(decor: CellDecor<*>) {
         decor.cell = Cell.Undefined
+        decor.date = PackedDate(0)
 
         /*
         val decorClass = decor.javaClass
@@ -1111,18 +1230,30 @@ internal class RangeCalendarGridView(
          */
     }
 
-    private fun startAnimation(type: Int, onEnd: Runnable? = null) {
+    private fun onDecorRangePreRemoved(absoluteRange: PackedIntRange) {
+        for (i in absoluteRange.start..absoluteRange.endInclusive) {
+            val decor = decorations[i]
+
+            decor.cell = Cell.Undefined
+            decor.date = PackedDate(0)
+        }
+    }
+
+    private fun startAnimation(type: Int, handler: (() -> Unit)? = null, onEnd: Runnable? = null) {
         var animator = animator
         if (animator != null && animator.isRunning) {
             animator.end()
         }
 
         onAnimationEnd = onEnd
+        animationHandler = handler
         animation = type
 
         if (animator == null) {
             animator = AnimationHelper.createFractionAnimator { value: Float ->
                 animFraction = value
+                animationHandler?.invoke()
+
                 invalidate()
             }
 
@@ -1494,33 +1625,76 @@ internal class RangeCalendarGridView(
         }
 
         if (day > 0) {
-            val size = cr.dayNumberSizes[day - 1]
+            val size = PackedSize(cr.dayNumberSizes[day - 1])
             val halfCellSize = cellSize * 0.5f
 
-            val textX = x + halfCellSize - (PackedSize.getWidth(size) / 2).toFloat()
-            val textY = y + halfCellSize + (PackedSize.getHeight(size) / 2).toFloat()
+            val textX = x + halfCellSize - (size.width / 2).toFloat()
+            val textY = y + halfCellSize + (size.height / 2).toFloat()
 
             dayNumberPaint.color = color
             c.drawText(CalendarResources.getDayText(day), textX, textY, dayNumberPaint)
         }
     }
 
+    private fun getHandleDecorationAnimationCallback(): () -> Unit {
+        var cb = handleDecorAnimationCb
+        if (cb == null) {
+            cb = this::handleDecorationAnimation
+            handleDecorAnimationCb = cb
+        }
+
+        return cb
+    }
+
+    private fun handleDecorationAnimation() {
+        if (animation and ANIMATION_DATA_MASK == DECOR_APPEAR_ANIMATION) {
+            val connector = decorAnimationRangeConnector!!
+            val decors = decorations
+
+            val rangeLength = connector.length()
+
+            when (decorAnimationMethod) {
+                DecorAnimationMethod.SIMULTANEOUSLY -> {
+                    for (index in 0 until rangeLength) {
+                        connector.setAnimationFraction(decors, index, animFraction)
+                    }
+                }
+                DecorAnimationMethod.SEQUENTIAL_ONE_WAY_FROM_START -> {
+                    val result = interpolateFractionOnItems(animFraction, rangeLength)
+
+                    connector.setAnimationFractionToOneOnRange(decors, 0, result.itemIndex - 1)
+                    connector.setAnimationFraction(
+                        decors,
+                        result.itemIndex,
+                        result.itemFraction
+                    )
+                }
+                DecorAnimationMethod.SEQUENTIAL_ONE_WAY_FROM_END -> {
+                    val result = interpolateFractionOnItems(animFraction, rangeLength)
+                    val itemIndex = result.itemIndex
+
+                    connector.setAnimationFractionToOneOnRange(
+                        decors,
+                        rangeLength - itemIndex,
+                        rangeLength - 1
+                    )
+                    connector.setAnimationFraction(
+                        decors,
+                        rangeLength - itemIndex - 1,
+                        result.itemFraction
+                    )
+                }
+            }
+        }
+    }
+
     private fun drawDecorations(c: Canvas) {
         var regionIndex = 0
 
-        if(decorations.size > 0) {
+        if (decorations.size > 0) {
             cellInfo.apply {
                 size = cellSize
                 radius = rrRadius()
-            }
-
-
-            when (animation and ANIMATION_DATA_MASK) {
-                SINGLE_DECOR_APPEAR_ANIMATION -> {
-                    val decor = decorations[animatedDecorAbsIndex]
-
-                    decor.animationFraction = animFraction
-                }
             }
 
             Log.i(
@@ -1528,7 +1702,7 @@ internal class RangeCalendarGridView(
                 "Render decor started: ${decorations.elements.joinToString { "${it.cell}" }}"
             )
             decorations.iterateRegions { region, cell ->
-                Log.i(TAG, "Render decor range: [${region.start}; ${region.end})")
+                Log.i(TAG, "Render decor range: [${region.start}; ${region.endInclusive}]")
 
                 val decorClass = decorations[region.start].javaClass
                 val renderer = decorRenderers[decorClass]!!
@@ -1541,7 +1715,7 @@ internal class RangeCalendarGridView(
                     c,
                     decorations.elements,
                     region.start,
-                    region.end,
+                    region.endInclusive,
                     cellInfo
                 )
                 c.translate(-dx, -dy)
@@ -1751,6 +1925,8 @@ internal class RangeCalendarGridView(
     }
 
     companion object {
+
+
         const val DEFAULT_RR_RADIUS_RATIO = 0.5f
 
         private const val MSG_LONG_PRESS = 0
@@ -1790,6 +1966,6 @@ internal class RangeCalendarGridView(
         private const val MONTH_ALPHA_ANIMATION = 11
         private const val CELL_TO_MONTH_ANIMATION = 12
         private const val MONTH_TO_CELL_ANIMATION = 13
-        private const val SINGLE_DECOR_APPEAR_ANIMATION = 14
+        private const val DECOR_APPEAR_ANIMATION = 14
     }
 }

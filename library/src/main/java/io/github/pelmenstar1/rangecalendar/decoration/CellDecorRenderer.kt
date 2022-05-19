@@ -8,7 +8,7 @@ interface CellDecorRenderer<T : CellDecor<T>> {
     fun render(
         canvas: Canvas,
         decorations: Array<out CellDecor<*>>,
-        start: Int, end: Int,
+        start: Int, endInclusive: Int,
         info: CellInfo,
     )
 }

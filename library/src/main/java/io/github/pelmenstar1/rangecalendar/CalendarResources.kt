@@ -39,12 +39,12 @@ internal class CalendarResources(context: Context) {
             val name = weekdays[i]
 
             val size = getTextBounds(name, weekdayTextSize)
-            val height = PackedSize.getHeight(size)
+            val height = size.height
             if (height > maxHeight) {
                 maxHeight = height
             }
 
-            weekdayWidths[i] = PackedSize.getWidth(size)
+            weekdayWidths[i] = size.width
         }
 
         return maxHeight.toFloat()
@@ -69,7 +69,7 @@ internal class CalendarResources(context: Context) {
         weekdayRowMarginBottom = res.getDimension(R.dimen.rangeCalendar_weekdayRowMarginBottom)
 
         // Compute text size of numbers in [0; 31]
-        dayNumberSizes = LongArray(31) { i -> getTextBounds(DAYS[i], weekdayTextSize) }
+        dayNumberSizes = LongArray(31) { i -> getTextBounds(DAYS[i], weekdayTextSize).bits }
 
         // First element in getShortWeekDays() is empty and actual items start from 1
         // It's better to copy them to another array where elements start from 0

@@ -1,6 +1,6 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
-import io.github.pelmenstar1.rangecalendar.IntPair
+import io.github.pelmenstar1.rangecalendar.PackedIntRange
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 
 internal class DecorSortedList {
@@ -64,6 +64,16 @@ internal class DecorSortedList {
         return index
     }
 
+    fun<T: CellDecor<T>> addAll(values: Array<out CellDecor<T>>): Int {
+        val index = findIndexForNewElement(values[0])
+
+        allocatePlaceForInsert(index, values.size)
+
+        System.arraycopy(values, 0, elements, index, values.size)
+
+        return index
+    }
+
     private fun allocatePlaceForInsert(pos: Int, length: Int) {
         val newElements = unsafeNewArray(elements.size + length)
 
@@ -84,7 +94,7 @@ internal class DecorSortedList {
         }
     }
 
-    inline fun iterateRegions(block: (Region, Cell) -> Unit) {
+    inline fun iterateRegions(block: (PackedIntRange, Cell) -> Unit) {
         if (elements.isEmpty()) return
 
         var i = 0
@@ -93,11 +103,11 @@ internal class DecorSortedList {
         while (i < size) {
             val cell = getNoCheck(i).cell
 
-            val end = getRegionEnd(i)
+            val end = getRegionEndInclusive(i)
 
-            block(Region(i, end), cell)
+            block(PackedIntRange(i, end), cell)
 
-            i = end
+            i = end + 1
         }
 
        // if (prevStart != size - 1) {
@@ -105,25 +115,25 @@ internal class DecorSortedList {
         //}
     }
 
-    fun getRegionByCell(cell: Cell): Region {
+    fun getRegionByCell(cell: Cell): PackedIntRange {
         val size = elements.size
 
         if (size == 0) {
-            return Region.Undefined
+            return PackedIntRange.Undefined
         }
 
         for (i in 0 until size) {
             if (elements[i].cell == cell) {
-                val end = getRegionEnd(i)
+                val end = getRegionEndInclusive(i)
 
-                return Region(i, end)
+                return PackedIntRange(i, end)
             }
         }
 
-        return Region.Undefined
+        return PackedIntRange.Undefined
     }
 
-    private fun getRegionEnd(start: Int): Int {
+    private fun getRegionEndInclusive(start: Int): Int {
         var index = start
         val size = elements.size
 
@@ -131,13 +141,13 @@ internal class DecorSortedList {
 
         while(index < size) {
             if(elements[index].cell != cell) {
-                return index
+                return index - 1
             }
 
             index++
         }
 
-        return size
+        return size - 1
     }
 
     private fun findIndexForNewElement(newElement: CellDecor<*>): Int {
@@ -146,7 +156,7 @@ internal class DecorSortedList {
         return if(region.isUndefined) {
             elements.size
         } else {
-            region.end - 1
+            region.endInclusive
         }
     }
 
@@ -164,39 +174,26 @@ internal class DecorSortedList {
     fun remove(index: Int) {
         val size = elements.size
 
-        val numMoved = size - index - 1
-        if (numMoved > 0) {
-            System.arraycopy(elements, index + 1, elements, index, numMoved)
-        }
+        if(size > 0) {
+            val newElements = unsafeNewArray(size - 1)
+            System.arraycopy(elements, 0, newElements, 0, index)
+            System.arraycopy(elements, index + 1, newElements, index, size - index - 1)
 
-        val newElements = unsafeNewArray(size - 1)
-        System.arraycopy(elements, 0, newElements, 0, newElements.size)
+            elements = newElements
+        }
+    }
+
+    fun removeRange(start: Int, endInclusive: Int) {
+        val rangeLength = endInclusive - start + 1
+
+        val newElements = unsafeNewArray(elements.size - rangeLength)
+        System.arraycopy(elements, 0, newElements, 0, start)
+        System.arraycopy(elements, endInclusive + 1, newElements, start, size - rangeLength)
 
         elements = newElements
     }
 
-    @JvmInline
-    value class Region(val packed: Long) {
-        val start: Int
-            get() = IntPair.getFirst(packed)
-
-        val end: Int
-            get() = IntPair.getSecond(packed)
-
-        val isUndefined: Boolean
-            get() = packed == 0L
-
-        val isDefined: Boolean
-            get() = packed != 0L
-
-        companion object {
-            val Undefined = Region(0)
-        }
-    }
-
     companion object {
-        fun Region(start: Int, end: Int) = Region(IntPair.create(start, end))
-
         @Suppress("UNCHECKED_CAST")
         private fun unsafeNewArray(size: Int): Array<CellDecor<*>> {
             return arrayOfNulls<CellDecor<*>>(size) as Array<CellDecor<*>>

@@ -29,6 +29,15 @@ abstract class CellDecor<TSelf : CellDecor<TSelf>> : Parcelable {
     var animationFraction = 0f
         internal set
 
+    val year: Int
+        get() = date.year
+
+    val month: Int
+        get() = date.month
+
+    val dayOfMonth: Int
+        get() = date.dayOfMonth
+
     protected constructor()
     protected constructor(dest: Parcel) {
         date = PackedDate(dest.readInt())

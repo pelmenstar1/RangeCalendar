@@ -1,56 +1,81 @@
 package io.github.pelmenstar1.rangecalendar
 
-internal object IntPair {
-    fun create(first: Int, second: Int): Long {
-        return second.toLong() shl 32 or (first.toLong() and 0xffffffffL)
+internal fun packInts(first: Int, second: Int): Long {
+    return second.toLong() shl 32 or (first.toLong() and 0xffffffffL)
+}
+
+internal fun unpackFirstInt(pair: Long): Int = pair.toInt()
+internal fun unpackSecondInt(pair: Long): Int = (pair shr 32).toInt()
+
+internal fun packShorts(first: Int, second: Int): Int {
+    return second shl 16 or first
+}
+
+internal fun unpackFirstShort(packed: Int): Int = packed and 0xFFFF
+internal fun unpackSecondShort(packed: Int): Int = packed shr 16
+
+internal fun PackedIntPair(first: Int, second: Int): PackedIntPair {
+    return PackedIntPair(packInts(first, second))
+}
+
+@JvmInline
+internal value class PackedIntPair(val bits: Long) {
+    val first: Int
+        get() = unpackFirstInt(bits)
+
+    val second: Int
+        get() = unpackSecondInt(bits)
+}
+
+internal fun PackedIntRange(start: Int, endInclusive: Int): PackedIntRange {
+    return PackedIntRange(packInts(start, endInclusive))
+}
+
+@JvmInline
+internal value class PackedIntRange(val bits: Long) {
+    val start: Int
+        get() = unpackFirstInt(bits)
+
+    val endInclusive: Int
+        get() = unpackSecondInt(bits)
+
+    val isUndefined: Boolean
+        get() = bits == 0L
+
+    val isDefined: Boolean
+        get() = bits != 0L
+
+    fun contains(value: Int): Boolean {
+        return value in start..endInclusive
     }
 
-    fun getFirst(pair: Long): Int {
-        return pair.toInt()
-    }
-
-    fun getSecond(pair: Long): Int {
-        return (pair shr 32).toInt()
+    companion object {
+        val Undefined = PackedIntRange(0)
     }
 }
 
-internal object IntRange {
-    fun create(start: Int, end: Int): Long {
-        return IntPair.create(start, end)
-    }
-
-    fun getStart(range: Long): Int {
-        return IntPair.getFirst(range)
-    }
-
-    fun getEnd(range: Long): Int {
-        return IntPair.getSecond(range)
-    }
-
-    fun contains(range: Long, value: Int): Boolean {
-        val start = getStart(range)
-        val end = getEnd(range)
-
-        return value in start..end
-    }
+internal fun PackedShortRange(start: Int, endInclusive: Int): PackedShortRange {
+    return PackedShortRange(packShorts(start, endInclusive))
 }
 
-internal object ShortRange {
-    fun create(start: Int, end: Int): Int {
-        return end shl 16 or start
-    }
+@JvmInline
+internal value class PackedShortRange(val bits: Int) {
+    val start: Int
+        get() = unpackFirstShort(bits)
 
-    fun getStart(range: Int): Int {
-        return range and 0xFFFF
-    }
-
-    fun getEnd(range: Int): Int {
-        return range shr 16
-    }
+    val endInclusive: Int
+        get() = unpackSecondShort(bits)
 }
 
-internal object PackedSize {
-    fun create(width: Int, height: Int): Long = IntPair.create(width, height)
-    fun getWidth(size: Long): Int = IntPair.getFirst(size)
-    fun getHeight(size: Long): Int = IntPair.getSecond(size)
+internal fun PackedSize(width: Int, height: Int): PackedSize {
+    return PackedSize(packInts(width, height))
+}
+
+@JvmInline
+internal value class PackedSize(val bits: Long) {
+    val width: Int
+        get() = unpackFirstInt(bits)
+
+    val height: Int
+        get() = unpackSecondInt(bits)
 }

@@ -34,6 +34,8 @@ import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
 import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
+import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationMethod
+import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationMethodInt
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -1358,21 +1360,26 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_ENABLED, state)
         }
 
-    private val gradientStartEndColorPair: Long
-        get() = adapter.getStyleLong(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS)
+    private val gradientStartEndColorPair: PackedIntPair
+        get() {
+            val bits =
+                adapter.getStyleLong(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS)
+
+            return PackedIntPair(bits)
+        }
 
     @get:ColorInt
     val gradientStartColor: Int
-        get() = IntPair.getFirst(gradientStartEndColorPair)
+        get() = gradientStartEndColorPair.first
 
     @get:ColorInt
     val gradientEndColor: Int
-        get() = IntPair.getSecond(gradientStartEndColorPair)
+        get() = gradientStartEndColorPair.second
 
     fun setGradientColors(@ColorInt start: Int, @ColorInt end: Int) {
         adapter.setStyleLong(
             RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS,
-            IntPair.create(start, end)
+            packInts(start, end)
         )
     }
 
@@ -1479,7 +1486,7 @@ class RangeCalendarView @JvmOverloads constructor(
     fun selectWeek(year: Int, month: Int, weekIndex: Int, withAnimation: Boolean = true) {
         selectInternal(
             SelectionType.WEEK,
-            IntPair.create(YearMonth(year, month).totalMonths, weekIndex),
+            packInts(YearMonth(year, month).totalMonths, weekIndex),
             withAnimation
         )
     }
@@ -1555,7 +1562,7 @@ class RangeCalendarView @JvmOverloads constructor(
     ) {
         selectInternal(
             SelectionType.CUSTOM,
-            IntPair.create(startDate.bits, endDate.bits),
+            packInts(startDate.bits, endDate.bits),
             withAnimation
         )
     }
@@ -1654,9 +1661,164 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     @JvmOverloads
+    fun <T : CellDecor<T>> addDecorations(
+        decors: Array<out CellDecor<T>>,
+        epochDay: Long,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        addDecorationsInternal(decors, PackedDate.fromEpochDay(epochDay), animationMethod)
+    }
+
+    @JvmOverloads
+    @RequiresApi(26)
+    fun <T : CellDecor<T>> addDecorations(
+        decors: Array<out CellDecor<T>>,
+        date: LocalDate,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        addDecorationsInternal(decors, PackedDate.fromLocalDate(date), animationMethod)
+    }
+
+    @JvmOverloads
+    fun <T : CellDecor<T>> addDecorations(
+        decors: Array<out CellDecor<T>>,
+        calendar: Calendar,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        addDecorationsInternal(decors, PackedDate.fromCalendar(calendar), animationMethod)
+    }
+
+    @JvmOverloads
+    fun <T : CellDecor<T>> addDecorations(
+        decors: Array<out CellDecor<T>>,
+        year: Int, month: Int, dayOfMonth: Int,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        addDecorationsInternal(decors, PackedDate(year, month, dayOfMonth), animationMethod)
+    }
+
+    private fun <T : CellDecor<T>> addDecorationsInternal(
+        decors: Array<out CellDecor<T>>,
+        date: PackedDate,
+        @DecorAnimationMethodInt animationMethod: Int
+    ) {
+        adapter.addDecorations(decors, date, animationMethod)
+    }
+
+    @JvmOverloads
     fun <T : CellDecor<T>> removeDecoration(decor: CellDecor<T>, withAnimation: Boolean = true) {
         adapter.removeDecoration(decor, withAnimation)
     }
+
+    @JvmOverloads
+    fun removeDecorationRange(
+        start: Int,
+        endInclusive: Int,
+        epochDay: Long,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        removeDecorationRangeInternal(
+            start,
+            endInclusive,
+            PackedDate.fromEpochDay(epochDay),
+            animationMethod
+        )
+    }
+
+    @JvmOverloads
+    fun removeDecorationRange(
+        start: Int,
+        endInclusive: Int,
+        calendar: Calendar,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        removeDecorationRangeInternal(
+            start,
+            endInclusive,
+            PackedDate.fromCalendar(calendar),
+            animationMethod
+        )
+    }
+
+    @JvmOverloads
+    @RequiresApi(26)
+    fun removeDecorationRange(
+        start: Int,
+        endInclusive: Int,
+        date: LocalDate,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        removeDecorationRangeInternal(
+            start,
+            endInclusive,
+            PackedDate.fromLocalDate(date),
+            animationMethod
+        )
+    }
+
+    @JvmOverloads
+    fun removeDecorationRange(
+        start: Int,
+        endInclusive: Int,
+        year: Int, month: Int, dayOfMonth: Int,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        removeDecorationRangeInternal(
+            start, endInclusive,
+            PackedDate(year, month, dayOfMonth),
+            animationMethod
+        )
+    }
+
+    private fun removeDecorationRangeInternal(
+        start: Int,
+        endInclusive: Int,
+        date: PackedDate,
+        animationMethod: Int
+    ) {
+        adapter.removeDecorationRange(start, endInclusive, date, animationMethod)
+    }
+
+    @JvmOverloads
+    fun removeAllDecorationsFromCell(
+        epochDay: Long,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        removeAllDecorationsFromCellInternal(PackedDate.fromEpochDay(epochDay), animationMethod)
+    }
+
+    @JvmOverloads
+    fun removeAllDecorationsFromCell(
+        calendar: Calendar,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        removeAllDecorationsFromCellInternal(PackedDate.fromCalendar(calendar), animationMethod)
+    }
+
+    @JvmOverloads
+    @RequiresApi(26)
+    fun removeAllDecorationsFromCell(
+        date: LocalDate,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        removeAllDecorationsFromCellInternal(PackedDate.fromLocalDate(date), animationMethod)
+    }
+
+    @JvmOverloads
+    fun removeAllDecorationsFromCell(
+        year: Int, month: Int, dayOfMonth: Int,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        removeAllDecorationsFromCellInternal(PackedDate(year, month, dayOfMonth), animationMethod)
+    }
+
+    private fun removeAllDecorationsFromCellInternal(
+        date: PackedDate,
+        @DecorAnimationMethodInt animationMethod: Int
+    ) {
+        adapter.removeAllDecorations(date, animationMethod)
+    }
+
 
     private fun updateMoveButtons() {
         val position = pager.currentItem

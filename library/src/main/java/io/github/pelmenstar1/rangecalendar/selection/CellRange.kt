@@ -1,24 +1,24 @@
 package io.github.pelmenstar1.rangecalendar.selection
 
-import io.github.pelmenstar1.rangecalendar.ShortRange
-import kotlin.math.max
-import kotlin.math.min
+import io.github.pelmenstar1.rangecalendar.packShorts
+import io.github.pelmenstar1.rangecalendar.unpackFirstShort
+import io.github.pelmenstar1.rangecalendar.unpackSecondShort
 
 internal fun CellRange(start: Int, end: Int): CellRange {
     return CellRange(Cell(start), Cell(end))
 }
 
 internal fun CellRange(start: Cell, end: Cell): CellRange {
-    return CellRange(ShortRange.create(start.index, end.index))
+    return CellRange(packShorts(start.index, end.index))
 }
 
 @JvmInline
-internal value class CellRange(val range: Int) {
+internal value class CellRange(val bits: Int) {
     val start: Cell
-        get() = Cell(ShortRange.getStart(range))
+        get() = Cell(unpackFirstShort(bits))
 
     val end: Cell
-        get() = Cell(ShortRange.getEnd(range))
+        get() = Cell(unpackSecondShort(bits))
 
     val cell: Cell
         get() = start
@@ -48,8 +48,8 @@ internal value class CellRange(val range: Int) {
     }
 
     companion object {
-        val Invalid = CellRange(ShortRange.create(-1, -1))
+        val Invalid = CellRange(packShorts(-1, -1))
 
-        fun cell(cell: Cell) = CellRange(ShortRange.create(cell.index, cell.index))
+        fun cell(cell: Cell) = CellRange(cell, cell)
     }
 }

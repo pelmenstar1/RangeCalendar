@@ -71,10 +71,10 @@ class Stripe : CellDecor<Stripe> {
         override fun render(
             canvas: Canvas,
             decorations: Array<out CellDecor<*>>,
-            start: Int, end: Int,
+            start: Int, endInclusive: Int,
             info: CellInfo,
         ) {
-            val length = end - start
+            val length = endInclusive - start
 
             // The coefficient is hand-picked for stripe not to be very thin or thick
             val stripeHeight = max(1f, info.size * (1f / 12f))
@@ -95,7 +95,7 @@ class Stripe : CellDecor<Stripe> {
             val halfWidth = tempRect.width() * 0.5f - stripeHorizontalMargin
             val centerX = tempRect.centerX()
 
-            for (i in start until end) {
+            for (i in start..endInclusive) {
                 val stripe = decorations[i] as Stripe
                 val animFraction = stripe.animationFraction
 
