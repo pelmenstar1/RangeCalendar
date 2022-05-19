@@ -91,7 +91,7 @@ internal class RangeCalendarPagerAdapter(
             }
 
             fun <T : CellDecor<T>> addDecorations(
-                decors: Array<out CellDecor<T>>,
+                decors: Array<out T>,
                 cell: Cell,
                 animationMethod: Int
             ): Payload {
@@ -107,7 +107,7 @@ internal class RangeCalendarPagerAdapter(
                 return Payload(REMOVE_DECORATION, arg1 = if (withAnimation) 1 else 0, obj = decor)
             }
 
-            fun <T : CellDecor<T>> removeDecorationRange(
+            fun removeDecorationRange(
                 start: Int, endInclusive: Int,
                 cell: Cell,
                 animationMethod: Int
@@ -718,7 +718,7 @@ internal class RangeCalendarPagerAdapter(
     }
 
     fun <T : CellDecor<T>> addDecoration(
-        decor: CellDecor<T>,
+        decor: T,
         date: PackedDate,
         withAnimation: Boolean
     ) {
@@ -735,7 +735,7 @@ internal class RangeCalendarPagerAdapter(
     }
 
     fun <T : CellDecor<T>> addDecorations(
-        decors: Array<out CellDecor<T>>,
+        decors: Array<out T>,
         date: PackedDate,
         @DecorAnimationMethodInt animationMethod: Int
     ) {
@@ -751,7 +751,7 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    fun <T : CellDecor<T>> removeDecoration(decor: CellDecor<T>, withAnimation: Boolean) {
+    fun <T : CellDecor<T>> removeDecoration(decor: T, withAnimation: Boolean) {
         val position = getItemPositionForDate(decor.date)
 
         if (position in 0 until count) {

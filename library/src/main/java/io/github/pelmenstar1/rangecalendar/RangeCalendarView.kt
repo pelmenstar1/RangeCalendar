@@ -1615,7 +1615,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     @JvmOverloads
     fun <T : CellDecor<T>> addDecoration(
-        decor: CellDecor<T>,
+        decor: T,
         epochDay: Long,
         withAnimation: Boolean = true
     ) {
@@ -1625,7 +1625,7 @@ class RangeCalendarView @JvmOverloads constructor(
     @RequiresApi(26)
     @JvmOverloads
     fun <T : CellDecor<T>> addDecoration(
-        decor: CellDecor<T>,
+        decor: T,
         date: LocalDate,
         withAnimation: Boolean = true
     ) {
@@ -1634,7 +1634,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     @JvmOverloads
     fun <T : CellDecor<T>> addDecoration(
-        decor: CellDecor<T>,
+        decor: T,
         calendar: Calendar,
         withAnimation: Boolean = true
     ) {
@@ -1643,7 +1643,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     @JvmOverloads
     fun <T : CellDecor<T>> addDecoration(
-        decor: CellDecor<T>,
+        decor: T,
         year: Int,
         month: Int,
         day: Int,
@@ -1653,7 +1653,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun <T : CellDecor<T>> addDecorationInternal(
-        decor: CellDecor<T>,
+        decor: T,
         date: PackedDate,
         withAnimation: Boolean
     ) {
@@ -1662,7 +1662,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     @JvmOverloads
     fun <T : CellDecor<T>> addDecorations(
-        decors: Array<out CellDecor<T>>,
+        decors: Array<out T>,
         epochDay: Long,
         @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
     ) {
@@ -1672,7 +1672,7 @@ class RangeCalendarView @JvmOverloads constructor(
     @JvmOverloads
     @RequiresApi(26)
     fun <T : CellDecor<T>> addDecorations(
-        decors: Array<out CellDecor<T>>,
+        decors: Array<out T>,
         date: LocalDate,
         @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
     ) {
@@ -1681,7 +1681,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     @JvmOverloads
     fun <T : CellDecor<T>> addDecorations(
-        decors: Array<out CellDecor<T>>,
+        decors: Array<out T>,
         calendar: Calendar,
         @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
     ) {
@@ -1690,7 +1690,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     @JvmOverloads
     fun <T : CellDecor<T>> addDecorations(
-        decors: Array<out CellDecor<T>>,
+        decors: Array<out T>,
         year: Int, month: Int, dayOfMonth: Int,
         @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
     ) {
@@ -1698,7 +1698,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun <T : CellDecor<T>> addDecorationsInternal(
-        decors: Array<out CellDecor<T>>,
+        decors: Array<out T>,
         date: PackedDate,
         @DecorAnimationMethodInt animationMethod: Int
     ) {
@@ -1706,7 +1706,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> removeDecoration(decor: CellDecor<T>, withAnimation: Boolean = true) {
+    fun <T : CellDecor<T>> removeDecoration(decor: T, withAnimation: Boolean = true) {
         adapter.removeDecoration(decor, withAnimation)
     }
 

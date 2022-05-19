@@ -64,7 +64,7 @@ internal class DecorSortedList {
         return index
     }
 
-    fun<T: CellDecor<T>> addAll(values: Array<out CellDecor<T>>): Int {
+    fun addAll(values: Array<out CellDecor<*>>): Int {
         val index = findIndexForNewElement(values[0])
 
         allocatePlaceForInsert(index, values.size)

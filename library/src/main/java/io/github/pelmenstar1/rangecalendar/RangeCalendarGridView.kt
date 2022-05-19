@@ -1030,7 +1030,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun <T : CellDecor<T>> checkDecor(decor: CellDecor<T>, cell: Cell) {
+    private fun checkDecor(decor: CellDecor<*>, cell: Cell) {
         if (decor.cell.isDefined) {
             throw IllegalStateException("Decoration is already added to the calendar")
         }
@@ -1047,7 +1047,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun <T : CellDecor<T>> checkDecors(decors: Array<out CellDecor<T>>, cell: Cell) {
+    private fun checkDecors(decors: Array<out CellDecor<*>>, cell: Cell) {
         val region = decorations.getRegionByCell(cell)
 
         val firstDecorClass = decors[0].javaClass
@@ -1076,7 +1076,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun <T : CellDecor<T>> cacheDecorRendererIfNeeded(decor: CellDecor<T>) {
+    private fun cacheDecorRendererIfNeeded(decor: CellDecor<*>) {
         val renderers = decorRenderers
         val decorClass = decor.javaClass
 
@@ -1136,7 +1136,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    fun <T : CellDecor<T>> removeDecoration(decor: CellDecor<T>, withAnimation: Boolean) {
+    fun removeDecoration(decor: CellDecor<*>, withAnimation: Boolean) {
         if (withAnimation) {
             val decorIndex = decorations.indexOf(decor)
 
