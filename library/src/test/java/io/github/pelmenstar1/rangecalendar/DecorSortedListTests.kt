@@ -7,6 +7,9 @@ import io.github.pelmenstar1.rangecalendar.decoration.DecorSortedList
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import org.junit.Test
 import kotlin.collections.ArrayList
+import kotlin.math.min
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 
 private typealias DecorArrayList = ArrayList<CellDecor<*>>
 
@@ -16,7 +19,7 @@ private class TestDecor : CellDecor<TestDecor>() {
     }
 
     override fun toString(): String {
-        return System.identityHashCode(this).toString()
+        return System.identityHashCode(this).toString(16)
     }
 }
 
@@ -24,7 +27,8 @@ class DecorSortedListTests {
     private inline fun validateActionOnCommonList(
         initialLength: Int,
         actionOnDecorList: DecorSortedList.() -> Unit,
-        actionOnCommonList: DecorArrayList.() -> Unit
+        actionOnCommonList: DecorArrayList.() -> Unit,
+        message: String? = null
     ) {
         val decorList = DecorSortedList(initialLength)
         val arrayList = DecorArrayList(initialLength)
@@ -41,9 +45,7 @@ class DecorSortedListTests {
 
         val arrayListContent = arrayList.toTypedArray()
 
-        assert(arrayListContent.contentEquals(decorList.elements)) {
-            "Expected content: ${arrayListContent.contentToString()}, actual content: ${decorList.elements.contentToString()}"
-        }
+        assertContentEquals(arrayListContent, decorList.elements, message)
     }
 
     private fun createList(vararg cellIndices: Pair<Int, Int>): DecorSortedList {
@@ -85,7 +87,7 @@ class DecorSortedListTests {
     }
 
     private fun assertRegion(list: DecorSortedList, cellIndex: Int, expectedRange: PackedIntRange) {
-        assert(list.getRegionByCell(Cell(cellIndex)) == expectedRange)
+        assertEquals(expectedRange, list.getRegionByCell(Cell(cellIndex)))
     }
 
     @Test
@@ -137,8 +139,8 @@ class DecorSortedListTests {
         list.iterateRegions { range, cell ->
             val pair = expectedSequence[seqIndex++]
 
-            assert(range == pair.first)
-            assert(cell == Cell(pair.second))
+            assertEquals(pair.first, range)
+            assertEquals(Cell(pair.second), cell)
         }
     }
 
