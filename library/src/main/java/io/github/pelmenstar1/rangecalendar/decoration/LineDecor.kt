@@ -3,12 +3,13 @@ package io.github.pelmenstar1.rangecalendar.decoration
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import androidx.annotation.ColorInt
 import android.graphics.RectF
 import io.github.pelmenstar1.rangecalendar.R
 import kotlin.math.max
 
-class LineDecor(@ColorInt val color: Int) : CellDecor<LineDecor>() {
+class LineDecor(val style: Style) : CellDecor<LineDecor>() {
     override fun newRenderer(context: Context): CellDecorRenderer<LineDecor> = Renderer(context)
 
     private class Renderer(context: Context) : CellDecorRenderer<LineDecor> {
@@ -27,6 +28,12 @@ class LineDecor(@ColorInt val color: Int) : CellDecor<LineDecor>() {
         }
 
         override fun decorationClass() = LineDecor::class.java
+
+        private fun Float.resolveRoundRadius(height: Float): Float {
+            val half = height * 0.5f
+
+            return if(this > half) half else this
+        }
 
         override fun render(
             canvas: Canvas,
@@ -69,8 +76,32 @@ class LineDecor(@ColorInt val color: Int) : CellDecor<LineDecor>() {
 
                 tempRect.set(stripeLeft, top, stripeRight, top + lineHeight)
 
-                paint.color = decor.color
-                canvas.drawRect(tempRect, paint)
+                val style = decor.style
+
+                paint.color = style.color
+
+                if(style.isRoundRadiiMode) {
+                    var path = cachedPath
+                    if(path == null) {
+                        path = Path()
+                        cachedPath = path
+                    } else {
+                        path.rewind()
+                    }
+
+                    val radii = style.roundRadii!!
+                    for(j in radii.indices) {
+                        radii[j] = radii[j].resolveRoundRadius(lineHeight)
+                    }
+
+                    path.addRoundRect(tempRect, radii, Path.Direction.CW)
+
+                    canvas.drawPath(path, paint)
+                } else {
+                    val roundRadius = style.roundRadius.resolveRoundRadius(lineHeight)
+
+                    canvas.drawRoundRect(tempRect, roundRadius, roundRadius, paint)
+                }
 
                 top += lineHeight + stripeMarginTop
             }
@@ -78,11 +109,13 @@ class LineDecor(@ColorInt val color: Int) : CellDecor<LineDecor>() {
 
         companion object {
             private val tempRect = RectF()
+
+            private var cachedPath: Path? = null
         }
     }
 
-    class Style {
-        var color: Int
+    class Style constructor(@ColorInt color: Int) {
+        var color: Int = color
             private set
 
         var roundRadius: Float = 0f
@@ -92,10 +125,6 @@ class LineDecor(@ColorInt val color: Int) : CellDecor<LineDecor>() {
             private set
 
         internal var isRoundRadiiMode = false
-
-        internal constructor(@ColorInt color: Int) {
-            this.color = color
-        }
 
         @JvmOverloads
         fun withRoundedCorners(radius: Float = Float.POSITIVE_INFINITY): Style {
