@@ -19,6 +19,16 @@ class CellInfo internal constructor() {
     var radius = 0f
         internal set
 
+    private val textBounds = RectF()
+
+    internal fun setTextBounds(left: Float, top: Float, right: Float, bottom: Float) {
+        textBounds.set(left, top, right, bottom)
+    }
+
+    fun getTextBounds(outRect: RectF) {
+        outRect.set(textBounds)
+    }
+
     /**
      * Narrows left and right of specified [RectF] to make rectangle fit the shape of the cell.
      */
@@ -66,6 +76,10 @@ class CellInfo internal constructor() {
     // Final formula:
     // x = R - sqrt((R - y) * (R + y))
     private fun findIntersectionWithCircle(y: Float): Float {
+        if(y > radius) {
+            return radius
+        }
+
         return radius - sqrt((radius - y) * (radius + y))
     }
 }

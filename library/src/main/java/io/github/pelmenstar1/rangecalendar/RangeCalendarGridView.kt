@@ -1740,6 +1740,19 @@ internal class RangeCalendarGridView(
                 val dx = getCellLeft(cell)
                 val dy = getCellTop(cell)
 
+                val halfCellSize = cellSize * 0.5f
+
+                val cellTextSize = PackedSize(cr.dayNumberSizes[cell.index - 1])
+                val halfCellTextWidth = cellTextSize.width * 0.5f
+                val halfCellTextHeight = cellTextSize.height * 0.5f
+
+                cellInfo.setTextBounds(
+                    halfCellSize - halfCellTextWidth,
+                    halfCellSize - halfCellTextHeight,
+                    halfCellSize + halfCellTextWidth,
+                    halfCellSize + halfCellTextHeight
+                )
+
                 c.translate(dx, dy)
                 renderer.render(
                     c,

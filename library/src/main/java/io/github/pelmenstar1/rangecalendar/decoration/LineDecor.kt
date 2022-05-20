@@ -24,12 +24,11 @@ class LineDecor : CellDecor<LineDecor> {
 
     override fun writeToParcel(dest: Parcel, flags: Int) {
         super.writeToParcel(dest, 0)
+
         dest.writeInt(color)
     }
 
-    override fun describeContents(): Int {
-        return 0
-    }
+    override fun describeContents(): Int = 0
 
     override fun newRenderer(context: Context): CellDecorRenderer<LineDecor> = Renderer(context)
 
@@ -64,22 +63,24 @@ class LineDecor : CellDecor<LineDecor> {
             // Find half of total height of lines
             val halfTotalHeight = (lineHeight + stripeMarginTop) * length * 0.5f
 
-            // Find center y of bottom part of the cell
-            val bottomCenterY = info.size * 0.75f
+            // Find y of position where to start drawing lines
+            info.getTextBounds(tempRect)
+
+            val bottomCenterY = (tempRect.bottom + info.size) * 0.5f
             var top = bottomCenterY - halfTotalHeight
-            val bottom = bottomCenterY + halfTotalHeight
 
-            tempRect.set(0f, top, info.size, bottom)
-
-            // If cell is round, then it should be narrowed to fit the cell shape
-            info.narrowRectOnBottom(tempRect)
-
-            val halfWidth = tempRect.width() * 0.5f - stripeHorizontalMargin
-            val centerX = tempRect.centerX()
+            val centerX = info.size * 0.5f
 
             for (i in start..endInclusive) {
                 val decor = decorations[i] as LineDecor
                 val animFraction = decor.animationFraction
+
+                tempRect.set(0f, top, info.size, top + lineHeight)
+
+                // If cell is round, then it should be narrowed to fit the cell shape
+                info.narrowRectOnBottom(tempRect)
+
+                val halfWidth = tempRect.width() * 0.5f - stripeHorizontalMargin
 
                 val animatedHalfWidth = halfWidth * animFraction
 
