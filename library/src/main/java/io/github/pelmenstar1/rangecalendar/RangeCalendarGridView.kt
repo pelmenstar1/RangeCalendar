@@ -1136,6 +1136,36 @@ internal class RangeCalendarGridView(
         }
     }
 
+    fun insertDecorations(
+        indexInCell: Int,
+        decors: Array<out CellDecor<*>>,
+        cell: Cell,
+        animationMethod: Int
+    ) {
+        if(decors.isEmpty()) {
+            return
+        }
+
+        checkDecors(decors, cell)
+        decors.forEach { it.cell = cell }
+
+        val insertionIndex = decorations.insertAll(indexInCell, decors)
+
+        cacheDecorRendererIfNeeded(decors[0])
+
+        if (animationMethod != DecorAnimationMethod.NONE) {
+            val range = PackedIntRange(insertionIndex, insertionIndex + decors.size - 1)
+            decorAnimationRangeConnector = DecorAnimationRangeConnector(range)
+            decorAnimationMethod = animationMethod
+
+            startAnimation(DECOR_APPEAR_ANIMATION, handler = getHandleDecorationAnimationCallback())
+        } else {
+            decors.forEach { it.animationFraction = 1f }
+
+            invalidate()
+        }
+    }
+
     fun removeDecoration(decor: CellDecor<*>, withAnimation: Boolean) {
         if (withAnimation) {
             val decorIndex = decorations.indexOf(decor)

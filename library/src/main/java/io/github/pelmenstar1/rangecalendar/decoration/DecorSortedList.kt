@@ -74,6 +74,24 @@ internal class DecorSortedList {
         return index
     }
 
+    fun insertAll(indexInRegion: Int, values: Array<out CellDecor<*>>): Int {
+        val region = getRegionByCell(values[0].cell)
+
+        val resolvedIndex = if(region.isDefined) {
+            val length = region.endInclusive - region.start + 1
+
+            region.start + indexInRegion.coerceIn(0, length)
+        } else {
+            elements.size
+        }
+
+        allocatePlaceForInsert(resolvedIndex, values.size)
+
+        System.arraycopy(values, 0, elements, resolvedIndex, values.size)
+
+        return resolvedIndex
+    }
+
     private fun allocatePlaceForInsert(pos: Int, length: Int) {
         val newElements = unsafeNewArray(elements.size + length)
 

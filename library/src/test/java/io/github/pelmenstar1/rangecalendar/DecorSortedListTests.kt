@@ -127,6 +127,25 @@ class DecorSortedListTests {
     }
 
     @Test
+    fun insertAllTest() {
+        fun validateAddAll(initialLength: Int, position: Int, addAmount: Int) {
+            val array = Array(addAmount) { TestDecor() }
+
+            validateActionOnCommonList(
+                initialLength,
+                actionOnDecorList = { insertAll(position, array) },
+                actionOnCommonList = { addAll(min(size, position), listOf(*array)) },
+                "Elements to insert: ${array.contentToString()}"
+            )
+        }
+
+        validateAddAll(4, 1, 2)
+        validateAddAll(2, 5, 3)
+        validateAddAll(4, 0, 3)
+        validateAddAll(4, 3, 1)
+    }
+
+    @Test
     fun iterateRegionsTest() {
         val list = createList(0 to 3, 1 to 2, 2 to 1)
         val expectedSequence = arrayOf(

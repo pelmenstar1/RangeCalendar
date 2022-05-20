@@ -1706,6 +1706,56 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     @JvmOverloads
+    fun <T : CellDecor<T>> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        epochDay: Long,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromEpochDay(epochDay), animationMethod)
+    }
+
+    @JvmOverloads
+    @RequiresApi(26)
+    fun <T : CellDecor<T>> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        date: LocalDate,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromLocalDate(date), animationMethod)
+    }
+
+    @JvmOverloads
+    fun <T : CellDecor<T>> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        calendar: Calendar,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromCalendar(calendar), animationMethod)
+    }
+
+    @JvmOverloads
+    fun <T : CellDecor<T>> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        year: Int, month: Int, dayOfMonth: Int,
+        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+    ) {
+        insertDecorationsInternal(indexInCell, decors, PackedDate(year, month, dayOfMonth), animationMethod)
+    }
+
+    private fun <T : CellDecor<T>> insertDecorationsInternal(
+        indexInCell: Int,
+        decors: Array<out T>,
+        date: PackedDate,
+        @DecorAnimationMethodInt animationMethod: Int
+    ) {
+        adapter.insertDecorations(indexInCell, decors, date, animationMethod)
+    }
+
+    @JvmOverloads
     fun <T : CellDecor<T>> removeDecoration(decor: T, withAnimation: Boolean = true) {
         adapter.removeDecoration(decor, withAnimation)
     }
