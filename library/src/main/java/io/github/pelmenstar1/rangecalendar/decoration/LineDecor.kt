@@ -7,6 +7,7 @@ import android.graphics.Path
 import androidx.annotation.ColorInt
 import android.graphics.RectF
 import io.github.pelmenstar1.rangecalendar.R
+import io.github.pelmenstar1.rangecalendar.utils.lerp
 import kotlin.math.max
 
 class LineDecor(val style: Style) : CellDecor<LineDecor>() {
@@ -70,6 +71,7 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
             for (i in start..endInclusive) {
                 val decor = decorations[i] as LineDecor
                 val animFraction = decor.animationFraction
+                val style = decor.style
 
                 tempRect.set(0f, top, info.size, top + defaultLineHeight)
 
@@ -81,12 +83,25 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
                 val animatedHalfWidth = halfWidth * animFraction
 
                 // The line is animated starting from its center
-                val stripeLeft = centerX - animatedHalfWidth
-                val stripeRight = centerX + animatedHalfWidth
+                val lineLeft: Float
+                val lineRight: Float
 
-                tempRect.set(stripeLeft, top, stripeRight, top + defaultLineHeight)
+                when(style.animationStartPosition) {
+                    AnimationStartPosition.Left -> {
+                        lineLeft = tempRect.left
+                        lineRight = lerp(lineLeft, tempRect.right, animFraction)
+                    }
+                    AnimationStartPosition.Center -> {
+                        lineLeft = centerX - animatedHalfWidth
+                        lineRight = centerX + animatedHalfWidth
+                    }
+                    AnimationStartPosition.Right -> {
+                        lineRight = tempRect.right
+                        lineLeft = lerp(lineRight, tempRect.left, animFraction)
+                    }
+                }
 
-                val style = decor.style
+                tempRect.set(lineLeft, top, lineRight, top + defaultLineHeight)
 
                 paint.color = style.color
 
@@ -124,6 +139,12 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
         }
     }
 
+    enum class AnimationStartPosition {
+        Left,
+        Center,
+        Right
+    }
+
     class Style constructor(@ColorInt color: Int) {
         var color: Int = color
             private set
@@ -137,10 +158,17 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
         var height: Float = Float.NaN
             private set
 
+        var animationStartPosition: AnimationStartPosition = AnimationStartPosition.Center
+            private set
+
         internal var isRoundRadiiMode = false
 
         fun withHeight(height: Float): Style = apply {
             this.height = height
+        }
+
+        fun withAnimationStartPosition(pos: AnimationStartPosition) = apply {
+            animationStartPosition = pos
         }
 
         @JvmOverloads
