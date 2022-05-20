@@ -4,32 +4,11 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import androidx.annotation.ColorInt
-import android.os.Parcel
 import android.graphics.RectF
 import io.github.pelmenstar1.rangecalendar.R
-import android.os.Parcelable.Creator
 import kotlin.math.max
 
-class LineDecor : CellDecor<LineDecor> {
-    @get:ColorInt
-    val color: Int
-
-    constructor(@ColorInt color: Int) {
-        this.color = color
-    }
-
-    constructor(source: Parcel) : super(source) {
-        color = source.readInt()
-    }
-
-    override fun writeToParcel(dest: Parcel, flags: Int) {
-        super.writeToParcel(dest, 0)
-
-        dest.writeInt(color)
-    }
-
-    override fun describeContents(): Int = 0
-
+class LineDecor(@ColorInt val color: Int) : CellDecor<LineDecor>() {
     override fun newRenderer(context: Context): CellDecorRenderer<LineDecor> = Renderer(context)
 
     private class Renderer(context: Context) : CellDecorRenderer<LineDecor> {
@@ -102,11 +81,55 @@ class LineDecor : CellDecor<LineDecor> {
         }
     }
 
-    companion object {
-        @JvmField
-        val CREATOR: Creator<LineDecor> = object : Creator<LineDecor> {
-            override fun createFromParcel(source: Parcel) = LineDecor(source)
-            override fun newArray(size: Int) = arrayOfNulls<LineDecor>(size)
+    class Style {
+        var color: Int
+            private set
+
+        var roundRadius: Float = 0f
+            private set
+
+        var roundRadii: FloatArray? = null
+            private set
+
+        internal var isRoundRadiiMode = false
+
+        internal constructor(@ColorInt color: Int) {
+            this.color = color
+        }
+
+        @JvmOverloads
+        fun withRoundedCorners(radius: Float = Float.POSITIVE_INFINITY): Style {
+            return apply {
+                roundRadius = radius
+                isRoundRadiiMode = false
+            }
+        }
+
+        fun withRoundedCorners(
+            leftTop: Float = Float.POSITIVE_INFINITY,
+            rightTop: Float = Float.POSITIVE_INFINITY,
+            rightBottom: Float = Float.POSITIVE_INFINITY,
+            leftBottom: Float = Float.POSITIVE_INFINITY
+        ): Style {
+            return apply {
+                var radii = roundRadii
+
+                if(radii == null) {
+                    radii = FloatArray(8)
+                    roundRadii = radii
+                }
+
+                isRoundRadiiMode = true
+
+                radii[0] = leftTop
+                radii[1] = leftTop
+                radii[2] = rightTop
+                radii[3] = rightTop
+                radii[4] = rightBottom
+                radii[5] = rightBottom
+                radii[6] = leftBottom
+                radii[7] = leftBottom
+            }
         }
     }
 }
