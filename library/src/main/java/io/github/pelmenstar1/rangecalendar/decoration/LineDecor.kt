@@ -43,25 +43,35 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
         ) {
             val length = endInclusive - start + 1
 
-            // The coefficient is hand-picked for line not to be very thin or thick
-            val lineHeight = max(1f, info.size * (1f / 12f))
+            info.getTextBounds(tempRect)
+            val freeAreaHeight = info.size - tempRect.bottom
 
-            // Find half of total height of lines
-            val halfTotalHeight = (lineHeight + stripeMarginTop) * length * 0.5f
+            // The coefficient is hand-picked for line not to be very thin or thick
+            val defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
+
+            // Find total height of lines
+            var totalHeight = 0f
+
+            for(i in start..endInclusive) {
+                val line = decorations[i] as LineDecor
+                val height = line.style.height
+
+                totalHeight += if (height.isNaN()) defaultLineHeight else height
+
+                if(i < endInclusive) {
+                    totalHeight += stripeMarginTop
+                }
+            }
 
             // Find y of position where to start drawing lines
-            info.getTextBounds(tempRect)
-
-            val bottomCenterY = (tempRect.bottom + info.size) * 0.5f
-            var top = bottomCenterY - halfTotalHeight
-
+            var top = 0.5f * (tempRect.bottom + info.size - totalHeight)
             val centerX = info.size * 0.5f
 
             for (i in start..endInclusive) {
                 val decor = decorations[i] as LineDecor
                 val animFraction = decor.animationFraction
 
-                tempRect.set(0f, top, info.size, top + lineHeight)
+                tempRect.set(0f, top, info.size, top + defaultLineHeight)
 
                 // If cell is round, then it should be narrowed to fit the cell shape
                 info.narrowRectOnBottom(tempRect)
@@ -74,7 +84,7 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
                 val stripeLeft = centerX - animatedHalfWidth
                 val stripeRight = centerX + animatedHalfWidth
 
-                tempRect.set(stripeLeft, top, stripeRight, top + lineHeight)
+                tempRect.set(stripeLeft, top, stripeRight, top + defaultLineHeight)
 
                 val style = decor.style
 
@@ -91,19 +101,19 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
 
                     val radii = style.roundRadii!!
                     for(j in radii.indices) {
-                        radii[j] = radii[j].resolveRoundRadius(lineHeight)
+                        radii[j] = radii[j].resolveRoundRadius(defaultLineHeight)
                     }
 
                     path.addRoundRect(tempRect, radii, Path.Direction.CW)
 
                     canvas.drawPath(path, paint)
                 } else {
-                    val roundRadius = style.roundRadius.resolveRoundRadius(lineHeight)
+                    val roundRadius = style.roundRadius.resolveRoundRadius(defaultLineHeight)
 
                     canvas.drawRoundRect(tempRect, roundRadius, roundRadius, paint)
                 }
 
-                top += lineHeight + stripeMarginTop
+                top += defaultLineHeight + stripeMarginTop
             }
         }
 
@@ -124,7 +134,14 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
         var roundRadii: FloatArray? = null
             private set
 
+        var height: Float = Float.NaN
+            private set
+
         internal var isRoundRadiiMode = false
+
+        fun withHeight(height: Float): Style = apply {
+            this.height = height
+        }
 
         @JvmOverloads
         fun withRoundedCorners(radius: Float = Float.POSITIVE_INFINITY): Style {
