@@ -10,7 +10,7 @@ import io.github.pelmenstar1.rangecalendar.R
 import android.os.Parcelable.Creator
 import kotlin.math.max
 
-class Stripe : CellDecor<Stripe> {
+class LineDecor : CellDecor<LineDecor> {
     @get:ColorInt
     val color: Int
 
@@ -31,27 +31,9 @@ class Stripe : CellDecor<Stripe> {
         return 0
     }
 
-    override fun newRenderer(context: Context): CellDecorRenderer<Stripe> = Renderer(context)
+    override fun newRenderer(context: Context): CellDecorRenderer<LineDecor> = Renderer(context)
 
-    /*
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other == null || javaClass != other.javaClass) return false
-        if (!super.equals(other)) return false
-
-        other as Stripe
-
-        return color == other.color
-    }
-
-    override fun hashCode(): Int {
-        var result = super.hashCode()
-        result = 31 * result + color
-        return result
-    }
-    */
-
-    private class Renderer(context: Context) : CellDecorRenderer<Stripe> {
+    private class Renderer(context: Context) : CellDecorRenderer<LineDecor> {
         private val stripeMarginTop: Float
         private val stripeHorizontalMargin: Float
         private val paint: Paint
@@ -66,7 +48,7 @@ class Stripe : CellDecor<Stripe> {
             }
         }
 
-        override fun decorationClass() = Stripe::class.java
+        override fun decorationClass() = LineDecor::class.java
 
         override fun render(
             canvas: Canvas,
@@ -74,13 +56,13 @@ class Stripe : CellDecor<Stripe> {
             start: Int, endInclusive: Int,
             info: CellInfo,
         ) {
-            val length = endInclusive - start
+            val length = endInclusive - start + 1
 
-            // The coefficient is hand-picked for stripe not to be very thin or thick
-            val stripeHeight = max(1f, info.size * (1f / 12f))
+            // The coefficient is hand-picked for line not to be very thin or thick
+            val lineHeight = max(1f, info.size * (1f / 12f))
 
-            // Find half of total height of stripes
-            val halfTotalHeight = (stripeHeight + stripeMarginTop) * length * 0.5f
+            // Find half of total height of lines
+            val halfTotalHeight = (lineHeight + stripeMarginTop) * length * 0.5f
 
             // Find center y of bottom part of the cell
             val bottomCenterY = info.size * 0.75f
@@ -96,21 +78,21 @@ class Stripe : CellDecor<Stripe> {
             val centerX = tempRect.centerX()
 
             for (i in start..endInclusive) {
-                val stripe = decorations[i] as Stripe
-                val animFraction = stripe.animationFraction
+                val decor = decorations[i] as LineDecor
+                val animFraction = decor.animationFraction
 
                 val animatedHalfWidth = halfWidth * animFraction
 
-                // The stripe is animated starting from its center
+                // The line is animated starting from its center
                 val stripeLeft = centerX - animatedHalfWidth
                 val stripeRight = centerX + animatedHalfWidth
 
-                tempRect.set(stripeLeft, top, stripeRight, top + stripeHeight)
+                tempRect.set(stripeLeft, top, stripeRight, top + lineHeight)
 
-                paint.color = stripe.color
+                paint.color = decor.color
                 canvas.drawRect(tempRect, paint)
 
-                top += stripeHeight + stripeMarginTop
+                top += lineHeight + stripeMarginTop
             }
         }
 
@@ -121,9 +103,9 @@ class Stripe : CellDecor<Stripe> {
 
     companion object {
         @JvmField
-        val CREATOR: Creator<Stripe> = object : Creator<Stripe> {
-            override fun createFromParcel(source: Parcel) = Stripe(source)
-            override fun newArray(size: Int) = arrayOfNulls<Stripe>(size)
+        val CREATOR: Creator<LineDecor> = object : Creator<LineDecor> {
+            override fun createFromParcel(source: Parcel) = LineDecor(source)
+            override fun newArray(size: Int) = arrayOfNulls<LineDecor>(size)
         }
     }
 }
