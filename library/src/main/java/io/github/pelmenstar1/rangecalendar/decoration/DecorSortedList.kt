@@ -5,13 +5,10 @@ import io.github.pelmenstar1.rangecalendar.selection.Cell
 
 internal class DecorSortedList {
     @PublishedApi
-    internal var elements: Array<CellDecor<*>>
+    internal var elements: Array<CellDecor>
 
     val size: Int
         get() = elements.size
-
-    val readonlyElements: Array<out CellDecor<*>>
-        get() = elements
 
     constructor() {
         elements = emptyArray()
@@ -21,7 +18,7 @@ internal class DecorSortedList {
         elements = unsafeNewArray(capacity)
     }
 
-    operator fun get(index: Int): CellDecor<*> {
+    operator fun get(index: Int): CellDecor {
         if (index !in elements.indices) {
             throw IndexOutOfBoundsException()
         }
@@ -29,19 +26,19 @@ internal class DecorSortedList {
         return getNoCheck(index)
     }
 
-    private fun getNoCheck(index: Int): CellDecor<*> {
+    private fun getNoCheck(index: Int): CellDecor {
         return elements[index]
     }
 
-    fun indexOf(value: CellDecor<*>): Int {
+    fun indexOf(value: CellDecor): Int {
         return elements.indexOf(value)
     }
 
-    inline fun forEach(block: (CellDecor<*>) -> Unit) {
+    inline fun forEach(block: (CellDecor) -> Unit) {
         elements.forEach(block)
     }
 
-    inline fun forEachBreakable(block: (CellDecor<*>) -> Boolean) {
+    inline fun forEachBreakable(block: (CellDecor) -> Boolean) {
         for(element in elements) {
             val toBreak = block(element)
 
@@ -51,30 +48,30 @@ internal class DecorSortedList {
         }
     }
 
-    fun contains(value: CellDecor<*>): Boolean {
+    fun contains(value: CellDecor): Boolean {
         return indexOf(value) >= 0
     }
 
-    fun add(value: CellDecor<*>): Int {
+    fun add(value: CellDecor): PackedIntRange {
         val index = findIndexForNewElement(value)
 
         allocatePlaceForInsert(index, 1)
         elements[index] = value
 
-        return index
+        return PackedIntRange(index, index)
     }
 
-    fun addAll(values: Array<out CellDecor<*>>): Int {
+    fun addAll(values: Array<out CellDecor>): PackedIntRange {
         val index = findIndexForNewElement(values[0])
 
         allocatePlaceForInsert(index, values.size)
 
         System.arraycopy(values, 0, elements, index, values.size)
 
-        return index
+        return PackedIntRange(index, index + values.size - 1)
     }
 
-    fun insertAll(indexInRegion: Int, values: Array<out CellDecor<*>>): Int {
+    fun insertAll(indexInRegion: Int, values: Array<out CellDecor>): PackedIntRange {
         val region = getRegionByCell(values[0].cell)
 
         val resolvedIndex = if(region.isDefined) {
@@ -89,7 +86,7 @@ internal class DecorSortedList {
 
         System.arraycopy(values, 0, elements, resolvedIndex, values.size)
 
-        return resolvedIndex
+        return PackedIntRange(resolvedIndex, resolvedIndex + values.size - 1)
     }
 
     private fun allocatePlaceForInsert(pos: Int, length: Int) {
@@ -119,21 +116,26 @@ internal class DecorSortedList {
     }
 
     fun getRegionByCell(cell: Cell): PackedIntRange {
-        val size = elements.size
-
-        if (size == 0) {
+        val start = getRegionStartByCell(cell)
+        if(start == -1) {
             return PackedIntRange.Undefined
         }
 
-        for (i in 0 until size) {
-            if (elements[i].cell == cell) {
-                val end = getRegionEndInclusive(i)
+        val endInclusive = getRegionEndInclusive(start)
 
-                return PackedIntRange(i, end)
+        return PackedIntRange(start, endInclusive)
+    }
+
+    fun getRegionStartByCell(cell: Cell): Int {
+        val elements = elements
+
+        for(i in elements.indices) {
+            if(elements[i].cell == cell) {
+                return i
             }
         }
 
-        return PackedIntRange.Undefined
+        return -1
     }
 
     private fun getRegionEndInclusive(start: Int): Int {
@@ -153,7 +155,7 @@ internal class DecorSortedList {
         return size - 1
     }
 
-    private fun findIndexForNewElement(newElement: CellDecor<*>): Int {
+    private fun findIndexForNewElement(newElement: CellDecor): Int {
         val region = getRegionByCell(newElement.cell)
 
         return if(region.isUndefined) {
@@ -163,7 +165,7 @@ internal class DecorSortedList {
         }
     }
 
-    fun remove(value: CellDecor<*>): Boolean {
+    fun remove(value: CellDecor): Boolean {
         val index = indexOf(value)
         return if (index >= 0) {
             remove(index)
@@ -198,8 +200,8 @@ internal class DecorSortedList {
 
     companion object {
         @Suppress("UNCHECKED_CAST")
-        private fun unsafeNewArray(size: Int): Array<CellDecor<*>> {
-            return arrayOfNulls<CellDecor<*>>(size) as Array<CellDecor<*>>
+        private fun unsafeNewArray(size: Int): Array<CellDecor> {
+            return arrayOfNulls<CellDecor>(size) as Array<CellDecor>
         }
     }
 }

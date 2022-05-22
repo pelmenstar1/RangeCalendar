@@ -6,49 +6,67 @@ import android.graphics.Paint
 import android.graphics.Path
 import androidx.annotation.ColorInt
 import android.graphics.RectF
+import io.github.pelmenstar1.rangecalendar.PackedIntRange
+import io.github.pelmenstar1.rangecalendar.PackedRectF
+import io.github.pelmenstar1.rangecalendar.PackedRectFArray
 import io.github.pelmenstar1.rangecalendar.R
+import io.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
+import io.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import io.github.pelmenstar1.rangecalendar.utils.lerp
 import kotlin.math.max
 
-class LineDecor(val style: Style) : CellDecor<LineDecor>() {
-    override fun newRenderer(context: Context): CellDecorRenderer<LineDecor> = Renderer(context)
+class LineDecor(val style: Style) : CellDecor() {
+    override fun stateHandler(): StateHandler = LineStateHandler
+    override fun renderer(): Renderer = LineRenderer
 
-    private class Renderer(context: Context) : CellDecorRenderer<LineDecor> {
-        private val stripeMarginTop: Float
-        private val stripeHorizontalMargin: Float
-        private val paint: Paint
+    private object LineStateHandler : StateHandler {
+        override fun createState(
+            context: Context,
+            decorations: Array<out CellDecor>,
+            start: Int,
+            endInclusive: Int,
+            info: CellInfo
+        ): VisualState {
+            return LineVisualState(context, decorations, PackedIntRange(start, endInclusive), info)
+        }
+    }
+
+    private class LineVisualState(
+        context: Context,
+        decorations: Array<out CellDecor>,
+        range: PackedIntRange,
+        info: CellInfo
+    ): VisualState {
+        val initialLinesBounds: PackedRectFArray
+        val animatedLinesBounds: PackedRectFArray
+
+        val styles: Array<Style>
+
+        val size = info.size
+        val defaultLineHeight: Float
 
         init {
             val res = context.resources
-            stripeMarginTop = res.getDimension(R.dimen.rangeCalendar_stripeMarginTop)
-            stripeHorizontalMargin = res.getDimension(R.dimen.rangeCalendar_stripeHorizontalMargin)
+            val lineMarginTop = res.getDimension(R.dimen.rangeCalendar_stripeMarginTop)
+            val lineHorizontalMargin = res.getDimension(R.dimen.rangeCalendar_stripeHorizontalMargin)
 
-            paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.FILL
-            }
-        }
+            val start = range.start
+            val endInclusive = range.endInclusive
 
-        override fun decorationClass() = LineDecor::class.java
-
-        private fun Float.resolveRoundRadius(height: Float): Float {
-            val half = height * 0.5f
-
-            return if(this > half) half else this
-        }
-
-        override fun render(
-            canvas: Canvas,
-            decorations: Array<out CellDecor<*>>,
-            start: Int, endInclusive: Int,
-            info: CellInfo,
-        ) {
             val length = endInclusive - start + 1
+
+            initialLinesBounds = PackedRectFArray(length)
+            animatedLinesBounds = PackedRectFArray(length)
+
+            styles = Array(length) { i ->
+                (decorations[start + i] as LineDecor).style
+            }
 
             info.getTextBounds(tempRect)
             val freeAreaHeight = info.size - tempRect.bottom
 
             // The coefficient is hand-picked for line not to be very thin or thick
-            val defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
+            defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
 
             // Find total height of lines
             var totalHeight = 0f
@@ -57,51 +75,113 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
                 val line = decorations[i] as LineDecor
                 val height = line.style.height
 
-                totalHeight += if (height.isNaN()) defaultLineHeight else height
+                totalHeight += height.resolveHeight(defaultLineHeight)
 
                 if(i < endInclusive) {
-                    totalHeight += stripeMarginTop
+                    totalHeight += lineMarginTop
                 }
             }
 
             // Find y of position where to start drawing lines
             var top = 0.5f * (tempRect.bottom + info.size - totalHeight)
-            val centerX = info.size * 0.5f
 
-            for (i in start..endInclusive) {
-                val decor = decorations[i] as LineDecor
-                val animFraction = decor.animationFraction
-                val style = decor.style
+            for (i in 0 until length) {
+                val decor = decorations[start + i] as LineDecor
 
-                tempRect.set(0f, top, info.size, top + defaultLineHeight)
+                tempRect.set(
+                    lineHorizontalMargin,
+                    top,
+                    info.size - lineHorizontalMargin,
+                    top + defaultLineHeight
+                )
 
                 // If cell is round, then it should be narrowed to fit the cell shape
                 info.narrowRectOnBottom(tempRect)
 
-                val halfWidth = tempRect.width() * 0.5f - stripeHorizontalMargin
+                val height = decor.style.height
+                val resolvedHeight = height.resolveHeight(defaultLineHeight)
 
-                val animatedHalfWidth = halfWidth * animFraction
+                val bounds = PackedRectF(
+                    tempRect.left, tempRect.top, tempRect.right, tempRect.top + resolvedHeight
+                )
 
-                // The line is animated starting from its center
-                val lineLeft: Float
-                val lineRight: Float
+                initialLinesBounds[i] = bounds
+                animatedLinesBounds[i] = bounds
+
+                top += resolvedHeight + lineMarginTop
+            }
+        }
+
+        override fun handleAnimation(
+            start: Int,
+            endInclusive: Int,
+            animationFraction: Float,
+            fractionInterpolator: DecorAnimationFractionInterpolator
+        ) {
+            val length = endInclusive - start + 1
+
+            for(i in start..endInclusive) {
+                val initialBounds = initialLinesBounds[i]
+                val style = styles[i]
+
+                val animFraction = fractionInterpolator.getItemFraction(
+                    i - start, length, animationFraction
+                )
+
+                val left: Float
+                val right: Float
 
                 when(style.animationStartPosition) {
                     AnimationStartPosition.Left -> {
-                        lineLeft = tempRect.left
-                        lineRight = lerp(lineLeft, tempRect.right, animFraction)
+                        left = initialBounds.left
+                        right = lerp(left, initialBounds.right, animFraction)
                     }
                     AnimationStartPosition.Center -> {
-                        lineLeft = centerX - animatedHalfWidth
-                        lineRight = centerX + animatedHalfWidth
+                        val centerX = size * 0.5f
+                        val animatedHalfWidth = initialBounds.width * animFraction
+
+                        left = centerX - animatedHalfWidth
+                        right = centerX + animatedHalfWidth
                     }
                     AnimationStartPosition.Right -> {
-                        lineRight = tempRect.right
-                        lineLeft = lerp(lineRight, tempRect.left, animFraction)
+                        left = lerp(initialBounds.right, initialBounds.left, animFraction)
+                        right = initialBounds.right
                     }
                 }
 
-                tempRect.set(lineLeft, top, lineRight, top + defaultLineHeight)
+                animatedLinesBounds[i] = PackedRectF(left, initialBounds.top, right, initialBounds.bottom)
+            }
+        }
+
+        companion object {
+            private val tempRect = RectF()
+
+            private fun Float.resolveHeight(default: Float): Float {
+                return if(isNaN()) default else this
+            }
+        }
+    }
+
+    private object LineRenderer : Renderer {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+        }
+
+        private var cachedPath: Path? = null
+
+        override fun renderState(
+            canvas: Canvas,
+            state: VisualState
+        ) {
+            val lineState = state as LineVisualState
+            val linesBounds = lineState.animatedLinesBounds
+
+            val styles = lineState.styles
+            val defaultLineHeight = lineState.defaultLineHeight
+
+            for(i in 0 until linesBounds.size) {
+                val bounds = linesBounds[i]
+                val style = styles[i]
 
                 paint.color = style.color
 
@@ -119,23 +199,21 @@ class LineDecor(val style: Style) : CellDecor<LineDecor>() {
                         radii[j] = radii[j].resolveRoundRadius(defaultLineHeight)
                     }
 
-                    path.addRoundRect(tempRect, radii, Path.Direction.CW)
+                    path.addRoundRectCompat(bounds, radii)
 
                     canvas.drawPath(path, paint)
                 } else {
                     val roundRadius = style.roundRadius.resolveRoundRadius(defaultLineHeight)
 
-                    canvas.drawRoundRect(tempRect, roundRadius, roundRadius, paint)
+                    canvas.drawRoundRectCompat(bounds, roundRadius, paint)
                 }
-
-                top += defaultLineHeight + stripeMarginTop
             }
         }
 
-        companion object {
-            private val tempRect = RectF()
+        private fun Float.resolveRoundRadius(height: Float): Float {
+            val half = height * 0.5f
 
-            private var cachedPath: Path? = null
+            return if(this > half) half else this
         }
     }
 

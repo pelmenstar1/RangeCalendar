@@ -33,9 +33,7 @@ import androidx.annotation.StyleableRes
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
-import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
-import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationMethod
-import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationMethodInt
+import io.github.pelmenstar1.rangecalendar.decoration.*
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -1614,8 +1612,8 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> addDecoration(
-        decor: T,
+    fun addDecoration(
+        decor: CellDecor,
         epochDay: Long,
         withAnimation: Boolean = true
     ) {
@@ -1624,8 +1622,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
     @RequiresApi(26)
     @JvmOverloads
-    fun <T : CellDecor<T>> addDecoration(
-        decor: T,
+    fun addDecoration(
+        decor: CellDecor,
         date: LocalDate,
         withAnimation: Boolean = true
     ) {
@@ -1633,8 +1631,8 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> addDecoration(
-        decor: T,
+    fun addDecoration(
+        decor: CellDecor,
         calendar: Calendar,
         withAnimation: Boolean = true
     ) {
@@ -1642,8 +1640,8 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> addDecoration(
-        decor: T,
+    fun addDecoration(
+        decor: CellDecor,
         year: Int,
         month: Int,
         day: Int,
@@ -1652,8 +1650,8 @@ class RangeCalendarView @JvmOverloads constructor(
         addDecorationInternal(decor, PackedDate(year, month, day), withAnimation)
     }
 
-    private fun <T : CellDecor<T>> addDecorationInternal(
-        decor: T,
+    private fun addDecorationInternal(
+        decor: CellDecor,
         date: PackedDate,
         withAnimation: Boolean
     ) {
@@ -1661,102 +1659,102 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> addDecorations(
+    fun <T : CellDecor> addDecorations(
         decors: Array<out T>,
         epochDay: Long,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        addDecorationsInternal(decors, PackedDate.fromEpochDay(epochDay), animationMethod)
+        addDecorationsInternal(decors, PackedDate.fromEpochDay(epochDay), fractionInterpolator)
     }
 
     @JvmOverloads
     @RequiresApi(26)
-    fun <T : CellDecor<T>> addDecorations(
+    fun <T : CellDecor> addDecorations(
         decors: Array<out T>,
         date: LocalDate,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        addDecorationsInternal(decors, PackedDate.fromLocalDate(date), animationMethod)
+        addDecorationsInternal(decors, PackedDate.fromLocalDate(date), fractionInterpolator)
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> addDecorations(
+    fun <T : CellDecor> addDecorations(
         decors: Array<out T>,
         calendar: Calendar,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        addDecorationsInternal(decors, PackedDate.fromCalendar(calendar), animationMethod)
+        addDecorationsInternal(decors, PackedDate.fromCalendar(calendar), fractionInterpolator)
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> addDecorations(
+    fun <T : CellDecor> addDecorations(
         decors: Array<out T>,
         year: Int, month: Int, dayOfMonth: Int,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        addDecorationsInternal(decors, PackedDate(year, month, dayOfMonth), animationMethod)
+        addDecorationsInternal(decors, PackedDate(year, month, dayOfMonth), fractionInterpolator)
     }
 
-    private fun <T : CellDecor<T>> addDecorationsInternal(
+    private fun <T : CellDecor> addDecorationsInternal(
         decors: Array<out T>,
         date: PackedDate,
-        @DecorAnimationMethodInt animationMethod: Int
+        fractionInterpolator: DecorAnimationFractionInterpolator?
     ) {
-        adapter.addDecorations(decors, date, animationMethod)
+        adapter.addDecorations(decors, date, fractionInterpolator)
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> insertDecorations(
+    fun <T : CellDecor> insertDecorations(
         indexInCell: Int,
         decors: Array<out T>,
         epochDay: Long,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        insertDecorationsInternal(indexInCell, decors, PackedDate.fromEpochDay(epochDay), animationMethod)
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromEpochDay(epochDay), fractionInterpolator)
     }
 
     @JvmOverloads
     @RequiresApi(26)
-    fun <T : CellDecor<T>> insertDecorations(
+    fun <T : CellDecor> insertDecorations(
         indexInCell: Int,
         decors: Array<out T>,
         date: LocalDate,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        insertDecorationsInternal(indexInCell, decors, PackedDate.fromLocalDate(date), animationMethod)
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromLocalDate(date), fractionInterpolator)
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> insertDecorations(
+    fun <T : CellDecor> insertDecorations(
         indexInCell: Int,
         decors: Array<out T>,
         calendar: Calendar,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        insertDecorationsInternal(indexInCell, decors, PackedDate.fromCalendar(calendar), animationMethod)
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromCalendar(calendar), fractionInterpolator)
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> insertDecorations(
+    fun <T : CellDecor> insertDecorations(
         indexInCell: Int,
         decors: Array<out T>,
         year: Int, month: Int, dayOfMonth: Int,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        insertDecorationsInternal(indexInCell, decors, PackedDate(year, month, dayOfMonth), animationMethod)
+        insertDecorationsInternal(indexInCell, decors, PackedDate(year, month, dayOfMonth), fractionInterpolator)
     }
 
-    private fun <T : CellDecor<T>> insertDecorationsInternal(
+    private fun <T : CellDecor> insertDecorationsInternal(
         indexInCell: Int,
         decors: Array<out T>,
         date: PackedDate,
-        @DecorAnimationMethodInt animationMethod: Int
+        fractionInterpolator: DecorAnimationFractionInterpolator?
     ) {
-        adapter.insertDecorations(indexInCell, decors, date, animationMethod)
+        adapter.insertDecorations(indexInCell, decors, date, fractionInterpolator)
     }
 
     @JvmOverloads
-    fun <T : CellDecor<T>> removeDecoration(decor: T, withAnimation: Boolean = true) {
+    fun removeDecoration(decor: CellDecor, withAnimation: Boolean = true) {
         adapter.removeDecoration(decor, withAnimation)
     }
 
@@ -1765,13 +1763,13 @@ class RangeCalendarView @JvmOverloads constructor(
         start: Int,
         endInclusive: Int,
         epochDay: Long,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
         removeDecorationRangeInternal(
             start,
             endInclusive,
             PackedDate.fromEpochDay(epochDay),
-            animationMethod
+            fractionInterpolator
         )
     }
 
@@ -1780,13 +1778,13 @@ class RangeCalendarView @JvmOverloads constructor(
         start: Int,
         endInclusive: Int,
         calendar: Calendar,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
         removeDecorationRangeInternal(
             start,
             endInclusive,
             PackedDate.fromCalendar(calendar),
-            animationMethod
+            fractionInterpolator
         )
     }
 
@@ -1796,13 +1794,13 @@ class RangeCalendarView @JvmOverloads constructor(
         start: Int,
         endInclusive: Int,
         date: LocalDate,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
         removeDecorationRangeInternal(
             start,
             endInclusive,
             PackedDate.fromLocalDate(date),
-            animationMethod
+            fractionInterpolator
         )
     }
 
@@ -1811,12 +1809,12 @@ class RangeCalendarView @JvmOverloads constructor(
         start: Int,
         endInclusive: Int,
         year: Int, month: Int, dayOfMonth: Int,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
         removeDecorationRangeInternal(
             start, endInclusive,
             PackedDate(year, month, dayOfMonth),
-            animationMethod
+            fractionInterpolator
         )
     }
 
@@ -1824,49 +1822,49 @@ class RangeCalendarView @JvmOverloads constructor(
         start: Int,
         endInclusive: Int,
         date: PackedDate,
-        animationMethod: Int
+        fractionInterpolator: DecorAnimationFractionInterpolator?
     ) {
-        adapter.removeDecorationRange(start, endInclusive, date, animationMethod)
+        adapter.removeDecorationRange(start, endInclusive, date, fractionInterpolator)
     }
 
     @JvmOverloads
     fun removeAllDecorationsFromCell(
         epochDay: Long,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        removeAllDecorationsFromCellInternal(PackedDate.fromEpochDay(epochDay), animationMethod)
+        removeAllDecorationsFromCellInternal(PackedDate.fromEpochDay(epochDay), fractionInterpolator)
     }
 
     @JvmOverloads
     fun removeAllDecorationsFromCell(
         calendar: Calendar,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        removeAllDecorationsFromCellInternal(PackedDate.fromCalendar(calendar), animationMethod)
+        removeAllDecorationsFromCellInternal(PackedDate.fromCalendar(calendar), fractionInterpolator)
     }
 
     @JvmOverloads
     @RequiresApi(26)
     fun removeAllDecorationsFromCell(
         date: LocalDate,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        removeAllDecorationsFromCellInternal(PackedDate.fromLocalDate(date), animationMethod)
+        removeAllDecorationsFromCellInternal(PackedDate.fromLocalDate(date), fractionInterpolator)
     }
 
     @JvmOverloads
     fun removeAllDecorationsFromCell(
         year: Int, month: Int, dayOfMonth: Int,
-        @DecorAnimationMethodInt animationMethod: Int = DecorAnimationMethod.SIMULTANEOUSLY
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        removeAllDecorationsFromCellInternal(PackedDate(year, month, dayOfMonth), animationMethod)
+        removeAllDecorationsFromCellInternal(PackedDate(year, month, dayOfMonth), fractionInterpolator)
     }
 
     private fun removeAllDecorationsFromCellInternal(
         date: PackedDate,
-        @DecorAnimationMethodInt animationMethod: Int
+        fractionInterpolator: DecorAnimationFractionInterpolator?
     ) {
-        adapter.removeAllDecorations(date, animationMethod)
+        adapter.removeAllDecorations(date, fractionInterpolator)
     }
 
 

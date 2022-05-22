@@ -2,6 +2,7 @@
 
 package io.github.pelmenstar1.rangecalendar
 
+import android.graphics.RectF
 import io.github.pelmenstar1.rangecalendar.utils.float16To32
 import io.github.pelmenstar1.rangecalendar.utils.float32To16
 
@@ -45,17 +46,17 @@ internal value class PackedIntRange(val bits: Long) {
         get() = unpackSecondInt(bits)
 
     val isUndefined: Boolean
-        get() = bits == 0L
+        get() = this == Undefined
 
     val isDefined: Boolean
-        get() = bits != 0L
+        get() = this != Undefined
 
     fun contains(value: Int): Boolean {
         return value in start..endInclusive
     }
 
     companion object {
-        val Undefined = PackedIntRange(0)
+        val Undefined = PackedIntRange(-1, -1)
     }
 }
 
@@ -115,6 +116,10 @@ internal value class PackedRectF(val bits: Long) {
 
     val height: Float
         get() = bottom - top
+
+    fun setTo(outRect: RectF) {
+        outRect.set(left, top, right, bottom)
+    }
 }
 
 internal fun PackedRectFArray(size: Int): PackedRectFArray {

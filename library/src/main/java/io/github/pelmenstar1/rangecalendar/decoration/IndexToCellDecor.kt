@@ -1,6 +1,6 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
-data class IndexToCellDecor<T : CellDecor<T>>(val index: Int, val decor: CellDecor<T>) {
+data class IndexToCellDecor(val index: Int, val decor: CellDecor) {
     init {
         require(index >= 0) {
             "Index is negative"
@@ -8,6 +8,6 @@ data class IndexToCellDecor<T : CellDecor<T>>(val index: Int, val decor: CellDec
     }
 }
 
-infix fun<T : CellDecor<T>> Int.to(decor: CellDecor<T>): IndexToCellDecor<T> {
+infix fun Int.to(decor: CellDecor): IndexToCellDecor {
     return IndexToCellDecor(this, decor)
 }

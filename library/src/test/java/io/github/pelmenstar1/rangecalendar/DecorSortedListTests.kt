@@ -1,8 +1,6 @@
 package io.github.pelmenstar1.rangecalendar
 
-import android.content.Context
 import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
-import io.github.pelmenstar1.rangecalendar.decoration.CellDecorRenderer
 import io.github.pelmenstar1.rangecalendar.decoration.DecorSortedList
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import org.junit.Test
@@ -11,10 +9,14 @@ import kotlin.math.min
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
-private typealias DecorArrayList = ArrayList<CellDecor<*>>
+private typealias DecorArrayList = ArrayList<CellDecor>
 
-private class TestDecor : CellDecor<TestDecor>() {
-    override fun newRenderer(context: Context): CellDecorRenderer<TestDecor> {
+private class TestDecor : CellDecor() {
+    override fun stateHandler(): StateHandler {
+        throw NotImplementedError()
+    }
+
+    override fun renderer(): Renderer {
         throw NotImplementedError()
     }
 
