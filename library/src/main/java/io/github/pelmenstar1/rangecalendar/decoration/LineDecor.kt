@@ -251,7 +251,7 @@ class LineDecor(val style: Style) : CellDecor() {
 
                 paint.color = style.color
 
-                if (style.isRoundRadiiMode) {
+                if (style.roundRadii != null) {
                     var path = cachedPath
                     if (path == null) {
                         path = Path()
@@ -260,7 +260,7 @@ class LineDecor(val style: Style) : CellDecor() {
                         path.rewind()
                     }
 
-                    val radii = style.roundRadii!!
+                    val radii = style.roundRadii
                     for (j in radii.indices) {
                         radii[j] = radii[j].resolveRoundRadius(lineHeight)
                     }
@@ -289,64 +289,71 @@ class LineDecor(val style: Style) : CellDecor() {
         Right
     }
 
-    class Style constructor(@ColorInt color: Int) {
-        var color: Int = color
-            private set
+    class Style private constructor(
+        @ColorInt val color: Int,
+        val roundRadius: Float,
+        val roundRadii: FloatArray?,
+        val height: Float,
+        val animationStartPosition: AnimationStartPosition
+    ) {
+        class Builder(private var color: Int) {
+            private var roundRadius: Float = 0f
+            private var roundRadii: FloatArray? = null
+            private var height: Float = Float.NaN
+            private var animationStartPosition = AnimationStartPosition.Center
 
-        var roundRadius: Float = 0f
-            private set
-
-        var roundRadii: FloatArray? = null
-            private set
-
-        var height: Float = Float.NaN
-            private set
-
-        var animationStartPosition: AnimationStartPosition = AnimationStartPosition.Center
-            private set
-
-        internal var isRoundRadiiMode = false
-
-        fun withHeight(height: Float): Style = apply {
-            this.height = height
-        }
-
-        fun withAnimationStartPosition(pos: AnimationStartPosition) = apply {
-            animationStartPosition = pos
-        }
-
-        @JvmOverloads
-        fun withRoundedCorners(radius: Float = Float.POSITIVE_INFINITY): Style {
-            return apply {
-                roundRadius = radius
-                isRoundRadiiMode = false
+            fun color(@ColorInt value: Int) = apply {
+                color = value
             }
+
+            fun animationStartPosition(value: AnimationStartPosition) = apply {
+                animationStartPosition = value
+            }
+
+            fun roundedCorners(radius: Float = Float.POSITIVE_INFINITY) = apply {
+                require(radius >= 0f) { "Round radius can't be negative" }
+
+                roundRadius = radius
+                roundRadii = null
+            }
+
+            fun roundedCorners(
+                leftTop: Float = Float.POSITIVE_INFINITY,
+                rightTop: Float = Float.POSITIVE_INFINITY,
+                rightBottom: Float = Float.POSITIVE_INFINITY,
+                leftBottom: Float = Float.POSITIVE_INFINITY
+            ) = apply {
+                require(leftTop >= 0f) { "'leftTop' can't be negative" }
+                require(rightTop >= 0f) { "'rightTop' can't be negative" }
+                require(rightBottom >= 0f) { "'rightBottom' can't be negative" }
+                require(leftBottom >= 0f) { "'leftBottom' can't be negative" }
+
+                roundRadii = FloatArray(8).also {
+                    it[0] = leftTop
+                    it[1] = leftTop
+                    it[2] = rightTop
+                    it[3] = rightTop
+                    it[4] = rightBottom
+                    it[5] = rightBottom
+                    it[6] = leftBottom
+                    it[7] = leftBottom
+                }
+            }
+
+            fun height(value: Float) = apply {
+                require(value > 0f) { "Height can't be negative" }
+
+                height = value
+            }
+
+            fun build() = Style(
+                color, roundRadius, roundRadii, height, animationStartPosition
+            )
         }
 
-        fun withRoundedCorners(
-            leftTop: Float = Float.POSITIVE_INFINITY,
-            rightTop: Float = Float.POSITIVE_INFINITY,
-            rightBottom: Float = Float.POSITIVE_INFINITY,
-            leftBottom: Float = Float.POSITIVE_INFINITY
-        ): Style {
-            return apply {
-                var radii = roundRadii
-
-                if (radii == null) {
-                    radii = FloatArray(8)
-                    roundRadii = radii
-                }
-
-                isRoundRadiiMode = true
-
-                radii[0] = leftTop
-                radii[1] = leftTop
-                radii[2] = rightTop
-                radii[3] = rightTop
-                radii[4] = rightBottom
-                radii[5] = rightBottom
-                radii[6] = leftBottom
-                radii[7] = leftBottom
+        companion object {
+            inline fun build(@ColorInt color: Int, block: Builder.() -> Unit): Style {
+                return Builder(color).apply(block).build()
             }
         }
     }
