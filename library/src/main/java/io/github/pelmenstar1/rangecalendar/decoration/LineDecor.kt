@@ -4,22 +4,127 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
-import androidx.annotation.ColorInt
 import android.graphics.RectF
-import io.github.pelmenstar1.rangecalendar.PackedIntRange
+import androidx.annotation.ColorInt
+import io.github.pelmenstar1.rangecalendar.*
 import io.github.pelmenstar1.rangecalendar.PackedRectF
 import io.github.pelmenstar1.rangecalendar.PackedRectFArray
-import io.github.pelmenstar1.rangecalendar.R
 import io.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
 import io.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import io.github.pelmenstar1.rangecalendar.utils.lerp
 import kotlin.math.max
 
 class LineDecor(val style: Style) : CellDecor() {
-    override fun stateHandler(): StateHandler = LineStateHandler
-    override fun renderer(): Renderer = LineRenderer
+    override fun visual(): Visual = LineVisual
 
-    private object LineStateHandler : StateHandler {
+    private open class LineVisualState(
+        val linesBoundsArray: PackedRectFArray,
+        val styles: Array<Style>
+    ) : VisualState {
+        override val isEmpty: Boolean
+            get() = linesBoundsArray.isEmpty
+
+        override fun visual(): Visual = LineVisual
+    }
+
+    private class TransitiveAdditionLineVisualState(
+        private val start: LineVisualState,
+        override val end: LineVisualState,
+        private val affectedRangeStart: Int,
+        private val affectedRangeEnd: Int
+    ): LineVisualState(PackedRectFArray(end.linesBoundsArray.size), end.styles), VisualState.Transitive {
+        override fun handleAnimation(
+            animationFraction: Float,
+            fractionInterpolator: DecorAnimationFractionInterpolator
+        ) {
+            val startBoundsArray = start.linesBoundsArray
+            val endBoundsArray = end.linesBoundsArray
+            val affectedRangeLength = affectedRangeEnd - affectedRangeStart + 1
+
+            lerpRectArray(
+                startBoundsArray, endBoundsArray, linesBoundsArray,
+                0, affectedRangeStart - 1,
+                animationFraction
+            )
+
+            for(i in affectedRangeStart..affectedRangeEnd) {
+                val animFraction = fractionInterpolator.getItemFraction(
+                    i - affectedRangeStart, affectedRangeLength, animationFraction
+                )
+
+                val bounds = endBoundsArray[i]
+                val style = end.styles[i]
+
+                linesBoundsArray[i] = lerpRectHorizontal(
+                    bounds, animFraction,
+                    style.animationStartPosition
+                )
+            }
+
+            lerpRectArray(
+                startBoundsArray, endBoundsArray, linesBoundsArray,
+                affectedRangeEnd + 1, endBoundsArray.size - 1,
+                animationFraction,
+                startOffset = affectedRangeLength
+            )
+        }
+    }
+
+    private class TransitiveRemovalLineVisualState(
+        private val start: LineVisualState,
+        override val end: LineVisualState,
+        private val affectedRangeStart: Int,
+        private val affectedRangeEnd: Int
+    ): LineVisualState(PackedRectFArray(start.linesBoundsArray.size), start.styles), VisualState.Transitive {
+        override fun handleAnimation(
+            animationFraction: Float,
+            fractionInterpolator: DecorAnimationFractionInterpolator
+        ) {
+            val startBoundsArray = start.linesBoundsArray
+            val endBoundsArray = end.linesBoundsArray
+
+            lerpRectArray(
+                startBoundsArray, endBoundsArray, linesBoundsArray,
+                0, affectedRangeStart - 1,
+                animationFraction
+            )
+
+            val affectedRangeLength = affectedRangeEnd - affectedRangeStart + 1
+
+            for(i in affectedRangeStart..affectedRangeEnd) {
+                val itemFraction = fractionInterpolator.getItemFraction(
+                    i - affectedRangeStart, affectedRangeLength, 1f - animationFraction
+                )
+
+                val bounds = startBoundsArray[i]
+                val style = styles[i]
+
+                linesBoundsArray[i] = lerpRectHorizontal(
+                    bounds, itemFraction,
+                    style.animationStartPosition
+                )
+            }
+
+            lerpRectArray(
+                startBoundsArray, endBoundsArray, linesBoundsArray,
+                affectedRangeEnd + 1, startBoundsArray.size - 1,
+                animationFraction,
+                endOffset = affectedRangeLength
+            )
+        }
+    }
+
+    private object LineVisual: Visual {
+        override fun stateHandler(): VisualStateHandler = LineStateHandler
+        override fun renderer(): Renderer = LineRenderer
+    }
+
+    private object LineStateHandler : VisualStateHandler {
+        private val tempRect = RectF()
+        private val emptyLineState = LineVisualState(PackedRectFArray(0), emptyArray())
+
+        override fun emptyState(): VisualState = emptyLineState
+
         override fun createState(
             context: Context,
             decorations: Array<out CellDecor>,
@@ -27,38 +132,16 @@ class LineDecor(val style: Style) : CellDecor() {
             endInclusive: Int,
             info: CellInfo
         ): VisualState {
-            return LineVisualState(context, decorations, PackedIntRange(start, endInclusive), info)
-        }
-    }
-
-    private class LineVisualState(
-        context: Context,
-        decorations: Array<out CellDecor>,
-        range: PackedIntRange,
-        info: CellInfo
-    ): VisualState {
-        val initialLinesBounds: PackedRectFArray
-        val animatedLinesBounds: PackedRectFArray
-
-        val styles: Array<Style>
-
-        val size = info.size
-        val defaultLineHeight: Float
-
-        init {
             val res = context.resources
             val lineMarginTop = res.getDimension(R.dimen.rangeCalendar_stripeMarginTop)
-            val lineHorizontalMargin = res.getDimension(R.dimen.rangeCalendar_stripeHorizontalMargin)
-
-            val start = range.start
-            val endInclusive = range.endInclusive
+            val lineHorizontalMargin =
+                res.getDimension(R.dimen.rangeCalendar_stripeHorizontalMargin)
 
             val length = endInclusive - start + 1
 
-            initialLinesBounds = PackedRectFArray(length)
-            animatedLinesBounds = PackedRectFArray(length)
+            val linesBounds = PackedRectFArray(length)
 
-            styles = Array(length) { i ->
+            val styles = Array(length) { i ->
                 (decorations[start + i] as LineDecor).style
             }
 
@@ -66,18 +149,18 @@ class LineDecor(val style: Style) : CellDecor() {
             val freeAreaHeight = info.size - tempRect.bottom
 
             // The coefficient is hand-picked for line not to be very thin or thick
-            defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
+            val defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
 
             // Find total height of lines
             var totalHeight = 0f
 
-            for(i in start..endInclusive) {
+            for (i in start..endInclusive) {
                 val line = decorations[i] as LineDecor
                 val height = line.style.height
 
                 totalHeight += height.resolveHeight(defaultLineHeight)
 
-                if(i < endInclusive) {
+                if (i < endInclusive) {
                     totalHeight += lineMarginTop
                 }
             }
@@ -102,63 +185,45 @@ class LineDecor(val style: Style) : CellDecor() {
                 val resolvedHeight = height.resolveHeight(defaultLineHeight)
 
                 val bounds = PackedRectF(
-                    tempRect.left, tempRect.top, tempRect.right, tempRect.top + resolvedHeight
+                    tempRect.left, top, tempRect.right, top + resolvedHeight
                 )
 
-                initialLinesBounds[i] = bounds
-                animatedLinesBounds[i] = bounds
+                linesBounds[i] = bounds
 
                 top += resolvedHeight + lineMarginTop
             }
+
+            return LineVisualState(linesBounds, styles)
         }
 
-        override fun handleAnimation(
-            start: Int,
-            endInclusive: Int,
-            animationFraction: Float,
-            fractionInterpolator: DecorAnimationFractionInterpolator
-        ) {
-            val length = endInclusive - start + 1
+        override fun createTransitiveState(
+            start: VisualState,
+            end: VisualState,
+            affectedRangeStart: Int,
+            affectedRangeEnd: Int,
+            change: VisualStateChange
+        ): VisualState.Transitive {
+            start as LineVisualState
+            end as LineVisualState
 
-            for(i in start..endInclusive) {
-                val initialBounds = initialLinesBounds[i]
-                val style = styles[i]
-
-                val animFraction = fractionInterpolator.getItemFraction(
-                    i - start, length, animationFraction
-                )
-
-                val left: Float
-                val right: Float
-
-                when(style.animationStartPosition) {
-                    AnimationStartPosition.Left -> {
-                        left = initialBounds.left
-                        right = lerp(left, initialBounds.right, animFraction)
-                    }
-                    AnimationStartPosition.Center -> {
-                        val centerX = size * 0.5f
-                        val animatedHalfWidth = initialBounds.width * animFraction
-
-                        left = centerX - animatedHalfWidth
-                        right = centerX + animatedHalfWidth
-                    }
-                    AnimationStartPosition.Right -> {
-                        left = lerp(initialBounds.right, initialBounds.left, animFraction)
-                        right = initialBounds.right
-                    }
+            return when(change) {
+                VisualStateChange.ADD -> {
+                    TransitiveAdditionLineVisualState(
+                        start, end,
+                        affectedRangeStart, affectedRangeEnd
+                    )
                 }
-
-                animatedLinesBounds[i] = PackedRectF(left, initialBounds.top, right, initialBounds.bottom)
+                VisualStateChange.REMOVE -> {
+                    TransitiveRemovalLineVisualState(
+                        start, end,
+                        affectedRangeStart, affectedRangeEnd
+                    )
+                }
             }
         }
 
-        companion object {
-            private val tempRect = RectF()
-
-            private fun Float.resolveHeight(default: Float): Float {
-                return if(isNaN()) default else this
-            }
+        private fun Float.resolveHeight(default: Float): Float {
+            return if (isNaN()) default else this
         }
     }
 
@@ -174,20 +239,21 @@ class LineDecor(val style: Style) : CellDecor() {
             state: VisualState
         ) {
             val lineState = state as LineVisualState
-            val linesBounds = lineState.animatedLinesBounds
+            val linesBounds = lineState.linesBoundsArray
 
             val styles = lineState.styles
-            val defaultLineHeight = lineState.defaultLineHeight
 
-            for(i in 0 until linesBounds.size) {
+            for (i in 0 until linesBounds.size) {
                 val bounds = linesBounds[i]
                 val style = styles[i]
 
+                val lineHeight = bounds.height
+
                 paint.color = style.color
 
-                if(style.isRoundRadiiMode) {
+                if (style.isRoundRadiiMode) {
                     var path = cachedPath
-                    if(path == null) {
+                    if (path == null) {
                         path = Path()
                         cachedPath = path
                     } else {
@@ -195,25 +261,25 @@ class LineDecor(val style: Style) : CellDecor() {
                     }
 
                     val radii = style.roundRadii!!
-                    for(j in radii.indices) {
-                        radii[j] = radii[j].resolveRoundRadius(defaultLineHeight)
+                    for (j in radii.indices) {
+                        radii[j] = radii[j].resolveRoundRadius(lineHeight)
                     }
 
                     path.addRoundRectCompat(bounds, radii)
 
                     canvas.drawPath(path, paint)
                 } else {
-                    val roundRadius = style.roundRadius.resolveRoundRadius(defaultLineHeight)
+                    val roundRadius = style.roundRadius.resolveRoundRadius(lineHeight)
 
                     canvas.drawRoundRectCompat(bounds, roundRadius, paint)
                 }
             }
         }
 
-        private fun Float.resolveRoundRadius(height: Float): Float {
-            val half = height * 0.5f
+        private fun Float.resolveRoundRadius(alternative: Float): Float {
+            val half = alternative * 0.5f
 
-            return if(this > half) half else this
+            return if (this > half) half else this
         }
     }
 
@@ -266,7 +332,7 @@ class LineDecor(val style: Style) : CellDecor() {
             return apply {
                 var radii = roundRadii
 
-                if(radii == null) {
+                if (radii == null) {
                     radii = FloatArray(8)
                     roundRadii = radii
                 }
@@ -282,6 +348,55 @@ class LineDecor(val style: Style) : CellDecor() {
                 radii[6] = leftBottom
                 radii[7] = leftBottom
             }
+        }
+    }
+
+    companion object {
+        private fun lerpRectArray(
+            start: PackedRectFArray, end: PackedRectFArray, outArray: PackedRectFArray,
+            startIndex: Int, endIndexInclusive: Int,
+            fraction: Float,
+            startOffset: Int = 0, endOffset: Int = 0
+        ) {
+            for(i in startIndex..endIndexInclusive) {
+                outArray[i] = lerp(
+                    start[i - startOffset],
+                    end[i - endOffset],
+                    fraction
+                )
+            }
+        }
+
+        private fun lerpRectHorizontal(
+            bounds: PackedRectF,
+            fraction: Float,
+            startPosition: AnimationStartPosition
+        ): PackedRectF {
+            val boundsLeft = bounds.left
+            val boundsRight = bounds.right
+
+            val left: Float
+            val right: Float
+
+            when(startPosition) {
+                AnimationStartPosition.Left -> {
+                    left = boundsLeft
+                    right = lerp(left, boundsRight, fraction)
+                }
+                AnimationStartPosition.Center -> {
+                    val animatedHalfWidth = (boundsRight - boundsLeft) * fraction
+                    val centerX = (boundsLeft + boundsRight) * 0.5f
+
+                    left = centerX - animatedHalfWidth
+                    right = centerX + animatedHalfWidth
+                }
+                AnimationStartPosition.Right -> {
+                    left = lerp(boundsRight, boundsLeft, fraction)
+                    right = boundsRight
+                }
+            }
+
+            return bounds.withLeftAndRight(left, right)
         }
     }
 }

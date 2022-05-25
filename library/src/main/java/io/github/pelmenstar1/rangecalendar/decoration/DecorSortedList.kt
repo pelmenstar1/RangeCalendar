@@ -11,7 +11,7 @@ internal class DecorSortedList {
         get() = elements.size
 
     constructor() {
-        elements = emptyArray()
+        elements = EMPTY_ARRAY
     }
 
     constructor(capacity: Int) {
@@ -188,7 +188,10 @@ internal class DecorSortedList {
         }
     }
 
-    fun removeRange(start: Int, endInclusive: Int) {
+    fun removeRange(range: PackedIntRange) {
+        val start = range.start
+        val endInclusive = range.endInclusive
+
         val rangeLength = endInclusive - start + 1
 
         val newElements = unsafeNewArray(elements.size - rangeLength)
@@ -199,6 +202,8 @@ internal class DecorSortedList {
     }
 
     companion object {
+        private val EMPTY_ARRAY = emptyArray<CellDecor>()
+
         @Suppress("UNCHECKED_CAST")
         private fun unsafeNewArray(size: Int): Array<CellDecor> {
             return arrayOfNulls<CellDecor>(size) as Array<CellDecor>

@@ -312,7 +312,7 @@ internal class RangeCalendarPagerAdapter(
             STYLE_WEEKDAY_COLOR -> gridView.setDayNameColor(i)
             STYLE_HOVER_COLOR -> gridView.setHoverColor(i)
             STYLE_HOVER_ON_SELECTION_COLOR -> gridView.setHoverOnSelectionColor(i)
-            STYLE_RR_RADIUS_RATIO -> gridView.roundRectRadiusRatio = f
+            STYLE_RR_RADIUS_RATIO -> gridView.setRoundRectRadiusRatio(f)
             STYLE_CELL_SIZE -> gridView.cellSize = f
             STYLE_WEEKDAY_TYPE -> gridView.setWeekdayType(i)
             STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR -> gridView.clickOnCellSelectionBehavior = i
@@ -844,6 +844,10 @@ internal class RangeCalendarPagerAdapter(
                 RecyclerView.LayoutParams.MATCH_PARENT
             )
         })
+    }
+
+    override fun onViewRecycled(holder: ViewHolder) {
+        super.onViewRecycled(holder)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {

@@ -12,12 +12,8 @@ import kotlin.test.assertEquals
 private typealias DecorArrayList = ArrayList<CellDecor>
 
 private class TestDecor : CellDecor() {
-    override fun stateHandler(): StateHandler {
-        throw NotImplementedError()
-    }
-
-    override fun renderer(): Renderer {
-        throw NotImplementedError()
+    override fun visual(): Visual {
+        throw RuntimeException()
     }
 
     override fun toString(): String {
@@ -187,7 +183,7 @@ class DecorSortedListTests {
             validateActionOnCommonList(
                 initialLength,
                 actionOnCommonList = { subList(range.first, range.last + 1).clear() },
-                actionOnDecorList = { removeRange(range.first, range.last) }
+                actionOnDecorList = { removeRange(PackedIntRange(range.first, range.last)) }
             )
         }
 
