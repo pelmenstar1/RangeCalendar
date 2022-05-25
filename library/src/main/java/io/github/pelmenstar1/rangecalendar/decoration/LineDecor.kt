@@ -181,14 +181,48 @@ class LineDecor(val style: Style) : CellDecor() {
                 // If cell is round, then it should be narrowed to fit the cell shape
                 info.narrowRectOnBottom(tempRect)
 
-                val height = decor.style.height
+                val style = decor.style
+
+                val width = style.width
+                val height = style.height
+
+                val maxWidth = tempRect.width()
+
+                val resolvedWidth = if(width.isNaN() || width >= maxWidth) {
+                    maxWidth
+                } else {
+                    width
+                }
+
                 val resolvedHeight = height.resolveHeight(defaultLineHeight)
 
-                val bounds = PackedRectF(
-                    tempRect.left, top, tempRect.right, top + resolvedHeight
-                )
+                val left: Float
+                val right: Float
 
-                linesBounds[i] = bounds
+                if(resolvedWidth != width) {
+                    when(style.horizontalAlignment) {
+                        HorizontalAlignment.LEFT -> {
+                            left = tempRect.left
+                            right = left + resolvedWidth
+                        }
+                        HorizontalAlignment.CENTER -> {
+                            val centerX = tempRect.centerX()
+                            val halfWidth = resolvedWidth * 0.5f
+
+                            left = centerX - halfWidth
+                            right = centerX + halfWidth
+                        }
+                        HorizontalAlignment.RIGHT -> {
+                            right = tempRect.right
+                            left = right - resolvedWidth
+                        }
+                    }
+                } else {
+                    left = tempRect.left
+                    right = tempRect.right
+                }
+
+                linesBounds[i] = PackedRectF(left, top, right, top + resolvedHeight)
 
                 top += resolvedHeight + lineMarginTop
             }
@@ -293,12 +327,16 @@ class LineDecor(val style: Style) : CellDecor() {
         @ColorInt val color: Int,
         val roundRadius: Float,
         val roundRadii: FloatArray?,
+        val width: Float,
         val height: Float,
+        val horizontalAlignment: HorizontalAlignment,
         val animationStartPosition: AnimationStartPosition
     ) {
         class Builder(private var color: Int) {
             private var roundRadius: Float = 0f
             private var roundRadii: FloatArray? = null
+            private var horizontalAlignment = HorizontalAlignment.CENTER
+            private var width: Float = Float.NaN
             private var height: Float = Float.NaN
             private var animationStartPosition = AnimationStartPosition.Center
 
@@ -340,14 +378,28 @@ class LineDecor(val style: Style) : CellDecor() {
                 }
             }
 
+            fun horizontalAlignment(value: HorizontalAlignment) = apply {
+                horizontalAlignment = value
+            }
+
+            fun width(value: Float) = apply {
+                require(value > 0f) { "Width can't be negative or zero" }
+
+                width = value
+            }
+
             fun height(value: Float) = apply {
-                require(value > 0f) { "Height can't be negative" }
+                require(value > 0f) { "Height can't be negative or zero" }
 
                 height = value
             }
 
             fun build() = Style(
-                color, roundRadius, roundRadii, height, animationStartPosition
+                color,
+                roundRadius, roundRadii,
+                width, height,
+                horizontalAlignment,
+                animationStartPosition
             )
         }
 
