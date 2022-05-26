@@ -222,7 +222,10 @@ class LineDecor(val style: Style) : CellDecor() {
                     right = tempRect.right
                 }
 
-                linesBounds[i] = PackedRectF(left, top, right, top + resolvedHeight)
+                val bounds = PackedRectF(left, top, right, top + resolvedHeight)
+                linesBounds[i] = bounds
+
+                style.fill.setBounds(bounds)
 
                 top += resolvedHeight + lineMarginTop
             }
@@ -283,7 +286,7 @@ class LineDecor(val style: Style) : CellDecor() {
 
                 val lineHeight = bounds.height
 
-                paint.color = style.color
+                style.fill.applyToPaint(paint)
 
                 if (style.roundRadii != null) {
                     var path = cachedPath
@@ -324,7 +327,7 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     class Style private constructor(
-        @ColorInt val color: Int,
+        val fill: Fill,
         val roundRadius: Float,
         val roundRadii: FloatArray?,
         val width: Float,
@@ -332,7 +335,7 @@ class LineDecor(val style: Style) : CellDecor() {
         val horizontalAlignment: HorizontalAlignment,
         val animationStartPosition: AnimationStartPosition
     ) {
-        class Builder(private var color: Int) {
+        class Builder(private var fill: Fill) {
             private var roundRadius: Float = 0f
             private var roundRadii: FloatArray? = null
             private var horizontalAlignment = HorizontalAlignment.CENTER
@@ -340,8 +343,8 @@ class LineDecor(val style: Style) : CellDecor() {
             private var height: Float = Float.NaN
             private var animationStartPosition = AnimationStartPosition.Center
 
-            fun color(@ColorInt value: Int) = apply {
-                color = value
+            fun fill(value: Fill) = apply {
+                fill = value
             }
 
             fun animationStartPosition(value: AnimationStartPosition) = apply {
@@ -395,18 +398,12 @@ class LineDecor(val style: Style) : CellDecor() {
             }
 
             fun build() = Style(
-                color,
+                fill,
                 roundRadius, roundRadii,
                 width, height,
                 horizontalAlignment,
                 animationStartPosition
             )
-        }
-
-        companion object {
-            inline fun build(@ColorInt color: Int, block: Builder.() -> Unit): Style {
-                return Builder(color).apply(block).build()
-            }
         }
     }
 

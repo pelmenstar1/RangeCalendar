@@ -91,6 +91,10 @@ internal fun PackedRectF(left: Float, top: Float, right: Float, bottom: Float): 
     return packRectF(float32To16(left), float32To16(top), float32To16(right), float32To16(bottom))
 }
 
+internal fun PackedRectF(rect: RectF): PackedRectF {
+    return PackedRectF(rect.left, rect.top, rect.right, rect.bottom)
+}
+
 internal fun packRectF(leftBits: Short, topBits: Short, rightBits: Short, bottomBits: Short): PackedRectF {
     val left = leftBits.toLong() and 0xFFFF
     val top = topBits.toLong() and 0xFFFF
