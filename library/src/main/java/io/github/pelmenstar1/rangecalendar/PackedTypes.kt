@@ -56,6 +56,10 @@ internal value class PackedIntRange(val bits: Long) {
         return value in start..endInclusive
     }
 
+    override fun toString(): String {
+        return "$start..$endInclusive"
+    }
+
     companion object {
         val Undefined = PackedIntRange(-1, -1)
     }

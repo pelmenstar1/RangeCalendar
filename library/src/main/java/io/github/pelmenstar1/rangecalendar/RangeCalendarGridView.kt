@@ -19,7 +19,6 @@ import androidx.annotation.ColorInt
 import androidx.core.graphics.withSave
 import androidx.customview.widget.ExploreByTouchHelper
 import io.github.pelmenstar1.rangecalendar.decoration.*
-import io.github.pelmenstar1.rangecalendar.decoration.DecorSortedList
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
 import io.github.pelmenstar1.rangecalendar.utils.*
@@ -348,8 +347,11 @@ internal class RangeCalendarGridView(
     private var gradient: LinearGradient? = null
     private var gradientColors: IntArray? = null
 
-    private val decorations = DecorSortedList()
-    private val decorVisualStates = DecorVisualStateList()
+    internal var decorations: DecorGroupedList? = null
+    private var decorRegion = PackedIntRange.Undefined
+
+    private val decorVisualStates = LazyCellDataArray<CellDecor.VisualState>()
+    private val decorLayoutOptionsArray = LazyCellDataArray<DecorLayoutOptions>()
     private val cellInfo = CellInfo()
 
     private var decorAnimFractionInterpolator: DecorAnimationFractionInterpolator? = null
@@ -1031,59 +1033,15 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun checkDecor(decor: CellDecor, cell: Cell) {
-        if (decor.cell.isDefined) {
-            throw IllegalStateException("Decoration is already added to the calendar")
-        }
-
-        val region = decorations.getRegionByCell(cell)
-
-        if (region.isDefined) {
-            val expectedClass = decorations[region.start].javaClass
-            val actualClass = decor.javaClass
-
-            if (actualClass != expectedClass) {
-                throw IllegalStateException("Only one class of decoration can be in one cell. Expected class: $expectedClass, actual class: $actualClass")
-            }
-        }
-    }
-
-    private fun checkDecors(decors: Array<out CellDecor>, cell: Cell) {
-        val region = decorations.getRegionByCell(cell)
-
-        val firstDecorClass = decors[0].javaClass
-        for (i in 1 until decors.size) {
-            val decor = decors[i]
-
-            require(decor.cell.isUndefined) {
-                "One of decorations is already added to the calendar"
-            }
-
-            require(firstDecorClass == decor.javaClass) {
-                "All decorations should be one class"
-            }
-        }
-
-        if (region.isDefined) {
-            val expectedClass = decorations[region.start].javaClass
-
-            for (decor in decors) {
-                val actualClass = decor.javaClass
-
-                if (actualClass != expectedClass) {
-                    throw IllegalStateException("Only one class of decoration can be in one cell. Expected class: $expectedClass, actual class: $actualClass")
-                }
-            }
-        }
-    }
-
     private fun createDecorVisualState(
         stateHandler: CellDecor.VisualStateHandler,
         cell: Cell
     ): CellDecor.VisualState {
-        val region = decorations.getRegionByCell(cell)
+        val decors = decorations!!
 
-        if(region.isUndefined) {
+        val subregion = decors.getSubregion(decorRegion, cell)
+
+        if(subregion.isUndefined) {
             return stateHandler.emptyState()
         }
 
@@ -1096,6 +1054,7 @@ internal class RangeCalendarGridView(
         cellInfo.apply {
             size = cellSize
             radius = rrRadius()
+            layoutOptions = decorLayoutOptionsArray[cell]
 
             setTextBounds(
                 halfCellSize - halfCellTextWidth,
@@ -1107,8 +1066,8 @@ internal class RangeCalendarGridView(
 
         return stateHandler.createState(
             context,
-            decorations.elements,
-            region.start, region.endInclusive,
+            decors.elements,
+            subregion.start, subregion.endInclusive,
             cellInfo
         )
     }
@@ -1121,72 +1080,82 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun getFractionInterpolatorForSingleOp(
-        withAnimation: Boolean
-    ): DecorAnimationFractionInterpolator? {
-        return if(withAnimation) DecorAnimationFractionInterpolator.Simultaneous else null
-    }
+    fun setDecorationLayoutOptions(cell: Cell, options: DecorLayoutOptions, withAnimation: Boolean) {
+        val decors = decorations!!
 
-    fun addDecoration(decor: CellDecor, cell: Cell, withAnimation: Boolean) {
-        checkDecor(decor, cell)
-        decor.cell = cell
-
-        val fractionInterpolator = getFractionInterpolatorForSingleOp(withAnimation)
-
-        doDecorAdditionOperation(cell, fractionInterpolator) {
-            add(decor)
-        }
-    }
-
-    fun addDecorations(
-        decors: Array<out CellDecor>,
-        cell: Cell,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = null
-    ) {
-        doDecorAdditionAllOperation(decors, cell, fractionInterpolator) {
-            addAll(decors)
-        }
-    }
-
-    fun insertDecorations(
-        indexInCell: Int,
-        decors: Array<out CellDecor>,
-        cell: Cell,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = null
-    ) {
-        doDecorAdditionAllOperation(decors, cell, fractionInterpolator) {
-            insertAll(indexInCell, decors)
-        }
-    }
-
-    private inline fun doDecorAdditionAllOperation(
-        decors: Array<out CellDecor>,
-        cell: Cell,
-        fractionInterpolator: DecorAnimationFractionInterpolator?,
-        op: DecorSortedList.() -> PackedIntRange
-    ) {
-        if (decors.isEmpty()) {
+        val region = decors.getSubregion(decorRegion, cell)
+        if(region.isUndefined) {
             return
         }
 
-        checkDecors(decors, cell)
-        decors.forEach { it.cell = cell }
+        val stateHandler = decors[region.start].visual().stateHandler()
+        val startState = decorVisualStates[cell] ?: stateHandler.emptyState()
 
-        doDecorAdditionOperation(cell, fractionInterpolator, op)
+        decorLayoutOptionsArray[cell] = options
+
+        val endState = createDecorVisualState(stateHandler, cell)
+
+        if(withAnimation) {
+            decorVisualStates[cell] = stateHandler.createTransitiveState(
+                startState, endState,
+                region.start, region.endInclusive,
+                CellDecor.VisualStateChange.CELL_INFO
+            )
+
+            startAnimation(
+                DECOR_ANIMATION,
+                handler = getDecorAnimationHandler(),
+                onEnd = {
+                    val transitive = decorVisualStates[cell] as CellDecor.VisualState.Transitive
+
+                    decorVisualStates[cell] = transitive.end
+                }
+            )
+        } else {
+            decorVisualStates[cell] = endState
+
+            invalidate()
+        }
     }
 
-    private inline fun doDecorAdditionOperation(
-        cell: Cell,
-        fractionInterpolator: DecorAnimationFractionInterpolator?,
-        op: DecorSortedList.() -> PackedIntRange
+    fun onDecorInit(
+        newDecorRegion: PackedIntRange
     ) {
-        val range = decorations.op()
+        decorRegion = newDecorRegion
 
-        val stateHandler = decorations[range.start].visual().stateHandler()
+        val decors = decorations!!
+
+        decorVisualStates.clear()
+        decorLayoutOptionsArray.clear()
+
+        decors.iterateSubregions(newDecorRegion) {
+            val instance = decors[it.start]
+            val stateHandler = instance.visual().stateHandler()
+            val cell = instance.cell
+
+            decorVisualStates[cell] = createDecorVisualState(stateHandler, cell)
+        }
+
+        invalidate()
+    }
+
+    fun onDecorAdded(
+        newDecorRegion: PackedIntRange,
+        affectedRange: PackedIntRange,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        decorRegion = newDecorRegion
+
+        val decors = decorations!!
+
+        val instanceDecor = decors[affectedRange.start]
+
+        val stateHandler = instanceDecor.visual().stateHandler()
+        val cell = instanceDecor.cell
         val endState = createDecorVisualState(stateHandler, cell)
 
         if (fractionInterpolator != null) {
-            decorAnimatedRange = range
+            decorAnimatedRange = affectedRange
             decorAnimatedCell = cell
             decorAnimFractionInterpolator = fractionInterpolator
 
@@ -1194,7 +1163,7 @@ internal class RangeCalendarGridView(
 
             decorVisualStates[cell] = stateHandler.createTransitiveState(
                 startState, endState,
-                range.start, range.endInclusive,
+                affectedRange.start, affectedRange.endInclusive,
                 CellDecor.VisualStateChange.ADD
             )
 
@@ -1214,74 +1183,29 @@ internal class RangeCalendarGridView(
         }
     }
 
-    fun removeDecoration(decor: CellDecor, withAnimation: Boolean) {
-        val decorIndex = decorations.indexOf(decor)
-
-        if(decorIndex >= 0) {
-            val range = PackedIntRange(decorIndex, decorIndex)
-            val fractionInterpolator = getFractionInterpolatorForSingleOp(withAnimation)
-
-            removeDecorationRangeInternal(range, fractionInterpolator)
-        }
-    }
-
-    fun removeDecorationRange(
-        start: Int,
-        endInclusive: Int,
+    fun onDecorRemoved(
+        newDecorRegion: PackedIntRange,
+        affectedRange: PackedIntRange,
         cell: Cell,
+        visual: CellDecor.Visual,
         fractionInterpolator: DecorAnimationFractionInterpolator?
     ) {
-        val region = decorations.getRegionByCell(cell)
+        decorRegion = newDecorRegion
 
-        when {
-            start < 0 -> throw IllegalStateException("start is negative")
-            endInclusive < 0 -> throw IllegalStateException("endInclusive is negative")
-            start > endInclusive -> throw IllegalStateException("start is greater than endInclusive")
-            endInclusive - start > region.endInclusive - region.start -> throw IllegalStateException(
-                "Range [start; endInclusive] is out of decorations range"
-            )
-        }
-
-        val range = PackedIntRange(region.start + start, region.start + endInclusive)
-
-        removeDecorationRangeInternal(range, fractionInterpolator)
-    }
-
-    fun removeAllDecorationsFromCell(
-        cell: Cell,
-        fractionInterpolator: DecorAnimationFractionInterpolator?
-    ) {
-        val region = decorations.getRegionByCell(cell)
-
-        removeDecorationRangeInternal(region, fractionInterpolator)
-    }
-
-    private fun removeDecorationRangeInternal(
-        absoluteRange: PackedIntRange,
-        fractionInterpolator: DecorAnimationFractionInterpolator?
-    ) {
-        val rangeStart = absoluteRange.start
-        val decorInstance = decorations[absoluteRange.start]
-
-        val cell = decorInstance.cell
-        val stateHandler = decorInstance.visual().stateHandler()
+        val stateHandler = visual.stateHandler()
 
         if (fractionInterpolator != null) {
-            decorAnimatedRange = absoluteRange
+            decorAnimatedRange = affectedRange
             decorAnimatedCell = cell
             decorAnimFractionInterpolator = fractionInterpolator
 
-            cleanDecorationRange(absoluteRange)
-
             val startState = decorVisualStates[cell]!!
-
-            decorations.removeRange(absoluteRange)
 
             val endState = createDecorVisualState(stateHandler, cell)
 
             decorVisualStates[cell] = stateHandler.createTransitiveState(
                 startState, endState,
-                rangeStart, absoluteRange.endInclusive,
+                affectedRange.start, affectedRange.endInclusive,
                 CellDecor.VisualStateChange.REMOVE
             )
 
@@ -1295,24 +1219,9 @@ internal class RangeCalendarGridView(
                 }
             )
         } else {
-            cleanDecorationRange(absoluteRange)
-            decorations.removeRange(absoluteRange)
-
             updateDecorVisualStateOnRemove(cell, createDecorVisualState(stateHandler, cell))
 
             invalidate()
-        }
-    }
-
-    private fun cleanDecorationRange(range: PackedIntRange) {
-        val start = range.start
-        val endInclusive = range.endInclusive
-
-        for (i in start..endInclusive) {
-            decorations[i].apply {
-                cell = Cell.Undefined
-                date = PackedDate(0)
-            }
         }
     }
 
@@ -1922,6 +1831,10 @@ internal class RangeCalendarGridView(
     }
 
     companion object {
+        const val DECOR_SYNC_REASON_INIT = 0
+        const val DECOR_SYNC_REASON_ADDITION = 1
+        const val DECOR_SYNC_REASON_REMOVAL = 2
+
         const val DEFAULT_RR_RADIUS_RATIO = 0.5f
 
         private const val MSG_LONG_PRESS = 0

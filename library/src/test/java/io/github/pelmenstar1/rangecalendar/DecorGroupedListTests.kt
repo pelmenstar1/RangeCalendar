@@ -1,7 +1,7 @@
 package io.github.pelmenstar1.rangecalendar
 
 import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
-import io.github.pelmenstar1.rangecalendar.decoration.DecorSortedList
+import io.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import org.junit.Test
 import kotlin.collections.ArrayList
@@ -21,14 +21,14 @@ private class TestDecor : CellDecor() {
     }
 }
 
-class DecorSortedListTests {
+class DecorGroupedListTests {
     private inline fun validateActionOnCommonList(
         initialLength: Int,
-        actionOnDecorList: DecorSortedList.() -> Unit,
+        actionOnDecorList: DecorGroupedList.() -> Unit,
         actionOnCommonList: DecorArrayList.() -> Unit,
         message: String? = null
     ) {
-        val decorList = DecorSortedList(initialLength)
+        val decorList = DecorGroupedList(initialLength)
         val arrayList = DecorArrayList(initialLength)
 
         repeat(initialLength) { i ->
@@ -46,24 +46,30 @@ class DecorSortedListTests {
         assertContentEquals(arrayListContent, decorList.elements, message)
     }
 
-    private fun createList(vararg cellIndices: Pair<Int, Int>): DecorSortedList {
-        return DecorSortedList().apply {
-            cellIndices.forEach { pair ->
-                addAll(Array(pair.second) {
-                    TestDecor().apply { cell = Cell(pair.first) }
+    private fun createListWithAddAll(vararg elements: Pair<Int, Pair<PackedDate, Int>>): DecorGroupedList {
+        return DecorGroupedList().apply {
+            elements.forEach { pair ->
+                addAll(Array(pair.first) {
+                    TestDecor().apply {
+                        date = pair.second.first
+                        cell = Cell(pair.second.second)
+                    }
                 })
             }
         }
     }
 
-    private fun DecorSortedList.addDecorWithCell(index: Int) {
-        add(TestDecor().apply { cell = Cell(index) })
+    private fun createListSingleDateToCell(vararg elements: Pair<PackedDate, Int>): DecorGroupedList {
+        return DecorGroupedList().apply {
+            elements.forEach { addDecorWithDateAndCell(it.first, it.second) }
+        }
     }
 
-    private fun createList(vararg cellIndices: Int): DecorSortedList {
-        return DecorSortedList().apply {
-            cellIndices.forEach { addDecorWithCell(it) }
-        }
+    private fun DecorGroupedList.addDecorWithDateAndCell(date: PackedDate, index: Int) {
+        add(TestDecor().also {
+            it.cell = Cell(index)
+            it.date = date
+        })
     }
 
     // Primary operations when all the decors are in one region
@@ -84,17 +90,25 @@ class DecorSortedListTests {
         validateAdd(initialLength = 2)
     }
 
-    private fun assertRegion(list: DecorSortedList, cellIndex: Int, expectedRange: PackedIntRange) {
-        assertEquals(expectedRange, list.getRegionByCell(Cell(cellIndex)))
+    private fun assertRegion(list: DecorGroupedList, ym: YearMonth, expectedRange: IntRange) {
+        assertEquals(PackedIntRange(expectedRange.first, expectedRange.last), list.getRegion(ym))
     }
 
     @Test
     fun addTestRegions() {
-        val list = createList(0, 0, 0, 1, 1, 2)
+        val day0 = PackedDate(2000, 1, 1)
+        val day1 = PackedDate(2000, 2, 2)
+        val day2 = PackedDate(2000, 3, 3)
 
-        assertRegion(list, cellIndex = 0, expectedRange = PackedIntRange(0, 2))
-        assertRegion(list, cellIndex = 1, expectedRange = PackedIntRange(3, 4))
-        assertRegion(list, cellIndex = 2, expectedRange = PackedIntRange(5, 5))
+        val list = createListSingleDateToCell(
+            day0 to 0, day0 to 0, day0 to 0,
+            day1 to 1, day1 to 1,
+            day2 to 2
+        )
+
+        assertRegion(list, YearMonth.forDate(day0), expectedRange = 0..2)
+        assertRegion(list, YearMonth.forDate(day1), expectedRange = 3..4)
+        assertRegion(list, YearMonth.forDate(day2), expectedRange = 5..5)
     }
 
     @Test
@@ -117,11 +131,19 @@ class DecorSortedListTests {
 
     @Test
     fun addAllTestRegions() {
-        val list = createList(0 to 3, 1 to 2, 2 to 1)
+        val day0 = PackedDate(2000, 1, 1)
+        val day1 = PackedDate(2000, 2, 2)
+        val day2 = PackedDate(2000, 3, 3)
 
-        assertRegion(list, cellIndex = 0, expectedRange = PackedIntRange(0, 2))
-        assertRegion(list, cellIndex = 1, expectedRange = PackedIntRange(3, 4))
-        assertRegion(list, cellIndex = 2, expectedRange = PackedIntRange(5, 5))
+        val list = this.createListWithAddAll(
+            3 to (day0 to 0),
+            2 to (day1 to 1),
+            1 to (day2 to 3)
+        )
+
+        assertRegion(list, YearMonth.forDate(day0), expectedRange = 0..2)
+        assertRegion(list, YearMonth.forDate(day1), expectedRange = 3..4)
+        assertRegion(list, YearMonth.forDate(day2), expectedRange = 5..5)
     }
 
     @Test
@@ -141,24 +163,6 @@ class DecorSortedListTests {
         validateAddAll(2, 5, 3)
         validateAddAll(4, 0, 3)
         validateAddAll(4, 3, 1)
-    }
-
-    @Test
-    fun iterateRegionsTest() {
-        val list = createList(0 to 3, 1 to 2, 2 to 1)
-        val expectedSequence = arrayOf(
-            PackedIntRange(0, 2) to 0,
-            PackedIntRange(3, 4) to 1,
-            PackedIntRange(5, 5) to 2
-        )
-        var seqIndex = 0
-
-        list.iterateRegions { range, cell ->
-            val pair = expectedSequence[seqIndex++]
-
-            assertEquals(pair.first, range)
-            assertEquals(Cell(pair.second), cell)
-        }
     }
 
     @Test

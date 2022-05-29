@@ -1,6 +1,8 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
 import android.graphics.RectF
+import io.github.pelmenstar1.rangecalendar.Padding
+import io.github.pelmenstar1.rangecalendar.VerticalAlignment
 import kotlin.math.sqrt
 
 /**
@@ -17,6 +19,9 @@ class CellInfo internal constructor() {
      * Radius of corners of the cell
      */
     var radius = 0f
+        internal set
+
+    var layoutOptions: DecorLayoutOptions? = null
         internal set
 
     private val textBounds = RectF()
@@ -76,7 +81,7 @@ class CellInfo internal constructor() {
     // Final formula:
     // x = R - sqrt((R - y) * (R + y))
     private fun findIntersectionWithCircle(y: Float): Float {
-        if(y > radius) {
+        if (y > radius) {
             return radius
         }
 

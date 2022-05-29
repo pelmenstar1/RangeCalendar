@@ -23,7 +23,8 @@ abstract class CellDecor {
 
     enum class VisualStateChange {
         ADD,
-        REMOVE
+        REMOVE,
+        CELL_INFO
     }
 
     interface Visual {

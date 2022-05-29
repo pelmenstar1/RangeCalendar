@@ -1867,6 +1867,41 @@ class RangeCalendarView @JvmOverloads constructor(
         adapter.removeAllDecorations(date, fractionInterpolator)
     }
 
+    @JvmOverloads
+    fun setDecorationLayoutOptions(
+        year: Int, month: Int, dayOfMonth: Int,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean = true
+    ) {
+        setDecorationLayoutOptionsInternal(PackedDate(year, month, dayOfMonth), options, withAnimation)
+    }
+
+    @JvmOverloads
+    fun setDecorationLayoutOptions(
+        calendar: Calendar,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean = true
+    ) {
+        setDecorationLayoutOptionsInternal(PackedDate.fromCalendar(calendar), options, withAnimation)
+    }
+
+    @JvmOverloads
+    @RequiresApi(26)
+    fun setDecorationLayoutOptions(
+        date: LocalDate,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean = true
+    ) {
+        setDecorationLayoutOptionsInternal(PackedDate.fromLocalDate(date), options, withAnimation)
+    }
+
+    private fun setDecorationLayoutOptionsInternal(
+        date: PackedDate,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean
+    ) {
+        adapter.setDecorationLayoutOptions(date, options, withAnimation)
+    }
 
     private fun updateMoveButtons() {
         val position = pager.currentItem

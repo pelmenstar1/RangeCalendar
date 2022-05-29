@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import androidx.annotation.ColorInt
 import io.github.pelmenstar1.rangecalendar.*
 import io.github.pelmenstar1.rangecalendar.PackedRectF
 import io.github.pelmenstar1.rangecalendar.PackedRectFArray
@@ -114,6 +113,24 @@ class LineDecor(val style: Style) : CellDecor() {
         }
     }
 
+    private class TransitiveCellInfoLineVisualState(
+        private val start: LineVisualState,
+        override val end: LineVisualState,
+        private val affectedRangeStart: Int,
+        private val affectedRangeEnd: Int
+    ): LineVisualState(PackedRectFArray(start.linesBoundsArray.size), start.styles), VisualState.Transitive {
+        override fun handleAnimation(
+            animationFraction: Float,
+            fractionInterpolator: DecorAnimationFractionInterpolator
+        ) {
+            lerpRectArray(
+                start.linesBoundsArray, end.linesBoundsArray, linesBoundsArray,
+                affectedRangeStart, affectedRangeEnd,
+                animationFraction
+            )
+        }
+    }
+
     private object LineVisual: Visual {
         override fun stateHandler(): VisualStateHandler = LineStateHandler
         override fun renderer(): Renderer = LineRenderer
@@ -122,6 +139,47 @@ class LineDecor(val style: Style) : CellDecor() {
     private object LineStateHandler : VisualStateHandler {
         private val tempRect = RectF()
         private val emptyLineState = LineVisualState(PackedRectFArray(0), emptyArray())
+
+        private var defaultDecorBlockPadding: Padding? = null
+        private var defaultDecorPadding: Padding? = null
+
+        private fun getDecorBlockPadding(context: Context, padding: Padding?): Padding {
+            if(padding == null) {
+                var defaultPadding = defaultDecorBlockPadding
+
+                if(defaultPadding == null) {
+                    val hMargin =
+                        context.resources.getDimension(R.dimen.rangeCalendar_lineHorizontalMargin)
+
+                    defaultPadding = Padding(hMargin, 0f, hMargin, 0f)
+
+                    defaultDecorBlockPadding = defaultPadding
+                }
+
+                return defaultPadding
+            }
+
+            return padding
+        }
+
+        private fun getDecorPadding(context: Context, padding: Padding?): Padding {
+            if(padding == null) {
+                var defaultPadding = defaultDecorPadding
+
+                if(defaultPadding == null) {
+                    val topMargin =
+                        context.resources.getDimension(R.dimen.rangeCalendar_lineMarginTop)
+
+                    defaultPadding = Padding(0f, topMargin, 0f, 0f)
+
+                    defaultDecorPadding = defaultPadding
+                }
+
+                return defaultPadding
+            }
+
+            return padding
+        }
 
         override fun emptyState(): VisualState = emptyLineState
 
@@ -132,10 +190,8 @@ class LineDecor(val style: Style) : CellDecor() {
             endInclusive: Int,
             info: CellInfo
         ): VisualState {
-            val res = context.resources
-            val lineMarginTop = res.getDimension(R.dimen.rangeCalendar_stripeMarginTop)
-            val lineHorizontalMargin =
-                res.getDimension(R.dimen.rangeCalendar_stripeHorizontalMargin)
+            val layoutOptions = info.layoutOptions
+            val decorBlockPadding = getDecorBlockPadding(context, layoutOptions?.padding)
 
             val length = endInclusive - start + 1
 
@@ -156,32 +212,41 @@ class LineDecor(val style: Style) : CellDecor() {
 
             for (i in start..endInclusive) {
                 val line = decorations[i] as LineDecor
-                val height = line.style.height
+                val style = line.style
 
-                totalHeight += height.resolveHeight(defaultLineHeight)
+                val height = style.height
+                val padding = getDecorPadding(context, style.padding)
 
-                if (i < endInclusive) {
-                    totalHeight += lineMarginTop
-                }
+                totalHeight += height.resolveHeight(defaultLineHeight) + padding.top + padding.bottom
             }
 
             // Find y of position where to start drawing lines
-            var top = 0.5f * (tempRect.bottom + info.size - totalHeight)
+            var top = when(layoutOptions?.verticalAlignment ?: VerticalAlignment.CENTER) {
+                VerticalAlignment.TOP -> tempRect.top + decorBlockPadding.top
+                VerticalAlignment.CENTER -> 0.5f * (tempRect.bottom + info.size - totalHeight)
+                VerticalAlignment.BOTTOM -> tempRect.bottom - totalHeight - decorBlockPadding.bottom
+            }
 
             for (i in 0 until length) {
                 val decor = decorations[start + i] as LineDecor
 
+                val style = decor.style
+                val decorPadding = getDecorPadding(context, style.padding)
+
+                top += decorPadding.top
+
                 tempRect.set(
-                    lineHorizontalMargin,
+                    0f,
                     top,
-                    info.size - lineHorizontalMargin,
+                    info.size,
                     top + defaultLineHeight
                 )
 
                 // If cell is round, then it should be narrowed to fit the cell shape
                 info.narrowRectOnBottom(tempRect)
 
-                val style = decor.style
+                tempRect.left += decorPadding.left + decorBlockPadding.left
+                tempRect.right -= decorPadding.right + decorBlockPadding.right
 
                 val width = style.width
                 val height = style.height
@@ -227,7 +292,7 @@ class LineDecor(val style: Style) : CellDecor() {
 
                 style.fill.setBounds(bounds)
 
-                top += resolvedHeight + lineMarginTop
+                top += resolvedHeight + decorPadding.bottom
             }
 
             return LineVisualState(linesBounds, styles)
@@ -252,6 +317,12 @@ class LineDecor(val style: Style) : CellDecor() {
                 }
                 VisualStateChange.REMOVE -> {
                     TransitiveRemovalLineVisualState(
+                        start, end,
+                        affectedRangeStart, affectedRangeEnd
+                    )
+                }
+                VisualStateChange.CELL_INFO -> {
+                    TransitiveCellInfoLineVisualState(
                         start, end,
                         affectedRangeStart, affectedRangeEnd
                     )
@@ -333,7 +404,8 @@ class LineDecor(val style: Style) : CellDecor() {
         val width: Float,
         val height: Float,
         val horizontalAlignment: HorizontalAlignment,
-        val animationStartPosition: AnimationStartPosition
+        val animationStartPosition: AnimationStartPosition,
+        val padding: Padding?
     ) {
         class Builder(private var fill: Fill) {
             private var roundRadius: Float = 0f
@@ -342,6 +414,7 @@ class LineDecor(val style: Style) : CellDecor() {
             private var width: Float = Float.NaN
             private var height: Float = Float.NaN
             private var animationStartPosition = AnimationStartPosition.Center
+            private var padding: Padding? = null
 
             fun fill(value: Fill) = apply {
                 fill = value
@@ -397,12 +470,24 @@ class LineDecor(val style: Style) : CellDecor() {
                 height = value
             }
 
+            fun padding(value: Padding?) = apply {
+                padding = value
+            }
+
+            fun padding(
+                left: Float = 0f,
+                top: Float = 0f,
+                right: Float = 0f,
+                bottom: Float = 0f
+            ) = padding(Padding(left, top, right, bottom))
+
             fun build() = Style(
                 fill,
                 roundRadius, roundRadii,
                 width, height,
                 horizontalAlignment,
-                animationStartPosition
+                animationStartPosition,
+                padding
             )
         }
     }

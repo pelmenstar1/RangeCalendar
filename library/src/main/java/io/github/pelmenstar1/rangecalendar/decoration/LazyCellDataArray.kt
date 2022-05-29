@@ -1,23 +1,24 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package io.github.pelmenstar1.rangecalendar.decoration
 
 import io.github.pelmenstar1.rangecalendar.selection.Cell
+import java.util.*
 
-private typealias ForeachAction = (cell: Cell, value: CellDecor.VisualState) -> Unit
-
-internal class DecorVisualStateList {
+internal class LazyCellDataArray<T : Any> {
     @PublishedApi
     internal var elements = EMPTY_ARRAY
 
-     var notNullElementsLength = 0
+    var notNullElementsLength = 0
         private set
 
-    inline fun forEachNotNull(action: ForeachAction) {
+    inline fun forEachNotNull(action: (cell: Cell, value: T) -> Unit) {
         if(notNullElementsLength == 0) {
             return
         }
 
         for(i in 0 until 42) {
-            val value = elements[i]
+            val value = elements[i] as T?
 
             if(value != null) {
                 action(Cell(i), value)
@@ -25,11 +26,17 @@ internal class DecorVisualStateList {
         }
     }
 
-    operator fun get(cell: Cell): CellDecor.VisualState? {
-        return if(elements.isEmpty()) null else elements[cell.index]
+    operator fun get(cell: Cell): T? {
+        return if(elements.isEmpty()) null else elements[cell.index] as T?
     }
 
-    operator fun set(cell: Cell, value: CellDecor.VisualState?) {
+    fun clear() {
+        Arrays.fill(elements, null)
+
+        notNullElementsLength = 0
+    }
+
+    operator fun set(cell: Cell, value: T?) {
         var elements = elements
 
         if(elements.isEmpty()) {
@@ -52,6 +59,6 @@ internal class DecorVisualStateList {
     }
 
     companion object {
-        private val EMPTY_ARRAY = emptyArray<CellDecor.VisualState?>()
+        private val EMPTY_ARRAY = emptyArray<Any?>()
     }
 }
