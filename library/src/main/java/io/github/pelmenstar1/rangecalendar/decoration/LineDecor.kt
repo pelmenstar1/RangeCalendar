@@ -137,7 +137,6 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     private object LineStateHandler : VisualStateHandler {
-        private val tempRect = RectF()
         private val emptyLineState = LineVisualState(PackedRectFArray(0), emptyArray())
 
         private var defaultDecorBlockPadding: Padding? = null
@@ -201,8 +200,9 @@ class LineDecor(val style: Style) : CellDecor() {
                 (decorations[start + i] as LineDecor).style
             }
 
-            info.getTextBounds(tempRect)
-            val freeAreaHeight = info.size - tempRect.bottom
+            val textBounds = info.textBounds
+            val textBoundsBottom = textBounds.bottom
+            val freeAreaHeight = info.size - textBoundsBottom
 
             // The coefficient is hand-picked for line not to be very thin or thick
             val defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
@@ -222,9 +222,9 @@ class LineDecor(val style: Style) : CellDecor() {
 
             // Find y of position where to start drawing lines
             var top = when(layoutOptions?.verticalAlignment ?: VerticalAlignment.CENTER) {
-                VerticalAlignment.TOP -> tempRect.top + decorBlockPadding.top
-                VerticalAlignment.CENTER -> 0.5f * (tempRect.bottom + info.size - totalHeight)
-                VerticalAlignment.BOTTOM -> tempRect.bottom - totalHeight - decorBlockPadding.bottom
+                VerticalAlignment.TOP -> textBounds.top + decorBlockPadding.top
+                VerticalAlignment.CENTER -> 0.5f * (textBoundsBottom + info.size - totalHeight)
+                VerticalAlignment.BOTTOM -> textBoundsBottom - totalHeight - decorBlockPadding.bottom
             }
 
             for (i in 0 until length) {
@@ -235,23 +235,20 @@ class LineDecor(val style: Style) : CellDecor() {
 
                 top += decorPadding.top
 
-                tempRect.set(
-                    0f,
-                    top,
-                    info.size,
-                    top + defaultLineHeight
-                )
+                val height = style.height
+                val resolvedHeight = height.resolveHeight(defaultLineHeight)
 
                 // If cell is round, then it should be narrowed to fit the cell shape
-                info.narrowRectOnBottom(tempRect)
+                val initialBounds = info.narrowRectOnBottom(
+                    PackedRectF(0f, top, info.size, top + resolvedHeight)
+                )
 
-                tempRect.left += decorPadding.left + decorBlockPadding.left
-                tempRect.right -= decorPadding.right + decorBlockPadding.right
+                var left = initialBounds.left + decorPadding.left + decorBlockPadding.left
+                var right = initialBounds.right - (decorPadding.right + decorBlockPadding.right)
 
                 val width = style.width
-                val height = style.height
 
-                val maxWidth = tempRect.width()
+                val maxWidth = right - left
 
                 val resolvedWidth = if(width.isNaN() || width >= maxWidth) {
                     maxWidth
@@ -259,37 +256,27 @@ class LineDecor(val style: Style) : CellDecor() {
                     width
                 }
 
-                val resolvedHeight = height.resolveHeight(defaultLineHeight)
-
-                val left: Float
-                val right: Float
-
                 if(resolvedWidth != width) {
                     when(style.horizontalAlignment) {
                         HorizontalAlignment.LEFT -> {
-                            left = tempRect.left
                             right = left + resolvedWidth
                         }
                         HorizontalAlignment.CENTER -> {
-                            val centerX = tempRect.centerX()
+                            val centerX = (left + right) * 0.5f
                             val halfWidth = resolvedWidth * 0.5f
 
                             left = centerX - halfWidth
                             right = centerX + halfWidth
                         }
                         HorizontalAlignment.RIGHT -> {
-                            right = tempRect.right
                             left = right - resolvedWidth
                         }
                     }
-                } else {
-                    left = tempRect.left
-                    right = tempRect.right
                 }
 
-                val bounds = PackedRectF(left, top, right, top + resolvedHeight)
-                linesBounds[i] = bounds
+                val bounds = initialBounds.withLeftAndRight(left, right)
 
+                linesBounds[i] = bounds
                 style.fill.setBounds(bounds)
 
                 top += resolvedHeight + decorPadding.bottom

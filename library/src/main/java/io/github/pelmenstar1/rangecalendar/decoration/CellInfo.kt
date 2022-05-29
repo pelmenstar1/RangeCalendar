@@ -1,8 +1,7 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
 import android.graphics.RectF
-import io.github.pelmenstar1.rangecalendar.Padding
-import io.github.pelmenstar1.rangecalendar.VerticalAlignment
+import io.github.pelmenstar1.rangecalendar.PackedRectF
 import kotlin.math.sqrt
 
 /**
@@ -24,14 +23,15 @@ class CellInfo internal constructor() {
     var layoutOptions: DecorLayoutOptions? = null
         internal set
 
-    private val textBounds = RectF()
+    internal var textBounds = PackedRectF(0)
+        private set
 
     internal fun setTextBounds(left: Float, top: Float, right: Float, bottom: Float) {
-        textBounds.set(left, top, right, bottom)
+        textBounds = PackedRectF(left, top, right, bottom)
     }
 
     fun getTextBounds(outRect: RectF) {
-        outRect.set(textBounds)
+        textBounds.setTo(outRect)
     }
 
     /**
@@ -64,6 +64,36 @@ class CellInfo internal constructor() {
             outRect.left = left
             outRect.right = right
         }
+    }
+
+    internal fun narrowRectOnBottom(rect: PackedRectF): PackedRectF {
+        if (radius > 0f) {
+            var left = rect.left
+            val top = rect.top
+            var right = rect.right
+            val bottom = rect.bottom
+
+            val sizeWithoutRadius = size - radius
+
+            when {
+                bottom > sizeWithoutRadius -> {
+                    val intersectionX = findIntersectionWithCircle(bottom - sizeWithoutRadius)
+
+                    left = intersectionX
+                    right = size - intersectionX
+                }
+                top > sizeWithoutRadius -> {
+                    val intersectionX = findIntersectionWithCircle(top - sizeWithoutRadius)
+
+                    left = intersectionX
+                    right = size - intersectionX
+                }
+            }
+
+            return rect.withLeftAndRight(left, right)
+        }
+
+        return rect
     }
 
     // This function finds x of intersection of circle and line. Line is horizontal and specified by y.
