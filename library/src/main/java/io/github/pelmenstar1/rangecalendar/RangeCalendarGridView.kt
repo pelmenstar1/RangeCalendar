@@ -353,6 +353,7 @@ internal class RangeCalendarGridView(
     private val decorVisualStates = LazyCellDataArray<CellDecor.VisualState>()
     private val decorLayoutOptionsArray = LazyCellDataArray<DecorLayoutOptions>()
     private val cellInfo = CellInfo()
+    private var decorDefaultLayoutOptions: DecorLayoutOptions? = null
 
     private var decorAnimFractionInterpolator: DecorAnimationFractionInterpolator? = null
     private var decorAnimatedCell = Cell.Undefined
@@ -1054,7 +1055,7 @@ internal class RangeCalendarGridView(
         cellInfo.apply {
             size = cellSize
             radius = rrRadius()
-            layoutOptions = decorLayoutOptionsArray[cell]
+            layoutOptions = decorLayoutOptionsArray[cell] ?: decorDefaultLayoutOptions
 
             setTextBounds(
                 halfCellSize - halfCellTextWidth,
@@ -1078,6 +1079,19 @@ internal class RangeCalendarGridView(
 
             decorVisualStates[cell] = createDecorVisualState(stateHandler, cell)
         }
+    }
+
+    // Should be called on calendar's decors initialization
+    fun setDecorationDefaultLayoutOptions(options: DecorLayoutOptions?) {
+        decorDefaultLayoutOptions = options
+
+        decorVisualStates.forEachNotNull { cell, value ->
+            val endState = createDecorVisualState(value.visual().stateHandler(), cell)
+
+            decorVisualStates[cell] = endState
+        }
+
+        invalidate()
     }
 
     fun setDecorationLayoutOptions(cell: Cell, options: DecorLayoutOptions, withAnimation: Boolean) {
@@ -1118,10 +1132,14 @@ internal class RangeCalendarGridView(
         }
     }
 
+    // Common setDecorationLayoutOptions() updates visual states.
+    // Default layout options is set here to avoid double-update of the states.
     fun onDecorInit(
-        newDecorRegion: PackedIntRange
+        newDecorRegion: PackedIntRange,
+        defaultLayoutOptions: DecorLayoutOptions?
     ) {
         decorRegion = newDecorRegion
+        decorDefaultLayoutOptions = defaultLayoutOptions
 
         val decors = decorations!!
 

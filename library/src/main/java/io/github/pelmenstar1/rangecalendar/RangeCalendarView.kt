@@ -1903,6 +1903,10 @@ class RangeCalendarView @JvmOverloads constructor(
         adapter.setDecorationLayoutOptions(date, options, withAnimation)
     }
 
+    fun setDecorationDefaultLayoutOptions(options: DecorLayoutOptions?) {
+        adapter.setStyleObject(RangeCalendarPagerAdapter.STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS, options)
+    }
+
     private fun updateMoveButtons() {
         val position = pager.currentItem
         val count = adapter.itemCount

@@ -266,7 +266,7 @@ internal class RangeCalendarPagerAdapter(
         setStyleInt(type, java.lang.Float.floatToIntBits(value), notify)
     }
 
-    fun setStyleObject(type: Int, data: Any) {
+    fun setStyleObject(type: Int, data: Any?) {
         styleObjData[type - STYLE_OBJ_START] = data
 
         notifyItemRangeChanged(0, count, Payload.updateStyle(type, data))
@@ -317,6 +317,9 @@ internal class RangeCalendarPagerAdapter(
             }
             STYLE_HOVER_ANIMATION_INTERPOLATOR -> {
                 gridView.hoverAnimationInterpolator = data as TimeInterpolator
+            }
+            STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS -> {
+                gridView.setDecorationDefaultLayoutOptions(data as DecorLayoutOptions)
             }
         }
     }
@@ -720,7 +723,11 @@ internal class RangeCalendarPagerAdapter(
         gridView.decorations = decorations
 
         val decorRegion = decorations.getRegion(ym)
-        gridView.onDecorInit(decorRegion)
+
+        // The reason for such tweak is described in RangeCalendarGridView.onDecorInit()
+        val defaultLayoutOptions = styleObjData[STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS - STYLE_OBJ_START] as DecorLayoutOptions
+
+        gridView.onDecorInit(decorRegion, defaultLayoutOptions)
 
         for(i in 0 until decorLayoutOptionsMap.size()) {
             val date = PackedDate(decorLayoutOptionsMap.keyAt(i))
@@ -1013,7 +1020,12 @@ internal class RangeCalendarPagerAdapter(
         }
 
         for (type in styleObjData.indices) {
-            updateStyle(gridView, type + STYLE_OBJ_START, styleObjData[type])
+            val adjustedType = type + STYLE_OBJ_START
+
+            // Special case for decor's default layout options. The options will be set in updateDecorations()
+            if(adjustedType != STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS) {
+                updateStyle(gridView, type + STYLE_OBJ_START, styleObjData[type])
+            }
         }
 
         if (getItemPositionForDate(today) == position) {
@@ -1120,6 +1132,7 @@ internal class RangeCalendarPagerAdapter(
         private const val STYLE_OBJ_START = 32
         const val STYLE_COMMON_ANIMATION_INTERPOLATOR = 32
         const val STYLE_HOVER_ANIMATION_INTERPOLATOR = 33
+        const val STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS = 34
 
         private val PAGES_BETWEEN_ABS_MIN_MAX: Int
 
