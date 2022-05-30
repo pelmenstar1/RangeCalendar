@@ -130,6 +130,11 @@ internal value class PackedRectF(val bits: Long) {
     val height: Float
         get() = bottom - top
 
+    inline operator fun component1() = left
+    inline operator fun component2() = top
+    inline operator fun component3() = right
+    inline operator fun component4() = bottom
+
     fun getValueBits(bitOffset: Int): Short {
         return (bits shr bitOffset and 0xFFFFL).toShort()
     }
@@ -149,8 +154,8 @@ internal value class PackedRectF(val bits: Long) {
         )
     }
 
-    companion object {
-
+    override fun toString(): String {
+        return "PackedRectF(left=$left, top=$top, right=$right, bottom=$bottom)"
     }
 }
 
@@ -178,7 +183,6 @@ internal fun lerp(start: PackedRectF, end: PackedRectF, fraction: Float): Packed
     )
 }
 
-
 internal fun PackedRectFArray(size: Int): PackedRectFArray {
     return PackedRectFArray(LongArray(size))
 }
@@ -201,6 +205,64 @@ internal value class PackedRectFArray(val array: LongArray) {
     }
 
     fun copyToWithoutRange(outArray: PackedRectFArray, start: Int, endInclusive: Int) {
+        System.arraycopy(array, 0, outArray.array, 0, start)
+
+        val pos = endInclusive + 1
+
+        System.arraycopy(array, pos, outArray.array, pos, outArray.size - pos)
+    }
+}
+
+internal fun lerpRectArray(
+    start: PackedRectFArray, end: PackedRectFArray, outArray: PackedRectFArray,
+    startIndex: Int, endIndexInclusive: Int,
+    fraction: Float,
+    startOffset: Int = 0, endOffset: Int = 0
+) {
+    for(i in startIndex..endIndexInclusive) {
+        outArray[i] = lerp(
+            start[i - startOffset],
+            end[i - endOffset],
+            fraction
+        )
+    }
+}
+
+internal fun PackedPointF(x: Float, y: Float): PackedPointF {
+    return PackedPointF(packInts(x.toBits(), y.toBits()))
+}
+
+@JvmInline
+internal value class PackedPointF(val bits: Long) {
+    val x: Float
+        get() = Float.fromBits(unpackFirstInt(bits))
+
+    val y: Float
+        get() = Float.fromBits(unpackSecondInt(bits))
+}
+
+internal fun PackedPointFArray(size: Int): PackedPointFArray {
+    return PackedPointFArray(LongArray(size))
+}
+
+@JvmInline
+internal value class PackedPointFArray(val array: LongArray) {
+    inline val size: Int
+        get() = array.size
+
+    inline val isEmpty: Boolean
+        get() = array.isEmpty()
+
+    inline operator fun get(index: Int) = PackedPointF(array[index])
+    inline operator fun set(index: Int, value: PackedPointF) {
+        array[index] = value.bits
+    }
+
+    inline fun copyOf(): PackedPointFArray {
+        return PackedPointFArray(array.copyOf())
+    }
+
+    fun copyToWithoutRange(outArray: PackedPointFArray, start: Int, endInclusive: Int) {
         System.arraycopy(array, 0, outArray.array, 0, start)
 
         val pos = endInclusive + 1

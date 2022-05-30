@@ -33,6 +33,16 @@ internal fun Canvas.drawRoundRectCompat(
     drawRoundRectCompat(rect.left, rect.top, rect.right, rect.bottom, radius, paint)
 }
 
+internal fun Canvas.drawOvalCompat(left: Float, top: Float, right: Float, bottom: Float, paint: Paint) {
+    if(Build.VERSION.SDK_INT >= 21) {
+        drawOval(left, top, right, bottom, paint)
+    } else {
+        tempRect!!.set(left, top, right, bottom)
+
+        drawOval(tempRect, paint)
+    }
+}
+
 internal fun Path.addRoundRectCompat(
     left: Float, top: Float, right: Float, bottom: Float,
     radii: FloatArray

@@ -1,7 +1,10 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
 import android.graphics.RectF
+import io.github.pelmenstar1.rangecalendar.HorizontalAlignment
 import io.github.pelmenstar1.rangecalendar.PackedRectF
+import io.github.pelmenstar1.rangecalendar.Padding
+import io.github.pelmenstar1.rangecalendar.VerticalAlignment
 import kotlin.math.sqrt
 
 /**
@@ -116,5 +119,26 @@ class CellInfo internal constructor() {
         }
 
         return radius - sqrt((radius - y) * (radius + y))
+    }
+
+    fun findTopWithAlignment(
+        height: Float,
+        padding: Padding,
+        align: VerticalAlignment
+    ): Float {
+        val areaTop = textBounds.bottom
+        val areaBottom = size
+
+        return when(align) {
+            VerticalAlignment.TOP -> {
+                areaTop + padding.top
+            }
+            VerticalAlignment.CENTER -> {
+                (areaTop + areaBottom - height) * 0.5f
+            }
+            VerticalAlignment.BOTTOM -> {
+                areaBottom - padding.bottom - height
+            }
+        }
     }
 }

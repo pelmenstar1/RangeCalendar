@@ -44,6 +44,17 @@ class Border {
     }
 }
 
+internal fun PackedRectF.adjustBoundsForBorder(strokeWidth: Float): PackedRectF {
+    val half = strokeWidth * 0.5f
+
+    return PackedRectF(
+        left + half,
+        top + half,
+        right - half,
+        bottom - half
+    )
+}
+
 enum class BorderAnimationType {
     ONLY_SHAPE,
     ONLY_WIDTH,

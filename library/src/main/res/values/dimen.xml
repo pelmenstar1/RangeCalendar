@@ -14,4 +14,7 @@
 
     <dimen name="rangeCalendar_lineMarginTop">1dp</dimen>
     <dimen name="rangeCalendar_lineHorizontalMargin">2dp</dimen>
+
+    <dimen name="rangeCalendar_shapeMarginTop">2dp</dimen>
+    <dimen name="rangeCalendar_shapeHorizontalMargin">1dp</dimen>
 </resources>

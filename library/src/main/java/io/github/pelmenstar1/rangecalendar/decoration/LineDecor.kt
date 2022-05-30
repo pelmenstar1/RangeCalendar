@@ -215,8 +215,7 @@ class LineDecor(val style: Style) : CellDecor() {
             }
 
             val textBounds = info.textBounds
-            val textBoundsBottom = textBounds.bottom
-            val freeAreaHeight = info.size - textBoundsBottom
+            val freeAreaHeight = info.size - textBounds.bottom
 
             // The coefficient is hand-picked for line not to be very thin or thick
             val defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
@@ -235,11 +234,10 @@ class LineDecor(val style: Style) : CellDecor() {
             }
 
             // Find y of position where to start drawing lines
-            var top = when(layoutOptions?.verticalAlignment ?: VerticalAlignment.CENTER) {
-                VerticalAlignment.TOP -> textBounds.top + decorBlockPadding.top
-                VerticalAlignment.CENTER -> 0.5f * (textBoundsBottom + info.size - totalHeight)
-                VerticalAlignment.BOTTOM -> textBoundsBottom - totalHeight - decorBlockPadding.bottom
-            }
+            var top = info.findTopWithAlignment(
+                totalHeight, decorBlockPadding,
+                layoutOptions?.verticalAlignment ?: VerticalAlignment.CENTER
+            )
 
             for (i in 0 until length) {
                 val decor = decorations[start + i] as LineDecor
@@ -378,21 +376,21 @@ class LineDecor(val style: Style) : CellDecor() {
 
                     when(style.borderAnimationType) {
                         BorderAnimationType.ONLY_SHAPE -> {
-                            drawRect(canvas, bounds.adjustBounds(border.width), style)
+                            drawRect(canvas, bounds.adjustBoundsForBorder(border.width), style)
                         }
                         BorderAnimationType.ONLY_WIDTH -> {
                             val borderWidth = border.width * animationFraction
 
                             paint.strokeWidth = borderWidth
 
-                            drawRect(canvas, endBounds.adjustBounds(border.width), style)
+                            drawRect(canvas, endBounds.adjustBoundsForBorder(border.width), style)
                         }
                         BorderAnimationType.SHAPE_AND_WIDTH -> {
                             val borderWidth = border.width * animationFraction
 
                             paint.strokeWidth = borderWidth
 
-                            drawRect(canvas, bounds.adjustBounds(border.width), style)
+                            drawRect(canvas, bounds.adjustBoundsForBorder(border.width), style)
                         }
                     }
                 }
@@ -430,16 +428,7 @@ class LineDecor(val style: Style) : CellDecor() {
             }
         }
 
-        private fun PackedRectF.adjustBounds(strokeWidth: Float): PackedRectF {
-            val half = strokeWidth * 0.5f
 
-            return PackedRectF(
-                left + half,
-                top + half,
-                right - half,
-                bottom - half
-            )
-        }
 
         private fun Float.resolveRoundRadius(alternative: Float): Float {
             val half = alternative * 0.5f
@@ -566,21 +555,6 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     companion object {
-        private fun lerpRectArray(
-            start: PackedRectFArray, end: PackedRectFArray, outArray: PackedRectFArray,
-            startIndex: Int, endIndexInclusive: Int,
-            fraction: Float,
-            startOffset: Int = 0, endOffset: Int = 0
-        ) {
-            for(i in startIndex..endIndexInclusive) {
-                outArray[i] = lerp(
-                    start[i - startOffset],
-                    end[i - endOffset],
-                    fraction
-                )
-            }
-        }
-
         private fun lerpRectHorizontal(
             bounds: PackedRectF,
             fraction: Float,
