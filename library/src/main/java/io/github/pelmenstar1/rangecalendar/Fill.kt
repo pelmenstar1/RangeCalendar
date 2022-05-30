@@ -56,6 +56,8 @@ class Fill(
     }
 
     internal fun applyToPaint(paint: Paint) {
+        paint.style = Paint.Style.FILL
+
         if(type == TYPE_SOLID) {
             paint.color = color
             paint.shader = null

@@ -725,7 +725,7 @@ internal class RangeCalendarPagerAdapter(
         val decorRegion = decorations.getRegion(ym)
 
         // The reason for such tweak is described in RangeCalendarGridView.onDecorInit()
-        val defaultLayoutOptions = styleObjData[STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS - STYLE_OBJ_START] as DecorLayoutOptions
+        val defaultLayoutOptions = styleObjData[STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS - STYLE_OBJ_START] as DecorLayoutOptions?
 
         gridView.onDecorInit(decorRegion, defaultLayoutOptions)
 

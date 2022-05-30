@@ -2,6 +2,7 @@ package io.github.pelmenstar1.rangecalendar.decoration
 
 import android.content.Context
 import android.graphics.Canvas
+import androidx.annotation.CallSuper
 import io.github.pelmenstar1.rangecalendar.PackedDate
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 
@@ -12,7 +13,10 @@ abstract class CellDecor {
         fun visual(): Visual
 
         interface Transitive: VisualState {
+            val start: VisualState
             val end: VisualState
+
+            val animationFraction: Float
 
             fun handleAnimation(
                 animationFraction: Float,
@@ -75,3 +79,6 @@ abstract class CellDecor {
 
     abstract fun visual(): Visual
 }
+
+val CellDecor.VisualState.animationFraction: Float
+    get() = if(this is CellDecor.VisualState.Transitive) animationFraction else 1f

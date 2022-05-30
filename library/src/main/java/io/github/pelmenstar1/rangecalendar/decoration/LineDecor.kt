@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RectF
+import androidx.annotation.ColorInt
 import io.github.pelmenstar1.rangecalendar.*
 import io.github.pelmenstar1.rangecalendar.PackedRectF
 import io.github.pelmenstar1.rangecalendar.PackedRectFArray
@@ -27,15 +27,19 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     private class TransitiveAdditionLineVisualState(
-        private val start: LineVisualState,
+        override val start: LineVisualState,
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
     ): LineVisualState(PackedRectFArray(end.linesBoundsArray.size), end.styles), VisualState.Transitive {
+        override var animationFraction: Float = 0f
+
         override fun handleAnimation(
             animationFraction: Float,
             fractionInterpolator: DecorAnimationFractionInterpolator
         ) {
+            this.animationFraction = animationFraction
+
             val startBoundsArray = start.linesBoundsArray
             val endBoundsArray = end.linesBoundsArray
             val affectedRangeLength = affectedRangeEnd - affectedRangeStart + 1
@@ -70,15 +74,21 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     private class TransitiveRemovalLineVisualState(
-        private val start: LineVisualState,
+        override val start: LineVisualState,
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
     ): LineVisualState(PackedRectFArray(start.linesBoundsArray.size), start.styles), VisualState.Transitive {
+        override var animationFraction: Float = 0f
+
         override fun handleAnimation(
             animationFraction: Float,
             fractionInterpolator: DecorAnimationFractionInterpolator
         ) {
+            val revAnimationFraction = 1f - animationFraction
+
+            this.animationFraction = revAnimationFraction
+
             val startBoundsArray = start.linesBoundsArray
             val endBoundsArray = end.linesBoundsArray
 
@@ -92,7 +102,7 @@ class LineDecor(val style: Style) : CellDecor() {
 
             for(i in affectedRangeStart..affectedRangeEnd) {
                 val itemFraction = fractionInterpolator.getItemFraction(
-                    i - affectedRangeStart, affectedRangeLength, 1f - animationFraction
+                    i - affectedRangeStart, affectedRangeLength, revAnimationFraction
                 )
 
                 val bounds = startBoundsArray[i]
@@ -114,15 +124,19 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     private class TransitiveCellInfoLineVisualState(
-        private val start: LineVisualState,
+        override val start: LineVisualState,
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
     ): LineVisualState(PackedRectFArray(start.linesBoundsArray.size), start.styles), VisualState.Transitive {
+        override var animationFraction: Float = 0f
+
         override fun handleAnimation(
             animationFraction: Float,
             fractionInterpolator: DecorAnimationFractionInterpolator
         ) {
+            this.animationFraction = animationFraction
+
             lerpRectArray(
                 start.linesBoundsArray, end.linesBoundsArray, linesBoundsArray,
                 affectedRangeStart, affectedRangeEnd,
@@ -328,6 +342,7 @@ class LineDecor(val style: Style) : CellDecor() {
         }
 
         private var cachedPath: Path? = null
+        private var tempRadii = FloatArray(8)
 
         override fun renderState(
             canvas: Canvas,
@@ -342,33 +357,88 @@ class LineDecor(val style: Style) : CellDecor() {
                 val bounds = linesBounds[i]
                 val style = styles[i]
 
-                val lineHeight = bounds.height
-
                 style.fill.applyToPaint(paint)
 
-                if (style.roundRadii != null) {
-                    var path = cachedPath
-                    if (path == null) {
-                        path = Path()
-                        cachedPath = path
-                    } else {
-                        path.rewind()
+                drawRect(canvas, bounds, style)
+
+                val border = style.border
+
+                if(border != null) {
+                    val endBounds = when(state) {
+                        is TransitiveAdditionLineVisualState -> state.end.linesBoundsArray[i]
+                        is TransitiveCellInfoLineVisualState -> state.end.linesBoundsArray[i]
+                        is TransitiveRemovalLineVisualState -> state.start.linesBoundsArray[i]
+
+                        else -> bounds
                     }
 
-                    val radii = style.roundRadii
-                    for (j in radii.indices) {
-                        radii[j] = radii[j].resolveRoundRadius(lineHeight)
+                    val animationFraction = state.animationFraction
+
+                    border.applyToPaint(paint)
+
+                    when(style.borderAnimationType) {
+                        BorderAnimationType.ONLY_SHAPE -> {
+                            drawRect(canvas, bounds.adjustBounds(border.width), style)
+                        }
+                        BorderAnimationType.ONLY_WIDTH -> {
+                            val borderWidth = border.width * animationFraction
+
+                            paint.strokeWidth = borderWidth
+
+                            drawRect(canvas, endBounds.adjustBounds(border.width), style)
+                        }
+                        BorderAnimationType.SHAPE_AND_WIDTH -> {
+                            val borderWidth = border.width * animationFraction
+
+                            paint.strokeWidth = borderWidth
+
+                            drawRect(canvas, bounds.adjustBounds(border.width), style)
+                        }
                     }
-
-                    path.addRoundRectCompat(bounds, radii)
-
-                    canvas.drawPath(path, paint)
-                } else {
-                    val roundRadius = style.roundRadius.resolveRoundRadius(lineHeight)
-
-                    canvas.drawRoundRectCompat(bounds, roundRadius, paint)
                 }
             }
+        }
+
+        private fun drawRect(
+            canvas: Canvas,
+            bounds: PackedRectF,
+            style: Style
+        ) {
+            val lineHeight = bounds.height
+
+            if (style.roundRadii != null) {
+                var path = cachedPath
+                if (path == null) {
+                    path = Path()
+                    cachedPath = path
+                } else {
+                    path.rewind()
+                }
+
+                val radii = style.roundRadii
+                for (j in radii.indices) {
+                    tempRadii[j] = radii[j].resolveRoundRadius(lineHeight)
+                }
+
+                path.addRoundRectCompat(bounds, radii)
+
+                canvas.drawPath(path, paint)
+            } else {
+                val roundRadius = style.roundRadius.resolveRoundRadius(lineHeight)
+
+                canvas.drawRoundRectCompat(bounds, roundRadius, paint)
+            }
+        }
+
+        private fun PackedRectF.adjustBounds(strokeWidth: Float): PackedRectF {
+            val half = strokeWidth * 0.5f
+
+            return PackedRectF(
+                left + half,
+                top + half,
+                right - half,
+                bottom - half
+            )
         }
 
         private fun Float.resolveRoundRadius(alternative: Float): Float {
@@ -392,7 +462,9 @@ class LineDecor(val style: Style) : CellDecor() {
         val height: Float,
         val horizontalAlignment: HorizontalAlignment,
         val animationStartPosition: AnimationStartPosition,
-        val padding: Padding?
+        val padding: Padding?,
+        val border: Border?,
+        val borderAnimationType: BorderAnimationType
     ) {
         class Builder(private var fill: Fill) {
             private var roundRadius: Float = 0f
@@ -402,6 +474,9 @@ class LineDecor(val style: Style) : CellDecor() {
             private var height: Float = Float.NaN
             private var animationStartPosition = AnimationStartPosition.Center
             private var padding: Padding? = null
+
+            private var border: Border? = null
+            private var borderAnimationType = BorderAnimationType.ONLY_SHAPE
 
             fun fill(value: Fill) = apply {
                 fill = value
@@ -468,13 +543,24 @@ class LineDecor(val style: Style) : CellDecor() {
                 bottom: Float = 0f
             ) = padding(Padding(left, top, right, bottom))
 
+            fun border(@ColorInt color: Int, width: Float) = border(Border(color, width))
+
+            fun border(value: Border) = apply {
+                border = value
+            }
+
+            fun borderAnimationType(value: BorderAnimationType) = apply {
+                borderAnimationType = value
+            }
+
             fun build() = Style(
                 fill,
                 roundRadius, roundRadii,
                 width, height,
                 horizontalAlignment,
                 animationStartPosition,
-                padding
+                padding,
+                border, borderAnimationType
             )
         }
     }
@@ -512,7 +598,7 @@ class LineDecor(val style: Style) : CellDecor() {
                     right = lerp(left, boundsRight, fraction)
                 }
                 AnimationStartPosition.Center -> {
-                    val animatedHalfWidth = (boundsRight - boundsLeft) * fraction
+                    val animatedHalfWidth = (boundsRight - boundsLeft) * fraction * 0.5f
                     val centerX = (boundsLeft + boundsRight) * 0.5f
 
                     left = centerX - animatedHalfWidth
