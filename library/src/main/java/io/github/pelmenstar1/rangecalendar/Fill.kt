@@ -4,6 +4,9 @@ import android.graphics.*
 import androidx.annotation.ColorInt
 import kotlin.math.sqrt
 
+/**
+ * Represents either a solid fill or gradient fill.
+ */
 class Fill(
     private val type: Int,
     private val color: Int = 0,
@@ -12,6 +15,9 @@ class Fill(
 ) {
     private var shader: Shader? = null
 
+    /**
+     * Sets bounds in which the fill is applied
+     */
     fun setBounds(bounds: RectF) {
         setBounds(PackedRectF(bounds))
     }
@@ -117,6 +123,11 @@ class Fill(
             }
         }
 
+        /**
+         * Creates a solid fill.
+         *
+         * @param color color of fill.
+         */
         fun solid(@ColorInt color: Int): Fill {
             return Fill(
                 type = TYPE_SOLID,
@@ -124,6 +135,12 @@ class Fill(
             )
         }
 
+        /**
+         * Creates a linear gradient fill.
+         *
+         * @param startColor start color of gradient.
+         * @param endColor end color of gradient.
+         */
         fun linearGradient(@ColorInt startColor: Int, @ColorInt endColor: Int): Fill {
             return Fill(
                 type = TYPE_LINEAR_GRADIENT,
@@ -132,6 +149,12 @@ class Fill(
             )
         }
 
+        /**
+         * Creates a linear gradient fill.
+         *
+         * @param colors colors of gradient
+         * @param positions relative positions of each color, each element should be in range `[0; 1]`
+         */
         fun linearGradient(colors: IntArray, positions: FloatArray): Fill {
             return Fill(
                 type = TYPE_LINEAR_GRADIENT,
@@ -140,6 +163,12 @@ class Fill(
             )
         }
 
+        /**
+         * Creates a radial gradient fill.
+         *
+         * @param startColor start color of gradient.
+         * @param endColor end color of gradient.
+         */
         fun radialGradient(@ColorInt startColor: Int, @ColorInt endColor: Int): Fill {
             return Fill(
                 type = TYPE_RADIAL_GRADIENT,
@@ -148,6 +177,12 @@ class Fill(
             )
         }
 
+        /**
+         * Creates a radial gradient fill.
+         *
+         * @param colors colors of gradient
+         * @param positions relative positions of each color, each element should be in range `[0; 1]`
+         */
         fun radialGradient(colors: IntArray, positions: FloatArray): Fill {
             return Fill(
                 type = TYPE_RADIAL_GRADIENT,

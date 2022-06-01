@@ -5,6 +5,9 @@ package io.github.pelmenstar1.rangecalendar.decoration
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import java.util.*
 
+/**
+ * Represents a special array wrapper, which internal array is allocated only on writing.
+ */
 internal class LazyCellDataArray<T : Any> {
     @PublishedApi
     internal var elements = EMPTY_ARRAY
@@ -13,6 +16,7 @@ internal class LazyCellDataArray<T : Any> {
         private set
 
     inline fun forEachNotNull(action: (cell: Cell, value: T) -> Unit) {
+        // Check if there's need to iterate through each element.
         if(notNullElementsLength == 0) {
             return
         }
@@ -27,6 +31,8 @@ internal class LazyCellDataArray<T : Any> {
     }
 
     operator fun get(cell: Cell): T? {
+        // If elements are not initialized,
+        // then writing to array was never happened, meaning all the elements must be null
         return if(elements.isEmpty()) null else elements[cell.index] as T?
     }
 
@@ -48,6 +54,8 @@ internal class LazyCellDataArray<T : Any> {
         val oldValue = elements[index]
 
         if(oldValue != value) {
+            // Update not-null elements counter. I haven't found better way.
+
             if((oldValue == null) and (value != null)) {
                 notNullElementsLength++
             } else if((oldValue != null) and (value == null)) {

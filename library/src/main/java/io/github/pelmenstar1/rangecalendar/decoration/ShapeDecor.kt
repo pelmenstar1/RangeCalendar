@@ -6,8 +6,13 @@ import android.graphics.Paint
 import android.graphics.Path
 import androidx.annotation.ColorInt
 import io.github.pelmenstar1.rangecalendar.*
+import io.github.pelmenstar1.rangecalendar.decoration.LineDecor.Style
 import io.github.pelmenstar1.rangecalendar.utils.drawOvalCompat
 
+/**
+ * Represents a shape decoration.
+ * All the shapes in the cell will be positioned horizontally.
+ */
 class ShapeDecor(val style: Style) : CellDecor() {
     private object ShapeVisual : Visual {
         override fun stateHandler(): VisualStateHandler = ShapeStateHandler
@@ -408,19 +413,52 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
     override fun visual(): Visual = ShapeVisual
 
+    /**
+     * Represents all supported types of shapes.
+     */
     enum class Type {
         CIRCLE,
         RECT,
         TRIANGLE
     }
 
+    /**
+     * Represents style for [ShapeDecor].
+     */
     class Style private constructor(
+        /**
+         * Type of shape.
+         */
         val type: Type,
+
+        /**
+         * Size of shape as width and height are the same.
+         */
         val size: Float,
+
+        /**
+         * Fill of shape.
+         */
         val fill: Fill,
+
+        /**
+         * Padding of shape, if it's null, then there's no padding.
+         */
         val padding: Padding?,
+
+        /**
+         * Border of shape, if it's null, then there's no border.
+         */
         val border: Border?,
+
+        /**
+         * Represents how to animate the border
+         */
         val borderAnimationType: BorderAnimationType,
+
+        /**
+         * Vertical alignment of the shape.
+         */
         val contentAlignment: VerticalAlignment
     ) {
         class Builder(
@@ -437,10 +475,21 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 require(size >= 0f) { "Size is negative or zero" }
             }
 
+            /**
+             * Sets padding of the shape.
+             *
+             * @param value padding of the line. If it's null, then there's no padding.
+             * @return reference to this object
+             */
             fun padding(value: Padding?) = apply {
                 padding = value
             }
 
+            /**
+             * Sets padding of the shape.
+             *
+             * @return reference to this object
+             */
             fun padding(
                 left: Float = 0f,
                 top: Float = 0f,
@@ -448,20 +497,47 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 bottom: Float = 0f
             ) = padding(Padding(left, top, right, bottom))
 
+            /**
+             * Sets border of the shape.
+             *
+             * @param color color of border
+             * @param width stroke width, in pixels
+             *
+             * @return reference to this object
+             */
             fun border(@ColorInt color: Int, width: Float) = border(Border(color, width))
 
+            /**
+             * Sets border of the shape.
+             *
+             * @param value [Border] object that describes border more precisely
+             * @return reference to this object
+             */
             fun border(value: Border) = apply {
                 border = value
             }
 
+            /**
+             * Sets border animation type.
+             *
+             * @return reference to this object
+             */
             fun borderAnimationType(value: BorderAnimationType) = apply {
                 borderAnimationType = value
             }
 
+            /**
+             * Sets vertical alignment of the shape.
+             *
+             * @return reference to this object
+             */
             fun contentAlignment(value: VerticalAlignment) = apply {
                 contentAlignment = value
             }
 
+            /**
+             * Builds [Style] object.
+             */
             fun build() = Style(
                 type,
                 size,

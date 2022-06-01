@@ -1611,6 +1611,13 @@ class RangeCalendarView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decor decoration to be added
+     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
+     * @param withAnimation whether to animate the change or not.
+     */
     @JvmOverloads
     fun addDecoration(
         decor: CellDecor,
@@ -1620,6 +1627,13 @@ class RangeCalendarView @JvmOverloads constructor(
         addDecorationInternal(decor, PackedDate.fromEpochDay(epochDay), withAnimation)
     }
 
+    /**
+     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decor decoration to be added
+     * @param date specifies the cell to which the decoration is added.
+     * @param withAnimation whether to animate the change or not.
+     */
     @RequiresApi(26)
     @JvmOverloads
     fun addDecoration(
@@ -1630,6 +1644,13 @@ class RangeCalendarView @JvmOverloads constructor(
         addDecorationInternal(decor, PackedDate.fromLocalDate(date), withAnimation)
     }
 
+    /**
+     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decor decoration to be added
+     * @param calendar specifies the cell to which the decoration is added.
+     * @param withAnimation whether to animate the change or not.
+     */
     @JvmOverloads
     fun addDecoration(
         decor: CellDecor,
@@ -1639,6 +1660,15 @@ class RangeCalendarView @JvmOverloads constructor(
         addDecorationInternal(decor, PackedDate.fromCalendar(calendar), withAnimation)
     }
 
+    /**
+     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decor decoration to be added
+     * @param year year of the date that specifies the cell to which the decoration is added.
+     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param day day of month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param withAnimation whether to animate the change or not.
+     */
     @JvmOverloads
     fun addDecoration(
         decor: CellDecor,
@@ -1658,6 +1688,14 @@ class RangeCalendarView @JvmOverloads constructor(
         adapter.addDecoration(decor, date, withAnimation)
     }
 
+    /**
+     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decors array of decorations to be added
+     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun <T : CellDecor> addDecorations(
         decors: Array<out T>,
@@ -1667,6 +1705,14 @@ class RangeCalendarView @JvmOverloads constructor(
         addDecorationsInternal(decors, PackedDate.fromEpochDay(epochDay), fractionInterpolator)
     }
 
+    /**
+     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decors array of decorations to be added
+     * @param date specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     @RequiresApi(26)
     fun <T : CellDecor> addDecorations(
@@ -1677,6 +1723,14 @@ class RangeCalendarView @JvmOverloads constructor(
         addDecorationsInternal(decors, PackedDate.fromLocalDate(date), fractionInterpolator)
     }
 
+    /**
+     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decors array of decorations to be added
+     * @param calendar specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun <T : CellDecor> addDecorations(
         decors: Array<out T>,
@@ -1686,6 +1740,16 @@ class RangeCalendarView @JvmOverloads constructor(
         addDecorationsInternal(decors, PackedDate.fromCalendar(calendar), fractionInterpolator)
     }
 
+    /**
+     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decors array of decorations to be added
+     * @param year year of the date that specifies the cell to which the decoration is added.
+     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param dayOfMonth day of month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun <T : CellDecor> addDecorations(
         decors: Array<out T>,
@@ -1703,6 +1767,15 @@ class RangeCalendarView @JvmOverloads constructor(
         adapter.addDecorations(decors, date, fractionInterpolator)
     }
 
+    /**
+     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param indexInCell decoration index in specified cell at which insert decorations
+     * @param decors array of decorations to be added
+     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun <T : CellDecor> insertDecorations(
         indexInCell: Int,
@@ -1713,6 +1786,15 @@ class RangeCalendarView @JvmOverloads constructor(
         insertDecorationsInternal(indexInCell, decors, PackedDate.fromEpochDay(epochDay), fractionInterpolator)
     }
 
+    /**
+     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param indexInCell decoration index in specified cell at which insert decorations
+     * @param decors array of decorations to be added
+     * @param date specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     @RequiresApi(26)
     fun <T : CellDecor> insertDecorations(
@@ -1724,6 +1806,15 @@ class RangeCalendarView @JvmOverloads constructor(
         insertDecorationsInternal(indexInCell, decors, PackedDate.fromLocalDate(date), fractionInterpolator)
     }
 
+    /**
+     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param indexInCell decoration index in specified cell at which insert decorations
+     * @param decors array of decorations to be added
+     * @param calendar specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun <T : CellDecor> insertDecorations(
         indexInCell: Int,
@@ -1734,6 +1825,17 @@ class RangeCalendarView @JvmOverloads constructor(
         insertDecorationsInternal(indexInCell, decors, PackedDate.fromCalendar(calendar), fractionInterpolator)
     }
 
+    /**
+     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param indexInCell decoration index in specified cell at which insert decorations
+     * @param decors array of decorations to be added
+     * @param year year of the date that specifies the cell to which the decoration is added.
+     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param dayOfMonth day of month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun <T : CellDecor> insertDecorations(
         indexInCell: Int,
@@ -1753,11 +1855,26 @@ class RangeCalendarView @JvmOverloads constructor(
         adapter.insertDecorations(indexInCell, decors, date, fractionInterpolator)
     }
 
+    /**
+     * Removes specified decoration from the cell it's assigned.
+     *
+     * @param decor decoration to be removed
+     * @param withAnimation whether to animate the change
+     */
     @JvmOverloads
     fun removeDecoration(decor: CellDecor, withAnimation: Boolean = true) {
         adapter.removeDecoration(decor, withAnimation)
     }
 
+    /**
+     * Removes range of decorations from the cell.
+     *
+     * @param start start index of the range.
+     * @param endInclusive end (inclusive) index of the range.
+     * @param epochDay count of days since 1 January 1970 which specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun removeDecorationRange(
         start: Int,
@@ -1773,6 +1890,15 @@ class RangeCalendarView @JvmOverloads constructor(
         )
     }
 
+    /**
+     * Removes range of decorations from the cell.
+     *
+     * @param start start index of the range.
+     * @param endInclusive end (inclusive) index of the range.
+     * @param calendar specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun removeDecorationRange(
         start: Int,
@@ -1788,6 +1914,15 @@ class RangeCalendarView @JvmOverloads constructor(
         )
     }
 
+    /**
+     * Removes range of decorations from the cell.
+     *
+     * @param start start index of the range.
+     * @param endInclusive end (inclusive) index of the range.
+     * @param date specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     @RequiresApi(26)
     fun removeDecorationRange(
@@ -1804,6 +1939,17 @@ class RangeCalendarView @JvmOverloads constructor(
         )
     }
 
+    /**
+     * Removes range of decorations from the cell.
+     *
+     * @param start start index of the range.
+     * @param endInclusive end (inclusive) index of the range.
+     * @param year year of the date that specifies the cell.
+     * @param month month (1-based) of the date that specifies the cell.
+     * @param dayOfMonth day of month (1-based) of the date that specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun removeDecorationRange(
         start: Int,
@@ -1827,6 +1973,13 @@ class RangeCalendarView @JvmOverloads constructor(
         adapter.removeDecorationRange(start, endInclusive, date, fractionInterpolator)
     }
 
+    /**
+     * Removes all decorations from the cell.
+     *
+     * @param epochDay count of days since 1 January 1970 which specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun removeAllDecorationsFromCell(
         epochDay: Long,
@@ -1835,6 +1988,13 @@ class RangeCalendarView @JvmOverloads constructor(
         removeAllDecorationsFromCellInternal(PackedDate.fromEpochDay(epochDay), fractionInterpolator)
     }
 
+    /**
+     * Removes all decorations from the cell.
+     *
+     * @param calendar specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun removeAllDecorationsFromCell(
         calendar: Calendar,
@@ -1843,6 +2003,13 @@ class RangeCalendarView @JvmOverloads constructor(
         removeAllDecorationsFromCellInternal(PackedDate.fromCalendar(calendar), fractionInterpolator)
     }
 
+    /**
+     * Removes all decorations from the cell.
+     *
+     * @param date specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     @RequiresApi(26)
     fun removeAllDecorationsFromCell(
@@ -1852,6 +2019,15 @@ class RangeCalendarView @JvmOverloads constructor(
         removeAllDecorationsFromCellInternal(PackedDate.fromLocalDate(date), fractionInterpolator)
     }
 
+    /**
+     * Removes all decorations from the cell.
+     *
+     * @param year year of the date that specifies the cell.
+     * @param month month (1-based) of the date that specifies the cell.
+     * @param dayOfMonth day of month (1-based) of the date that specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
     @JvmOverloads
     fun removeAllDecorationsFromCell(
         year: Int, month: Int, dayOfMonth: Int,

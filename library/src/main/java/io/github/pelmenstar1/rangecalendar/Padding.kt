@@ -1,5 +1,8 @@
 package io.github.pelmenstar1.rangecalendar
 
+/**
+ * Represents tuple of [left], [top], [right], [bottom] values
+ */
 data class Padding(
     val left: Float,
     val top: Float,
@@ -7,6 +10,9 @@ data class Padding(
     val bottom: Float
 ) {
     companion object {
+        /**
+         * Padding with all zero values, a zero padding.
+         */
         val ZERO = Padding(0f, 0f, 0f, 0f)
     }
 }

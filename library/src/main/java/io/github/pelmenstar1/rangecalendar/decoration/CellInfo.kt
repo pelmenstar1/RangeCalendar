@@ -23,6 +23,9 @@ class CellInfo internal constructor() {
     var radius = 0f
         internal set
 
+    /**
+     * Decor layout options associated with the cell
+     */
     var layoutOptions: DecorLayoutOptions? = null
         internal set
 
@@ -33,6 +36,9 @@ class CellInfo internal constructor() {
         textBounds = PackedRectF(left, top, right, bottom)
     }
 
+    /**
+     * Sets bounds of text in the cell to [outRect]
+     */
     fun getTextBounds(outRect: RectF) {
         textBounds.setTo(outRect)
     }
@@ -121,6 +127,10 @@ class CellInfo internal constructor() {
         return radius - sqrt((radius - y) * (radius + y))
     }
 
+    /**
+     * Finds y-axis coordinate from which to start layout decorations
+     * using [height] of the needed place, padding of the cell and vertical alignment.
+     */
     fun findTopWithAlignment(
         height: Float,
         padding: Padding,

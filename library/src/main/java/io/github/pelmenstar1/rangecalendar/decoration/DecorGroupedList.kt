@@ -1,10 +1,16 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
-import io.github.pelmenstar1.rangecalendar.PackedDate
 import io.github.pelmenstar1.rangecalendar.PackedIntRange
 import io.github.pelmenstar1.rangecalendar.YearMonth
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 
+/**
+ * Represents a special list in which items are grouped (not sorted) by year-month and cell.
+ *
+ * Some terms:
+ * - Region is range of items with the same year-month
+ * - Subregion is subrange within some region of items with the same cell.
+ */
 @Suppress("LeakingThis", "UNCHECKED_CAST")
 internal class DecorGroupedList {
     internal var elements: Array<CellDecor>
@@ -86,6 +92,9 @@ internal class DecorGroupedList {
         return PackedIntRange(resolvedIndex, resolvedIndex + values.size - 1)
     }
 
+    /**
+     * Allocates place for inserting elements at specified position. Length is count of items that should be inserted.
+     */
     private fun allocatePlaceForInsert(pos: Int, length: Int) {
         val newElements = unsafeNewArray(size + length)
 
@@ -193,6 +202,8 @@ internal class DecorGroupedList {
 
         while(startIndex < size) {
             val endIndex = getSubregionEndInclusive(region, startIndex)
+
+            // If there's no end of region found, then it's the last region and end of region is the last item.
             val resolvedEndIndex = if(endIndex == -1) size - 1 else endIndex
 
             block(PackedIntRange(startIndex, resolvedEndIndex))
@@ -242,6 +253,12 @@ internal class DecorGroupedList {
     companion object {
         private val EMPTY_ARRAY = emptyArray<CellDecor>()
 
+        /**
+         * Returns array of not-null [CellDecor]'s in signature.
+         * Nevertheless it's filled with null inside.
+         * The array is returned with assumption it will be filled with actually not-null elements later.
+         * It's unsafe because it breaks Kotlin in some way.
+         */
         private fun unsafeNewArray(size: Int): Array<CellDecor> {
             return arrayOfNulls<CellDecor>(size) as Array<CellDecor>
         }

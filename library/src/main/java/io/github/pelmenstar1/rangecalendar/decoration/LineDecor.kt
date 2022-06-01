@@ -15,6 +15,10 @@ import io.github.pelmenstar1.rangecalendar.utils.getTextBounds
 import io.github.pelmenstar1.rangecalendar.utils.lerp
 import kotlin.math.max
 
+/**
+ * Represents a line decoration.
+ * All the lines in the cell will be positioned vertically.
+ */
 class LineDecor(val style: Style) : CellDecor() {
     override fun visual(): Visual = LineVisual
 
@@ -499,30 +503,102 @@ class LineDecor(val style: Style) : CellDecor() {
         }
     }
 
+    /**
+     * Represents a position from which to start animating (dis-)appearance of the line.
+     */
     enum class AnimationStartPosition {
         Left,
         Center,
         Right
     }
 
+    /**
+     * Represents style for [LineDecor]
+     */
     class Style private constructor(
+        /**
+         * Fill of the line.
+         */
         val fill: Fill,
+
+        /**
+         * Round radius of the line. It's only valid if [Style.roundRadii] is null.
+         */
         val roundRadius: Float,
+
+        /**
+         * Represents round radius's for all 4 corners. The length is always 8.
+         */
         val roundRadii: FloatArray?,
+
+        /**
+         * Width of the line, [Float.NaN] if it should be chosen automatically.
+         */
         val width: Float,
+
+        /**
+         * Height of the line, [Float.NaN] if it should be chosen automatically.
+         */
         val height: Float,
+
+        /**
+         * Horizontal alignment of the line.
+         */
         val horizontalAlignment: HorizontalAlignment,
+
+        /**
+         * Position from which to start animating (dis-)appearance of the line.
+         */
         val animationStartPosition: AnimationStartPosition,
+
+        /**
+         * Padding of the line, null if default.
+         */
         val padding: Padding?,
+
+        /**
+         * Border of the line, null if no border.
+         */
         val border: Border?,
+
+        /**
+         * Represents how to animate the border.
+         */
         val borderAnimationType: BorderAnimationType,
+
+        /**
+         * Text inside the line.
+         */
         val text: String?,
+
+        /**
+         * [Typeface] of the text.
+         */
         val textTypeface: Typeface?,
+
+        /**
+         * Text size, in pixels, of the text.
+         */
         val textSize: Float,
+
+        /**
+         * Text color of the text.
+         */
         val textColor: Int,
+
+        /**
+         * Horizontal alignment of the text inside the line
+         */
         val textAlignment: HorizontalAlignment,
+
+        /**
+         * Whether to clip text to bounds of the line.
+         */
         val clipTextToBounds: Boolean,
     ) {
+        /**
+         * The builder class of [Style]
+         */
         class Builder(private var fill: Fill) {
             private var roundRadius: Float = 0f
             private var roundRadii: FloatArray? = null
@@ -542,14 +618,33 @@ class LineDecor(val style: Style) : CellDecor() {
             private var border: Border? = null
             private var borderAnimationType = BorderAnimationType.ONLY_SHAPE
 
+            /**
+             * Sets [Fill] of the line.
+             *
+             * @return reference to this object.
+             */
             fun fill(value: Fill) = apply {
                 fill = value
             }
 
+            /**
+             * Sets position from which to start animating (dis-)appearance of the line.
+             *
+             * @return reference to this object.
+             */
             fun animationStartPosition(value: AnimationStartPosition) = apply {
                 animationStartPosition = value
             }
 
+            /**
+             * Sets round radius of the line for all corners.
+             *
+             * @param radius round radius (in pixels) of the line for all corners.
+             * If it's [Float.POSITIVE_INFINITY], then line will be as round as possible.
+             * @return reference to this object.
+             *
+             * @throws IllegalArgumentException if [radius] is negative
+             */
             fun roundedCorners(radius: Float = Float.POSITIVE_INFINITY) = apply {
                 require(radius >= 0f) { "Round radius can't be negative" }
 
@@ -557,6 +652,20 @@ class LineDecor(val style: Style) : CellDecor() {
                 roundRadii = null
             }
 
+            /**
+             * Sets round radius's for all 4 corners of the line.
+             * If one of arguments is [Float.POSITIVE_INFINITY],
+             * then the associated angle will be as round as possible.
+             *
+             * @param leftTop round radius (in pixels) for left top corner
+             * @param rightTop round radius (in pixels) for right top corner
+             * @param rightBottom round radius (in pixels) for right bottom corner
+             * @param leftBottom round radius (in pixels) for left bottom corner
+             *
+             * @return reference to this object.
+             *
+             * @throws IllegalArgumentException if one of the arguments is negative
+             */
             fun roundedCorners(
                 leftTop: Float = Float.POSITIVE_INFINITY,
                 rightTop: Float = Float.POSITIVE_INFINITY,
@@ -580,26 +689,54 @@ class LineDecor(val style: Style) : CellDecor() {
                 }
             }
 
+            /**
+             * Sets horizontal alignment of the line.
+             *
+             * @return reference to this object.
+             */
             fun horizontalAlignment(value: HorizontalAlignment) = apply {
                 horizontalAlignment = value
             }
 
+            /**
+             * Sets width of the line.
+             *
+             * @param value width of the line. If it's [Float.NaN], then line width will be chosen automatically
+             * @return reference to this object
+             */
             fun width(value: Float) = apply {
                 require(value > 0f) { "Width can't be negative or zero" }
 
                 width = value
             }
 
+            /**
+             * Sets height of the line.
+             *
+             * @param value height of the line. If it's [Float.NaN], then line height will be chosen automatically
+             * @return reference to this object
+             */
             fun height(value: Float) = apply {
                 require(value > 0f) { "Height can't be negative or zero" }
 
                 height = value
             }
 
+            /**
+             * Sets padding of the line.
+             *
+             * @param value padding of the line. If it's null, then there's no padding.
+             * @return reference to this object
+             */
             fun padding(value: Padding?) = apply {
                 padding = value
             }
 
+            /**
+             * Sets padding of the line.
+             *
+             * @return reference to this object
+             */
             fun padding(
                 left: Float = 0f,
                 top: Float = 0f,
@@ -607,16 +744,44 @@ class LineDecor(val style: Style) : CellDecor() {
                 bottom: Float = 0f
             ) = padding(Padding(left, top, right, bottom))
 
+            /**
+             * Sets border of the line.
+             *
+             * @param color color of border
+             * @param width stroke width, in pixels
+             *
+             * @return reference to this object
+             */
             fun border(@ColorInt color: Int, width: Float) = border(Border(color, width))
 
+            /**
+             * Sets border of the line.
+             *
+             * @param value [Border] object that describes border more precisely
+             * @return reference to this object
+             */
             fun border(value: Border) = apply {
                 border = value
             }
 
+            /**
+             * Sets border animation type.
+             *
+             * @return reference to this object
+             */
             fun borderAnimationType(value: BorderAnimationType) = apply {
                 borderAnimationType = value
             }
 
+            /**
+             * Sets text inside the line.
+             *
+             * @param text text to be set
+             * @param textSize size (in pixels) of the text
+             * @param textColor color of the text
+             *
+             * @return reference to this object
+             */
             fun text(
                 text: String,
                 textSize: Float,
@@ -627,18 +792,38 @@ class LineDecor(val style: Style) : CellDecor() {
                 this.textColor = textColor
             }
 
+            /**
+             * Sets [Typeface] of the text inside the line.
+             *
+             * @param value [Typeface] to be set
+             *
+             * @return reference to this object
+             */
             fun textTypeface(value: Typeface?) = apply {
                 textTypeface = value
             }
 
+            /**
+             * Sets horizontal alignment of the text inside the line.
+             *
+             * @return reference to this object
+             */
             fun textAlignment(value: HorizontalAlignment) = apply {
                 textAlignment = value
             }
 
+            /**
+             * Sets whether to clip the text to bounds of the line.
+             *
+             * @return reference to this object
+             */
             fun clipTextToBounds(value: Boolean) = apply {
                 clipTextToBounds = value
             }
 
+            /**
+             * Builds [Style] object.
+             */
             fun build() = Style(
                 fill,
                 roundRadius, roundRadii,
@@ -655,6 +840,9 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     companion object {
+        /**
+         * Linearly interpolates rectangle from one with zero width to specified bounds
+         */
         private fun lerpRectHorizontal(
             bounds: PackedRectF,
             fraction: Float,
