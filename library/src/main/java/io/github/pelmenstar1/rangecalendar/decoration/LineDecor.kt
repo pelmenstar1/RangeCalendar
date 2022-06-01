@@ -705,7 +705,7 @@ class LineDecor(val style: Style) : CellDecor() {
              * @return reference to this object
              */
             fun width(value: Float) = apply {
-                require(value > 0f) { "Width can't be negative or zero" }
+                require(value > 0f || value.isNaN()) { "Width can't be negative or zero" }
 
                 width = value
             }
@@ -717,7 +717,7 @@ class LineDecor(val style: Style) : CellDecor() {
              * @return reference to this object
              */
             fun height(value: Float) = apply {
-                require(value > 0f) { "Height can't be negative or zero" }
+                require(value > 0f || value.isNaN()) { "Height can't be negative or zero" }
 
                 height = value
             }

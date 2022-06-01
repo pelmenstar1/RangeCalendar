@@ -9,6 +9,13 @@ data class Padding(
     val right: Float,
     val bottom: Float
 ) {
+    init {
+        require(left >= 0) { "left is negative" }
+        require(top >= 0) { "top is negative" }
+        require(right >= 0) { "right is negative" }
+        require(bottom >= 0) { "bottom is negative" }
+    }
+
     companion object {
         /**
          * Padding with all zero values, a zero padding.
