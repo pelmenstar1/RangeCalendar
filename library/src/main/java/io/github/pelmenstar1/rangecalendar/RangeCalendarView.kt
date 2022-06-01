@@ -33,6 +33,7 @@ import androidx.annotation.StyleableRes
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
+import io.github.pelmenstar1.rangecalendar.decoration.*
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -1357,21 +1358,26 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_ENABLED, state)
         }
 
-    private val gradientStartEndColorPair: Long
-        get() = adapter.getStyleLong(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS)
+    private val gradientStartEndColorPair: PackedIntPair
+        get() {
+            val bits =
+                adapter.getStyleLong(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS)
+
+            return PackedIntPair(bits)
+        }
 
     @get:ColorInt
     val gradientStartColor: Int
-        get() = IntPair.getFirst(gradientStartEndColorPair)
+        get() = gradientStartEndColorPair.first
 
     @get:ColorInt
     val gradientEndColor: Int
-        get() = IntPair.getSecond(gradientStartEndColorPair)
+        get() = gradientStartEndColorPair.second
 
     fun setGradientColors(@ColorInt start: Int, @ColorInt end: Int) {
         adapter.setStyleLong(
             RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS,
-            IntPair.create(start, end)
+            packInts(start, end)
         )
     }
 
@@ -1478,7 +1484,7 @@ class RangeCalendarView @JvmOverloads constructor(
     fun selectWeek(year: Int, month: Int, weekIndex: Int, withAnimation: Boolean = true) {
         selectInternal(
             SelectionType.WEEK,
-            IntPair.create(YearMonth(year, month).totalMonths, weekIndex),
+            packInts(YearMonth(year, month).totalMonths, weekIndex),
             withAnimation
         )
     }
@@ -1554,7 +1560,7 @@ class RangeCalendarView @JvmOverloads constructor(
     ) {
         selectInternal(
             SelectionType.CUSTOM,
-            IntPair.create(startDate.bits, endDate.bits),
+            packInts(startDate.bits, endDate.bits),
             withAnimation
         )
     }
@@ -1603,6 +1609,478 @@ class RangeCalendarView @JvmOverloads constructor(
         if (selectionType != SelectionType.NONE && flags and (1 shl selectionType) == 0) {
             clearSelection()
         }
+    }
+
+    /**
+     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decor decoration to be added
+     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
+     * @param withAnimation whether to animate the change or not.
+     */
+    @JvmOverloads
+    fun addDecoration(
+        decor: CellDecor,
+        epochDay: Long,
+        withAnimation: Boolean = true
+    ) {
+        addDecorationInternal(decor, PackedDate.fromEpochDay(epochDay), withAnimation)
+    }
+
+    /**
+     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decor decoration to be added
+     * @param date specifies the cell to which the decoration is added.
+     * @param withAnimation whether to animate the change or not.
+     */
+    @RequiresApi(26)
+    @JvmOverloads
+    fun addDecoration(
+        decor: CellDecor,
+        date: LocalDate,
+        withAnimation: Boolean = true
+    ) {
+        addDecorationInternal(decor, PackedDate.fromLocalDate(date), withAnimation)
+    }
+
+    /**
+     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decor decoration to be added
+     * @param calendar specifies the cell to which the decoration is added.
+     * @param withAnimation whether to animate the change or not.
+     */
+    @JvmOverloads
+    fun addDecoration(
+        decor: CellDecor,
+        calendar: Calendar,
+        withAnimation: Boolean = true
+    ) {
+        addDecorationInternal(decor, PackedDate.fromCalendar(calendar), withAnimation)
+    }
+
+    /**
+     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decor decoration to be added
+     * @param year year of the date that specifies the cell to which the decoration is added.
+     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param day day of month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param withAnimation whether to animate the change or not.
+     */
+    @JvmOverloads
+    fun addDecoration(
+        decor: CellDecor,
+        year: Int,
+        month: Int,
+        day: Int,
+        withAnimation: Boolean = true
+    ) {
+        addDecorationInternal(decor, PackedDate(year, month, day), withAnimation)
+    }
+
+    private fun addDecorationInternal(
+        decor: CellDecor,
+        date: PackedDate,
+        withAnimation: Boolean
+    ) {
+        adapter.addDecoration(decor, date, withAnimation)
+    }
+
+    /**
+     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decors array of decorations to be added
+     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun <T : CellDecor> addDecorations(
+        decors: Array<out T>,
+        epochDay: Long,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        addDecorationsInternal(decors, PackedDate.fromEpochDay(epochDay), fractionInterpolator)
+    }
+
+    /**
+     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decors array of decorations to be added
+     * @param date specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    @RequiresApi(26)
+    fun <T : CellDecor> addDecorations(
+        decors: Array<out T>,
+        date: LocalDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        addDecorationsInternal(decors, PackedDate.fromLocalDate(date), fractionInterpolator)
+    }
+
+    /**
+     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decors array of decorations to be added
+     * @param calendar specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun <T : CellDecor> addDecorations(
+        decors: Array<out T>,
+        calendar: Calendar,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        addDecorationsInternal(decors, PackedDate.fromCalendar(calendar), fractionInterpolator)
+    }
+
+    /**
+     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param decors array of decorations to be added
+     * @param year year of the date that specifies the cell to which the decoration is added.
+     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param dayOfMonth day of month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun <T : CellDecor> addDecorations(
+        decors: Array<out T>,
+        year: Int, month: Int, dayOfMonth: Int,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        addDecorationsInternal(decors, PackedDate(year, month, dayOfMonth), fractionInterpolator)
+    }
+
+    private fun <T : CellDecor> addDecorationsInternal(
+        decors: Array<out T>,
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        adapter.addDecorations(decors, date, fractionInterpolator)
+    }
+
+    /**
+     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param indexInCell decoration index in specified cell at which insert decorations
+     * @param decors array of decorations to be added
+     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun <T : CellDecor> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        epochDay: Long,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromEpochDay(epochDay), fractionInterpolator)
+    }
+
+    /**
+     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param indexInCell decoration index in specified cell at which insert decorations
+     * @param decors array of decorations to be added
+     * @param date specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    @RequiresApi(26)
+    fun <T : CellDecor> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        date: LocalDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromLocalDate(date), fractionInterpolator)
+    }
+
+    /**
+     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param indexInCell decoration index in specified cell at which insert decorations
+     * @param decors array of decorations to be added
+     * @param calendar specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun <T : CellDecor> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        calendar: Calendar,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        insertDecorationsInternal(indexInCell, decors, PackedDate.fromCalendar(calendar), fractionInterpolator)
+    }
+
+    /**
+     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     *
+     * @param indexInCell decoration index in specified cell at which insert decorations
+     * @param decors array of decorations to be added
+     * @param year year of the date that specifies the cell to which the decoration is added.
+     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param dayOfMonth day of month (1-based) of the date that specifies the cell to which the decoration is added.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun <T : CellDecor> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        year: Int, month: Int, dayOfMonth: Int,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        insertDecorationsInternal(indexInCell, decors, PackedDate(year, month, dayOfMonth), fractionInterpolator)
+    }
+
+    private fun <T : CellDecor> insertDecorationsInternal(
+        indexInCell: Int,
+        decors: Array<out T>,
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        adapter.insertDecorations(indexInCell, decors, date, fractionInterpolator)
+    }
+
+    /**
+     * Removes specified decoration from the cell it's assigned.
+     *
+     * @param decor decoration to be removed
+     * @param withAnimation whether to animate the change
+     */
+    @JvmOverloads
+    fun removeDecoration(decor: CellDecor, withAnimation: Boolean = true) {
+        adapter.removeDecoration(decor, withAnimation)
+    }
+
+    /**
+     * Removes range of decorations from the cell.
+     *
+     * @param start start index of the range.
+     * @param endInclusive end (inclusive) index of the range.
+     * @param epochDay count of days since 1 January 1970 which specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun removeDecorationRange(
+        start: Int,
+        endInclusive: Int,
+        epochDay: Long,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        removeDecorationRangeInternal(
+            start,
+            endInclusive,
+            PackedDate.fromEpochDay(epochDay),
+            fractionInterpolator
+        )
+    }
+
+    /**
+     * Removes range of decorations from the cell.
+     *
+     * @param start start index of the range.
+     * @param endInclusive end (inclusive) index of the range.
+     * @param calendar specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun removeDecorationRange(
+        start: Int,
+        endInclusive: Int,
+        calendar: Calendar,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        removeDecorationRangeInternal(
+            start,
+            endInclusive,
+            PackedDate.fromCalendar(calendar),
+            fractionInterpolator
+        )
+    }
+
+    /**
+     * Removes range of decorations from the cell.
+     *
+     * @param start start index of the range.
+     * @param endInclusive end (inclusive) index of the range.
+     * @param date specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    @RequiresApi(26)
+    fun removeDecorationRange(
+        start: Int,
+        endInclusive: Int,
+        date: LocalDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        removeDecorationRangeInternal(
+            start,
+            endInclusive,
+            PackedDate.fromLocalDate(date),
+            fractionInterpolator
+        )
+    }
+
+    /**
+     * Removes range of decorations from the cell.
+     *
+     * @param start start index of the range.
+     * @param endInclusive end (inclusive) index of the range.
+     * @param year year of the date that specifies the cell.
+     * @param month month (1-based) of the date that specifies the cell.
+     * @param dayOfMonth day of month (1-based) of the date that specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun removeDecorationRange(
+        start: Int,
+        endInclusive: Int,
+        year: Int, month: Int, dayOfMonth: Int,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        removeDecorationRangeInternal(
+            start, endInclusive,
+            PackedDate(year, month, dayOfMonth),
+            fractionInterpolator
+        )
+    }
+
+    private fun removeDecorationRangeInternal(
+        start: Int,
+        endInclusive: Int,
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        adapter.removeDecorationRange(start, endInclusive, date, fractionInterpolator)
+    }
+
+    /**
+     * Removes all decorations from the cell.
+     *
+     * @param epochDay count of days since 1 January 1970 which specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun removeAllDecorationsFromCell(
+        epochDay: Long,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        removeAllDecorationsFromCellInternal(PackedDate.fromEpochDay(epochDay), fractionInterpolator)
+    }
+
+    /**
+     * Removes all decorations from the cell.
+     *
+     * @param calendar specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun removeAllDecorationsFromCell(
+        calendar: Calendar,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        removeAllDecorationsFromCellInternal(PackedDate.fromCalendar(calendar), fractionInterpolator)
+    }
+
+    /**
+     * Removes all decorations from the cell.
+     *
+     * @param date specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    @RequiresApi(26)
+    fun removeAllDecorationsFromCell(
+        date: LocalDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        removeAllDecorationsFromCellInternal(PackedDate.fromLocalDate(date), fractionInterpolator)
+    }
+
+    /**
+     * Removes all decorations from the cell.
+     *
+     * @param year year of the date that specifies the cell.
+     * @param month month (1-based) of the date that specifies the cell.
+     * @param dayOfMonth day of month (1-based) of the date that specifies the cell.
+     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
+     * May be null, if no animation is desired.
+     */
+    @JvmOverloads
+    fun removeAllDecorationsFromCell(
+        year: Int, month: Int, dayOfMonth: Int,
+        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
+    ) {
+        removeAllDecorationsFromCellInternal(PackedDate(year, month, dayOfMonth), fractionInterpolator)
+    }
+
+    private fun removeAllDecorationsFromCellInternal(
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        adapter.removeAllDecorations(date, fractionInterpolator)
+    }
+
+    @JvmOverloads
+    fun setDecorationLayoutOptions(
+        year: Int, month: Int, dayOfMonth: Int,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean = true
+    ) {
+        setDecorationLayoutOptionsInternal(PackedDate(year, month, dayOfMonth), options, withAnimation)
+    }
+
+    @JvmOverloads
+    fun setDecorationLayoutOptions(
+        calendar: Calendar,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean = true
+    ) {
+        setDecorationLayoutOptionsInternal(PackedDate.fromCalendar(calendar), options, withAnimation)
+    }
+
+    @JvmOverloads
+    @RequiresApi(26)
+    fun setDecorationLayoutOptions(
+        date: LocalDate,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean = true
+    ) {
+        setDecorationLayoutOptionsInternal(PackedDate.fromLocalDate(date), options, withAnimation)
+    }
+
+    private fun setDecorationLayoutOptionsInternal(
+        date: PackedDate,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean
+    ) {
+        adapter.setDecorationLayoutOptions(date, options, withAnimation)
+    }
+
+    fun setDecorationDefaultLayoutOptions(options: DecorLayoutOptions?) {
+        adapter.setStyleObject(RangeCalendarPagerAdapter.STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS, options)
     }
 
     private fun updateMoveButtons() {

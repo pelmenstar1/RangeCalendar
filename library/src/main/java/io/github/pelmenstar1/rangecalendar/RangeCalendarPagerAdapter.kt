@@ -1,8 +1,13 @@
 package io.github.pelmenstar1.rangecalendar
 
 import android.animation.TimeInterpolator
+import android.util.SparseArray
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
+import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
+import io.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
+import io.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
 
@@ -36,11 +41,13 @@ internal class RangeCalendarPagerAdapter(
         val type: Int,
         val arg1: Long = 0L,
         val arg2: Long = 0L,
-        val obj: Any? = null
+        val arg3: Long = 0L,
+        val obj1: Any? = null,
+        val obj2: Any? = null,
     ) {
         constructor(type: Int, arg1: Int) : this(type, arg1.toLong(), 0L)
         constructor(type: Int, arg1: Boolean) : this(type, if (arg1) 1L else 0L, 0L)
-        constructor(type: Int, argObj: Any?) : this(type, 0, arg2 = 0, obj = argObj)
+        constructor(type: Int, argObj: Any?) : this(type, 0, arg2 = 0, obj1 = argObj)
 
         fun boolean() = arg1 == 1L
 
@@ -51,6 +58,9 @@ internal class RangeCalendarPagerAdapter(
             const val UPDATE_STYLE = 3
             const val CLEAR_HOVER = 4
             const val CLEAR_SELECTION = 5
+            const val ON_DECOR_ADDED = 6
+            const val ON_DECOR_REMOVED = 7
+            const val SET_DECOR_LAYOUT_OPTIONS = 8
 
             private val CLEAR_HOVER_PAYLOAD = Payload(CLEAR_HOVER)
             private val CLEAR_SELECTION_PAYLOAD = Payload(CLEAR_SELECTION)
@@ -67,11 +77,50 @@ internal class RangeCalendarPagerAdapter(
             }
 
             fun updateStyle(type: Int, obj: Any?): Payload {
-                return Payload(UPDATE_STYLE, type.toLong(), arg2 = 0, obj = obj)
+                return Payload(UPDATE_STYLE, type.toLong(), arg2 = 0, obj1 = obj)
             }
 
             fun select(info: RangeCalendarGridView.SetSelectionInfo): Payload {
                 return Payload(SELECT, info.bits)
+            }
+
+            fun onDecorAdded(
+                newDecorRange: PackedIntRange,
+                affectedRange: PackedIntRange,
+                fractionInterpolator: DecorAnimationFractionInterpolator?
+            ): Payload {
+                return Payload(
+                    ON_DECOR_ADDED,
+                    arg1 = newDecorRange.bits,
+                    arg2 = affectedRange.bits,
+                    obj1 = fractionInterpolator
+                )
+            }
+
+            fun onDecorRemoved(
+                newDecorRange: PackedIntRange,
+                affectedRange: PackedIntRange,
+                cell: Cell,
+                visual: CellDecor.Visual,
+                fractionInterpolator: DecorAnimationFractionInterpolator?
+            ): Payload {
+                return Payload(
+                    ON_DECOR_REMOVED,
+                    arg1 = newDecorRange.bits,
+                    arg2 = affectedRange.bits,
+                    arg3 = cell.index.toLong(),
+                    obj1 = fractionInterpolator,
+                    obj2 = visual
+                )
+            }
+
+            fun setDecorLayoutOptions(cell: Cell, options: DecorLayoutOptions, withAnimation: Boolean): Payload {
+                return Payload(
+                    SET_DECOR_LAYOUT_OPTIONS,
+                    arg1 = cell.index.toLong(),
+                    arg2 = if(withAnimation) 1 else 0,
+                    obj1 = options
+                )
             }
         }
     }
@@ -104,6 +153,9 @@ internal class RangeCalendarPagerAdapter(
     private val styleObjData = arrayOfNulls<Any>(4)
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
 
+    private val decorations = DecorGroupedList()
+    private val decorLayoutOptionsMap = SparseArray<DecorLayoutOptions>()
+
     init {
         initStyle(STYLE_SELECTION_COLOR, cr.colorPrimary)
         initStyle(STYLE_DAY_NUMBER_TEXT_SIZE, cr.dayNumberTextSize)
@@ -129,7 +181,7 @@ internal class RangeCalendarPagerAdapter(
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true)
         initStyle(STYLE_GRID_GRADIENT_ENABLED, true)
         initStyle(
-            STYLE_GRID_GRADIENT_START_END_COLORS, IntPair.create(
+            STYLE_GRID_GRADIENT_START_END_COLORS, packInts(
                 cr.colorPrimary, cr.colorPrimaryDark
             )
         )
@@ -214,7 +266,7 @@ internal class RangeCalendarPagerAdapter(
         setStyleInt(type, java.lang.Float.floatToIntBits(value), notify)
     }
 
-    fun setStyleObject(type: Int, data: Any) {
+    fun setStyleObject(type: Int, data: Any?) {
         styleObjData[type - STYLE_OBJ_START] = data
 
         notifyItemRangeChanged(0, count, Payload.updateStyle(type, data))
@@ -239,7 +291,7 @@ internal class RangeCalendarPagerAdapter(
             STYLE_WEEKDAY_COLOR -> gridView.setDayNameColor(i)
             STYLE_HOVER_COLOR -> gridView.setHoverColor(i)
             STYLE_HOVER_ON_SELECTION_COLOR -> gridView.setHoverOnSelectionColor(i)
-            STYLE_RR_RADIUS_RATIO -> gridView.roundRectRadiusRatio = f
+            STYLE_RR_RADIUS_RATIO -> gridView.setRoundRectRadiusRatio(f)
             STYLE_CELL_SIZE -> gridView.cellSize = f
             STYLE_WEEKDAY_TYPE -> gridView.setWeekdayType(i)
             STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR -> gridView.clickOnCellSelectionBehavior = i
@@ -248,10 +300,9 @@ internal class RangeCalendarPagerAdapter(
             STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE -> gridView.vibrateOnSelectingCustomRange = b
             STYLE_GRID_GRADIENT_ENABLED -> gridView.setGradientEnabled(b)
             STYLE_GRID_GRADIENT_START_END_COLORS -> {
-                val start = IntPair.getFirst(data)
-                val end = IntPair.getSecond(data)
+                val pair = PackedIntPair(data)
 
-                gridView.setGradientColors(start, end)
+                gridView.setGradientColors(pair.first, pair.second)
             }
         }
     }
@@ -266,6 +317,9 @@ internal class RangeCalendarPagerAdapter(
             }
             STYLE_HOVER_ANIMATION_INTERPOLATOR -> {
                 gridView.hoverAnimationInterpolator = data as TimeInterpolator
+            }
+            STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS -> {
+                gridView.setDecorationDefaultLayoutOptions(data as DecorLayoutOptions)
             }
         }
     }
@@ -450,7 +504,7 @@ internal class RangeCalendarPagerAdapter(
             override fun onCustomRangeSelected(startIndex: Int, endIndex: Int): Boolean {
                 return onSelectedHandler(
                     SelectionType.CUSTOM,
-                    ShortRange.create(startIndex, endIndex)
+                    packShorts(startIndex, endIndex)
                 ) {
                     val startDate = getDateAtIndex(startIndex)
                     val endDate = getDateAtIndex(endIndex)
@@ -509,7 +563,7 @@ internal class RangeCalendarPagerAdapter(
 
             discardSelectionValues()
 
-            if(position in 0 until count) {
+            if (position in 0 until count) {
                 notifyItemChanged(position, Payload.clearSelection())
             }
 
@@ -528,7 +582,7 @@ internal class RangeCalendarPagerAdapter(
         return when (type) {
             SelectionType.CELL -> YearMonth.forDate(PackedDate(data.toInt()))
             SelectionType.WEEK, SelectionType.MONTH -> YearMonth(data.toInt())
-            SelectionType.CUSTOM -> YearMonth.forDate(PackedDate(IntRange.getStart(data)))
+            SelectionType.CUSTOM -> YearMonth.forDate(PackedDate(unpackFirstInt(data)))
             else -> YearMonth(-1)
         }
     }
@@ -552,7 +606,7 @@ internal class RangeCalendarPagerAdapter(
                 RangeCalendarGridView.SetSelectionInfo.cell(cell, withAnimation)
             }
             SelectionType.WEEK -> {
-                RangeCalendarGridView.SetSelectionInfo.week(IntPair.getSecond(data), withAnimation)
+                RangeCalendarGridView.SetSelectionInfo.week(unpackSecondInt(data), withAnimation)
             }
             SelectionType.MONTH -> {
                 RangeCalendarGridView.SetSelectionInfo.month(withAnimation)
@@ -560,13 +614,18 @@ internal class RangeCalendarPagerAdapter(
             SelectionType.CUSTOM -> {
                 calendarInfo.set(getYearMonthForCalendar(position))
 
-                val startDate = PackedDate(IntRange.getStart(data))
-                val endDate = PackedDate(IntRange.getEnd(data))
+                val range = PackedIntRange(data)
+
+                val startDate = PackedDate(range.start)
+                val endDate = PackedDate(range.endInclusive)
 
                 val startCell = getCellByDate(startDate)
                 val endCell = getCellByDate(endDate, startCell.index)
 
-                RangeCalendarGridView.SetSelectionInfo.customRange(CellRange(startCell, endCell), withAnimation)
+                RangeCalendarGridView.SetSelectionInfo.customRange(
+                    CellRange(startCell, endCell),
+                    withAnimation
+                )
             }
             else -> RangeCalendarGridView.SetSelectionInfo.Undefined
         }
@@ -584,7 +643,7 @@ internal class RangeCalendarPagerAdapter(
         if (position in 0 until count) {
             val gridSelectionInfo = transformToGridSelection(position, type, data, withAnimation)
 
-            when(type) {
+            when (type) {
                 SelectionType.MONTH -> {
                     val allowed = onMonthSelected(selectionYm, ym)
 
@@ -621,7 +680,7 @@ internal class RangeCalendarPagerAdapter(
 
         setSelectionValues(type, data, ym)
 
-        if(position in 0 until count) {
+        if (position in 0 until count) {
             notifyItemChanged(
                 position,
                 Payload.select(
@@ -631,9 +690,11 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    private fun verifyCustomRange(range: Long) {
-        val start = IntRange.getStart(range)
-        val end = IntRange.getEnd(range)
+    private fun verifyCustomRange(rangeBits: Long) {
+        val range = PackedIntRange(rangeBits)
+
+        val start = range.start
+        val end = range.endInclusive
 
         require(
             YearMonth.forDate(PackedDate(start)) == YearMonth.forDate(PackedDate(end))
@@ -658,6 +719,276 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
+    private fun updateDecorations(gridView: RangeCalendarGridView, ym: YearMonth) {
+        gridView.decorations = decorations
+
+        val decorRegion = decorations.getRegion(ym)
+
+        // The reason for such tweak is described in RangeCalendarGridView.onDecorInit()
+        val defaultLayoutOptions = styleObjData[STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS - STYLE_OBJ_START] as DecorLayoutOptions?
+
+        gridView.onDecorInit(decorRegion, defaultLayoutOptions)
+
+        for(i in 0 until decorLayoutOptionsMap.size()) {
+            val date = PackedDate(decorLayoutOptionsMap.keyAt(i))
+
+            if(YearMonth.forDate(date) == ym) {
+                val cell = getCellByDate(date)
+                val options = decorLayoutOptionsMap.valueAt(i)
+
+                gridView.setDecorationLayoutOptions(cell, options, false)
+            }
+        }
+    }
+
+    fun setDecorationLayoutOptions(date: PackedDate, value: DecorLayoutOptions, withAnimation: Boolean) {
+        val position = getItemPositionForDate(date)
+
+        if(position in 0 until count) {
+            calendarInfo.set(getYearMonthForCalendar(position))
+            val cell = getCellByDate(date)
+
+            notifyItemChanged(position, Payload.setDecorLayoutOptions(cell, value, withAnimation))
+        }
+    }
+
+    private fun checkDecor(decor: CellDecor, ym: YearMonth, cell: Cell) {
+        if (decor.cell.isDefined) {
+            throw IllegalStateException("Decoration is already added to the calendar")
+        }
+
+        val subregion = decorations.getSubregion(ym, cell)
+
+        if (subregion.isDefined) {
+            val expectedClass = decorations[subregion.start].javaClass
+            val actualClass = decor.javaClass
+
+            if (actualClass != expectedClass) {
+                throw IllegalStateException("Only one class of decoration can be in one cell. Expected class: $expectedClass, actual class: $actualClass")
+            }
+        }
+    }
+
+    private fun checkDecors(decors: Array<out CellDecor>, ym: YearMonth, cell: Cell) {
+        val subregion = decorations.getSubregion(ym, cell)
+
+        val firstDecorClass = decors[0].javaClass
+        for (i in 1 until decors.size) {
+            val decor = decors[i]
+
+            require(decor.cell.isUndefined) {
+                "One of decorations is already added to the calendar"
+            }
+
+            require(firstDecorClass == decor.javaClass) {
+                "All decorations should be one class"
+            }
+        }
+
+        if (subregion.isDefined) {
+            val expectedClass = decorations[subregion.start].javaClass
+
+            for (decor in decors) {
+                val actualClass = decor.javaClass
+
+                if (actualClass != expectedClass) {
+                    throw IllegalStateException("Only one class of decoration can be in one cell. Expected class: $expectedClass, actual class: $actualClass")
+                }
+            }
+        }
+    }
+
+    fun addDecoration(
+        decor: CellDecor,
+        date: PackedDate,
+        withAnimation: Boolean
+    ) {
+        onDecorAddition(
+            date,
+            if(withAnimation) DecorAnimationFractionInterpolator.Simultaneous else null,
+            check = { ym, cell -> checkDecor(decor, ym, cell) },
+            init = { cell ->
+                decor.cell = cell
+                decor.date = date
+            },
+            op = { add(decor) }
+        )
+    }
+
+    fun <T : CellDecor> addDecorations(
+        decors: Array<out T>,
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        onDecorAdditionMany(date, decors, fractionInterpolator) { addAll(decors) }
+    }
+
+    fun <T : CellDecor> insertDecorations(
+        indexInCell: Int,
+        decors: Array<out T>,
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        onDecorAdditionMany(date, decors, fractionInterpolator) { insertAll(indexInCell, decors) }
+    }
+
+    private inline fun onDecorAdditionMany(
+        date: PackedDate,
+        decors: Array<out CellDecor>,
+        fractionInterpolator: DecorAnimationFractionInterpolator?,
+        op: DecorGroupedList.() -> PackedIntRange
+    ) {
+        onDecorAddition(
+            date,
+            fractionInterpolator,
+            check = { ym, cell -> checkDecors(decors, ym, cell) },
+            init = { cell ->
+                decors.forEach {
+                    it.date = date
+                    it.cell = cell
+                }
+            },
+            op = op
+        )
+    }
+
+    private inline fun onDecorAddition(
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?,
+        check: (YearMonth, Cell) -> Unit,
+        init: (Cell) -> Unit,
+        op: DecorGroupedList.() -> PackedIntRange
+    ) {
+        val position = getItemPositionForDate(date)
+
+        if (position in 0 until count) {
+            val ym = getYearMonthForCalendar(position)
+
+            calendarInfo.set(ym)
+            val cell = getCellByDate(date)
+
+            check(ym, cell)
+            init(cell)
+
+            val affectedRange = decorations.op()
+            val newDecorRange = decorations.getRegion(ym)
+
+            notifyItemChanged(
+                position,
+                Payload.onDecorAdded(newDecorRange, affectedRange, fractionInterpolator)
+            )
+        }
+    }
+
+    fun removeDecoration(decor: CellDecor, withAnimation: Boolean) {
+        if (decor.cell.isUndefined) {
+            return
+        }
+
+        val position = getItemPositionForDate(decor.date)
+
+        if (position in 0 until count) {
+            val index = decorations.indexOf(decor)
+
+            if (index < 0) {
+                return
+            }
+
+            removeDecorationRangeInternal(
+                position,
+                PackedIntRange(index, index),
+                if (withAnimation) DecorAnimationFractionInterpolator.Simultaneous else null
+            )
+        }
+    }
+
+    fun removeDecorationRange(
+        start: Int, endInclusive: Int,
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        val position = getItemPositionForDate(date)
+
+        if (position in 0 until count) {
+            val ym = getYearMonthForCalendar(position)
+
+            calendarInfo.set(ym)
+            val cell = getCellByDate(date)
+
+            val subregion = decorations.getSubregion(ym, cell)
+            if (subregion.isUndefined) {
+                return
+            }
+            val subregionStart = subregion.start
+
+            when {
+                start < 0 -> throw IllegalArgumentException("start is negative")
+                endInclusive < 0 -> throw IllegalArgumentException("end is negative")
+                start > endInclusive -> throw IllegalArgumentException("start is greater than end")
+                endInclusive - start > subregion.endInclusive - subregionStart ->
+                    throw IllegalArgumentException("Specified range is out of cell range")
+            }
+
+            val absoluteRange =
+                PackedIntRange(subregionStart + start, subregionStart + endInclusive)
+            removeDecorationRangeInternal(position, absoluteRange, fractionInterpolator)
+        }
+    }
+
+    fun removeAllDecorations(
+        date: PackedDate,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        val position = getItemPositionForDate(date)
+
+        if (position in 0 until count) {
+            val ym = getYearMonthForCalendar(position)
+
+            calendarInfo.set(ym)
+            val cell = getCellByDate(date)
+
+            val subregion = decorations.getSubregion(ym, cell)
+
+            removeDecorationRangeInternal(position, subregion, fractionInterpolator)
+        }
+    }
+
+    private fun removeDecorationRangeInternal(
+        position: Int,
+        absoluteRange: PackedIntRange,
+        fractionInterpolator: DecorAnimationFractionInterpolator?
+    ) {
+        if (absoluteRange.isUndefined) {
+            return
+        }
+
+        val rangeStart = absoluteRange.start
+        val instance = decorations[rangeStart]
+        val date = instance.date
+
+        val ym = getYearMonthForCalendar(position)
+
+        calendarInfo.set(ym)
+        val cell = getCellByDate(date)
+
+        val visual = instance.visual()
+
+        for (i in rangeStart..absoluteRange.endInclusive) {
+            decorations[i].also {
+                it.cell = Cell.Undefined
+                it.date = PackedDate(0)
+            }
+        }
+
+        decorations.removeRange(absoluteRange)
+        val newDecorRange = decorations.getRegion(ym)
+
+        notifyItemChanged(
+            position,
+            Payload.onDecorRemoved(newDecorRange, absoluteRange, cell, visual, fractionInterpolator)
+        )
+    }
+
     override fun getItemCount() = count
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -676,6 +1007,7 @@ internal class RangeCalendarPagerAdapter(
 
         val gridView = holder.calendar
 
+        gridView.ym = ym
         gridView.isFirstDaySunday = isFirstDaySunday
         gridView.onSelectionListener = createRedirectSelectionListener(ym)
 
@@ -688,7 +1020,12 @@ internal class RangeCalendarPagerAdapter(
         }
 
         for (type in styleObjData.indices) {
-            updateStyle(gridView, type + STYLE_OBJ_START, styleObjData[type])
+            val adjustedType = type + STYLE_OBJ_START
+
+            // Special case for decor's default layout options. The options will be set in updateDecorations()
+            if(adjustedType != STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS) {
+                updateStyle(gridView, type + STYLE_OBJ_START, styleObjData[type])
+            }
         }
 
         if (getItemPositionForDate(today) == position) {
@@ -699,7 +1036,7 @@ internal class RangeCalendarPagerAdapter(
             gridView.select(selectionType, selectionData, true)
         }
 
-        gridView.ym = ym
+        updateDecorations(gridView, ym)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: List<Any>) {
@@ -727,7 +1064,7 @@ internal class RangeCalendarPagerAdapter(
                     val value = payload.arg2
 
                     if (type >= STYLE_OBJ_START) {
-                        updateStyle(gridView, type, payload.obj)
+                        updateStyle(gridView, type, payload.obj1)
                     } else {
                         updateStyle(gridView, type, value)
                     }
@@ -739,6 +1076,33 @@ internal class RangeCalendarPagerAdapter(
                 Payload.CLEAR_SELECTION -> {
                     // Don't fire event here. If it's needed, it will be fired in clearSelection()
                     gridView.clearSelection(fireEvent = false, doAnimation = true)
+                }
+
+                Payload.ON_DECOR_ADDED -> {
+                    val newDecorRange = PackedIntRange(payload.arg1)
+                    val affectedRange = PackedIntRange(payload.arg2)
+                    val fractionInterpolator = payload.obj1 as DecorAnimationFractionInterpolator?
+
+                    gridView.onDecorAdded(newDecorRange, affectedRange, fractionInterpolator)
+                }
+
+                Payload.ON_DECOR_REMOVED -> {
+                    val newDecorRange = PackedIntRange(payload.arg1)
+                    val affectedRange = PackedIntRange(payload.arg2)
+                    val cell = Cell(payload.arg3.toInt())
+
+                    val fractionInterpolator = payload.obj1 as DecorAnimationFractionInterpolator?
+                    val visual = payload.obj2 as CellDecor.Visual
+
+                    gridView.onDecorRemoved(newDecorRange, affectedRange, cell, visual, fractionInterpolator)
+                }
+
+                Payload.SET_DECOR_LAYOUT_OPTIONS -> {
+                    val cell = Cell(payload.arg1.toInt())
+                    val options = payload.obj1 as DecorLayoutOptions
+                    val withAnimation = payload.arg2 == 1L
+
+                    gridView.setDecorationLayoutOptions(cell, options, withAnimation)
                 }
             }
         }
@@ -768,6 +1132,7 @@ internal class RangeCalendarPagerAdapter(
         private const val STYLE_OBJ_START = 32
         const val STYLE_COMMON_ANIMATION_INTERPOLATOR = 32
         const val STYLE_HOVER_ANIMATION_INTERPOLATOR = 33
+        const val STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS = 34
 
         private val PAGES_BETWEEN_ABS_MIN_MAX: Int
 
