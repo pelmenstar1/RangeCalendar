@@ -89,6 +89,13 @@ internal value class PackedSize(val bits: Long) {
 
     val height: Int
         get() = unpackSecondInt(bits)
+
+    inline operator fun component1() = width
+    inline operator fun component2() = height
+
+    override fun toString(): String {
+        return "PackedSize(width=$width, height=$height)"
+    }
 }
 
 internal fun PackedRectF(left: Float, top: Float, right: Float, bottom: Float): PackedRectF {
@@ -239,6 +246,10 @@ internal value class PackedPointF(val bits: Long) {
 
     val y: Float
         get() = Float.fromBits(unpackSecondInt(bits))
+
+    override fun toString(): String {
+        return "PackedPointF(x=$x, y=$y)"
+    }
 }
 
 internal fun PackedPointFArray(size: Int): PackedPointFArray {
