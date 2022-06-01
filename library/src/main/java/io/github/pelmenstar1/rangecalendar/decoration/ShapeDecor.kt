@@ -6,7 +6,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import androidx.annotation.ColorInt
 import io.github.pelmenstar1.rangecalendar.*
-import io.github.pelmenstar1.rangecalendar.decoration.LineDecor.Style
 import io.github.pelmenstar1.rangecalendar.utils.drawOvalCompat
 
 /**

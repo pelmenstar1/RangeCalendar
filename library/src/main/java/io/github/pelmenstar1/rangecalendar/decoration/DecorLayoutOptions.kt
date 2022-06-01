@@ -1,10 +1,8 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
 import io.github.pelmenstar1.rangecalendar.HorizontalAlignment
-import io.github.pelmenstar1.rangecalendar.PackedDate
 import io.github.pelmenstar1.rangecalendar.Padding
 import io.github.pelmenstar1.rangecalendar.VerticalAlignment
-import io.github.pelmenstar1.rangecalendar.selection.Cell
 
 /**
  * Contains some options that can be applied to the cell for customization.

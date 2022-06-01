@@ -1,7 +1,6 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
 import android.graphics.RectF
-import io.github.pelmenstar1.rangecalendar.HorizontalAlignment
 import io.github.pelmenstar1.rangecalendar.PackedRectF
 import io.github.pelmenstar1.rangecalendar.Padding
 import io.github.pelmenstar1.rangecalendar.VerticalAlignment
