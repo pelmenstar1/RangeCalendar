@@ -68,15 +68,6 @@ abstract class CellDecor {
     @set:JvmSynthetic
     internal var date = PackedDate(0)
 
-    val year: Int
-        get() = date.year
-
-    val month: Int
-        get() = date.month
-
-    val dayOfMonth: Int
-        get() = date.dayOfMonth
-
     abstract fun visual(): Visual
 }
 

@@ -9,7 +9,7 @@ import io.github.pelmenstar1.rangecalendar.*
 import io.github.pelmenstar1.rangecalendar.utils.drawOvalCompat
 
 class ShapeDecor(val style: Style) : CellDecor() {
-    object ShapeVisual : Visual {
+    private object ShapeVisual : Visual {
         override fun stateHandler(): VisualStateHandler = ShapeStateHandler
         override fun renderer(): Renderer = ShapeRenderer
     }
