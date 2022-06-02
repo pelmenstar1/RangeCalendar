@@ -462,7 +462,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
         pager = ViewPager2(context).apply {
             adapter = this@RangeCalendarView.adapter
-            offscreenPageLimit = 3
+            offscreenPageLimit = 1
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
