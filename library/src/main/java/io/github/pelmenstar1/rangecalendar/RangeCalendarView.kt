@@ -309,6 +309,11 @@ class RangeCalendarView @JvmOverloads constructor(
     private val layoutRect = Rect()
     private val layoutOutRect = Rect()
 
+    private var pendingSelectionPagePosition = 0
+    private var pendingSelectionWithAnimation = false
+
+    private var onSelectionActuallyChanged: (() -> Unit)? = null
+
     private val onDateChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val action = intent.action
@@ -1086,7 +1091,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Sets or gets the color of today, by default it's primary color
+     * Sets or gets the color of today, by default it's color extracted from [R.attr.colorPrimary]
      */
     @get:ColorInt
     var todayColor: Int
@@ -1429,11 +1434,17 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun selectInternal(type: Int, data: Long, withAnimation: Boolean) {
-        val position = adapter.getItemPositionForYearMonth(
-            adapter.getYearMonthForSelection(type, data)
-        )
-        adapter.select(type, data, withAnimation)
-        pager.setCurrentItem(position, withAnimation)
+        if(onSelectionActuallyChanged == null) {
+            onSelectionActuallyChanged = {
+                pager.setCurrentItem(pendingSelectionPagePosition, pendingSelectionWithAnimation)
+            }
+        }
+
+        val ym = adapter.getYearMonthForSelection(type, data)
+        pendingSelectionPagePosition = adapter.getItemPositionForYearMonth(ym)
+        pendingSelectionWithAnimation = withAnimation
+
+        adapter.select(type, data, withAnimation, onSelectionActuallyChanged)
     }
 
     /**

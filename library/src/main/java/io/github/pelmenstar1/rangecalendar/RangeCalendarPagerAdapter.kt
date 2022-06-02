@@ -66,6 +66,7 @@ internal class RangeCalendarPagerAdapter(
             private val CLEAR_SELECTION_PAYLOAD = Payload(CLEAR_SELECTION)
             private val UPDATE_ENABLED_RANGE_PAYLOAD = Payload(UPDATE_ENABLED_RANGE)
             private val UPDATE_TODAY_INDEX_PAYLOAD = Payload(UPDATE_TODAY_INDEX)
+            private val SELECT_PAYLOAD = Payload(SELECT)
 
             fun clearHover() = CLEAR_HOVER_PAYLOAD
             fun clearSelection() = CLEAR_SELECTION_PAYLOAD
@@ -81,7 +82,7 @@ internal class RangeCalendarPagerAdapter(
             }
 
             fun select(info: RangeCalendarGridView.SetSelectionInfo): Payload {
-                return Payload(SELECT, info.bits)
+                return Payload(SELECT, arg1 = info.bits)
             }
 
             fun onDecorAdded(
@@ -114,11 +115,15 @@ internal class RangeCalendarPagerAdapter(
                 )
             }
 
-            fun setDecorLayoutOptions(cell: Cell, options: DecorLayoutOptions, withAnimation: Boolean): Payload {
+            fun setDecorLayoutOptions(
+                cell: Cell,
+                options: DecorLayoutOptions,
+                withAnimation: Boolean
+            ): Payload {
                 return Payload(
                     SET_DECOR_LAYOUT_OPTIONS,
                     arg1 = cell.index.toLong(),
-                    arg2 = if(withAnimation) 1 else 0,
+                    arg2 = if (withAnimation) 1 else 0,
                     obj1 = options
                 )
             }
@@ -129,10 +134,14 @@ internal class RangeCalendarPagerAdapter(
 
     private var minDateYm = YearMonth(0)
 
-    private var minDate = RangeCalendarView.MIN_DATE
-    private var maxDate = RangeCalendarView.MAX_DATE
+    private var minDate = PackedDate.MIN_DATE
+    private var maxDate = PackedDate.MAX_DATE
     private var minDateEpoch = RangeCalendarView.MIN_DATE_EPOCH
     private var maxDateEpoch = RangeCalendarView.MAX_DATE_EPOCH
+
+    private var prevSelectionType = 0
+    private var prevSelectionData = 0
+    private var prevSelectionYm = YearMonth(0)
 
     var selectionType = 0
 
@@ -152,6 +161,8 @@ internal class RangeCalendarPagerAdapter(
     private val styleData = LongArray(19)
     private val styleObjData = arrayOfNulls<Any>(4)
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
+
+    private var onSelectionActuallyChanged: (() -> Unit)? = null
 
     private val decorations = DecorGroupedList()
     private val decorLayoutOptionsMap = SparseArray<DecorLayoutOptions>()
@@ -544,6 +555,10 @@ internal class RangeCalendarPagerAdapter(
     }
 
     private fun setSelectionValues(type: Int, data: Int, ym: YearMonth) {
+        prevSelectionType = selectionType
+        prevSelectionData = selectionData
+        prevSelectionYm = selectionYm
+
         selectionType = type
         selectionData = data
         selectionYm = ym
@@ -635,12 +650,19 @@ internal class RangeCalendarPagerAdapter(
     // if type = WEEK, data is pair of year-month and weekIndex
     // if type = MONTH, data is year-month
     // if type = CUSTOM, data is date int range
-    fun select(type: Int, data: Long, withAnimation: Boolean) {
+    fun select(
+        type: Int,
+        data: Long,
+        withAnimation: Boolean,
+        onSelectionActuallyChanged: (() -> Unit)?
+    ) {
         val ym = getYearMonthForSelection(type, data)
         val position = getItemPositionForYearMonth(ym)
 
         // position can be negative if selection is out of min-max range
         if (position in 0 until count) {
+            this.onSelectionActuallyChanged = onSelectionActuallyChanged
+
             val gridSelectionInfo = transformToGridSelection(position, type, data, withAnimation)
 
             when (type) {
@@ -658,6 +680,7 @@ internal class RangeCalendarPagerAdapter(
             }
 
             setSelectionValues(type, gridSelectionInfo.data, ym)
+
             notifyItemChanged(position, Payload.select(gridSelectionInfo))
         }
     }
@@ -678,12 +701,9 @@ internal class RangeCalendarPagerAdapter(
             }
         }
 
-        setSelectionValues(type, data, ym)
-
         if (position in 0 until count) {
             notifyItemChanged(
-                position,
-                Payload.select(
+                position, Payload.select(
                     RangeCalendarGridView.SetSelectionInfo.create(type, data, false)
                 )
             )
@@ -725,14 +745,15 @@ internal class RangeCalendarPagerAdapter(
         val decorRegion = decorations.getRegion(ym)
 
         // The reason for such tweak is described in RangeCalendarGridView.onDecorInit()
-        val defaultLayoutOptions = styleObjData[STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS - STYLE_OBJ_START] as DecorLayoutOptions?
+        val defaultLayoutOptions =
+            styleObjData[STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS - STYLE_OBJ_START] as DecorLayoutOptions?
 
         gridView.onDecorInit(decorRegion, defaultLayoutOptions)
 
-        for(i in 0 until decorLayoutOptionsMap.size()) {
+        for (i in 0 until decorLayoutOptionsMap.size()) {
             val date = PackedDate(decorLayoutOptionsMap.keyAt(i))
 
-            if(YearMonth.forDate(date) == ym) {
+            if (YearMonth.forDate(date) == ym) {
                 val cell = getCellByDate(date)
                 val options = decorLayoutOptionsMap.valueAt(i)
 
@@ -741,10 +762,14 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    fun setDecorationLayoutOptions(date: PackedDate, value: DecorLayoutOptions, withAnimation: Boolean) {
+    fun setDecorationLayoutOptions(
+        date: PackedDate,
+        value: DecorLayoutOptions,
+        withAnimation: Boolean
+    ) {
         val position = getItemPositionForDate(date)
 
-        if(position in 0 until count) {
+        if (position in 0 until count) {
             calendarInfo.set(getYearMonthForCalendar(position))
             val cell = getCellByDate(date)
 
@@ -805,7 +830,7 @@ internal class RangeCalendarPagerAdapter(
     ) {
         onDecorAddition(
             date,
-            if(withAnimation) DecorAnimationFractionInterpolator.Simultaneous else null,
+            if (withAnimation) DecorAnimationFractionInterpolator.Simultaneous else null,
             check = { ym, cell -> checkDecor(decor, ym, cell) },
             init = { cell ->
                 decor.cell = cell
@@ -1023,7 +1048,7 @@ internal class RangeCalendarPagerAdapter(
             val adjustedType = type + STYLE_OBJ_START
 
             // Special case for decor's default layout options. The options will be set in updateDecorations()
-            if(adjustedType != STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS) {
+            if (adjustedType != STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS) {
                 updateStyle(gridView, type + STYLE_OBJ_START, styleObjData[type])
             }
         }
@@ -1033,7 +1058,9 @@ internal class RangeCalendarPagerAdapter(
         }
 
         if (selectionYm == ym) {
-            gridView.select(selectionType, selectionData, true)
+            // Animation should be seen because animation should be started when selection *changed*,
+            // but in this case, it's actually *restored*
+            gridView.select(selectionType, selectionData, false)
         }
 
         updateDecorations(gridView, ym)
@@ -1052,7 +1079,14 @@ internal class RangeCalendarPagerAdapter(
                     updateEnabledRange(gridView)
                 }
                 Payload.SELECT -> {
-                    gridView.select(RangeCalendarGridView.SetSelectionInfo(payload.arg1))
+                    val selectionInfo = RangeCalendarGridView.SetSelectionInfo(payload.arg1)
+                    val changed = gridView.select(selectionInfo)
+
+                    if (changed) {
+                        onSelectionActuallyChanged?.invoke()
+                    } else {
+                        setSelectionValues(prevSelectionType, prevSelectionData, prevSelectionYm)
+                    }
                 }
                 Payload.UPDATE_TODAY_INDEX -> {
                     calendarInfo.set(getYearMonthForCalendar(position))
@@ -1094,7 +1128,13 @@ internal class RangeCalendarPagerAdapter(
                     val fractionInterpolator = payload.obj1 as DecorAnimationFractionInterpolator?
                     val visual = payload.obj2 as CellDecor.Visual
 
-                    gridView.onDecorRemoved(newDecorRange, affectedRange, cell, visual, fractionInterpolator)
+                    gridView.onDecorRemoved(
+                        newDecorRange,
+                        affectedRange,
+                        cell,
+                        visual,
+                        fractionInterpolator
+                    )
                 }
 
                 Payload.SET_DECOR_LAYOUT_OPTIONS -> {
@@ -1137,8 +1177,8 @@ internal class RangeCalendarPagerAdapter(
         private val PAGES_BETWEEN_ABS_MIN_MAX: Int
 
         init {
-            val absMin = RangeCalendarView.MIN_DATE
-            val absMax = RangeCalendarView.MAX_DATE
+            val absMin = PackedDate.MIN_DATE
+            val absMax = PackedDate.MAX_DATE
 
             val absMaxMonths = YearMonth.forDate(absMax).totalMonths
             val absMinMonths = YearMonth.forDate(absMin).totalMonths

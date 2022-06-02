@@ -775,33 +775,37 @@ internal class RangeCalendarGridView(
         touchHelper.sendEventForVirtualView(cell.index, AccessibilityEvent.TYPE_VIEW_CLICKED)
     }
 
-    fun select(info: SetSelectionInfo) {
-        select(info.type, info.data, info.withAnimation)
+    fun select(info: SetSelectionInfo): Boolean {
+        return select(info.type, info.data, info.withAnimation)
     }
 
-    fun select(type: Int, data: Int, doAnimation: Boolean) {
-        when (type) {
+    fun select(type: Int, data: Int, doAnimation: Boolean): Boolean {
+        return when (type) {
             SelectionType.CELL -> selectCell(Cell(data), doAnimation)
             SelectionType.WEEK -> selectWeek(data, doAnimation)
             SelectionType.MONTH -> selectMonth(doAnimation)
             SelectionType.CUSTOM -> selectCustom(CellRange(data), false)
+            else -> false
         }
     }
 
-    private fun selectCell(cell: Cell, doAnimation: Boolean, isUser: Boolean = false) {
+    // Returns whether selection was actually changed
+    private fun selectCell(cell: Cell, doAnimation: Boolean, isUser: Boolean = false): Boolean {
         if (selectionType == SelectionType.CELL && selectedRange.cell == cell) {
             // If it was user and behavior on selecting the same cell is CLEAR,
             // then we need to do it.
             if (isUser && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
                 clearSelection(fireEvent = true, doAnimation = true)
+
+                return true
             }
 
-            return
+            return false
         }
 
         // Check if cell is enabled
         if (!enabledCellRange.contains(cell)) {
-            return
+            return false
         }
 
         // Call listeners and check if such selection is allowed.
@@ -809,7 +813,7 @@ internal class RangeCalendarGridView(
         if (listener != null) {
             val allowed = listener.onCellSelected(cell.index)
             if (!allowed) {
-                return
+                return false
             }
         }
 
@@ -857,9 +861,12 @@ internal class RangeCalendarGridView(
         } else {
             invalidate()
         }
+
+        return true
     }
 
-    private fun selectWeek(weekIndex: Int, doAnimation: Boolean) {
+    // Returns whether selection was actually changed
+    private fun selectWeek(weekIndex: Int, doAnimation: Boolean): Boolean {
         // 1. Resolve week range.
         var start = Cell(weekIndex * 7)
         var end = start + 6
@@ -867,7 +874,7 @@ internal class RangeCalendarGridView(
         val weekRange = CellRange(start, end).intersectionWidth(enabledCellRange)
 
         if (weekRange == CellRange.Invalid) {
-            return
+            return false
         }
 
         start = weekRange.start
@@ -875,10 +882,9 @@ internal class RangeCalendarGridView(
 
         // 2. If we're selecting the same range or range is cell, stop it or redirect to selectCell().
         if (selectionType == SelectionType.WEEK && selectedRange == weekRange) {
-            return
+            return false
         } else if (end == start) {
-            selectCell(start, doAnimation)
-            return
+            return selectCell(start, doAnimation)
         }
 
         // 3. Call listeners and check if such selection is allowed.
@@ -886,7 +892,7 @@ internal class RangeCalendarGridView(
         if (listener != null) {
             val allowed = listener.onWeekSelected(weekIndex, start.index, end.index)
             if (!allowed) {
-                return
+                return false
             }
         }
 
@@ -910,15 +916,14 @@ internal class RangeCalendarGridView(
         } else {
             invalidate()
         }
+
+        return true
     }
 
-    fun selectMonth(doAnimation: Boolean) {
-        selectMonth(doAnimation, reselect = false)
-    }
-
-    fun selectMonth(doAnimation: Boolean, reselect: Boolean) {
+    // Returns whether selection was actually changed
+    fun selectMonth(doAnimation: Boolean, reselect: Boolean = false): Boolean {
         if (!reselect && selectionType == SelectionType.MONTH) {
-            return
+            return false
         }
 
         prevSelectionType = selectionType
@@ -930,7 +935,7 @@ internal class RangeCalendarGridView(
         if (selectedRange == CellRange.Invalid) {
             customRangePath?.rewind()
         } else if (prevSelectedRange == selectedRange && prevSelectionType == SelectionType.MONTH) {
-            return
+            return false
         }
 
         // Start appropriate animation if it's necessary.
@@ -943,16 +948,19 @@ internal class RangeCalendarGridView(
         } else {
             invalidate()
         }
+
+        return true
     }
 
-    fun selectCustom(range: CellRange, startSelecting: Boolean) {
+    // Returns whether selection was actually changed
+    fun selectCustom(range: CellRange, startSelecting: Boolean): Boolean {
         val listener = onSelectionListener
         if (listener != null) {
             val allowed =
                 listener.onCustomRangeSelected(range.start.index, range.end.index)
             if (!allowed) {
                 stopSelectingCustomRange()
-                return
+                return false
             }
         }
 
@@ -982,10 +990,12 @@ internal class RangeCalendarGridView(
         if (selectedRange == CellRange.Invalid) {
             customRangePath?.rewind()
         } else if (prevSelectedRange == selectedRange) {
-            return
+            return false
         }
 
         invalidate()
+
+        return true
     }
 
     private fun setHoverCell(cell: Cell) {
