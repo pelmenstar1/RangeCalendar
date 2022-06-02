@@ -1,6 +1,5 @@
 package io.github.pelmenstar1.rangecalendar
 
-import androidx.annotation.RequiresApi
 import io.github.pelmenstar1.rangecalendar.TimeUtils.currentLocalTimeMillis
 import io.github.pelmenstar1.rangecalendar.TimeUtils.isLeapYear
 import io.github.pelmenstar1.rangecalendar.utils.floorMod
@@ -8,6 +7,13 @@ import java.time.LocalDate
 import java.util.*
 
 internal fun PackedDate(year: Int, month: Int, dayOfMonth: Int): PackedDate {
+    require(year in 1970..PackedDate.MAX_YEAR) { "year=$year" }
+    require(month in 1..12) { "month=$month" }
+
+    val daysInMonth = TimeUtils.getDaysInMonth(year, month)
+
+    require(dayOfMonth in 1..TimeUtils.getDaysInMonth(year, month)) { "dayOfMonth=$dayOfMonth (daysInMonth=$daysInMonth)" }
+
     return PackedDate(year shl 16 or (month shl 8) or dayOfMonth)
 }
 
@@ -43,7 +49,6 @@ internal value class PackedDate(val bits: Int) {
         calendar.set(year, month - 1, dayOfMonth)
     }
 
-    @RequiresApi(26)
     fun toLocalDate(): LocalDate {
         return LocalDate.of(year, month, dayOfMonth)
     }
@@ -72,6 +77,12 @@ internal value class PackedDate(val bits: Int) {
     companion object {
         const val MILLIS_IN_DAY = (24 * 60 * 60000).toLong()
         const val MAX_YEAR = Short.MAX_VALUE.toInt()
+
+        val MIN_DATE = PackedDate(1970, 1, 1)
+        val MAX_DATE = PackedDate(MAX_YEAR, 12, 30)
+
+        private val MIN_LOCAL_DATE = MIN_DATE.toLocalDate()
+        private val MAX_LOCAL_DATE = MAX_DATE.toLocalDate()
 
         private const val DAYS_PER_CYCLE = 146097
         private const val DAYS_0000_TO_1970 = DAYS_PER_CYCLE * 5 - (30 * 365 + 7)
@@ -105,18 +116,14 @@ internal value class PackedDate(val bits: Int) {
             return PackedDate(yearEst.toInt(), month, dom)
         }
 
-        @RequiresApi(26)
         fun fromLocalDate(date: LocalDate): PackedDate {
+            require(isValidLocalDate(date)) { "LocalDate is out of valid range" }
+
             return PackedDate(date.year, date.monthValue, date.dayOfMonth)
         }
 
-        fun fromCalendar(calendar: Calendar): PackedDate {
-            // month in Calendar is in [0; 11], but "our" month is in [1; 12], so we need to plus 1
-            return PackedDate(
-                calendar[Calendar.YEAR],
-                calendar[Calendar.MONTH] + 1,
-                calendar[Calendar.DAY_OF_MONTH]
-            )
+        fun isValidLocalDate(date: LocalDate): Boolean {
+            return date.isAfter(MIN_LOCAL_DATE) && date.isBefore(MAX_LOCAL_DATE)
         }
     }
 }

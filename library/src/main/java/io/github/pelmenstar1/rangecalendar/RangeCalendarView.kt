@@ -258,8 +258,8 @@ class RangeCalendarView @JvmOverloads constructor(
     private val nextOrClearButton: ImageButton
     private val infoView: TextView
 
-    private var _minDate = MIN_DATE
-    private var _maxDate = MAX_DATE
+    private var _minDate = PackedDate.MIN_DATE
+    private var _maxDate = PackedDate.MAX_DATE
 
     private var _minDateEpoch = MIN_DATE_EPOCH
     private var _maxDateEpoch = MAX_DATE_EPOCH
@@ -457,11 +457,7 @@ class RangeCalendarView @JvmOverloads constructor(
         infoView = AppCompatTextView(context).apply {
             setTextColor(cr.textColor)
             setOnClickListener {
-                adapter.select(
-                    SelectionType.MONTH,
-                    currentCalendarYm.totalMonths.toLong(),
-                    true
-                )
+                selectMonth(currentCalendarYm, true)
             }
         }
 
@@ -978,138 +974,42 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets minimum date in epoch days.
+     * Gets or sets minimum date.
      *
-     * @throws IllegalArgumentException if value is less than [RangeCalendarView.MIN_DATE_EPOCH] or
-     * greater than [RangeCalendarView.MAX_DATE_EPOCH], or if minimum date is greater than maximum.
+     * @throws IllegalArgumentException if date is less than 1 January 1970 or greater than 30 December 32767, or if minimum date is greater than maximum.
      */
-    var minDateEpoch: Long
-        get() = _minDateEpoch
+    var minDate: LocalDate
+        get() = _minDate.toLocalDate()
         set(value) {
-            ensureEpochDayValid(value, "value")
-            require(value <= _maxDateEpoch) { "min > max" }
+            _minDateEpoch = value.toEpochDay()
 
-            _minDate = PackedDate.fromEpochDay(value)
-            _minDateEpoch = value
+            requireValidEpochDayOnLocalDateTransform(_minDateEpoch)
+            require(_minDateEpoch <= _maxDateEpoch) { "Minimum date is greater than maximum one" }
+
+            _minDate = PackedDate.fromLocalDate(value)
 
             onMinMaxChanged()
         }
 
     /**
      * Gets or sets minimum date.
-     * Can be used if API >= 26.
      *
      * @throws IllegalArgumentException if date is less than 1 January 1970 or greater than 30 December 32767, or if minimum date is greater than maximum.
-     * @see RangeCalendarView.minDateEpoch
-     */
-    @get:RequiresApi(26)
-    @set:RequiresApi(26)
-    var minDate: LocalDate
-        get() = _minDate.toLocalDate()
-        set(value) {
-            minDateEpoch = value.toEpochDay()
-        }
-
-    /**
-     * Sets minimum date to given calendar.
-     *
-     * @see RangeCalendarView.minDateEpoch
-     */
-    fun getMinDate(calendar: Calendar) {
-        _minDate.toCalendar(calendar)
-    }
-
-    /**
-     * Sets minimum date.
-     *
-     * @throws IllegalArgumentException if date is less than 1 January 1970 or greater than 30 December 32767, or if minimum date is greater than maximum.
-     * @see RangeCalendarView.minDateEpoch
-     */
-    fun setMinDate(calendar: Calendar) {
-        minDateEpoch = (calendarToEpochDay(calendar))
-    }
-
-    /**
-     * Sets minimum date.
-     *
-     * @param year  year, in range [1970; 32767]
-     * @param month month, in range [1; 12]
-     * @param day   day of month, in range [1; *days in month*]
-     * @throws IllegalArgumentException if values is out of ranges
-     */
-    fun setMinDate(year: Int, month: Int, day: Int) {
-        ensureDateValid(year, month, day)
-
-        minDateEpoch = PackedDate(year, month, day).toEpochDay()
-    }
-
-    /**
-     * Gets or sets maximum date in epoch days.
-     *
-     * @throws IllegalArgumentException if value is less than [RangeCalendarView.MIN_DATE_EPOCH] or
-     * greater than [RangeCalendarView.MAX_DATE_EPOCH], or if maximum date is less than minimum.
-     */
-    var maxDateEpoch: Long
-        get() = _maxDateEpoch
-        set(value) {
-            ensureEpochDayValid(value, "value")
-            require(value >= _minDateEpoch) { "max < min" }
-
-            _maxDate = PackedDate.fromEpochDay(value)
-            _maxDateEpoch = value
-
-            onMinMaxChanged()
-        }
-
-    /**
-     * Sets or gets maximum date.
-     * Can be used if API >= 26.
-     *
-     * @throws IllegalArgumentException if date is less than 1 January 1970 or greater than 30 December 32767,
-     * or if maximum date is less than minimum.
-     *
-     * @see RangeCalendarView.maxDateEpoch
      */
     @get:RequiresApi(26)
     @set:RequiresApi(26)
     var maxDate: LocalDate
         get() = _maxDate.toLocalDate()
         set(value) {
-            maxDateEpoch = value.toEpochDay()
+            _maxDateEpoch = value.toEpochDay()
+
+            requireValidEpochDayOnLocalDateTransform(_maxDateEpoch)
+            require(_minDateEpoch <= _maxDateEpoch) { "Minimum date is greater than maximum one" }
+
+            _minDate = PackedDate.fromLocalDate(value)
+
+            onMinMaxChanged()
         }
-
-    /**
-     * Sets maximum date to given calendar.
-     *
-     * @see RangeCalendarView.maxDateEpoch
-     */
-    fun getMaxDate(calendar: Calendar) {
-        _maxDate.toCalendar(calendar)
-    }
-
-    /**
-     * Sets maximum date.
-     *
-     * @throws IllegalArgumentException if date is less than 1 January 1970 or greater than 30 December 32767, or if maximum date is less than minimum.
-     * @see RangeCalendarView.maxDateEpoch
-     */
-    fun setMaxDate(calendar: Calendar) {
-        maxDateEpoch = calendarToEpochDay(calendar)
-    }
-
-    /**
-     * Sets maximum date.
-     *
-     * @param year  year, in range [1970; 32767]
-     * @param month month, in range [1; 12]
-     * @param day   day of month, in range [1; *days in month*]
-     * @throws IllegalArgumentException if values is out of ranges
-     */
-    fun setMaxDate(year: Int, month: Int, day: Int) {
-        ensureDateValid(year, month, day)
-
-        maxDateEpoch = PackedDate(year, month, day).toEpochDay()
-    }
 
     private fun onMinMaxChanged() {
         adapter.setRange(_minDate, _minDateEpoch, _maxDate, _maxDateEpoch)
@@ -1436,46 +1336,23 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Selects a date in epoch days.
+     * Selects a date if cell selection is allowed.
      *
      * @param withAnimation whether to do it with animation or not
      */
-    @JvmOverloads
-    fun selectDay(epochDay: Long, withAnimation: Boolean = true) {
-        ensureEpochDayValid(epochDay, "epochDay")
-        selectDayInternal(PackedDate.fromEpochDay(epochDay), withAnimation)
-    }
-
-    /**
-     * Selects a date with animation.
-     * Can be used if API >= 26.
-     *
-     * @param withAnimation whether to do it with animation or not
-     */
-    @RequiresApi(26)
     @JvmOverloads
     fun selectDay(date: LocalDate, withAnimation: Boolean = true) {
-        selectDayInternal(PackedDate.fromLocalDate(date), withAnimation)
+        selectInternal(
+            SelectionType.CELL,
+            PackedDate.fromLocalDate(date).bits.toLong(),
+            withAnimation
+        )
     }
 
     /**
-     * Selects a date in given by [Calendar]
+     * Selects a week if week selection is allowed.
      *
-     * @param withAnimation whether to do it with animation or not
-     */
-    @JvmOverloads
-    fun selectDay(calendar: Calendar, withAnimation: Boolean = true) {
-        selectDayInternal(PackedDate.fromCalendar(calendar), withAnimation)
-    }
-
-    private fun selectDayInternal(date: PackedDate, withAnimation: Boolean) {
-        selectInternal(SelectionType.CELL, date.bits.toLong(), withAnimation)
-    }
-
-    /**
-     * Selects a week.
-     *
-     * @param year          year, should be in range [1970; 32767]
+     * @param year          year, should be in range `[1970; 32767]`
      * @param month         month, 1-based
      * @param weekIndex     index of week, 0-based
      * @param withAnimation whether to do it with animation or not
@@ -1490,49 +1367,21 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Selects a month with animation.
+     * Selects a month if month selection is allowed.
      *
-     * @param year          year, should be in range [1970; 32767]
+     * @param year          year, should be in range `[1970; 32767]`
      * @param month         month, 1-based
      * @param withAnimation whether to do it with animation or not
      */
     @JvmOverloads
     fun selectMonth(year: Int, month: Int, withAnimation: Boolean = true) {
+        selectMonth(YearMonth(year, month), withAnimation)
+    }
+
+    private fun selectMonth(ym: YearMonth, withAnimation: Boolean) {
         selectInternal(
             SelectionType.MONTH,
-            YearMonth(year, month).totalMonths.toLong(),
-            withAnimation
-        )
-    }
-
-    /**
-     * Selects a custom range.
-     *
-     * @param startEpoch start of the range epoch day, inclusive
-     * @param endEpoch end of the range epoch day, inclusive
-     * @param withAnimation whether to do it with animation or not
-     */
-    @JvmOverloads
-    fun selectCustom(startEpoch: Long, endEpoch: Long, withAnimation: Boolean = true) {
-        selectCustomInternal(
-            PackedDate.fromEpochDay(startEpoch),
-            PackedDate.fromEpochDay(endEpoch),
-            withAnimation
-        )
-    }
-
-    /**
-     * Selects a custom range.
-     *
-     * @param startDate start of the range defined by [Calendar], inclusive
-     * @param endDate end of the range defined by [Calendar], inclusive
-     * @param withAnimation whether to do it with animation or not
-     */
-    @JvmOverloads
-    fun selectCustom(startDate: Calendar, endDate: Calendar, withAnimation: Boolean = true) {
-        selectCustomInternal(
-            PackedDate.fromCalendar(startDate),
-            PackedDate.fromCalendar(endDate),
+            ym.totalMonths.toLong(),
             withAnimation
         )
     }
@@ -1544,23 +1393,13 @@ class RangeCalendarView @JvmOverloads constructor(
      * @param endDate end of the range, inclusive
      * @param withAnimation whether to do it with animation of not
      */
-    @RequiresApi(26)
     fun selectCustom(startDate: LocalDate, endDate: LocalDate, withAnimation: Boolean = true) {
-        selectCustomInternal(
-            PackedDate.fromLocalDate(startDate),
-            PackedDate.fromLocalDate(endDate),
-            withAnimation
-        )
-    }
-
-    private fun selectCustomInternal(
-        startDate: PackedDate,
-        endDate: PackedDate,
-        withAnimation: Boolean
-    ) {
         selectInternal(
             SelectionType.CUSTOM,
-            packInts(startDate.bits, endDate.bits),
+            packInts(
+                PackedDate.fromLocalDate(startDate).bits,
+                PackedDate.fromLocalDate(endDate).bits
+            ),
             withAnimation
         )
     }
@@ -1615,94 +1454,16 @@ class RangeCalendarView @JvmOverloads constructor(
      * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
      *
      * @param decor decoration to be added
-     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
-     * @param withAnimation whether to animate the change or not.
-     */
-    @JvmOverloads
-    fun addDecoration(
-        decor: CellDecor,
-        epochDay: Long,
-        withAnimation: Boolean = true
-    ) {
-        addDecorationInternal(decor, PackedDate.fromEpochDay(epochDay), withAnimation)
-    }
-
-    /**
-     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param decor decoration to be added
      * @param date specifies the cell to which the decoration is added.
      * @param withAnimation whether to animate the change or not.
      */
-    @RequiresApi(26)
     @JvmOverloads
     fun addDecoration(
         decor: CellDecor,
         date: LocalDate,
         withAnimation: Boolean = true
     ) {
-        addDecorationInternal(decor, PackedDate.fromLocalDate(date), withAnimation)
-    }
-
-    /**
-     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param decor decoration to be added
-     * @param calendar specifies the cell to which the decoration is added.
-     * @param withAnimation whether to animate the change or not.
-     */
-    @JvmOverloads
-    fun addDecoration(
-        decor: CellDecor,
-        calendar: Calendar,
-        withAnimation: Boolean = true
-    ) {
-        addDecorationInternal(decor, PackedDate.fromCalendar(calendar), withAnimation)
-    }
-
-    /**
-     * Adds decoration to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param decor decoration to be added
-     * @param year year of the date that specifies the cell to which the decoration is added.
-     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
-     * @param day day of month (1-based) of the date that specifies the cell to which the decoration is added.
-     * @param withAnimation whether to animate the change or not.
-     */
-    @JvmOverloads
-    fun addDecoration(
-        decor: CellDecor,
-        year: Int,
-        month: Int,
-        day: Int,
-        withAnimation: Boolean = true
-    ) {
-        addDecorationInternal(decor, PackedDate(year, month, day), withAnimation)
-    }
-
-    private fun addDecorationInternal(
-        decor: CellDecor,
-        date: PackedDate,
-        withAnimation: Boolean
-    ) {
-        adapter.addDecoration(decor, date, withAnimation)
-    }
-
-    /**
-     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param decors array of decorations to be added
-     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun <T : CellDecor> addDecorations(
-        decors: Array<out T>,
-        epochDay: Long,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        addDecorationsInternal(decors, PackedDate.fromEpochDay(epochDay), fractionInterpolator)
+        adapter.addDecoration(decor, PackedDate.fromLocalDate(date), withAnimation)
     }
 
     /**
@@ -1714,76 +1475,12 @@ class RangeCalendarView @JvmOverloads constructor(
      * May be null, if no animation is desired.
      */
     @JvmOverloads
-    @RequiresApi(26)
     fun <T : CellDecor> addDecorations(
         decors: Array<out T>,
         date: LocalDate,
         fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        addDecorationsInternal(decors, PackedDate.fromLocalDate(date), fractionInterpolator)
-    }
-
-    /**
-     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param decors array of decorations to be added
-     * @param calendar specifies the cell to which the decoration is added.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun <T : CellDecor> addDecorations(
-        decors: Array<out T>,
-        calendar: Calendar,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        addDecorationsInternal(decors, PackedDate.fromCalendar(calendar), fractionInterpolator)
-    }
-
-    /**
-     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param decors array of decorations to be added
-     * @param year year of the date that specifies the cell to which the decoration is added.
-     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
-     * @param dayOfMonth day of month (1-based) of the date that specifies the cell to which the decoration is added.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun <T : CellDecor> addDecorations(
-        decors: Array<out T>,
-        year: Int, month: Int, dayOfMonth: Int,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        addDecorationsInternal(decors, PackedDate(year, month, dayOfMonth), fractionInterpolator)
-    }
-
-    private fun <T : CellDecor> addDecorationsInternal(
-        decors: Array<out T>,
-        date: PackedDate,
-        fractionInterpolator: DecorAnimationFractionInterpolator?
-    ) {
-        adapter.addDecorations(decors, date, fractionInterpolator)
-    }
-
-    /**
-     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param indexInCell decoration index in specified cell at which insert decorations
-     * @param decors array of decorations to be added
-     * @param epochDay count of days since 1 January 1970 which specifies the cell to which the decoration is added.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun <T : CellDecor> insertDecorations(
-        indexInCell: Int,
-        decors: Array<out T>,
-        epochDay: Long,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        insertDecorationsInternal(indexInCell, decors, PackedDate.fromEpochDay(epochDay), fractionInterpolator)
+        adapter.addDecorations(decors, PackedDate.fromLocalDate(date), fractionInterpolator)
     }
 
     /**
@@ -1796,63 +1493,18 @@ class RangeCalendarView @JvmOverloads constructor(
      * May be null, if no animation is desired.
      */
     @JvmOverloads
-    @RequiresApi(26)
     fun <T : CellDecor> insertDecorations(
         indexInCell: Int,
         decors: Array<out T>,
         date: LocalDate,
         fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        insertDecorationsInternal(indexInCell, decors, PackedDate.fromLocalDate(date), fractionInterpolator)
-    }
-
-    /**
-     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param indexInCell decoration index in specified cell at which insert decorations
-     * @param decors array of decorations to be added
-     * @param calendar specifies the cell to which the decoration is added.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun <T : CellDecor> insertDecorations(
-        indexInCell: Int,
-        decors: Array<out T>,
-        calendar: Calendar,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        insertDecorationsInternal(indexInCell, decors, PackedDate.fromCalendar(calendar), fractionInterpolator)
-    }
-
-    /**
-     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
-     *
-     * @param indexInCell decoration index in specified cell at which insert decorations
-     * @param decors array of decorations to be added
-     * @param year year of the date that specifies the cell to which the decoration is added.
-     * @param month month (1-based) of the date that specifies the cell to which the decoration is added.
-     * @param dayOfMonth day of month (1-based) of the date that specifies the cell to which the decoration is added.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun <T : CellDecor> insertDecorations(
-        indexInCell: Int,
-        decors: Array<out T>,
-        year: Int, month: Int, dayOfMonth: Int,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        insertDecorationsInternal(indexInCell, decors, PackedDate(year, month, dayOfMonth), fractionInterpolator)
-    }
-
-    private fun <T : CellDecor> insertDecorationsInternal(
-        indexInCell: Int,
-        decors: Array<out T>,
-        date: PackedDate,
-        fractionInterpolator: DecorAnimationFractionInterpolator?
-    ) {
-        adapter.insertDecorations(indexInCell, decors, date, fractionInterpolator)
+        adapter.insertDecorations(
+            indexInCell,
+            decors,
+            PackedDate.fromLocalDate(date),
+            fractionInterpolator
+        )
     }
 
     /**
@@ -1871,67 +1523,18 @@ class RangeCalendarView @JvmOverloads constructor(
      *
      * @param start start index of the range.
      * @param endInclusive end (inclusive) index of the range.
-     * @param epochDay count of days since 1 January 1970 which specifies the cell.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun removeDecorationRange(
-        start: Int,
-        endInclusive: Int,
-        epochDay: Long,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        removeDecorationRangeInternal(
-            start,
-            endInclusive,
-            PackedDate.fromEpochDay(epochDay),
-            fractionInterpolator
-        )
-    }
-
-    /**
-     * Removes range of decorations from the cell.
-     *
-     * @param start start index of the range.
-     * @param endInclusive end (inclusive) index of the range.
-     * @param calendar specifies the cell.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun removeDecorationRange(
-        start: Int,
-        endInclusive: Int,
-        calendar: Calendar,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        removeDecorationRangeInternal(
-            start,
-            endInclusive,
-            PackedDate.fromCalendar(calendar),
-            fractionInterpolator
-        )
-    }
-
-    /**
-     * Removes range of decorations from the cell.
-     *
-     * @param start start index of the range.
-     * @param endInclusive end (inclusive) index of the range.
      * @param date specifies the cell.
      * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
      * May be null, if no animation is desired.
      */
     @JvmOverloads
-    @RequiresApi(26)
     fun removeDecorationRange(
         start: Int,
         endInclusive: Int,
         date: LocalDate,
         fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        removeDecorationRangeInternal(
+        adapter.removeDecorationRange(
             start,
             endInclusive,
             PackedDate.fromLocalDate(date),
@@ -1940,70 +1543,6 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Removes range of decorations from the cell.
-     *
-     * @param start start index of the range.
-     * @param endInclusive end (inclusive) index of the range.
-     * @param year year of the date that specifies the cell.
-     * @param month month (1-based) of the date that specifies the cell.
-     * @param dayOfMonth day of month (1-based) of the date that specifies the cell.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun removeDecorationRange(
-        start: Int,
-        endInclusive: Int,
-        year: Int, month: Int, dayOfMonth: Int,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        removeDecorationRangeInternal(
-            start, endInclusive,
-            PackedDate(year, month, dayOfMonth),
-            fractionInterpolator
-        )
-    }
-
-    private fun removeDecorationRangeInternal(
-        start: Int,
-        endInclusive: Int,
-        date: PackedDate,
-        fractionInterpolator: DecorAnimationFractionInterpolator?
-    ) {
-        adapter.removeDecorationRange(start, endInclusive, date, fractionInterpolator)
-    }
-
-    /**
-     * Removes all decorations from the cell.
-     *
-     * @param epochDay count of days since 1 January 1970 which specifies the cell.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun removeAllDecorationsFromCell(
-        epochDay: Long,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        removeAllDecorationsFromCellInternal(PackedDate.fromEpochDay(epochDay), fractionInterpolator)
-    }
-
-    /**
-     * Removes all decorations from the cell.
-     *
-     * @param calendar specifies the cell.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun removeAllDecorationsFromCell(
-        calendar: Calendar,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        removeAllDecorationsFromCellInternal(PackedDate.fromCalendar(calendar), fractionInterpolator)
-    }
-
-    /**
      * Removes all decorations from the cell.
      *
      * @param date specifies the cell.
@@ -2011,76 +1550,27 @@ class RangeCalendarView @JvmOverloads constructor(
      * May be null, if no animation is desired.
      */
     @JvmOverloads
-    @RequiresApi(26)
     fun removeAllDecorationsFromCell(
         date: LocalDate,
         fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
     ) {
-        removeAllDecorationsFromCellInternal(PackedDate.fromLocalDate(date), fractionInterpolator)
-    }
-
-    /**
-     * Removes all decorations from the cell.
-     *
-     * @param year year of the date that specifies the cell.
-     * @param month month (1-based) of the date that specifies the cell.
-     * @param dayOfMonth day of month (1-based) of the date that specifies the cell.
-     * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
-     * May be null, if no animation is desired.
-     */
-    @JvmOverloads
-    fun removeAllDecorationsFromCell(
-        year: Int, month: Int, dayOfMonth: Int,
-        fractionInterpolator: DecorAnimationFractionInterpolator? = DecorAnimationFractionInterpolator.Simultaneous
-    ) {
-        removeAllDecorationsFromCellInternal(PackedDate(year, month, dayOfMonth), fractionInterpolator)
-    }
-
-    private fun removeAllDecorationsFromCellInternal(
-        date: PackedDate,
-        fractionInterpolator: DecorAnimationFractionInterpolator?
-    ) {
-        adapter.removeAllDecorations(date, fractionInterpolator)
+        adapter.removeAllDecorations(PackedDate.fromLocalDate(date), fractionInterpolator)
     }
 
     @JvmOverloads
-    fun setDecorationLayoutOptions(
-        year: Int, month: Int, dayOfMonth: Int,
-        options: DecorLayoutOptions,
-        withAnimation: Boolean = true
-    ) {
-        setDecorationLayoutOptionsInternal(PackedDate(year, month, dayOfMonth), options, withAnimation)
-    }
-
-    @JvmOverloads
-    fun setDecorationLayoutOptions(
-        calendar: Calendar,
-        options: DecorLayoutOptions,
-        withAnimation: Boolean = true
-    ) {
-        setDecorationLayoutOptionsInternal(PackedDate.fromCalendar(calendar), options, withAnimation)
-    }
-
-    @JvmOverloads
-    @RequiresApi(26)
     fun setDecorationLayoutOptions(
         date: LocalDate,
         options: DecorLayoutOptions,
         withAnimation: Boolean = true
     ) {
-        setDecorationLayoutOptionsInternal(PackedDate.fromLocalDate(date), options, withAnimation)
-    }
-
-    private fun setDecorationLayoutOptionsInternal(
-        date: PackedDate,
-        options: DecorLayoutOptions,
-        withAnimation: Boolean
-    ) {
-        adapter.setDecorationLayoutOptions(date, options, withAnimation)
+        adapter.setDecorationLayoutOptions(PackedDate.fromLocalDate(date), options, withAnimation)
     }
 
     fun setDecorationDefaultLayoutOptions(options: DecorLayoutOptions?) {
-        adapter.setStyleObject(RangeCalendarPagerAdapter.STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS, options)
+        adapter.setStyleObject(
+            RangeCalendarPagerAdapter.STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS,
+            options
+        )
     }
 
     private fun updateMoveButtons() {
@@ -2115,14 +1605,11 @@ class RangeCalendarView @JvmOverloads constructor(
         private const val DATE_FORMAT = "MMMM y"
         private const val SV_TRANSITION_DURATION: Long = 300
 
-        internal val MIN_DATE = PackedDate(1970, 1, 1)
-        internal val MAX_DATE = PackedDate(Short.MAX_VALUE.toInt(), 12, 30)
+        @JvmField
+        val MIN_DATE_EPOCH = PackedDate.MIN_DATE.toEpochDay()
 
         @JvmField
-        val MIN_DATE_EPOCH = MIN_DATE.toEpochDay()
-
-        @JvmField
-        val MAX_DATE_EPOCH = MAX_DATE.toEpochDay()
+        val MAX_DATE_EPOCH = PackedDate.MAX_DATE.toEpochDay()
 
         private const val SELECTION_DAY_FLAG = 1 shl SelectionType.CELL
         private const val SELECTION_WEEK_FLAG = 1 shl SelectionType.WEEK
@@ -2135,26 +1622,8 @@ class RangeCalendarView @JvmOverloads constructor(
             }
         }
 
-        private fun ensureEpochDayValid(epochDay: Long, argName: String) {
-            require(epochDay in MIN_DATE_EPOCH..MAX_DATE_EPOCH) { argName }
-        }
-
-        private fun ensureYearMonthValid(year: Int, month: Int) {
-            require(year in 1970..PackedDate.MAX_YEAR) { "Invalid year ($year)" }
-            require(month in 1..12) { "Invalid month ($month)" }
-        }
-
-        private fun ensureDateValid(year: Int, month: Int, day: Int) {
-            ensureYearMonthValid(year, month)
-
-            val daysInMonth = TimeUtils.getDaysInMonth(year, month)
-            require(day in 1..daysInMonth) {
-                "Invalid day ($day)"
-            }
-        }
-
-        private fun calendarToEpochDay(calendar: Calendar): Long {
-            return PackedDate.fromCalendar(calendar).toEpochDay()
+        private fun requireValidEpochDayOnLocalDateTransform(epochDay: Long) {
+            require(epochDay in MIN_DATE_EPOCH..MAX_DATE_EPOCH) { "Date is out of valid range" }
         }
     }
 }
