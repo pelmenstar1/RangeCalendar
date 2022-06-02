@@ -41,13 +41,18 @@ import java.util.*
 import kotlin.math.abs
 
 /**
- * The special calendar where user can select day, week or month.
- * Minimum and maximum dates can be set by [RangeCalendarView.minDateEpoch] and [RangeCalendarView.maxDateEpoch].
- * There also another convenience versions of these methods.
- * To listen when day, week or month is selected, use [RangeCalendarView.onSelectionListener].
- * To select programmatically, use [RangeCalendarView.selectDay], [RangeCalendarView.selectWeek], [RangeCalendarView.selectMonth].
- * <br></br>
- * Most appropriate colors are automatically extracted from attributes, but you can still change it.
+ * A calendar view which supports range selection and decorations.
+ * Internally it uses [ViewPager2] view, so such term as "page" is used here to denote "page" in which calendar view with grid is stored.
+ * - Minimum and maximum dates can be set through [minDate] and [maxDate].
+ * - [onSelectionListener] can be used to respond to selection
+ * - [selectDay], [selectWeek], [selectMonth] can be used to programmatically set a selection with animation or not.
+ * - Most appropriate colors are automatically extracted from attributes, but you can still change it.
+ * - [allowedSelectionTypes] method can be used to (dis-)allow types of selection
+ * - [onPageChangeListener] can be used to respond to calendar page changes.
+ * [selectedCalendarYear], [selectedCalendarMonth] can be used to get year & month of selected page respectively.
+ * - [setYearAndMonth] can be used to change selected calendar. [moveToPreviousMonth], [moveToNextMonth] also can be used.
+ * - [addDecoration], [addDecorations], [insertDecorations], [removeDecoration], [removeDecorationRange], [removeAllDecorationsFromCell]
+ * can be used to manipulate cell decorations. See [CellDecor].
  */
 class RangeCalendarView @JvmOverloads constructor(
     context: Context,
@@ -56,12 +61,6 @@ class RangeCalendarView @JvmOverloads constructor(
 ) : ViewGroup(context, attrs, defStyleAttr) {
     /**
      * Fires appropriate method when user selects day, week or month.
-     * <br></br>
-     * Because of problems with dates in Java, there is no methods like: <br></br>
-     * `void onDateSelected(LocalDate)` <br></br>
-     * because you would need to implement multiple methods (like `onDateSelected(LocalDate)`, `onDateSelected(Calendar)`, `onDateSelected(int, int, int)`)
-     * instead of one.
-     * So you need to convert raw year, month and day yourself.
      */
     interface OnSelectionListener {
         /**
@@ -904,7 +903,7 @@ class RangeCalendarView @JvmOverloads constructor(
      * "Next" button will become "Close" button which clears selection.
      * Set to null not to show any view on selection.
      * <br></br>
-     * Action button or another useful content can be shown.
+     * Action button or another useful content can be shown instead of year & month text view.
      * This might be helpful for rational use of space.
      */
     var selectionView: View?
@@ -943,7 +942,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets [CalendarSelectionViewLayoutParams] for selection view
+     * Gets or sets layout params for selection view
      */
     var selectionViewLayoutParams: CalendarSelectionViewLayoutParams
         get() = svLayoutParams
@@ -996,8 +995,6 @@ class RangeCalendarView @JvmOverloads constructor(
      *
      * @throws IllegalArgumentException if date is less than 1 January 1970 or greater than 30 December 32767, or if minimum date is greater than maximum.
      */
-    @get:RequiresApi(26)
-    @set:RequiresApi(26)
     var maxDate: LocalDate
         get() = _maxDate.toLocalDate()
         set(value) {
@@ -1017,27 +1014,30 @@ class RangeCalendarView @JvmOverloads constructor(
         setYearAndMonthInternal(currentCalendarYm, false)
     }
 
+    /**
+     * Gets or sets a listener which responds to selection changes
+     */
     var onSelectionListener: OnSelectionListener? = null
 
     /**
-     * Sets or gets a listener which responds when calendar page is changed (by user or from code)
+     * Gets or sets a listener which responds when calendar page is changed (by user or from code)
      */
     var onPageChangeListener: OnCalendarChangeListener? = null
 
     /**
-     * Returns year of selected calendar
+     * Returns year of selected calendar page. Note, this is not year of selection.
      */
     val selectedCalendarYear: Int
         get() = currentCalendarYm.year
 
     /**
-     * Returns month of selected calendar, 1-based
+     * Returns month of selected calendar page, 1-based. Note, this is not year of selection.
      */
     val selectedCalendarMonth: Int
         get() = currentCalendarYm.month
 
     /**
-     * Gets or sets a background color of selection, by default it's primary color
+     * Gets or sets a background color of selection, by default it's color extracted from [R.attr.colorPrimary]
      */
     @get:ColorInt
     var selectionColor: Int
@@ -1066,7 +1066,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets color of day which is not in range of current month
+     * Gets or sets color of day which is out of current month range
      */
     @get:ColorInt
     var outMonthDayNumberColor: Int
@@ -1076,7 +1076,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets color of disabled day which is out of minimum and maximum
+     * Gets or sets color of disabled day which is out of enabled range created by [minDate] and [maxDate]
      */
     @get:ColorInt
     var disabledDayNumberColor: Int
@@ -1096,7 +1096,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets a color of weekday
+     * Gets or sets a text color of weekday
      */
     @get:ColorInt
     var weekdayColor: Int
@@ -1104,7 +1104,6 @@ class RangeCalendarView @JvmOverloads constructor(
         set(@ColorInt color) {
             adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_WEEKDAY_COLOR, color)
         }
-
 
     /**
      * Gets or sets a text size of weekday, in pixels
@@ -1116,7 +1115,10 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets a hover color
+     * Gets or sets a background color of cell which appears when user hovers under a cell
+     * (when a pointer is registered to be down).
+     *
+     * @see [hoverOnSelectionColor]
      */
     @get:ColorInt
     var hoverColor: Int
@@ -1126,7 +1128,8 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets a hover color that'll be shown when hovered cell in in selection, by default it's darker version of primary color
+     * Gets or sets a background color of cell which appears when user hovers under a cell and selection contains the cell.
+     * As background of the calendar and selection color are different, common [hoverColor] wouldn't look fine on selection.
      */
     @get:ColorInt
     var hoverOnSelectionColor: Int
@@ -1136,11 +1139,10 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets ratio of radius of round rectangles' in selection.
-     * Radius will be computed as multiplication of cell size to this ratio.
+     * Round radius of cell shape equals to cell size multiplied to this fraction.
      *
-     * Set 0, to draw simple rectangles in selection.
-     * Set 0.5f and more, to draw circles in cell selection
+     * Set 0 to make cell shape rectangle.
+     * Set 0.5 or greater to make cell shape circle.
      */
     var roundRectRadiusRatio: Float
         get() = adapter.getStyleFloat(RangeCalendarPagerAdapter.STYLE_RR_RADIUS_RATIO)
@@ -1149,7 +1151,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets size of cell, in pixels, should greater than 0
+     * Gets or sets size of cell, in pixels, should be greater than 0
      */
     var cellSize: Float
         get() = adapter.getStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_SIZE)
@@ -1162,8 +1164,9 @@ class RangeCalendarView @JvmOverloads constructor(
      * Gets or sets weekday type. Should be [WeekdayType.SHORT] or [WeekdayType.NARROW].
      * If [WeekdayType.SHORT], then weekdays will be: Mo, Tue, Wed, Thu, Fri.
      * If [WeekdayType.NARROW], then weekdays will be: M, T, W, T, F.
-     * Note that, narrow weekdays are not always one-letter. It's based on locale.
-     * Also, if API level < 24, then [WeekdayType.NARROW] won't work.
+     * Note:
+     * - Narrow weekdays is dependent on user locale and are not always one-letter.
+     * - **If API level is less than 24, [WeekdayType.NARROW] won't work.**
      *
      * @throws IllegalArgumentException if type is not one of [WeekdayType] constants
      */
@@ -1252,6 +1255,10 @@ class RangeCalendarView @JvmOverloads constructor(
             )
         }
 
+    /**
+     * Gets or sets whether gradient fill of selection is enabled. It's called "grid", because bounds of linear gradient is limited to entire grid, not selection.
+     * It's done for optimization.
+     */
     var gridGradientEnabled: Boolean
         get() = adapter.getStyleBool(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_ENABLED)
         set(state) {
@@ -1266,14 +1273,30 @@ class RangeCalendarView @JvmOverloads constructor(
             return PackedIntPair(bits)
         }
 
+    /**
+     * Gets start color of grid gradient.
+     *
+     * @see setGradientColors
+     */
     @get:ColorInt
     val gradientStartColor: Int
         get() = gradientStartEndColorPair.first
 
+    /**
+     * Gets end color of grid gradient.
+     *
+     * @see setGradientColors
+     */
     @get:ColorInt
     val gradientEndColor: Int
         get() = gradientStartEndColorPair.second
 
+    /**
+     * Sets colors of grid gradient.
+     *
+     * @param start start color of the gradient
+     * @param end end color of the gradient
+     */
     fun setGradientColors(@ColorInt start: Int, @ColorInt end: Int) {
         adapter.setStyleLong(
             RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS,
@@ -1282,7 +1305,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Moves (if it's possible) to previous month.
+     * Changes calendar page to the previous one. If it's not possible, nothing will happen.
      *
      * @param withAnimation whether to do it with slide animation or not
      */
@@ -1297,7 +1320,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Moves (if it's possible) to next month.
+     * Changes calendar page to the previous one. If it's not possible, nothing will happen.
      *
      * @param withAnimation whether to do it with slide animation or not
      */
@@ -1313,15 +1336,16 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Sets current year and month.
+     * Selects page with specified year & month.
      *
-     * @param year  year, should be in range [1970; 32767]
+     * @param year  year, should be in range `[1970; 32767]`
      * @param month month, 1-based
      * @param smoothScroll whether to do it with slide animation or not
-     * @throws IllegalArgumentException if year and month are out of ranges
+     * @throws IllegalArgumentException if year and month are out of their valid ranges
      */
     fun setYearAndMonth(year: Int, month: Int, smoothScroll: Boolean = true) {
-        ensureYearMonthValid(year, month)
+        require(year in 1970..PackedDate.MAX_YEAR) { "Invalid year ($year)" }
+        require(month in 1..12) { "Invalid month ($month)" }
 
         setYearAndMonthInternal(YearMonth(year, month), smoothScroll)
     }
@@ -1387,7 +1411,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Selects a custom range with animation. Can be used if API >= 26
+     * Selects a custom range if custom range selection is allowed.
      *
      * @param startDate start of the range, inclusive
      * @param endDate end of the range, inclusive
@@ -1413,7 +1437,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Clears current calendar selection
+     * Clears a selection.
      */
     fun clearSelection() {
         adapter.clearSelection()
@@ -1421,13 +1445,9 @@ class RangeCalendarView @JvmOverloads constructor(
 
     /**
      * Returns instance of object which encapsulates changing availability of selection types.
-     * Notes:
-     * Each method is mutating and if you call, for example, `cell(false)` and cell is currently selected,
+     * Note that each method is mutating and if you call, for example, `cell(false)` and cell is currently selected,
      * then selection will be cleared.
-     * So, after `allowedSelectionTypes().cell(false).cell(true)`, when cell is selected,
-     * selection will be cleared although it's enabled.
-     *
-     * If selection type is disabled, it won't trigger the selection listener.
+     * So, if a cell is currently selected, after chain `allowedSelectionTypes().cell(false).cell(true)`, cell selection will be cleared although it's enabled.
      *
      */
     fun allowedSelectionTypes(): AllowedSelectionTypes {

@@ -98,27 +98,13 @@ use `getOnSelectionListener()/setOnSelectionListener()` <br/>
 - `getSelectionViewLayoutParams()/getSelectionViewLayoutParams()` to assign or get layout params for
   the view
 - `hasSelectionViewClearButton()/setHasSelectionViewClearButton()` to get or set whether on
-  selection (if selection view is not null) 'next month' button wiil become 'clear selection'
+  selection (if selection view is not null) 'next month' button will become 'clear selection'
   button.
 
 ## Minimum and maximum dates
 
-- `getMinDateEpoch()/setMinDateEpoch()` to get or set minimum date represented in epoch days (Amount
-  of days since 1 January 1970)
-- `getMaxDateEpoch()/setMaxDateEpoch()` to get or set maximum date represented in epoch days (Amount
-  of days since 1 January 1970)
-- `getMinDate()/setMinDate()` to get or set minimum date represented as `LocalDate`. Note that, it
-  can be used from **API 26+**
-- `getMaxDate()/setMaxDate()` to get or set maximum date represented as `LocalDate`. Note that, it
-  can be used from **API 26+**
-- `getMinDate(Calendar)/getMaxDate(Calendar)` to get minimum/maximum date. The date will be set to
-  the given `Calendar`
-- `setMinDate(Calendar)/setMaxDate(Calendar)` to set minimum/maximum date represented as `Calendar`.
-- `setMinDate(year, month, dayOfMonth)/setMaxDate(year, month, dayOfMonth)` to set
-  minimum/maximum date by raw values.
-    - year should be in range of [1970; 32767]
-    - month is 1-based (in range of [1; 12])
-    - year is 1-based (in range of [1; days in month])
+- `getMinDate()/getMaxDate()` to get minimum and maximum dates respectively.
+- `setMinDate()/setMaxDate()` to set minimum and maximum dates respectively.
 
 ## Listener
 
@@ -162,7 +148,7 @@ They are enabled by default (currently they cannot be disabled).
 
 ## Managing selection through the code
 
-- `selectDay(epochDay)/selectDay(LocalDate)/selectDay(Calendar)` to select a day. If the day is out
+- `selectDay()` to select a day. If the day is out
   of enabled range, it won't be selected and listeners won't be fired.
 - `selectWeek(year, month, weekIndex)` to select a week.
     - year should be in range of [1970; 32767]
@@ -171,8 +157,7 @@ They are enabled by default (currently they cannot be disabled).
 - `selectMonth(year, month)` to select a month.
     - year should be in range of [1970; 32767]
     - month is 1-based
-- `selectCustom(startEpochDays, endEpochDays)/selectCustom(Calendar startDate, Calendar endDate)/selectCustom(LocalDate startDate, LocalDate endDate)`
-  to select custom range defined by epoch days/`LocalDate`/`Calendar`. The range should fit in
+- `selectCustom(LocalDate startDate, LocalDate endDate)` to select custom range. The range should fit in
   single month, otherwise the exception will be thrown.
 - `clearSelection()` to clear selection.
 
