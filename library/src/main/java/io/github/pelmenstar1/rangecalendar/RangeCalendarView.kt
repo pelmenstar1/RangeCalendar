@@ -1036,7 +1036,7 @@ class RangeCalendarView @JvmOverloads constructor(
         get() = currentCalendarYm.year
 
     /**
-     * Returns month of selected calendar page, 1-based. Note, this is not year of selection.
+     * Returns month of selected calendar page, 1-based. Note, this is not month of selection.
      */
     val selectedCalendarMonth: Int
         get() = currentCalendarYm.month

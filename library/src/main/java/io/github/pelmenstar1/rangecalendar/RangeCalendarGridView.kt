@@ -190,7 +190,7 @@ internal class RangeCalendarGridView(
         }
 
         override fun getVisibleVirtualViews(virtualViewIds: MutableList<Int>) {
-            virtualViewIds.addAll(INDCIES)
+            virtualViewIds.addAll(INDICES)
         }
 
         override fun onPopulateNodeForVirtualView(
@@ -259,7 +259,7 @@ internal class RangeCalendarGridView(
         companion object {
             private const val DATE_FORMAT = "dd MMMM yyyy"
 
-            private val INDCIES = ArrayList<Int>(42).also {
+            private val INDICES = ArrayList<Int>(42).also {
                 repeat(42, it::add)
             }
         }
@@ -1058,7 +1058,7 @@ internal class RangeCalendarGridView(
 
         val halfCellSize = cellSize * 0.5f
 
-        val cellTextSize = PackedSize(cr.dayNumberSizes[cell.index - 1])
+        val cellTextSize = cr.getDayNumberSize(cells[cell.index].toInt())
         val halfCellTextWidth = cellTextSize.width * 0.5f
         val halfCellTextHeight = cellTextSize.height * 0.5f
 
@@ -1643,7 +1643,7 @@ internal class RangeCalendarGridView(
         }
 
         if (day > 0) {
-            val size = PackedSize(cr.dayNumberSizes[day - 1])
+            val size = cr.getDayNumberSize(day)
             val halfCellSize = cellSize * 0.5f
 
             val textX = x + halfCellSize - (size.width / 2).toFloat()

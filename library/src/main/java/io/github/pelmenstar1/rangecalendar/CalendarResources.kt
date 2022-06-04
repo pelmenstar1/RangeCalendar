@@ -8,13 +8,14 @@ import android.icu.text.DateFormatSymbols
 import android.os.Build
 import androidx.annotation.AttrRes
 import androidx.core.content.res.ResourcesCompat
+import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.utils.darkerColor
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import io.github.pelmenstar1.rangecalendar.utils.getTextBounds
 import java.lang.IllegalArgumentException
 
 internal class CalendarResources(context: Context) {
-    val dayNumberSizes: LongArray
+    private val dayNumberSizes: LongArray
     val weekdayWidths: IntArray
     val dayNumberTextSize: Float
     val hPadding: Float
@@ -106,8 +107,17 @@ internal class CalendarResources(context: Context) {
         } else Float.NaN
     }
 
+    fun getDayNumberSize(day: Int): PackedSize {
+        return PackedSize(dayNumberSizes[day - 1])
+    }
+
     companion object {
-        private val DAYS: Array<String>
+        private val DAYS = arrayOf(
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+            "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+            "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
+            "31"
+        )
 
         private val SINGLE_INT_ARRAY = IntArray(1)
         private val HOVER_STATE = intArrayOf(android.R.attr.state_hovered, android.R.attr.state_enabled)
@@ -168,28 +178,6 @@ internal class CalendarResources(context: Context) {
             array.recycle()
 
             return list!!
-        }
-
-        init {
-            val buffer = CharArray(2)
-
-            DAYS = Array(31) { i ->
-                val textLength: Int
-                val day = i + 1
-
-                if (day < 10) {
-                    textLength = 1
-
-                    buffer[0] = ('0'.code + day).toChar()
-                } else {
-                    textLength = 2
-
-                    buffer[0] = ('0'.code + (day / 10)).toChar()
-                    buffer[1] = ('0'.code + (day % 10)).toChar()
-                }
-
-                String(buffer, 0, textLength)
-            }
         }
     }
 }

@@ -45,12 +45,6 @@ internal class RangeCalendarPagerAdapter(
         val obj1: Any? = null,
         val obj2: Any? = null,
     ) {
-        constructor(type: Int, arg1: Int) : this(type, arg1.toLong(), 0L)
-        constructor(type: Int, arg1: Boolean) : this(type, if (arg1) 1L else 0L, 0L)
-        constructor(type: Int, argObj: Any?) : this(type, 0, arg2 = 0, obj1 = argObj)
-
-        fun boolean() = arg1 == 1L
-
         companion object {
             const val UPDATE_ENABLED_RANGE = 0
             const val SELECT = 1
@@ -74,7 +68,7 @@ internal class RangeCalendarPagerAdapter(
             fun updateTodayIndex() = UPDATE_TODAY_INDEX_PAYLOAD
 
             fun updateStyle(type: Int, data: Int): Payload {
-                return Payload(UPDATE_STYLE, type.toLong(), data.toLong())
+                return Payload(UPDATE_STYLE, arg1 = type.toLong(), arg2 = data.toLong())
             }
 
             fun updateStyle(type: Int, obj: Any?): Payload {
@@ -131,8 +125,6 @@ internal class RangeCalendarPagerAdapter(
     }
 
     private var count = PAGES_BETWEEN_ABS_MIN_MAX
-
-    private var minDateYm = YearMonth(0)
 
     private var minDate = PackedDate.MIN_DATE
     private var maxDate = PackedDate.MAX_DATE
@@ -343,8 +335,7 @@ internal class RangeCalendarPagerAdapter(
 
         val oldCount = count
 
-        minDateYm = YearMonth.forDate(minDate)
-        count = YearMonth.forDate(maxDate).totalMonths - minDateYm.totalMonths + 1
+        count = (YearMonth.forDate(maxDate) - YearMonth.forDate(minDate) + 1).totalMonths
 
         if (oldCount == count) {
             notifyItemRangeChanged(0, count, Payload.updateEnabledRange())
@@ -354,7 +345,7 @@ internal class RangeCalendarPagerAdapter(
     }
 
     fun getYearMonthForCalendar(position: Int): YearMonth {
-        return minDateYm + position
+        return YearMonth.forDate(minDate) + position
     }
 
     fun clearHoverAt(position: Int) {
@@ -443,7 +434,7 @@ internal class RangeCalendarPagerAdapter(
     }
 
     fun getItemPositionForYearMonth(ym: YearMonth): Int {
-        return ym.totalMonths - minDateYm.totalMonths
+        return ym.totalMonths - YearMonth.forDate(minDate).totalMonths
     }
 
     private fun updateGrid(gridView: RangeCalendarGridView) {
