@@ -14,21 +14,42 @@ class Fill(
     private val gradientPositions: FloatArray? = null
 ) {
     private var shader: Shader? = null
+    private var shaderBounds = PackedRectF(0)
 
     /**
      * Sets bounds in which the fill is applied
      */
     fun setBounds(bounds: RectF) {
-        setBounds(PackedRectF(bounds))
+        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
+    }
+
+    /**
+     * Sets bounds in which the fill is applied
+     */
+    fun setBounds(left: Float, top: Float, right: Float, bottom: Float) {
+        setBounds(left, top, right, bottom) { PackedRectF(left, top, right, bottom) }
     }
 
     internal fun setBounds(bounds: PackedRectF) {
-        val left = bounds.left
-        val top = bounds.top
-        val right = bounds.right
-        val bottom = bounds.bottom
+        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom) { bounds }
+    }
 
-        when(type) {
+    private inline fun setBounds(
+        left: Float, top: Float, right: Float, bottom: Float,
+        computePackedBounds: () -> PackedRectF
+    ) {
+        if(type != TYPE_SOLID) {
+            val packedBounds = computePackedBounds()
+            if (shaderBounds != packedBounds) {
+                shaderBounds = packedBounds
+
+                setBoundsInternal(left, top, right, bottom)
+            }
+        }
+    }
+
+    private fun setBoundsInternal(left: Float, top: Float, right: Float, bottom: Float) {
+        when (type) {
             TYPE_LINEAR_GRADIENT -> {
                 shader = LinearGradient(
                     left, top, right, bottom,
@@ -46,7 +67,7 @@ class Fill(
                 val cx = left + halfWidth
                 val cy = top + halfHeight
 
-                val radius = if(width == height) {
+                val radius = if (width == height) {
                     halfWidth
                 } else {
                     sqrt(halfWidth * halfWidth + halfHeight * halfHeight)

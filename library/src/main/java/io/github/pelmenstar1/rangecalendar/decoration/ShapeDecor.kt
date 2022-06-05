@@ -4,7 +4,12 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
 import androidx.annotation.ColorInt
+import androidx.core.graphics.component1
+import androidx.core.graphics.component2
+import androidx.core.graphics.component3
+import androidx.core.graphics.component4
 import io.github.pelmenstar1.rangecalendar.*
 import io.github.pelmenstar1.rangecalendar.utils.drawOvalCompat
 
@@ -23,7 +28,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
         override val end: ShapeVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
-    ): ShapeVisualState(end.boundsInCell, PackedRectFArray(end.boundsArray.size), end.styles), VisualState.Transitive {
+    ) : ShapeVisualState(end.boundsInCell, PackedRectFArray(end.boundsArray.size), end.styles),
+        VisualState.Transitive {
         override var animationFraction: Float = 0f
 
         override fun handleAnimation(
@@ -42,7 +48,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 animationFraction
             )
 
-            for(i in affectedRangeStart..affectedRangeEnd) {
+            for (i in affectedRangeStart..affectedRangeEnd) {
                 val animFraction = fractionInterpolator.getItemFraction(
                     i - affectedRangeStart, affectedRangeLength, animationFraction
                 )
@@ -88,7 +94,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
             val affectedRangeLength = affectedRangeEnd - affectedRangeStart + 1
 
-            for(i in affectedRangeStart..affectedRangeEnd) {
+            for (i in affectedRangeStart..affectedRangeEnd) {
                 val itemFraction = fractionInterpolator.getItemFraction(
                     i - affectedRangeStart, affectedRangeLength, revAnimationFraction
                 )
@@ -146,6 +152,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
             PackedRectFArray(0),
             emptyArray()
         )
+
+        private val rect = RectF()
 
         private var defaultDecorBlockPadding: Padding? = null
         private var defaultDecorPadding: Padding? = null
@@ -218,11 +226,11 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
                 totalWidth += size
 
-                if(i > start) {
+                if (i > start) {
                     totalWidth += padding.left
                 }
 
-                if(i < endInclusive) {
+                if (i < endInclusive) {
                     totalWidth += padding.right
                 }
             }
@@ -231,21 +239,23 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 maxHeight, blockPadding,
                 layoutOptions?.verticalAlignment ?: VerticalAlignment.CENTER
             )
-            val narrowArea = info.narrowRectOnBottom(
-                PackedRectF(0f, top, info.size, top + maxHeight)
-            )
+
+            rect.set(0f, top, info.size, top + maxHeight)
+
+            info.narrowRectOnBottom(rect)
+            val narrowArea = PackedRectF(rect)
 
             var left = when (
                 info.layoutOptions?.horizontalAlignment ?: HorizontalAlignment.CENTER
             ) {
                 HorizontalAlignment.LEFT -> {
-                    narrowArea.left + blockPadding.left
+                    rect.left + blockPadding.left
                 }
                 HorizontalAlignment.CENTER -> {
-                    (narrowArea.left + narrowArea.right - totalWidth) * 0.5f
+                    (rect.left + rect.right - totalWidth) * 0.5f
                 }
                 HorizontalAlignment.RIGHT -> {
-                    narrowArea.right - totalWidth - blockPadding.right
+                    rect.right - totalWidth - blockPadding.right
                 }
             }
 
@@ -260,7 +270,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 val padding = getDecorPadding(context, style.padding)
                 val size = style.size
 
-                if(i > 0) {
+                if (i > 0) {
                     left += padding.left
                 }
 
@@ -276,7 +286,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 style.fill.setBounds(bounds)
 
                 left += size
-                if(i < length - 1) {
+                if (i < length - 1) {
                     left += padding.right
                 }
             }
@@ -294,7 +304,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
             start as ShapeVisualState
             end as ShapeVisualState
 
-            return when(change) {
+            return when (change) {
                 VisualStateChange.ADD -> {
                     TransitiveAdditionShapeVisualState(
                         start, end,
@@ -321,26 +331,34 @@ class ShapeDecor(val style: Style) : CellDecor() {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         private var tempPath: Path? = null
 
+        private val rect = RectF()
+
         override fun renderState(canvas: Canvas, state: VisualState) {
             val shapeState = state as ShapeVisualState
 
             canvas.save()
-            val clipRect = shapeState.boundsInCell
-            canvas.clipRect(clipRect.left, clipRect.top, clipRect.right, clipRect.bottom)
+            shapeState.boundsInCell.setTo(rect)
+            canvas.clipRect(rect)
 
             val boundsArray = shapeState.boundsArray
             val styles = shapeState.styles
 
-            for(i in 0 until boundsArray.size) {
+            for (i in 0 until boundsArray.size) {
                 val bounds = boundsArray[i]
                 val style = styles[i]
 
                 style.fill.applyToPaint(paint)
 
+                bounds.setTo(rect)
+
+                val shapeType = style.type
+
+                drawShape(canvas, shapeType)
+
                 val border = style.border
 
-                if(border != null) {
-                    val endBounds = when(state) {
+                if (border != null) {
+                    val endBounds = when (state) {
                         is TransitiveAdditionShapeVisualState -> state.end.boundsArray[i]
                         is TransitiveCellInfoShapeVisualState -> state.end.boundsArray[i]
                         is TransitiveRemovalShapeVisualState -> state.start.boundsArray[i]
@@ -348,61 +366,44 @@ class ShapeDecor(val style: Style) : CellDecor() {
                         else -> bounds
                     }
 
-                    val animationFraction = state.animationFraction
+                    border.doDrawPreparation(
+                        bounds, endBounds,
+                        state.animationFraction, style.borderAnimationType,
+                        paint, rect
+                    )
 
-                    border.applyToPaint(paint)
-
-                    when(style.borderAnimationType) {
-                        BorderAnimationType.ONLY_SHAPE -> {
-                            drawShape(canvas, bounds.adjustBoundsForBorder(border.width), style.type)
-                        }
-                        BorderAnimationType.ONLY_WIDTH -> {
-                            val borderWidth = border.width * animationFraction
-
-                            paint.strokeWidth = borderWidth
-
-                            drawShape(canvas, endBounds.adjustBoundsForBorder(border.width), style.type)
-                        }
-                        BorderAnimationType.SHAPE_AND_WIDTH -> {
-                            val borderWidth = border.width * animationFraction
-
-                            paint.strokeWidth = borderWidth
-
-                            drawShape(canvas, bounds.adjustBoundsForBorder(border.width), style.type)
-                        }
-                    }
+                    drawShape(canvas, shapeType)
                 }
-
-                style.fill.applyToPaint(paint)
-                drawShape(canvas, bounds, style.type)
             }
 
             canvas.restore()
         }
 
-        private fun drawShape(canvas: Canvas, bounds: PackedRectF, type: Type) {
-            val (left, top, right, bottom) = bounds
-
-            when(type) {
+        private fun drawShape(canvas: Canvas, type: Type) {
+            when (type) {
                 Type.RECT -> {
-                    canvas.drawRect(left, top, right, bottom, paint)
+                    canvas.drawRect(rect, paint)
                 }
                 Type.CIRCLE -> {
-                    canvas.drawOvalCompat(left, top, right, bottom, paint)
+                    canvas.drawOval(rect, paint)
                 }
                 Type.TRIANGLE -> {
                     var path = tempPath
-                    if(path == null) {
+                    if (path == null) {
                         path = Path()
                         tempPath = path
                     } else {
                         path.rewind()
                     }
 
-                    path.moveTo((left + right) * 0.5f, top)
-                    path.lineTo(right, bottom)
-                    path.lineTo(left, bottom)
-                    path.close()
+                    val (left, top, right, bottom) = rect
+
+                    path.run {
+                        moveTo(rect.centerX(), top)
+                        lineTo(right, bottom)
+                        lineTo(left, bottom)
+                        close()
+                    }
 
                     canvas.drawPath(path, paint)
                 }

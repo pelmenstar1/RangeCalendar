@@ -2,6 +2,7 @@ package io.github.pelmenstar1.rangecalendar
 
 import android.graphics.DashPathEffect
 import android.graphics.Paint
+import android.graphics.RectF
 import androidx.annotation.ColorInt
 
 /**
@@ -79,15 +80,13 @@ class Border {
     }
 }
 
-internal fun PackedRectF.adjustBoundsForBorder(strokeWidth: Float): PackedRectF {
+internal fun RectF.adjustForBorder(strokeWidth: Float) {
     val half = strokeWidth * 0.5f
 
-    return PackedRectF(
-        left + half,
-        top + half,
-        right - half,
-        bottom - half
-    )
+    left += half
+    top += half
+    right -= half
+    bottom -= half
 }
 
 /**

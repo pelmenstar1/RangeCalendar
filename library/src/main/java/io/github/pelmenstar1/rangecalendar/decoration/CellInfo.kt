@@ -74,36 +74,6 @@ class CellInfo internal constructor() {
         }
     }
 
-    internal fun narrowRectOnBottom(rect: PackedRectF): PackedRectF {
-        if (radius > 0f) {
-            var left = rect.left
-            val top = rect.top
-            var right = rect.right
-            val bottom = rect.bottom
-
-            val sizeWithoutRadius = size - radius
-
-            when {
-                bottom > sizeWithoutRadius -> {
-                    val intersectionX = findIntersectionWithCircle(bottom - sizeWithoutRadius)
-
-                    left = intersectionX
-                    right = size - intersectionX
-                }
-                top > sizeWithoutRadius -> {
-                    val intersectionX = findIntersectionWithCircle(top - sizeWithoutRadius)
-
-                    left = intersectionX
-                    right = size - intersectionX
-                }
-            }
-
-            return rect.withLeftAndRight(left, right)
-        }
-
-        return rect
-    }
-
     // This function finds x of intersection of circle and line. Line is horizontal and specified by y.
     //
     // Circle's equation (with center at (0; 0)):

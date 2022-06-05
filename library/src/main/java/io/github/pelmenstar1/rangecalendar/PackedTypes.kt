@@ -131,12 +131,6 @@ internal value class PackedRectF(val bits: Long) {
     val bottom: Float
         get() = float16To32(getValueBits(0))
 
-    val width: Float
-        get() = right - left
-
-    val height: Float
-        get() = bottom - top
-
     inline operator fun component1() = left
     inline operator fun component2() = top
     inline operator fun component3() = right
@@ -250,6 +244,10 @@ internal value class PackedPointF(val bits: Long) {
     override fun toString(): String {
         return "PackedPointF(x=$x, y=$y)"
     }
+}
+
+internal fun lerp(start: PackedPointF, end: PackedPointF, fraction: Float): PackedPointF {
+    return PackedPointF(lerp(start.x, end.x, fraction), lerp(start.y, end.y, fraction))
 }
 
 internal fun PackedPointFArray(size: Int): PackedPointFArray {
