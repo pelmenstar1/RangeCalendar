@@ -1,5 +1,10 @@
 package io.github.pelmenstar1.rangecalendar.utils
 
+/**
+ * sqrt(2)
+ */
+internal const val SQRT_2 = 1.41421356237f
+
 internal fun floorMod(x: Long, y: Long): Long {
     val r = x / y
     var aligned = r * y

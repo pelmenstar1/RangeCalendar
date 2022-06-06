@@ -2,7 +2,6 @@ package io.github.pelmenstar1.rangecalendar
 
 import android.graphics.*
 import androidx.annotation.ColorInt
-import kotlin.math.sqrt
 
 /**
  * Represents either a solid fill or gradient fill.
@@ -19,62 +18,62 @@ class Fill(
     /**
      * Sets bounds in which the fill is applied
      */
-    fun setBounds(bounds: RectF) {
-        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
+    @JvmOverloads
+    fun setBounds(bounds: RectF, shape: Shape = RectangleShape) {
+        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom, shape)
     }
 
     /**
      * Sets bounds in which the fill is applied
      */
-    fun setBounds(left: Float, top: Float, right: Float, bottom: Float) {
-        setBounds(left, top, right, bottom) { PackedRectF(left, top, right, bottom) }
+    @JvmOverloads
+    fun setBounds(left: Float, top: Float, right: Float, bottom: Float, shape: Shape = RectangleShape) {
+        setBounds(left, top, right, bottom, shape) { PackedRectF(left, top, right, bottom) }
     }
 
-    internal fun setBounds(bounds: PackedRectF) {
-        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom) { bounds }
+    internal fun setBounds(bounds: PackedRectF, shape: Shape) {
+        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom, shape) { bounds }
     }
 
-    private inline fun setBounds(
-        left: Float, top: Float, right: Float, bottom: Float,
+    internal inline fun setBounds(
+        left: Float, top: Float, right: Float, bottom: Float, shape: Shape,
         computePackedBounds: () -> PackedRectF
     ) {
-        if(type != TYPE_SOLID) {
+        if (type != TYPE_SOLID) {
             val packedBounds = computePackedBounds()
             if (shaderBounds != packedBounds) {
                 shaderBounds = packedBounds
 
-                setBoundsInternal(left, top, right, bottom)
+                setBoundsInternal(left, top, right, bottom, shape)
             }
         }
     }
 
-    private fun setBoundsInternal(left: Float, top: Float, right: Float, bottom: Float) {
+    private fun setBoundsInternal(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        shape: Shape
+    ) {
+        tempBox.set(left, top, right, bottom)
+
         when (type) {
             TYPE_LINEAR_GRADIENT -> {
+                shape.narrowBox(tempBox)
+
                 shader = LinearGradient(
-                    left, top, right, bottom,
+                    tempBox.left, tempBox.top, tempBox.right, tempBox.bottom,
                     gradientColors!!, gradientPositions!!,
                     Shader.TileMode.REPEAT
                 )
             }
             TYPE_RADIAL_GRADIENT -> {
-                val width = right - left
-                val height = bottom - top
-
-                val halfWidth = width * 0.5f
-                val halfHeight = height * 0.5f
-
-                val cx = left + halfWidth
-                val cy = top + halfHeight
-
-                val radius = if (width == height) {
-                    halfWidth
-                } else {
-                    sqrt(halfWidth * halfWidth + halfHeight * halfHeight)
-                }
+                val radius = shape.computeCircumcircle(tempBox, tempPoint)
 
                 shader = RadialGradient(
-                    cx, cy, radius,
+                    tempPoint.x, tempPoint.y,
+                    radius,
                     gradientColors!!, gradientPositions!!,
                     Shader.TileMode.REPEAT
                 )
@@ -85,7 +84,7 @@ class Fill(
     internal fun applyToPaint(paint: Paint) {
         paint.style = Paint.Style.FILL
 
-        if(type == TYPE_SOLID) {
+        if (type == TYPE_SOLID) {
             paint.color = color
             paint.shader = null
         } else {
@@ -114,11 +113,15 @@ class Fill(
         return result
     }
 
-    override fun toString(): String = when(type) {
+    override fun toString(): String = when (type) {
         TYPE_SOLID ->
             "{ type = SOLID, color = #${color.toString(16)}}"
         TYPE_LINEAR_GRADIENT, TYPE_RADIAL_GRADIENT ->
-            "{ type = ${if(type == TYPE_LINEAR_GRADIENT) "LINEAR_GRADIENT" else "RADIAL_GRADIENT"}, colors=${colorsToString(gradientColors!!)}}, positions=${gradientPositions.contentToString()} }"
+            "{ type = ${if (type == TYPE_LINEAR_GRADIENT) "LINEAR_GRADIENT" else "RADIAL_GRADIENT"}, colors=${
+                colorsToString(
+                    gradientColors!!
+                )
+            }}, positions=${gradientPositions.contentToString()} }"
         else -> ""
     }
 
@@ -129,6 +132,9 @@ class Fill(
         private const val TYPE_LINEAR_GRADIENT = 1
         private const val TYPE_RADIAL_GRADIENT = 2
 
+        private val tempBox = RectF()
+        private val tempPoint = PointF()
+
         private fun colorsToString(colors: IntArray): String {
             return buildString {
                 append('[')
@@ -136,7 +142,7 @@ class Fill(
                     append('#')
                     append(color.toString(16))
 
-                    if(index < colors.size - 1) {
+                    if (index < colors.size - 1) {
                         append(", ")
                     }
                 }

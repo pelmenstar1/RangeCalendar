@@ -6,12 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import androidx.annotation.ColorInt
-import androidx.core.graphics.component1
-import androidx.core.graphics.component2
-import androidx.core.graphics.component3
-import androidx.core.graphics.component4
 import io.github.pelmenstar1.rangecalendar.*
-import io.github.pelmenstar1.rangecalendar.utils.drawOvalCompat
 
 /**
  * Represents a shape decoration.
@@ -280,10 +275,12 @@ class ShapeDecor(val style: Style) : CellDecor() {
                     VerticalAlignment.BOTTOM -> top + maxHeight - size
                 }
 
-                val bounds = PackedRectF(left, decorTop, left + size, decorTop + size)
+                val right = left + size
+                val bottom = decorTop + size
+                val packedRect = PackedRectF(left, decorTop, right, bottom)
 
-                boundsArray[i] = bounds
-                style.fill.setBounds(bounds)
+                boundsArray[i] = packedRect
+                style.fill.setBounds(left, decorTop, right, bottom, style.shape) { packedRect }
 
                 left += size
                 if (i < length - 1) {
@@ -351,7 +348,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
                 bounds.setTo(rect)
 
-                val shapeType = style.type
+                val shapeType = style.shape
 
                 drawShape(canvas, shapeType)
 
@@ -379,48 +376,24 @@ class ShapeDecor(val style: Style) : CellDecor() {
             canvas.restore()
         }
 
-        private fun drawShape(canvas: Canvas, type: Type) {
-            when (type) {
-                Type.RECT -> {
-                    canvas.drawRect(rect, paint)
+        private fun drawShape(canvas: Canvas, shape: Shape) {
+            if(shape.needsPathToDraw) {
+                var path = tempPath
+                if (path == null) {
+                    path = Path()
+                    tempPath = path
                 }
-                Type.CIRCLE -> {
-                    canvas.drawOval(rect, paint)
-                }
-                Type.TRIANGLE -> {
-                    var path = tempPath
-                    if (path == null) {
-                        path = Path()
-                        tempPath = path
-                    } else {
-                        path.rewind()
-                    }
 
-                    val (left, top, right, bottom) = rect
+                shape.draw(canvas, rect, path, paint)
 
-                    path.run {
-                        moveTo(rect.centerX(), top)
-                        lineTo(right, bottom)
-                        lineTo(left, bottom)
-                        close()
-                    }
-
-                    canvas.drawPath(path, paint)
-                }
+                path.reset()
+            } else {
+                shape.draw(canvas, rect, null, paint)
             }
         }
     }
 
     override fun visual(): Visual = ShapeVisual
-
-    /**
-     * Represents all supported types of shapes.
-     */
-    enum class Type {
-        CIRCLE,
-        RECT,
-        TRIANGLE
-    }
 
     /**
      * Represents style for [ShapeDecor].
@@ -429,7 +402,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
         /**
          * Type of shape.
          */
-        val type: Type,
+        val shape: Shape,
 
         /**
          * Size of shape as width and height are the same.
@@ -462,7 +435,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
         val contentAlignment: VerticalAlignment
     ) {
         class Builder(
-            private var type: Type,
+            private var shape: Shape,
             private var size: Float,
             private var fill: Fill
         ) {
@@ -539,7 +512,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
              * Builds [Style] object.
              */
             fun build() = Style(
-                type,
+                shape,
                 size,
                 fill,
                 padding,
