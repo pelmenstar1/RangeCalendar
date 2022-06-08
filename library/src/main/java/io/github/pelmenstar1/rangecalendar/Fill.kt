@@ -183,6 +183,8 @@ class Fill(
          * @param positions relative positions of each color, each element should be in range `[0; 1]`
          */
         fun linearGradient(colors: IntArray, positions: FloatArray): Fill {
+            checkColorsAndPositions(colors, positions)
+
             return Fill(
                 type = TYPE_LINEAR_GRADIENT,
                 gradientColors = colors,
@@ -211,11 +213,19 @@ class Fill(
          * @param positions relative positions of each color, each element should be in range `[0; 1]`
          */
         fun radialGradient(colors: IntArray, positions: FloatArray): Fill {
+            checkColorsAndPositions(colors, positions)
+
             return Fill(
                 type = TYPE_RADIAL_GRADIENT,
                 gradientColors = colors,
                 gradientPositions = positions
             )
+        }
+
+        private fun checkColorsAndPositions(colors: IntArray, positions: FloatArray) {
+            if(colors.size != positions.size) {
+                throw IllegalArgumentException("colors and positions must have equal length")
+            }
         }
     }
 }
