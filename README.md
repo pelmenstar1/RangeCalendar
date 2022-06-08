@@ -260,8 +260,8 @@ They are enabled by default (currently they cannot be disabled).
         </td>
     </tr>
     <tr>
-        <td>rangeCalendar_roundRectRadiusRatio</td>
-        <td>Round rect radius of selected is determined by this fraction multiplied by cell size. By default, it's 0.5</td>
+        <td>rangeCalendar_cellSize</td>
+        <td>Round radius of the cell. By default it's positive infinity which means the shape is circle regardless the size of it.</td>
     </tr>
 </table>
 

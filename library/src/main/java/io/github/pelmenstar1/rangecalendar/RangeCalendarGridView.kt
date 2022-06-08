@@ -286,7 +286,15 @@ internal class RangeCalendarGridView(
 
     internal var cellSize: Float
     private var columnWidth = 0f
-    private var rrRadiusRatio = DEFAULT_RR_RADIUS_RATIO
+
+    // The cell is circle by default and to achieve it with any possible cell size,
+    // we should take greatest round radius possible, that's why it's positive inf.
+    //
+    // But when infinity is passed as round radius, round radius is changed to 0 somewhere inside the Android
+    // and round rect becomes rect. So, when rrRadius is used, it needs to be resolved to get rid of infinities.
+    //
+    // There's method for that: cellRoundRadius()
+    private var rrRadius: Float = Float.POSITIVE_INFINITY
 
     private val dayNumberPaint: Paint
     private val weekdayPaint: Paint
@@ -481,10 +489,10 @@ internal class RangeCalendarGridView(
         requestLayout()
     }
 
-    fun setRoundRectRadiusRatio(value: Float) {
+    fun setCellRoundRadius(value: Float) {
         require(value >= 0f) { "ratio < 0" }
 
-        rrRadiusRatio = value.coerceAtMost(0.5f)
+        rrRadius = value
 
         refreshAllDecorVisualStatesOnSizeChange()
 
@@ -592,8 +600,6 @@ internal class RangeCalendarGridView(
             SelectionType.CUSTOM -> selectCustom(savedRange, false)
         }
     }
-
-    private fun rrRadius(): Float = cellSize * rrRadiusRatio
 
     private fun refreshColumnWidth() {
         val width = width.toFloat()
@@ -1064,7 +1070,7 @@ internal class RangeCalendarGridView(
 
         cellInfo.apply {
             size = cellSize
-            radius = rrRadius()
+            radius = cellRoundRadius()
             layoutOptions = decorLayoutOptionsArray[cell] ?: decorDefaultLayoutOptions
 
             setTextBounds(
@@ -1469,7 +1475,7 @@ internal class RangeCalendarGridView(
 
         c.drawRoundRectCompat(
             left, rectTop, right, rectBottom,
-            rrRadius(), selectionPaint
+            cellRoundRadius(), selectionPaint
         )
     }
 
@@ -1532,7 +1538,7 @@ internal class RangeCalendarGridView(
 
         c.drawRoundRectCompat(
             left, top, left + cellSize, top + cellSize,
-            rrRadius(), selectionPaint
+            cellRoundRadius(), selectionPaint
         )
     }
 
@@ -1587,7 +1593,7 @@ internal class RangeCalendarGridView(
 
             c.drawRoundRectCompat(
                 left, top, left + cellSize, top + cellSize,
-                rrRadius(), paint
+                cellRoundRadius(), paint
             )
 
             paint.alpha = paintAlpha
@@ -1707,7 +1713,7 @@ internal class RangeCalendarGridView(
         val start = range.start
         val end = range.end
 
-        val radius = rrRadius()
+        val radius = cellRoundRadius()
 
         if (start.sameY(end)) {
             val left = getCellLeft(start)
@@ -1825,6 +1831,13 @@ internal class RangeCalendarGridView(
         return height + cr.weekdayRowMarginBottom
     }
 
+    // It'd be better if cellRoundRadius() returns round radius that isn't greater than half of cell size.
+    private fun cellRoundRadius(): Float {
+        val halfCellSize = cellSize * 0.5f
+
+        return if(rrRadius > halfCellSize) halfCellSize else rrRadius
+    }
+
     private fun getCellLeft(cell: Cell): Float {
         return cr.hPadding + columnWidth * (cell.gridX + 0.5f) - cellSize * 0.5f
     }
@@ -1859,12 +1872,6 @@ internal class RangeCalendarGridView(
     }
 
     companion object {
-        const val DECOR_SYNC_REASON_INIT = 0
-        const val DECOR_SYNC_REASON_ADDITION = 1
-        const val DECOR_SYNC_REASON_REMOVAL = 2
-
-        const val DEFAULT_RR_RADIUS_RATIO = 0.5f
-
         private const val MSG_LONG_PRESS = 0
         private const val MSG_HOVER_PRESS = 1
         private const val CELL_IN_MONTH = 0

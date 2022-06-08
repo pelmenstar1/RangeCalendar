@@ -20,7 +20,7 @@
             <enum name="none" value="0"/>
             <enum name="clear" value="1"/>
         </attr>
-        <attr name="rangeCalendar_roundRectRadiusRatio" format="fraction"/>
+        <attr name="rangeCalendar_cellRoundRadius" format="dimension"/>
         <attr name="rangeCalendar_vibrateOnSelectingCustomRange" format="boolean"/>
     </declare-styleable>
 

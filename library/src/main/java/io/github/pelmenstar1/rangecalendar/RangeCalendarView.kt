@@ -210,10 +210,6 @@ class RangeCalendarView @JvmOverloads constructor(
             extract(index, styleType, ATTR_INT)
         }
 
-        fun fraction(@StyleableRes index: Int, styleType: Int) {
-            extract(index, styleType, ATTR_FRACTION)
-        }
-
         fun boolean(@StyleableRes index: Int, styleType: Int) {
             extract(index, styleType, ATTR_BOOL)
         }
@@ -231,9 +227,6 @@ class RangeCalendarView @JvmOverloads constructor(
                     ATTR_INT -> {
                         value = attrs.getInteger(index, 0)
                     }
-                    ATTR_FRACTION -> {
-                        value = attrs.getFraction(index, 1, 1, 0f).toBits()
-                    }
                     ATTR_BOOL -> {
                         value = if (attrs.getBoolean(index, false)) 1 else 0
                     }
@@ -247,8 +240,7 @@ class RangeCalendarView @JvmOverloads constructor(
             private const val ATTR_COLOR = 0
             private const val ATTR_DIMEN = 1
             private const val ATTR_INT = 2
-            private const val ATTR_FRACTION = 3
-            private const val ATTR_BOOL = 4
+            private const val ATTR_BOOL = 3
         }
     }
 
@@ -584,9 +576,9 @@ class RangeCalendarView @JvmOverloads constructor(
                     R.styleable.RangeCalendarView_rangeCalendar_clickOnCellSelectionBehavior,
                     RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR
                 )
-                fraction(
-                    R.styleable.RangeCalendarView_rangeCalendar_roundRectRadiusRatio,
-                    RangeCalendarPagerAdapter.STYLE_RR_RADIUS_RATIO
+                dimension(
+                    R.styleable.RangeCalendarView_rangeCalendar_cellRoundRadius,
+                    RangeCalendarPagerAdapter.STYLE_CELL_RR_RADIUS
                 )
                 boolean(
                     R.styleable.RangeCalendarView_rangeCalendar_vibrateOnSelectingCustomRange,
@@ -1144,15 +1136,15 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Round radius of cell shape equals to cell size multiplied to this fraction.
+     * Gets or sets round radius of cell shape.
      *
-     * Set 0 to make cell shape rectangle.
-     * Set 0.5 or greater to make cell shape circle.
+     * Set to 0f if cell shape should be rectangle.
+     * Set to [Float.POSITIVE_INFINITY] if cell shape is wanted to be circle regardless the size of it.
      */
-    var roundRectRadiusRatio: Float
-        get() = adapter.getStyleFloat(RangeCalendarPagerAdapter.STYLE_RR_RADIUS_RATIO)
+    var cellRoundRadius: Float
+        get() = adapter.getStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_RR_RADIUS)
         set(ratio) {
-            adapter.setStyleFloat(RangeCalendarPagerAdapter.STYLE_RR_RADIUS_RATIO, ratio)
+            adapter.setStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_RR_RADIUS, ratio)
         }
 
     /**

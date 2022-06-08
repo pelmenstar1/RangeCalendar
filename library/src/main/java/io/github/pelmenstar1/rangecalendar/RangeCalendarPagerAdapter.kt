@@ -171,7 +171,7 @@ internal class RangeCalendarPagerAdapter(
         initStyle(STYLE_WEEKDAY_TYPE, WeekdayType.SHORT)
         initStyle(STYLE_HOVER_COLOR, cr.hoverColor)
         initStyle(STYLE_HOVER_ON_SELECTION_COLOR, cr.colorPrimaryDark)
-        initStyle(STYLE_RR_RADIUS_RATIO, RangeCalendarGridView.DEFAULT_RR_RADIUS_RATIO)
+        initStyle(STYLE_CELL_RR_RADIUS, Float.POSITIVE_INFINITY)
         initStyle(STYLE_CELL_SIZE, cr.cellSize)
         initStyle(STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR, ClickOnCellSelectionBehavior.NONE)
         initStyle(
@@ -294,7 +294,7 @@ internal class RangeCalendarPagerAdapter(
             STYLE_WEEKDAY_COLOR -> gridView.setDayNameColor(i)
             STYLE_HOVER_COLOR -> gridView.setHoverColor(i)
             STYLE_HOVER_ON_SELECTION_COLOR -> gridView.setHoverOnSelectionColor(i)
-            STYLE_RR_RADIUS_RATIO -> gridView.setRoundRectRadiusRatio(f)
+            STYLE_CELL_RR_RADIUS -> gridView.setCellRoundRadius(f)
             STYLE_CELL_SIZE -> gridView.cellSize = f
             STYLE_WEEKDAY_TYPE -> gridView.setWeekdayType(i)
             STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR -> gridView.clickOnCellSelectionBehavior = i
@@ -1150,7 +1150,7 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_WEEKDAY_TEXT_SIZE = 7
         const val STYLE_HOVER_COLOR = 8
         const val STYLE_HOVER_ON_SELECTION_COLOR = 9
-        const val STYLE_RR_RADIUS_RATIO = 10
+        const val STYLE_CELL_RR_RADIUS = 10
         const val STYLE_CELL_SIZE = 11
         const val STYLE_WEEKDAY_TYPE = 12
         const val STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR = 13
