@@ -353,7 +353,9 @@ internal class RangeCalendarGridView(
     var commonAnimationInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
     var hoverAnimationInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
 
-    private val vibrator: Vibrator
+    private var vibrator: Vibrator? = null
+    private var vibrationEffect: VibrationEffect? = null
+
     var vibrateOnSelectingCustomRange = true
 
     internal var decorations: DecorGroupedList? = null
@@ -412,16 +414,6 @@ internal class RangeCalendarGridView(
         cellHoverOnSelectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
             color = cr.colorPrimaryDark
-        }
-
-        vibrator = if (Build.VERSION.SDK_INT >= 31) {
-            val vibratorManager =
-                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-
-            vibratorManager.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
     }
 
@@ -943,16 +935,25 @@ internal class RangeCalendarGridView(
         }
 
         if (vibrateOnSelectingCustomRange && startSelecting) {
-            if (Build.VERSION.SDK_INT >= 26) {
-                vibrator.vibrate(
-                    VibrationEffect.createOneShot(
-                        VIBRATE_DURATION.toLong(),
+            if (vibrator == null) {
+                vibrator = getVibrator(context)
+
+                // If vibrator is null then vibrationEffect is too.
+                if (Build.VERSION.SDK_INT >= 26) {
+                    vibrationEffect = VibrationEffect.createOneShot(
+                        VIBRATE_DURATION,
                         VibrationEffect.DEFAULT_AMPLITUDE
                     )
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(VIBRATE_DURATION.toLong())
+                }
+            }
+
+            vibrator?.let {
+                if(Build.VERSION.SDK_INT >= 26) {
+                    it.vibrate(vibrationEffect)
+                } else {
+                    @Suppress("DEPRECATION")
+                    it.vibrate(VIBRATE_DURATION)
+                }
             }
         }
 
@@ -1897,7 +1898,7 @@ internal class RangeCalendarGridView(
         private val HOVER_DELAY = ViewConfiguration.getTapTimeout()
 
         private const val DOUBLE_TOUCH_MAX_MILLIS: Long = 500
-        private const val VIBRATE_DURATION = 50
+        private const val VIBRATE_DURATION = 50L
         private const val TAG = "RangeCalendarGridView"
 
         private const val ANIMATION_REVERSE_BIT = 1 shl 31
@@ -1918,5 +1919,17 @@ internal class RangeCalendarGridView(
         private const val CELL_TO_MONTH_ANIMATION = 12
         private const val MONTH_TO_CELL_ANIMATION = 13
         private const val DECOR_ANIMATION = 14
+
+        private fun getVibrator(context: Context): Vibrator {
+            return if (Build.VERSION.SDK_INT >= 31) {
+                val vibratorManager =
+                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+
+                vibratorManager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+        }
     }
 }
