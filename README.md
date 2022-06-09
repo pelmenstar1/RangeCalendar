@@ -27,10 +27,9 @@ implementation 'io.github.pelmenstar1:rangeCalendar:0.9.2'
 Define `RangeCalendarView` in your XML layout:
 
 ```xml
-<io.github.pelmenstar1.RangeCalendarView 
-        android:id="@+id/picker"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+
+<io.github.pelmenstar1.RangeCalendarView android:id="@+id/picker"
+    android:layout_width="match_parent" android:layout_height="wrap_content" />
 ```
 
 Get notified when the date or range are selected:
@@ -148,8 +147,8 @@ They are enabled by default (currently they cannot be disabled).
 
 ## Managing selection through the code
 
-- `selectDay()` to select a day. If the day is out
-  of enabled range, it won't be selected and listeners won't be fired.
+- `selectDay()` to select a day. If the day is out of enabled range, it won't be selected and
+  listeners won't be fired.
 - `selectWeek(year, month, weekIndex)` to select a week.
     - year should be in range of [1970; 32767]
     - month is 1-based
@@ -157,8 +156,8 @@ They are enabled by default (currently they cannot be disabled).
 - `selectMonth(year, month)` to select a month.
     - year should be in range of [1970; 32767]
     - month is 1-based
-- `selectCustom(LocalDate startDate, LocalDate endDate)` to select custom range. The range should fit in
-  single month, otherwise the exception will be thrown.
+- `selectCustom(LocalDate startDate, LocalDate endDate)` to select custom range. The range should
+  fit in single month, otherwise the exception will be thrown.
 - `clearSelection()` to clear selection.
 
 ## Movement
@@ -178,13 +177,13 @@ They are enabled by default (currently they cannot be disabled).
   By code above, we disabled month and custom range selection. If selection type become disabled,
   it'll be automatically cleared.
 
-  - `cell(boolean)` sets whether cell can be selected
-  - `week(boolean)` sets whether week can be selected
-  - `month(boolean)` sets whether month can be selected
-  - `customRange(boolean)` sets whether custom range can be selected
-  
+    - `cell(boolean)` sets whether cell can be selected
+    - `week(boolean)` sets whether week can be selected
+    - `month(boolean)` sets whether month can be selected
+    - `customRange(boolean)` sets whether custom range can be selected
+
   By default all types of selection are allowed.
-  
+
 - `getVibrateOnSelectingCustomRange()/setVibrateOnSelectingCustomRange()` to get or set whether the
   device should vibrate on start of selecting custom range.
 - `getClickOnCellSelectionBehavior()/setClickOnCellSelectionBehavior()` to get or set behaviour when
@@ -262,6 +261,18 @@ They are enabled by default (currently they cannot be disabled).
     <tr>
         <td>rangeCalendar_cellSize</td>
         <td>Round radius of the cell. By default it's positive infinity which means the shape is circle regardless the size of it.</td>
+    </tr>
+    <tr>
+      <td>rangeCalendar_selectionFillGradientBoundsType</td>
+      <td>
+        Gets or sets the way of determining bounds of selection. 
+        It only matters when selection fill is gradient-like.
+        It can be one of these values:
+        <ul>
+          <li>grid - gradient distribution is limited to grid of the calendar.</li>
+          <li>shape - gradient distribution is limited to selection shape.</li>
+        </ul>
+      </td>
     </tr>
 </table>
 

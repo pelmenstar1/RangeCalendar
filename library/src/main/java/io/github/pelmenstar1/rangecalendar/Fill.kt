@@ -2,6 +2,8 @@ package io.github.pelmenstar1.rangecalendar
 
 import android.graphics.*
 import androidx.annotation.ColorInt
+import androidx.core.graphics.alpha
+import io.github.pelmenstar1.rangecalendar.utils.withAlpha
 
 /**
  * Represents either a solid fill or gradient fill.
@@ -13,7 +15,12 @@ class Fill(
     private val gradientPositions: FloatArray? = null
 ) {
     private var shader: Shader? = null
+
     private var shaderBounds = PackedRectF(0)
+    private var shaderShape: Shape? = null
+    private var shaderAlpha: Float = 1f
+
+    private var originGradientColorsAlphas: ByteArray? = null
 
     /**
      * Sets bounds in which the fill is applied
@@ -27,7 +34,13 @@ class Fill(
      * Sets bounds in which the fill is applied
      */
     @JvmOverloads
-    fun setBounds(left: Float, top: Float, right: Float, bottom: Float, shape: Shape = RectangleShape) {
+    fun setBounds(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        shape: Shape = RectangleShape
+    ) {
         setBounds(left, top, right, bottom, shape) { PackedRectF(left, top, right, bottom) }
     }
 
@@ -56,38 +69,73 @@ class Fill(
         bottom: Float,
         shape: Shape
     ) {
+        shaderShape = shape
+
+        shader = createShader(left, top, right, bottom, shape, 1f)
+    }
+
+    private fun createShader(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        shape: Shape,
+        alpha: Float
+    ): Shader {
         tempBox.set(left, top, right, bottom)
 
-        when (type) {
+        gradientColors!!
+        gradientPositions!!
+
+        if (shaderAlpha != alpha) {
+            var originAlphas = originGradientColorsAlphas
+            if (originAlphas == null) {
+                originAlphas = extractAlphas(gradientColors)
+                originGradientColorsAlphas = originAlphas
+            }
+
+            shaderAlpha = alpha
+
+            combineAlphas(alpha, originAlphas, gradientColors)
+        }
+
+        return when (type) {
             TYPE_LINEAR_GRADIENT -> {
                 shape.narrowBox(tempBox)
 
-                shader = LinearGradient(
+                LinearGradient(
                     tempBox.left, tempBox.top, tempBox.right, tempBox.bottom,
-                    gradientColors!!, gradientPositions!!,
-                    Shader.TileMode.REPEAT
+                    gradientColors, gradientPositions,
+                    Shader.TileMode.MIRROR
                 )
             }
             TYPE_RADIAL_GRADIENT -> {
                 val radius = shape.computeCircumcircle(tempBox, tempPoint)
 
-                shader = RadialGradient(
+                RadialGradient(
                     tempPoint.x, tempPoint.y,
                     radius,
-                    gradientColors!!, gradientPositions!!,
-                    Shader.TileMode.REPEAT
+                    gradientColors, gradientPositions,
+                    Shader.TileMode.MIRROR
                 )
             }
+            else -> throw IllegalArgumentException("type is not gradient")
         }
     }
 
-    internal fun applyToPaint(paint: Paint) {
+    internal fun applyToPaint(paint: Paint, alpha: Float = 1f) {
         paint.style = Paint.Style.FILL
 
         if (type == TYPE_SOLID) {
-            paint.color = color
+            paint.color = color.withCombinedAlpha(alpha)
             paint.shader = null
         } else {
+            if (shaderAlpha != alpha) {
+                val (left, top, right, bottom) = shaderBounds
+
+                shader = createShader(left, top, right, bottom, shaderShape!!, alpha)
+            }
+
             paint.shader = shader
         }
     }
@@ -150,6 +198,22 @@ class Fill(
             }
         }
 
+        private fun Int.withCombinedAlpha(newAlpha: Float): Int {
+            return withAlpha((alpha * newAlpha + 0.5f).toInt())
+        }
+
+        private fun combineAlphas(alpha: Float, originAlphas: ByteArray, colors: IntArray) {
+            for (i in colors.indices) {
+                val originAlpha = originAlphas[i].toInt() and 0xFF
+
+                colors[i] = colors[i].withAlpha((originAlpha * alpha + 0.5f).toInt())
+            }
+        }
+
+        private fun extractAlphas(colors: IntArray): ByteArray {
+            return ByteArray(colors.size) { i -> colors[i].alpha.toByte() }
+        }
+
         /**
          * Creates a solid fill.
          *
@@ -187,7 +251,7 @@ class Fill(
 
             return Fill(
                 type = TYPE_LINEAR_GRADIENT,
-                gradientColors = colors,
+                gradientColors = colors.copyOf(),
                 gradientPositions = positions
             )
         }
@@ -217,13 +281,13 @@ class Fill(
 
             return Fill(
                 type = TYPE_RADIAL_GRADIENT,
-                gradientColors = colors,
+                gradientColors = colors.copyOf(),
                 gradientPositions = positions
             )
         }
 
         private fun checkColorsAndPositions(colors: IntArray, positions: FloatArray) {
-            if(colors.size != positions.size) {
+            if (colors.size != positions.size) {
                 throw IllegalArgumentException("colors and positions must have equal length")
             }
         }

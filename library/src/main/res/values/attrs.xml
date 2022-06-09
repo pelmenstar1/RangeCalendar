@@ -22,6 +22,10 @@
         </attr>
         <attr name="rangeCalendar_cellRoundRadius" format="dimension"/>
         <attr name="rangeCalendar_vibrateOnSelectingCustomRange" format="boolean"/>
+        <attr name="rangeCalendar_selectionFillGradientBoundsType" format="enum">
+            <enum name="shape" value="0"/>
+            <enum name="grid" value="1"/>
+        </attr>
     </declare-styleable>
 
 </resources>

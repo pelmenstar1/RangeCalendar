@@ -318,6 +318,9 @@ internal class RangeCalendarGridView(
     private var hoverCell = Cell.Undefined
     private var animationHoverCell = Cell.Undefined
 
+    private var selectionFill: Fill
+    private var selectionFillGradientBoundsType = SelectionFillGradientBoundsType.GRID
+
     var ym = YearMonth(0)
 
     private var prevSelectionType = 0
@@ -332,6 +335,7 @@ internal class RangeCalendarGridView(
     private var customPathRange = CellRange.Invalid
     private var customRangeStartCell = Cell.Undefined
     private var isSelectingCustomRange = false
+    private var customRangePathBounds = PackedRectF(0)
 
     private var animation = 0
     private var animFraction = 0f
@@ -351,9 +355,6 @@ internal class RangeCalendarGridView(
 
     private val vibrator: Vibrator
     var vibrateOnSelectingCustomRange = true
-
-    private var gradient: LinearGradient? = null
-    private var gradientColors: IntArray? = null
 
     internal var decorations: DecorGroupedList? = null
     private var decorRegion = PackedIntRange.Undefined
@@ -385,10 +386,10 @@ internal class RangeCalendarGridView(
         disabledDayNumberColor = cr.disabledTextColor
         todayColor = colorPrimary
 
+        selectionFill = Fill.solid(colorPrimary)
         background = null
 
         selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = colorPrimary
             style = Paint.Style.FILL
         }
 
@@ -424,8 +425,15 @@ internal class RangeCalendarGridView(
         }
     }
 
-    fun setSelectionColor(@ColorInt color: Int) {
-        selectionPaint.color = color
+    fun setSelectionFill(fill: Fill) {
+        selectionFill = fill
+        invalidate()
+    }
+
+    fun setSelectionFillGradientBoundsType(value: SelectionFillGradientBoundsType) {
+        selectionFillGradientBoundsType = value
+
+        updateGradientBoundsIfNeeded()
         invalidate()
     }
 
@@ -528,6 +536,8 @@ internal class RangeCalendarGridView(
             forceResetCustomPath()
         }
 
+        updateGradientBoundsIfNeeded()
+
         invalidate()
 
         // y-axis of entries depends on type of weekday, so we need to refresh accessibility info
@@ -536,53 +546,6 @@ internal class RangeCalendarGridView(
 
     fun setTodayCell(cell: Cell) {
         todayCell = cell
-        invalidate()
-    }
-
-    fun setGradientEnabled(state: Boolean) {
-        if (state) {
-            if (gradientColors == null) {
-                gradientColors = intArrayOf(cr.colorPrimary, cr.colorPrimaryDark)
-            }
-
-            updateGradient()
-        } else {
-            // Don't clear gradientColors because it can be used if gradient is enabled next time.
-            selectionPaint.shader = null
-            gradient = null
-            invalidate()
-        }
-    }
-
-    fun setGradientColors(@ColorInt start: Int, @ColorInt end: Int) {
-        var colors = gradientColors
-        if (colors == null) {
-            colors = IntArray(2)
-            gradientColors = colors
-        }
-
-        if (colors[0] != start || colors[1] != end) {
-            colors[0] = start
-            colors[1] = end
-
-            updateGradient()
-        }
-    }
-
-    private fun updateGradient() {
-        val colors = gradientColors ?: return
-
-        val fw = width.toFloat()
-        val fh = height.toFloat()
-
-        gradient = LinearGradient(
-            cr.hPadding, gridTop(),
-            fw - cr.hPadding, fh,
-            colors, null,
-            Shader.TileMode.CLAMP
-        )
-        selectionPaint.shader = gradient
-
         invalidate()
     }
 
@@ -626,8 +589,17 @@ internal class RangeCalendarGridView(
             forceResetCustomPath()
         }
 
-        // Gradient depends on size too.
-        updateGradient()
+        updateGradientBoundsIfNeeded()
+    }
+
+    private fun updateGradientBoundsIfNeeded() {
+        if (selectionFillGradientBoundsType == SelectionFillGradientBoundsType.GRID) {
+            val hPadding = cr.hPadding
+
+            selectionFill.setBounds(
+                hPadding, gridTop(), width - hPadding, height.toFloat()
+            )
+        }
     }
 
     override fun dispatchHoverEvent(event: MotionEvent): Boolean {
@@ -1058,7 +1030,7 @@ internal class RangeCalendarGridView(
 
         val subregion = decors.getSubregion(decorRegion, cell)
 
-        if(subregion.isUndefined) {
+        if (subregion.isUndefined) {
             return stateHandler.emptyState()
         }
 
@@ -1110,11 +1082,15 @@ internal class RangeCalendarGridView(
         invalidate()
     }
 
-    fun setDecorationLayoutOptions(cell: Cell, options: DecorLayoutOptions, withAnimation: Boolean) {
+    fun setDecorationLayoutOptions(
+        cell: Cell,
+        options: DecorLayoutOptions,
+        withAnimation: Boolean
+    ) {
         val decors = decorations!!
 
         val region = decors.getSubregion(decorRegion, cell)
-        if(region.isUndefined) {
+        if (region.isUndefined) {
             return
         }
 
@@ -1125,7 +1101,7 @@ internal class RangeCalendarGridView(
 
         val endState = createDecorVisualState(stateHandler, cell)
 
-        if(withAnimation) {
+        if (withAnimation) {
             decorVisualStates[cell] = stateHandler.createTransitiveState(
                 startState, endState,
                 region.start, region.endInclusive,
@@ -1260,7 +1236,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun updateDecorVisualStateOnRemove(cell: Cell, endState: CellDecor.VisualState) {
-        decorVisualStates[cell] = if(endState.isEmpty) null else endState
+        decorVisualStates[cell] = if (endState.isEmpty) null else endState
     }
 
     private fun startAnimation(type: Int, handler: (() -> Unit)? = null, onEnd: Runnable? = null) {
@@ -1338,25 +1314,14 @@ internal class RangeCalendarGridView(
                 drawCellSelection(c, selectedRange.cell, 1f, animFraction)
             }
             DUAL_CELL_ALPHA_ANIMATION -> {
-                val alpha = (animFraction * 255f).toInt()
-
                 // One cell is appearing, draw it with increasing alpha
-                selectionPaint.alpha = alpha
-                drawCellSelection(c, selectedRange.cell, 1f, 1f)
+                drawCellSelection(c, selectedRange.cell, 1f, 1f, alpha = animFraction)
 
                 // Another cell is fading, draw it with decreasing alpha
-                selectionPaint.alpha = 255 - alpha
-                drawCellSelection(c, prevSelectedRange.cell, 1f, 1f)
-
-                // Restore alpha
-                selectionPaint.alpha = 255
+                drawCellSelection(c, prevSelectedRange.cell, 1f, 1f, alpha = 1f - animFraction)
             }
             CELL_ALPHA_ANIMATION -> {
-                val alpha = (animFraction * 255f).toInt()
-
-                selectionPaint.alpha = alpha
-                drawCellSelection(c, selectedRange.cell, 1f, 1f)
-                selectionPaint.alpha = 255
+                drawCellSelection(c, selectedRange.cell, 1f, 1f, alpha = animFraction)
             }
             CELL_TO_WEEK_ON_ROW_ANIMATION -> {
                 drawCellToWeekOnRowSelection(c, animFraction)
@@ -1369,39 +1334,27 @@ internal class RangeCalendarGridView(
                 drawWeekFromCenterSelection(c, animFraction, selectedRange)
 
                 // Previous selected week is fading with alpha animation (which decreases to 0)
-                selectionPaint.alpha = 255 - (animFraction * 255).toInt()
-                drawWeekFromCenterSelection(c, 1f, prevSelectedRange)
-
-                // Restore alpha
-                selectionPaint.alpha = 255
+                drawWeekFromCenterSelection(c, 1f, prevSelectedRange, alpha = 1f - animFraction)
             }
             WEEK_TO_CELL_ANIMATION -> {
                 // Week to cell animation (not on row, it's another animation)
 
-                val alpha = (animFraction * 255).toInt()
-
                 // Previous selected week is fading with alpha animation
-                selectionPaint.alpha = 255 - alpha
-                drawWeekFromCenterSelection(c, 1f, prevSelectedRange)
+                drawWeekFromCenterSelection(c, 1f, prevSelectedRange, alpha = 1f - animFraction)
 
                 // Newly selected cell is appearing with alpha animation
-                selectionPaint.alpha = alpha
-                drawCellSelection(c, selectedRange.cell, 1f, 1f)
-
-                // Restore alpha
-                selectionPaint.alpha = 255
+                drawCellSelection(c, selectedRange.cell, 1f, 1f, alpha = animFraction)
             }
             MONTH_ALPHA_ANIMATION -> {
-                selectionPaint.alpha = (animFraction * 255f).toInt()
-                drawCustomRange(c, selectedRange)
-
-                selectionPaint.alpha = 255
+                drawCustomRange(c, selectedRange, animFraction)
             }
             CLEAR_SELECTION_ANIMATION -> {
-                selectionPaint.alpha = (animFraction * 255).toInt()
-                drawSelectionNoAnimation(c, prevSelectionType, prevSelectedRange)
-
-                selectionPaint.alpha = 255
+                drawSelectionNoAnimation(
+                    c,
+                    prevSelectionType,
+                    prevSelectedRange,
+                    alpha = animFraction
+                )
             }
             CELL_TO_MONTH_ANIMATION -> {
                 drawCellToMonthSelection(c)
@@ -1415,11 +1368,16 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun drawSelectionNoAnimation(c: Canvas, sType: Int, range: CellRange) {
+    private fun drawSelectionNoAnimation(
+        c: Canvas,
+        sType: Int,
+        range: CellRange,
+        alpha: Float = 1f
+    ) {
         when (sType) {
-            SelectionType.CELL -> drawCellSelection(c, range.cell, 1f, 1f)
-            SelectionType.WEEK -> drawWeekFromCenterSelection(c, 1f, range)
-            SelectionType.MONTH, SelectionType.CUSTOM -> drawCustomRange(c, range)
+            SelectionType.CELL -> drawCellSelection(c, range.cell, 1f, 1f, alpha)
+            SelectionType.WEEK -> drawWeekFromCenterSelection(c, 1f, range, alpha)
+            SelectionType.MONTH, SelectionType.CUSTOM -> drawCustomRange(c, range, alpha)
         }
     }
 
@@ -1449,6 +1407,8 @@ internal class RangeCalendarGridView(
         val finalRadius = getCircleRadiusForMonthAnimation(startX, startY)
         val currentRadius = lerp(halfCellSize, finalRadius, fraction)
 
+        prepareSelectionFill(customRangePathBounds, alpha = 1f)
+
         c.withSave {
             clipPath(customRangePath!!)
             drawCircle(startX, startY, currentRadius, selectionPaint)
@@ -1460,7 +1420,8 @@ internal class RangeCalendarGridView(
         leftAnchor: Float,
         rightAnchor: Float,
         fraction: Float,
-        weekRange: CellRange
+        weekRange: CellRange,
+        alpha: Float = 1f
     ) {
         val start = weekRange.start
         val end = weekRange.end
@@ -1473,13 +1434,20 @@ internal class RangeCalendarGridView(
         val left = lerp(leftAnchor, rectLeft, fraction)
         val right = lerp(rightAnchor, rectRight, fraction)
 
+        prepareSelectionFill(left, rectTop, right, rectBottom, alpha)
+
         c.drawRoundRectCompat(
             left, rectTop, right, rectBottom,
             cellRoundRadius(), selectionPaint
         )
     }
 
-    private fun drawWeekFromCenterSelection(c: Canvas, fraction: Float, range: CellRange) {
+    private fun drawWeekFromCenterSelection(
+        c: Canvas,
+        fraction: Float,
+        range: CellRange,
+        alpha: Float = 1f
+    ) {
         val selStart = range.start.index
         val selEnd = range.end.index
 
@@ -1487,7 +1455,7 @@ internal class RangeCalendarGridView(
         val midX =
             cr.hPadding + (selStart + selEnd - 14 * (selStart / 7) + 1).toFloat() * cellSize * 0.5f
 
-        drawWeekSelection(c, midX, midX, fraction, range)
+        drawWeekSelection(c, midX, midX, fraction, range, alpha)
     }
 
     private fun drawWeekToCellOnRowSelection(c: Canvas, fraction: Float) {
@@ -1510,13 +1478,22 @@ internal class RangeCalendarGridView(
         drawWeekSelection(c, cellLeft, cellRight, fraction, weekRange)
     }
 
-    private fun drawCustomRange(c: Canvas, range: CellRange) {
+    private fun drawCustomRange(c: Canvas, range: CellRange, alpha: Float = 1f) {
         updateCustomRangePath(range)
 
-        customRangePath?.let { c.drawPath(it, selectionPaint) }
+        customRangePath?.let {
+            prepareSelectionFill(customRangePathBounds, alpha)
+            c.drawPath(it, selectionPaint)
+        }
     }
 
-    private fun drawCellSelection(c: Canvas, cell: Cell, xFraction: Float, yFraction: Float) {
+    private fun drawCellSelection(
+        c: Canvas,
+        cell: Cell,
+        xFraction: Float,
+        yFraction: Float,
+        alpha: Float = 1f
+    ) {
         val prevSelectedCell = prevSelectedRange.cell
 
         val left: Float
@@ -1536,10 +1513,37 @@ internal class RangeCalendarGridView(
             endTop
         }
 
+        val right = left + cellSize
+        val bottom = top + cellSize
+
+        prepareSelectionFill(left, top, right, bottom, alpha)
+
         c.drawRoundRectCompat(
-            left, top, left + cellSize, top + cellSize,
+            left, top, right, bottom,
             cellRoundRadius(), selectionPaint
         )
+    }
+
+    private fun prepareSelectionFill(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        alpha: Float
+    ) {
+        if (selectionFillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
+            selectionFill.setBounds(left, top, right, bottom)
+        }
+
+        selectionFill.applyToPaint(selectionPaint, alpha)
+    }
+
+    private fun prepareSelectionFill(bounds: PackedRectF, alpha: Float) {
+        if (selectionFillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
+            selectionFill.setBounds(bounds, RectangleShape)
+        }
+
+        selectionFill.applyToPaint(selectionPaint, alpha)
     }
 
     private fun drawWeekdayRow(c: Canvas) {
@@ -1674,7 +1678,7 @@ internal class RangeCalendarGridView(
         if (animation and ANIMATION_DATA_MASK == DECOR_ANIMATION) {
             val state = decorVisualStates[decorAnimatedCell]
 
-            if(state is CellDecor.VisualState.Transitive) {
+            if (state is CellDecor.VisualState.Transitive) {
                 state.handleAnimation(animFraction, decorAnimFractionInterpolator!!)
             }
         }
@@ -1722,6 +1726,8 @@ internal class RangeCalendarGridView(
             val top = getCellTop(start)
             val bottom = top + cellSize
 
+            customRangePathBounds = PackedRectF(left, top, right, bottom)
+
             path.addRoundRectCompat(left, top, right, bottom, radius)
         } else {
             val firstCellOnRowX = cr.hPadding + (columnWidth - cellSize) * 0.5f
@@ -1736,6 +1742,8 @@ internal class RangeCalendarGridView(
             val endBottom = endTop + cellSize
 
             val gridYDiff = end.gridY - start.gridY
+
+            customRangePathBounds = PackedRectF(startLeft, startTop, endRight, endBottom)
 
             Radii.withRadius(radius) {
                 lt()
@@ -1835,7 +1843,7 @@ internal class RangeCalendarGridView(
     private fun cellRoundRadius(): Float {
         val halfCellSize = cellSize * 0.5f
 
-        return if(rrRadius > halfCellSize) halfCellSize else rrRadius
+        return if (rrRadius > halfCellSize) halfCellSize else rrRadius
     }
 
     private fun getCellLeft(cell: Cell): Float {

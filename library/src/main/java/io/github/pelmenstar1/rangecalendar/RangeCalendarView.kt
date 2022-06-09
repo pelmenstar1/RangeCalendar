@@ -199,48 +199,31 @@ class RangeCalendarView @JvmOverloads constructor(
         private val attrs: TypedArray
     ) {
         fun color(@StyleableRes index: Int, styleType: Int) {
-            extract(index, styleType, ATTR_COLOR)
+            extract(index, styleType) { getColor(index, 0) }
         }
 
         fun dimension(@StyleableRes index: Int, styleType: Int) {
-            extract(index, styleType, ATTR_DIMEN)
+            extract(index, styleType) { getDimension(index, 0f).toBits() }
         }
 
         fun int(@StyleableRes index: Int, styleType: Int) {
-            extract(index, styleType, ATTR_INT)
+            extract(index, styleType) { getInt(index, 0) }
         }
 
         fun boolean(@StyleableRes index: Int, styleType: Int) {
-            extract(index, styleType, ATTR_BOOL)
+            extract(index, styleType) { if (getBoolean(index, false)) 1 else 0 }
         }
 
-        private fun extract(@StyleableRes index: Int, styleType: Int, attrType: Int) {
+        private inline fun extract(
+            @StyleableRes index: Int,
+            styleType: Int,
+            toInt: TypedArray.() -> Int
+        ) {
+            attrs.getValue(0, null)
+
             if (attrs.hasValue(index)) {
-                var value = 0
-                when (attrType) {
-                    ATTR_COLOR -> {
-                        value = attrs.getColor(index, 0)
-                    }
-                    ATTR_DIMEN -> {
-                        value = attrs.getDimension(index, 0f).toBits()
-                    }
-                    ATTR_INT -> {
-                        value = attrs.getInteger(index, 0)
-                    }
-                    ATTR_BOOL -> {
-                        value = if (attrs.getBoolean(index, false)) 1 else 0
-                    }
-                }
-
-                calendarView.adapter.setStyleInt(styleType, value, false)
+                calendarView.adapter.setStyleInt(styleType, toInt(attrs), false)
             }
-        }
-
-        companion object {
-            private const val ATTR_COLOR = 0
-            private const val ATTR_DIMEN = 1
-            private const val ATTR_INT = 2
-            private const val ATTR_BOOL = 3
         }
     }
 
@@ -524,10 +507,13 @@ class RangeCalendarView @JvmOverloads constructor(
         )
         try {
             extractAttributes(a) {
-                color(
-                    R.styleable.RangeCalendarView_rangeCalendar_selectionColor,
-                    RangeCalendarPagerAdapter.STYLE_SELECTION_COLOR
-                )
+                if (a.hasValue(R.styleable.RangeCalendarView_rangeCalendar_selectionColor)) {
+                    val color =
+                        a.getColor(R.styleable.RangeCalendarView_rangeCalendar_selectionColor, 0)
+
+                    setSelectionColor(color)
+                }
+
                 color(
                     R.styleable.RangeCalendarView_rangeCalendar_inMonthDayNumberColor,
                     RangeCalendarPagerAdapter.STYLE_IN_MONTH_DAY_NUMBER_COLOR
@@ -583,6 +569,10 @@ class RangeCalendarView @JvmOverloads constructor(
                 boolean(
                     R.styleable.RangeCalendarView_rangeCalendar_vibrateOnSelectingCustomRange,
                     RangeCalendarPagerAdapter.STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE
+                )
+                int(
+                    R.styleable.RangeCalendarView_rangeCalendar_selectionFillGradientBoundsType,
+                    RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE
                 )
             }
         } finally {
@@ -1034,13 +1024,34 @@ class RangeCalendarView @JvmOverloads constructor(
         get() = currentCalendarYm.month
 
     /**
-     * Gets or sets a background color of selection, by default it's color extracted from [R.attr.colorPrimary]
+     * Gets or sets a background fill of selection,
+     * by default it's solid color which color is extracted from [R.attr.colorPrimary]
      */
-    @get:ColorInt
-    var selectionColor: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_SELECTION_COLOR)
-        set(@ColorInt color) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_SELECTION_COLOR, color)
+    var selectionFill: Fill
+        get() = adapter.getStyleObject(RangeCalendarPagerAdapter.STYLE_SELECTION_FILL)
+        set(value) {
+            adapter.setStyleObject(RangeCalendarPagerAdapter.STYLE_SELECTION_FILL, value)
+        }
+
+    /**
+     * Sets background color of selection. A convenience method for [selectionFill].
+     * It's the same as `calendar.selectionFill = Fill.solid(color)`
+     *
+     * @param value background color of selection.
+     */
+    fun setSelectionColor(@ColorInt value: Int) {
+        selectionFill = Fill.solid(value)
+    }
+
+    /**
+     * Gets or sets the way of determining bounds of selection. It only matters when selection fill is gradient-like.
+     */
+    var selectionFillGradientBoundsType: SelectionFillGradientBoundsType
+        get() = SelectionFillGradientBoundsType.ofOrdinal(adapter.getStyleInt(
+            RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE,
+        ))
+        set(value) {
+            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE, value.ordinal)
         }
 
     /**
@@ -1253,55 +1264,6 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets whether gradient fill of selection is enabled. It's called "grid", because bounds of linear gradient is limited to entire grid, not selection.
-     * It's done for optimization.
-     */
-    var gridGradientEnabled: Boolean
-        get() = adapter.getStyleBool(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_ENABLED)
-        set(state) {
-            adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_ENABLED, state)
-        }
-
-    private val gradientStartEndColorPair: PackedIntPair
-        get() {
-            val bits =
-                adapter.getStyleLong(RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS)
-
-            return PackedIntPair(bits)
-        }
-
-    /**
-     * Gets start color of grid gradient.
-     *
-     * @see setGradientColors
-     */
-    @get:ColorInt
-    val gradientStartColor: Int
-        get() = gradientStartEndColorPair.first
-
-    /**
-     * Gets end color of grid gradient.
-     *
-     * @see setGradientColors
-     */
-    @get:ColorInt
-    val gradientEndColor: Int
-        get() = gradientStartEndColorPair.second
-
-    /**
-     * Sets colors of grid gradient.
-     *
-     * @param start start color of the gradient
-     * @param end end color of the gradient
-     */
-    fun setGradientColors(@ColorInt start: Int, @ColorInt end: Int) {
-        adapter.setStyleLong(
-            RangeCalendarPagerAdapter.STYLE_GRID_GRADIENT_START_END_COLORS,
-            packInts(start, end)
-        )
-    }
-
-    /**
      * Changes calendar page to the previous one. If it's not possible, nothing will happen.
      *
      * @param withAnimation whether to do it with slide animation or not
@@ -1426,7 +1388,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun selectInternal(type: Int, data: Long, withAnimation: Boolean) {
-        if(onSelectionActuallyChanged == null) {
+        if (onSelectionActuallyChanged == null) {
             onSelectionActuallyChanged = {
                 pager.setCurrentItem(pendingSelectionPagePosition, pendingSelectionWithAnimation)
             }
