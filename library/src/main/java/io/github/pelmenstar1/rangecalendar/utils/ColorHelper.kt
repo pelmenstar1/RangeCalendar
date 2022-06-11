@@ -29,11 +29,25 @@ internal fun Long.withAlpha(alpha: Float): Long {
     }
 }
 
-inline val Long.colorSpaceIdRaw: Long
+internal inline val Long.colorSpaceIdRaw: Long
     get() = this and 0x3fL
 
+/**
+ * Compat version of [Color.pack]
+ */
+internal fun Int.packColorCompat(): Long {
+    return (this.toLong() and 0xFFFFFFFFL) shl 32
+}
+
+/**
+ * It's unsafe because color long must be sRGB already, otherwise it returns wrong result.
+ */
+internal inline fun Long.asSrgbUnsafe(): Int {
+    return (this shr 32).toInt()
+}
+
 @ColorInt
-private fun Int.withRGB(r: Int, g: Int, b: Int): Int {
+internal fun Int.withRGB(r: Int, g: Int, b: Int): Int {
     return this and 0xFF000000L.toInt() or (r shl 16) or (g shl 8) or b
 }
 

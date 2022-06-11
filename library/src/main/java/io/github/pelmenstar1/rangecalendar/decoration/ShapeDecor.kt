@@ -6,6 +6,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import androidx.annotation.ColorInt
+import androidx.annotation.ColorLong
+import androidx.annotation.RequiresApi
 import io.github.pelmenstar1.rangecalendar.*
 
 /**
@@ -471,7 +473,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
             ) = padding(Padding(left, top, right, bottom))
 
             /**
-             * Sets border of the shape.
+             * Sets border of the shape using color specified by color int and stroke width.
              *
              * @param color color of border
              * @param width stroke width, in pixels
@@ -479,6 +481,22 @@ class ShapeDecor(val style: Style) : CellDecor() {
              * @return reference to this object
              */
             fun border(@ColorInt color: Int, width: Float) = border(Border(color, width))
+
+            /**
+             * Sets border of the shape using color specified by color long and stroke width.
+             *
+             * Supported when API level is 26 and higher,
+             * but actually color longs are used when API level is 29 or higher because
+             * color long support was added to [Paint] in Android 10 (API level 29).
+             * So before it, [color] is converted to color int and used as such.
+             *
+             * @param color color of border
+             * @param width stroke width, in pixels
+             *
+             * @return reference to this object
+             */
+            @RequiresApi(26)
+            fun border(@ColorLong color: Long, width: Float) = border(Border(color, width))
 
             /**
              * Sets border of the shape.
