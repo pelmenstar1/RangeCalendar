@@ -1,30 +1,29 @@
 package io.github.pelmenstar1.rangecalendar
 
 import android.animation.Animator
-import android.annotation.SuppressLint
-import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
-import android.animation.ValueAnimator
-import android.view.MotionEvent
-import android.view.ViewConfiguration
-import android.view.accessibility.AccessibilityEvent
 import android.animation.AnimatorListenerAdapter
 import android.animation.TimeInterpolator
+import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
-import androidx.core.view.ViewCompat
 import android.os.*
 import android.text.format.DateFormat
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
+import android.view.accessibility.AccessibilityEvent
 import androidx.annotation.ColorInt
+import androidx.annotation.ColorLong
+import androidx.annotation.RequiresApi
 import androidx.core.graphics.withSave
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
 import io.github.pelmenstar1.rangecalendar.decoration.*
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
 import io.github.pelmenstar1.rangecalendar.utils.*
-import io.github.pelmenstar1.rangecalendar.utils.distanceSquare
-import io.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
-import io.github.pelmenstar1.rangecalendar.utils.lerp
 import java.lang.ref.WeakReference
 import java.util.*
 import kotlin.math.max
@@ -300,12 +299,11 @@ internal class RangeCalendarGridView(
     private val weekdayPaint: Paint
     private val selectionPaint: Paint
     private val cellHoverPaint: Paint
-    private val cellHoverOnSelectionPaint: Paint
 
-    private var inMonthColor: Int
-    private var outMonthColor: Int
-    private var disabledDayNumberColor: Int
-    private var todayColor: Int
+    private var selectionFill: Fill
+    private var selectionFillGradientBoundsType = SelectionFillGradientBoundsType.GRID
+
+    private val styleColors: CompatColorArray
 
     private var lastTouchTime: Long = -1
     private var lastTouchCell = Cell.Undefined
@@ -317,9 +315,6 @@ internal class RangeCalendarGridView(
     private var todayCell = Cell.Undefined
     private var hoverCell = Cell.Undefined
     private var animationHoverCell = Cell.Undefined
-
-    private var selectionFill: Fill
-    private var selectionFillGradientBoundsType = SelectionFillGradientBoundsType.GRID
 
     var ym = YearMonth(0)
 
@@ -383,10 +378,16 @@ internal class RangeCalendarGridView(
         ViewCompat.setAccessibilityDelegate(this, touchHelper)
 
         cellSize = cr.cellSize
-        inMonthColor = defTextColor
-        outMonthColor = cr.outMonthTextColor
-        disabledDayNumberColor = cr.disabledTextColor
-        todayColor = colorPrimary
+
+        styleColors = CompatColorArray(7).apply {
+            setColorInt(COLOR_STYLE_IN_MONTH, defTextColor)
+            setColorInt(COLOR_STYLE_OUT_MONTH, cr.outMonthTextColor)
+            setColorInt(COLOR_STYLE_DISABLED, cr.disabledTextColor)
+            setColorInt(COLOR_STYLE_TODAY, colorPrimary)
+            setColorInt(COLOR_STYLE_HOVER, cr.hoverColor)
+            setColorInt(COLOR_STYLE_HOVER_ON_SELECTION, cr.colorPrimaryDark)
+            setColorInt(COLOR_STYLE_WEEKDAY, defTextColor)
+        }
 
         selectionFill = Fill.solid(colorPrimary)
         background = null
@@ -402,76 +403,49 @@ internal class RangeCalendarGridView(
 
         weekdayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = cr.weekdayTextSize
-            color = defTextColor
             typeface = Typeface.DEFAULT_BOLD
         }
 
         cellHoverPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = cr.hoverColor
-        }
-
-        cellHoverOnSelectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            color = cr.colorPrimaryDark
         }
     }
 
-    fun setSelectionFill(fill: Fill) {
-        selectionFill = fill
+    private inline fun updateUIState(block: () -> Unit) {
+        block()
+
         invalidate()
     }
 
-    fun setSelectionFillGradientBoundsType(value: SelectionFillGradientBoundsType) {
+    fun setSelectionFill(fill: Fill) = updateUIState {
+        selectionFill = fill
+    }
+
+    fun setSelectionFillGradientBoundsType(value: SelectionFillGradientBoundsType) = updateUIState {
         selectionFillGradientBoundsType = value
 
         updateGradientBoundsIfNeeded()
-        invalidate()
     }
 
-    fun setDayNumberTextSize(size: Float) {
+    fun setDayNumberTextSize(size: Float) = updateUIState {
         dayNumberPaint.textSize = size
-        invalidate()
     }
 
-    fun setInMonthDayNumberColor(@ColorInt color: Int) {
-        inMonthColor = color
-        invalidate()
-    }
-
-    fun setOutMonthDayNumberColor(@ColorInt color: Int) {
-        outMonthColor = color
-        invalidate()
-    }
-
-    fun setDisabledDayNumberColor(@ColorInt color: Int) {
-        disabledDayNumberColor = color
-        invalidate()
-    }
-
-    fun setTodayColor(@ColorInt color: Int) {
-        todayColor = color
-        invalidate()
-    }
-
-    fun setDayNameColor(@ColorInt color: Int) {
-        weekdayPaint.color = color
-        invalidate()
-    }
-
-    fun setDayNameTextSize(size: Float) {
+    fun setWeekdayTextSize(size: Float) = updateUIState {
         weekdayPaint.textSize = size
-        invalidate()
     }
 
-    fun setHoverColor(@ColorInt color: Int) {
-        cellHoverPaint.color = color
-        invalidate()
+    fun setStyleColorInt(index: Int, @ColorInt color: Int) = updateUIState {
+        styleColors.setColorInt(index, color)
     }
 
-    fun setHoverOnSelectionColor(@ColorInt color: Int) {
-        cellHoverOnSelectionPaint.color = color
-        invalidate()
+    @RequiresApi(26)
+    fun setStyleColorLong(index: Int, @ColorLong color: Long) = updateUIState {
+        styleColors.setColorLong(index, color)
+    }
+
+    fun setStyleColors(colors: CompatColorArray) {
+        styleColors.copyFrom(colors)
     }
 
     fun getCellSize(): Float {
@@ -489,7 +463,7 @@ internal class RangeCalendarGridView(
         requestLayout()
     }
 
-    fun setCellRoundRadius(value: Float) {
+    fun setCellRoundRadius(value: Float) = updateUIState {
         require(value >= 0f) { "ratio < 0" }
 
         rrRadius = value
@@ -499,8 +473,6 @@ internal class RangeCalendarGridView(
         if (selectionType == SelectionType.MONTH) {
             forceResetCustomPath()
         }
-
-        invalidate()
     }
 
     fun setInMonthRange(range: CellRange) {
@@ -556,11 +528,10 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun refreshColumnWidth() {
+    private fun refreshColumnWidth() = updateUIState {
         val width = width.toFloat()
 
         columnWidth = (width - cr.hPadding * 2) * (1f / 7)
-        invalidate()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -948,7 +919,7 @@ internal class RangeCalendarGridView(
             }
 
             vibrator?.let {
-                if(Build.VERSION.SDK_INT >= 26) {
+                if (Build.VERSION.SDK_INT >= 26) {
                     it.vibrate(vibrationEffect)
                 } else {
                     @Suppress("DEPRECATION")
@@ -1548,7 +1519,10 @@ internal class RangeCalendarGridView(
     }
 
     private fun drawWeekdayRow(c: Canvas) {
+        styleColors.initPaintColor(COLOR_STYLE_WEEKDAY, weekdayPaint)
+
         var x = cr.hPadding
+
         val offset = if (weekdayType == WeekdayType.SHORT)
             CalendarResources.SHORT_WEEKDAYS_OFFSET
         else
@@ -1577,31 +1551,29 @@ internal class RangeCalendarGridView(
 
     private fun drawHover(c: Canvas) {
         val isHoverAnimation = (animation and ANIMATION_DATA_MASK) == HOVER_ANIMATION
+
         if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
             val cell = if (isHoverAnimation) animationHoverCell else hoverCell
-
-            val paint = if (isSelectionRangeContains(cell))
-                cellHoverOnSelectionPaint
-            else
-                cellHoverPaint
-
-            val paintAlpha = paint.alpha
-            val resultAlpha = if (isHoverAnimation)
-                (paintAlpha * animFraction).toInt()
-            else
-                paintAlpha
 
             val left = getCellLeft(cell)
             val top = getCellTop(cell)
 
-            paint.alpha = resultAlpha
+            val index = if (isSelectionRangeContains(cell)) {
+                COLOR_STYLE_HOVER_ON_SELECTION
+            } else {
+                COLOR_STYLE_HOVER
+            }
+
+            styleColors.initPaintColor(
+                index,
+                if (isHoverAnimation) animFraction else 1f,
+                cellHoverPaint
+            )
 
             c.drawRoundRectCompat(
                 left, top, left + cellSize, top + cellSize,
-                cellRoundRadius(), paint
+                cellRoundRadius(), cellHoverPaint
             )
-
-            paint.alpha = paintAlpha
         }
     }
 
@@ -1644,23 +1616,29 @@ internal class RangeCalendarGridView(
         return cellType
     }
 
-    private fun drawCell(c: Canvas, x: Float, y: Float, day: Int, cellType: Int) {
-        val color = when (cellType and CELL_DATA_MASK) {
-            CELL_SELECTED, CELL_IN_MONTH -> inMonthColor
-            CELL_OUT_MONTH -> outMonthColor
-            CELL_DISABLED -> disabledDayNumberColor
-            CELL_TODAY -> if (cellType and CELL_HOVER_BIT != 0) inMonthColor else todayColor
-            else -> 0
-        }
+    private fun cellTypeToColorStyle(type: Int) = when (type) {
+        CELL_SELECTED, CELL_IN_MONTH -> COLOR_STYLE_IN_MONTH
+        CELL_OUT_MONTH -> COLOR_STYLE_OUT_MONTH
+        CELL_DISABLED -> COLOR_STYLE_DISABLED
+        CELL_TODAY -> if ((type and CELL_HOVER_BIT) != 0)
+            COLOR_STYLE_IN_MONTH
+        else
+            COLOR_STYLE_TODAY
+        else -> throw IllegalArgumentException("type")
+    }
 
+    private fun drawCell(c: Canvas, x: Float, y: Float, day: Int, cellType: Int) {
         if (day > 0) {
+            val colorStyle = cellTypeToColorStyle(cellType)
+
             val size = cr.getDayNumberSize(day)
             val halfCellSize = cellSize * 0.5f
 
             val textX = x + halfCellSize - (size.width / 2).toFloat()
             val textY = y + halfCellSize + (size.height / 2).toFloat()
 
-            dayNumberPaint.color = color
+            styleColors.initPaintColor(colorStyle, dayNumberPaint)
+
             c.drawText(CalendarResources.getDayText(day), textX, textY, dayNumberPaint)
         }
     }
@@ -1881,8 +1859,17 @@ internal class RangeCalendarGridView(
     }
 
     companion object {
+        const val COLOR_STYLE_IN_MONTH = 0
+        const val COLOR_STYLE_OUT_MONTH = 1
+        const val COLOR_STYLE_DISABLED = 2
+        const val COLOR_STYLE_TODAY = 3
+        const val COLOR_STYLE_HOVER = 4
+        const val COLOR_STYLE_HOVER_ON_SELECTION = 5
+        const val COLOR_STYLE_WEEKDAY = 6
+
         private const val MSG_LONG_PRESS = 0
         private const val MSG_HOVER_PRESS = 1
+
         private const val CELL_IN_MONTH = 0
         private const val CELL_OUT_MONTH = 1
         private const val CELL_SELECTED = 2
