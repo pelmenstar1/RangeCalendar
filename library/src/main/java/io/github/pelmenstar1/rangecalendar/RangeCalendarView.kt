@@ -26,10 +26,7 @@ import android.text.format.DateFormat
 import android.util.AttributeSet
 import android.view.View
 import android.widget.FrameLayout
-import androidx.annotation.AttrRes
-import androidx.annotation.ColorInt
-import androidx.annotation.RequiresApi
-import androidx.annotation.StyleableRes
+import androidx.annotation.*
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
@@ -199,6 +196,12 @@ class RangeCalendarView @JvmOverloads constructor(
         private val attrs: TypedArray
     ) {
         fun color(@StyleableRes index: Int, styleType: Int) {
+            if(attrs.hasValue(index)) {
+                val color = attrs.getColor(index, 0)
+
+                calendarView.adapter.setStyleColor(styleType, color, notify = false)
+            }
+
             extract(index, styleType) { getColor(index, 0) }
         }
 
@@ -219,10 +222,8 @@ class RangeCalendarView @JvmOverloads constructor(
             styleType: Int,
             toInt: TypedArray.() -> Int
         ) {
-            attrs.getValue(0, null)
-
             if (attrs.hasValue(index)) {
-                calendarView.adapter.setStyleInt(styleType, toInt(attrs), false)
+                calendarView.adapter.setStyleInt(styleType, toInt(attrs), notify = false)
             }
         }
     }
@@ -516,31 +517,31 @@ class RangeCalendarView @JvmOverloads constructor(
 
                 color(
                     R.styleable.RangeCalendarView_rangeCalendar_inMonthDayNumberColor,
-                    RangeCalendarPagerAdapter.STYLE_IN_MONTH_DAY_NUMBER_COLOR
+                    RangeCalendarGridView.COLOR_STYLE_IN_MONTH
                 )
                 color(
                     R.styleable.RangeCalendarView_rangeCalendar_outMonthDayNumberColor,
-                    RangeCalendarPagerAdapter.STYLE_OUT_MONTH_DAY_NUMBER_COLOR
+                    RangeCalendarGridView.COLOR_STYLE_OUT_MONTH
                 )
                 color(
                     R.styleable.RangeCalendarView_rangeCalendar_disabledDayNumberColor,
-                    RangeCalendarPagerAdapter.STYLE_DISABLED_DAY_NUMBER_COLOR
+                    RangeCalendarGridView.COLOR_STYLE_DISABLED
                 )
                 color(
                     R.styleable.RangeCalendarView_rangeCalendar_todayColor,
-                    RangeCalendarPagerAdapter.STYLE_TODAY_COLOR
+                    RangeCalendarGridView.COLOR_STYLE_TODAY
                 )
                 color(
                     R.styleable.RangeCalendarView_rangeCalendar_weekdayColor,
-                    RangeCalendarPagerAdapter.STYLE_WEEKDAY_COLOR
+                    RangeCalendarGridView.COLOR_STYLE_WEEKDAY
                 )
                 color(
                     R.styleable.RangeCalendarView_rangeCalendar_hoverColor,
-                    RangeCalendarPagerAdapter.STYLE_HOVER_COLOR
+                    RangeCalendarGridView.COLOR_STYLE_HOVER
                 )
                 color(
                     R.styleable.RangeCalendarView_rangeCalendar_hoverOnSelectionColor,
-                    RangeCalendarPagerAdapter.STYLE_HOVER_ON_SELECTION_COLOR
+                    RangeCalendarGridView.COLOR_STYLE_HOVER_ON_SELECTION
                 )
                 dimension(
                     R.styleable.RangeCalendarView_rangeCalendar_dayNumberTextSize,
@@ -1044,6 +1045,19 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
+     * Sets background color of selection using color long. A convenience method for [selectionFill].
+     * It's the same as `calendar.selectionFill = Fill.solid(color)`.
+     *
+     * Supported when API level is 26 and higher.
+     *
+     * @param value background color of selection.
+     */
+    @RequiresApi(26)
+    fun setSelectionColor(@ColorLong value: Long) {
+        selectionFill = Fill.solid(value)
+    }
+
+    /**
      * Gets or sets the way of determining bounds of selection. It only matters when selection fill is gradient-like.
      */
     var selectionFillGradientBoundsType: SelectionFillGradientBoundsType
@@ -1064,53 +1078,142 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets color of day which is in range of selected month
+     * Gets or sets color of day which is in range of selected calendar's month.
+     *
+     * If the color is initially set by [inMonthDayNumberColorLong] and the color space isn't sRGB,
+     * calling the getter will cause additional allocations and loss of data.
      */
     @get:ColorInt
     var inMonthDayNumberColor: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_IN_MONTH_DAY_NUMBER_COLOR)
+        get() = adapter.getStyleColorInt(RangeCalendarGridView.COLOR_STYLE_IN_MONTH)
         set(@ColorInt color) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_IN_MONTH_DAY_NUMBER_COLOR, color)
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_IN_MONTH, color)
         }
 
     /**
-     * Gets or sets color of day which is out of current month range
+     * Gets or sets color of day is in range of selected calendar's month using color long.
+     *
+     * Supported when API level is 26 and higher.
+     */
+    @get:ColorLong
+    @get:RequiresApi(26)
+    @set:RequiresApi(26)
+    var inMonthDayNumberColorLong: Long
+        get() = adapter.getStyleColorLong(RangeCalendarGridView.COLOR_STYLE_IN_MONTH)
+        set(@ColorLong color) {
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_IN_MONTH, color)
+        }
+
+    /**
+     * Gets or sets color of day which is out of selected calendar's month.
+     *
+     * If the color is initially set by [outMonthDayNumberColorLong] and the color space isn't sRGB,
+     * calling the getter will cause additional allocations and loss of data.
      */
     @get:ColorInt
     var outMonthDayNumberColor: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_OUT_MONTH_DAY_NUMBER_COLOR)
+        get() = adapter.getStyleColorInt(RangeCalendarGridView.COLOR_STYLE_OUT_MONTH)
         set(@ColorInt color) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_OUT_MONTH_DAY_NUMBER_COLOR, color)
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_OUT_MONTH, color)
         }
 
     /**
-     * Gets or sets color of disabled day which is out of enabled range created by [minDate] and [maxDate]
+     * Gets or sets color of day is out of selected calendar's month using color long.
+     *
+     * Supported when API level is 26 and higher.
+     */
+    @get:ColorLong
+    @get:RequiresApi(26)
+    @set:RequiresApi(26)
+    var outMonthDayNumberColorLong: Long
+        get() = adapter.getStyleColorLong(RangeCalendarGridView.COLOR_STYLE_OUT_MONTH)
+        set(@ColorLong color) {
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_OUT_MONTH, color)
+        }
+
+    /**
+     * Gets or sets color of disabled day which is out of enabled range created by [minDate] and [maxDate].
+     *
+     * If the color is initially set by [disabledDayNumberColorLong] and the color space isn't sRGB,
+     * calling the getter will cause additional allocations and loss of data.
      */
     @get:ColorInt
     var disabledDayNumberColor: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_DISABLED_DAY_NUMBER_COLOR)
+        get() = adapter.getStyleColorInt(RangeCalendarGridView.COLOR_STYLE_DISABLED)
         set(@ColorInt color) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_DISABLED_DAY_NUMBER_COLOR, color)
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_DISABLED, color)
         }
 
     /**
-     * Sets or gets the color of today, by default it's color extracted from [R.attr.colorPrimary]
+     * Gets or sets color of disabled day which is out of enabled range created by [minDate] and [maxDate].
+     *
+     * Supported when API level is 26 and higher.
+     */
+    @get:ColorLong
+    @get:RequiresApi(26)
+    @set:RequiresApi(26)
+    var disabledDayNumberColorLong: Long
+        get() = adapter.getStyleColorLong(RangeCalendarGridView.COLOR_STYLE_DISABLED)
+        set(@ColorLong color) {
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_DISABLED, color)
+        }
+
+    /**
+     * Gets or sets a text color of cell which represents today date,
+     * by default it's color extracted from [R.attr.colorPrimary].
+     *
+     * If the color is initially set by [todayColorLong] and the color space isn't sRGB,
+     * calling the getter will cause additional allocations and loss of data.
      */
     @get:ColorInt
     var todayColor: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_TODAY_COLOR)
+        get() = adapter.getStyleColorInt(RangeCalendarGridView.COLOR_STYLE_TODAY)
         set(@ColorInt color) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_TODAY_COLOR, color)
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_TODAY, color)
         }
 
     /**
-     * Gets or sets a text color of weekday
+     * Gets or sets a text color of cell which represents today date,
+     * by default it's color extracted from [R.attr.colorPrimary].
+     *
+     * Supported when API level is 26 and higher.
+     */
+    @get:ColorLong
+    @get:RequiresApi(26)
+    @set:RequiresApi(26)
+    var todayColorLong: Long
+        get() = adapter.getStyleColorLong(RangeCalendarGridView.COLOR_STYLE_TODAY)
+        set(@ColorLong color) {
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_TODAY, color)
+        }
+
+    /**
+     * Gets or sets a text color of weekday,
+     * by default it's a color extracted from [R.style.TextAppearance_AppCompat].
+     *
+     * If the color is initially set by [weekdayColorLong] and the color space isn't sRGB,
+     * calling the getter will cause additional allocations and loss of data.
      */
     @get:ColorInt
     var weekdayColor: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_WEEKDAY_COLOR)
+        get() = adapter.getStyleColorInt(RangeCalendarGridView.COLOR_STYLE_WEEKDAY)
         set(@ColorInt color) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_WEEKDAY_COLOR, color)
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_WEEKDAY, color)
+        }
+
+    /**
+     * Gets or sets a text color of weekday,
+     * by default it's a color extracted from [R.style.TextAppearance_AppCompat].
+     *
+     * Supported when API level is 26 and higher.
+     */
+    @get:ColorLong
+    @get:RequiresApi(26)
+    @set:RequiresApi(26)
+    var weekdayColorLong: Long
+        get() = adapter.getStyleColorLong(RangeCalendarGridView.COLOR_STYLE_WEEKDAY)
+        set(@ColorLong color) {
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_WEEKDAY, color)
         }
 
     /**
@@ -1126,24 +1229,60 @@ class RangeCalendarView @JvmOverloads constructor(
      * Gets or sets a background color of cell which appears when user hovers under a cell
      * (when a pointer is registered to be down).
      *
+     * If the color is initially set by [hoverColorLong] and the color space isn't sRGB,
+     * calling the getter will cause additional allocations and loss of data.
+     *
      * @see [hoverOnSelectionColor]
      */
     @get:ColorInt
     var hoverColor: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_HOVER_COLOR)
+        get() = adapter.getStyleColorInt(RangeCalendarGridView.COLOR_STYLE_HOVER)
         set(color) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_HOVER_COLOR, color)
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_HOVER, color)
+        }
+
+    /**
+     *  Gets or sets a background color of cell which appears when user hovers under a cell
+     * (when a pointer is registered to be down).
+     *
+     * Supported when API level is 26 and higher.
+     */
+    @get:ColorLong
+    @get:RequiresApi(26)
+    @set:RequiresApi(26)
+    var hoverColorLong: Long
+        get() = adapter.getStyleColorLong(RangeCalendarGridView.COLOR_STYLE_HOVER)
+        set(@ColorLong color) {
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_HOVER, color)
         }
 
     /**
      * Gets or sets a background color of cell which appears when user hovers under a cell and selection contains the cell.
      * As background of the calendar and selection color are different, common [hoverColor] wouldn't look fine on selection.
+     *
+     * If the color is initially set by [hoverOnSelectionColorLong] and the color space isn't sRGB,
+     * calling the getter will cause additional allocations and loss of data.
      */
     @get:ColorInt
     var hoverOnSelectionColor: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_HOVER_ON_SELECTION_COLOR)
+        get() = adapter.getStyleColorInt(RangeCalendarGridView.COLOR_STYLE_HOVER_ON_SELECTION)
         set(color) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_HOVER_ON_SELECTION_COLOR, color)
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_HOVER_ON_SELECTION, color)
+        }
+
+    /**
+     *  Gets or sets a background color of cell which appears when user hovers under a cell
+     * (when a pointer is registered to be down).
+     *
+     * Supported when API level is 26 and higher.
+     */
+    @get:ColorLong
+    @get:RequiresApi(26)
+    @set:RequiresApi(26)
+    var hoverOnSelectionColorLong: Long
+        get() = adapter.getStyleColorLong(RangeCalendarGridView.COLOR_STYLE_HOVER_ON_SELECTION)
+        set(@ColorLong color) {
+            adapter.setStyleColor(RangeCalendarGridView.COLOR_STYLE_HOVER_ON_SELECTION, color)
         }
 
     /**
@@ -1166,7 +1305,6 @@ class RangeCalendarView @JvmOverloads constructor(
         set(size) {
             adapter.setStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_SIZE, size)
         }
-
 
     /**
      * Gets or sets weekday type. Should be [WeekdayType.SHORT] or [WeekdayType.NARROW].

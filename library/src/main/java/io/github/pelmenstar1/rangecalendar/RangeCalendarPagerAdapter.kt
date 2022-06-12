@@ -1,8 +1,12 @@
 package io.github.pelmenstar1.rangecalendar
 
 import android.animation.TimeInterpolator
+import android.os.Build
 import android.util.SparseArray
 import android.view.ViewGroup
+import androidx.annotation.ColorInt
+import androidx.annotation.ColorLong
+import androidx.annotation.RequiresApi
 import androidx.recyclerview.widget.RecyclerView
 import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
@@ -10,6 +14,7 @@ import io.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import io.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
+import io.github.pelmenstar1.rangecalendar.utils.CompatColorArray
 
 internal class RangeCalendarPagerAdapter(
     private val cr: CalendarResources,
@@ -50,11 +55,13 @@ internal class RangeCalendarPagerAdapter(
             const val SELECT = 1
             const val UPDATE_TODAY_INDEX = 2
             const val UPDATE_STYLE = 3
-            const val CLEAR_HOVER = 4
-            const val CLEAR_SELECTION = 5
-            const val ON_DECOR_ADDED = 6
-            const val ON_DECOR_REMOVED = 7
-            const val SET_DECOR_LAYOUT_OPTIONS = 8
+            const val UPDATE_STYLE_COLOR_INT = 4
+            const val UPDATE_STYLE_COLOR_LONG = 5
+            const val CLEAR_HOVER = 6
+            const val CLEAR_SELECTION = 7
+            const val ON_DECOR_ADDED = 8
+            const val ON_DECOR_REMOVED = 9
+            const val SET_DECOR_LAYOUT_OPTIONS = 10
 
             private val CLEAR_HOVER_PAYLOAD = Payload(CLEAR_HOVER)
             private val CLEAR_SELECTION_PAYLOAD = Payload(CLEAR_SELECTION)
@@ -73,6 +80,23 @@ internal class RangeCalendarPagerAdapter(
 
             fun updateStyle(type: Int, obj: Any?): Payload {
                 return Payload(UPDATE_STYLE, type.toLong(), arg2 = 0, obj1 = obj)
+            }
+
+            fun updateStyleColor(type: Int, @ColorInt color: Int): Payload {
+                return Payload(
+                    UPDATE_STYLE_COLOR_INT,
+                    arg1 = type.toLong(),
+                    arg2 = color.toLong()
+                )
+            }
+
+            @RequiresApi(26)
+            fun updateStyleColor(type: Int, @ColorLong color: Long): Payload {
+                return Payload(
+                    UPDATE_STYLE_COLOR_LONG,
+                    arg1 = type.toLong(),
+                    arg2 = color
+                )
             }
 
             fun select(info: RangeCalendarGridView.SetSelectionInfo): Payload {
@@ -150,7 +174,8 @@ internal class RangeCalendarPagerAdapter(
 
     private var today = PackedDate(0)
     private val calendarInfo = CalendarInfo()
-    private val styleData = IntArray(17)
+    private val styleData = IntArray(10)
+    private val styleColors = CompatColorArray(7)
     private val styleObjData = arrayOfNulls<Any>(5)
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
 
@@ -160,16 +185,17 @@ internal class RangeCalendarPagerAdapter(
     private val decorLayoutOptionsMap = SparseArray<DecorLayoutOptions>()
 
     init {
+        initStyleColor(RangeCalendarGridView.COLOR_STYLE_IN_MONTH, cr.textColor)
+        initStyleColor(RangeCalendarGridView.COLOR_STYLE_OUT_MONTH, cr.outMonthTextColor)
+        initStyleColor(RangeCalendarGridView.COLOR_STYLE_DISABLED, cr.disabledTextColor)
+        initStyleColor(RangeCalendarGridView.COLOR_STYLE_TODAY, cr.colorPrimary)
+        initStyleColor(RangeCalendarGridView.COLOR_STYLE_WEEKDAY, cr.textColor)
+        initStyleColor(RangeCalendarGridView.COLOR_STYLE_HOVER, cr.hoverColor)
+        initStyleColor(RangeCalendarGridView.COLOR_STYLE_HOVER_ON_SELECTION, cr.colorPrimaryDark)
+
         initStyle(STYLE_DAY_NUMBER_TEXT_SIZE, cr.dayNumberTextSize)
-        initStyle(STYLE_IN_MONTH_DAY_NUMBER_COLOR, cr.textColor)
-        initStyle(STYLE_OUT_MONTH_DAY_NUMBER_COLOR, cr.outMonthTextColor)
-        initStyle(STYLE_DISABLED_DAY_NUMBER_COLOR, cr.disabledTextColor)
-        initStyle(STYLE_TODAY_COLOR, cr.colorPrimary)
-        initStyle(STYLE_WEEKDAY_COLOR, cr.textColor)
         initStyle(STYLE_WEEKDAY_TEXT_SIZE, cr.weekdayTextSize)
         initStyle(STYLE_WEEKDAY_TYPE, WeekdayType.SHORT)
-        initStyle(STYLE_HOVER_COLOR, cr.hoverColor)
-        initStyle(STYLE_HOVER_ON_SELECTION_COLOR, cr.colorPrimaryDark)
         initStyle(STYLE_CELL_RR_RADIUS, Float.POSITIVE_INFINITY)
         initStyle(STYLE_CELL_SIZE, cr.cellSize)
         initStyle(STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR, ClickOnCellSelectionBehavior.NONE)
@@ -177,7 +203,10 @@ internal class RangeCalendarPagerAdapter(
             STYLE_COMMON_ANIMATION_DURATION,
             RangeCalendarGridView.DEFAULT_COMMON_ANIM_DURATION
         )
-        initStyle(STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE, SelectionFillGradientBoundsType.GRID.ordinal)
+        initStyle(
+            STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE,
+            SelectionFillGradientBoundsType.GRID.ordinal
+        )
 
         initStyle(STYLE_COMMON_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
         initStyle(STYLE_HOVER_ANIMATION_DURATION, RangeCalendarGridView.DEFAULT_HOVER_ANIM_DURATION)
@@ -185,6 +214,10 @@ internal class RangeCalendarPagerAdapter(
         initStyle(STYLE_HOVER_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true)
         initStyle(STYLE_SELECTION_FILL, Fill.solid(cr.colorPrimary))
+    }
+
+    private fun initStyleColor(type: Int, @ColorInt color: Int) {
+        styleColors.setColorInt(type, color)
     }
 
     private fun initStyle(type: Int, data: Boolean) {
@@ -215,6 +248,17 @@ internal class RangeCalendarPagerAdapter(
         if (position in 0 until count) {
             notifyItemChanged(position, Payload.updateTodayIndex())
         }
+    }
+
+    @ColorInt
+    fun getStyleColorInt(type: Int): Int {
+        return styleColors.getColorInt(type)
+    }
+
+    @ColorLong
+    @RequiresApi(26)
+    fun getStyleColorLong(type: Int): Long {
+        return styleColors.getColorLong(type)
     }
 
     fun getStyleInt(type: Int): Int {
@@ -250,6 +294,23 @@ internal class RangeCalendarPagerAdapter(
         setStyleInt(type, value.toBits(), notify)
     }
 
+    fun setStyleColor(type: Int, @ColorInt color: Int, notify: Boolean = true) {
+        styleColors.setColorInt(type, color)
+
+        if(notify) {
+            notifyItemRangeChanged(0, count, Payload.updateStyleColor(type, color))
+        }
+    }
+
+    @RequiresApi(26)
+    fun setStyleColor(type: Int, @ColorLong color: Long, notify: Boolean = true) {
+        styleColors.setColorLong(type, color)
+
+        if(notify) {
+            notifyItemRangeChanged(0, count, Payload.updateStyleColor(type, color))
+        }
+    }
+
     fun setStyleObject(type: Int, data: Any?) {
         styleObjData[type - STYLE_OBJ_START] = data
 
@@ -265,14 +326,7 @@ internal class RangeCalendarPagerAdapter(
 
         when (type) {
             STYLE_DAY_NUMBER_TEXT_SIZE -> gridView.setDayNumberTextSize(f)
-            STYLE_WEEKDAY_TEXT_SIZE -> gridView.setDayNameTextSize(f)
-            STYLE_IN_MONTH_DAY_NUMBER_COLOR -> gridView.setInMonthDayNumberColor(data)
-            STYLE_OUT_MONTH_DAY_NUMBER_COLOR -> gridView.setOutMonthDayNumberColor(data)
-            STYLE_DISABLED_DAY_NUMBER_COLOR -> gridView.setDisabledDayNumberColor(data)
-            STYLE_TODAY_COLOR -> gridView.setTodayColor(data)
-            STYLE_WEEKDAY_COLOR -> gridView.setDayNameColor(data)
-            STYLE_HOVER_COLOR -> gridView.setHoverColor(data)
-            STYLE_HOVER_ON_SELECTION_COLOR -> gridView.setHoverOnSelectionColor(data)
+            STYLE_WEEKDAY_TEXT_SIZE -> gridView.setWeekdayTextSize(f)
             STYLE_CELL_RR_RADIUS -> gridView.setCellRoundRadius(f)
             STYLE_CELL_SIZE -> gridView.cellSize = f
             STYLE_WEEKDAY_TYPE -> gridView.setWeekdayType(data)
@@ -280,7 +334,9 @@ internal class RangeCalendarPagerAdapter(
             STYLE_COMMON_ANIMATION_DURATION -> gridView.commonAnimationDuration = data
             STYLE_HOVER_ANIMATION_DURATION -> gridView.hoverAnimationDuration = data
             STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE -> gridView.vibrateOnSelectingCustomRange = b
-            STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> gridView.setSelectionFillGradientBoundsType(SelectionFillGradientBoundsType.ofOrdinal(data))
+            STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> gridView.setSelectionFillGradientBoundsType(
+                SelectionFillGradientBoundsType.ofOrdinal(data)
+            )
         }
     }
 
@@ -1012,6 +1068,8 @@ internal class RangeCalendarPagerAdapter(
             updateStyle(gridView, type, styleData[type])
         }
 
+        gridView.setStyleColors(styleColors)
+
         for (type in styleObjData.indices) {
             val adjustedType = type + STYLE_OBJ_START
 
@@ -1071,6 +1129,20 @@ internal class RangeCalendarPagerAdapter(
                         updateStyle(gridView, type, value)
                     }
                 }
+                Payload.UPDATE_STYLE_COLOR_INT -> {
+                    val type = payload.arg1.toInt()
+                    val value = payload.arg2.toInt()
+
+                    gridView.setStyleColorInt(type, value)
+                }
+                Payload.UPDATE_STYLE_COLOR_LONG -> {
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        val type = payload.arg1.toInt()
+                        val value = payload.arg2
+
+                        gridView.setStyleColorLong(type, value)
+                    }
+                }
                 Payload.CLEAR_HOVER -> {
                     gridView.clearHoverCellWithAnimation()
                 }
@@ -1118,22 +1190,15 @@ internal class RangeCalendarPagerAdapter(
 
     companion object {
         const val STYLE_DAY_NUMBER_TEXT_SIZE = 0
-        const val STYLE_IN_MONTH_DAY_NUMBER_COLOR = 1
-        const val STYLE_OUT_MONTH_DAY_NUMBER_COLOR = 2
-        const val STYLE_DISABLED_DAY_NUMBER_COLOR = 3
-        const val STYLE_TODAY_COLOR = 4
-        const val STYLE_WEEKDAY_COLOR = 5
-        const val STYLE_WEEKDAY_TEXT_SIZE = 6
-        const val STYLE_HOVER_COLOR = 7
-        const val STYLE_HOVER_ON_SELECTION_COLOR = 8
-        const val STYLE_CELL_RR_RADIUS = 9
-        const val STYLE_CELL_SIZE = 10
-        const val STYLE_WEEKDAY_TYPE = 11
-        const val STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR = 12
-        const val STYLE_COMMON_ANIMATION_DURATION = 13
-        const val STYLE_HOVER_ANIMATION_DURATION = 14
-        const val STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 15
-        const val STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE = 16
+        const val STYLE_WEEKDAY_TEXT_SIZE = 1
+        const val STYLE_CELL_RR_RADIUS = 2
+        const val STYLE_CELL_SIZE = 3
+        const val STYLE_WEEKDAY_TYPE = 4
+        const val STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR = 5
+        const val STYLE_COMMON_ANIMATION_DURATION = 6
+        const val STYLE_HOVER_ANIMATION_DURATION = 7
+        const val STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 8
+        const val STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE = 9
 
         private const val STYLE_OBJ_START = 32
         const val STYLE_COMMON_ANIMATION_INTERPOLATOR = 32

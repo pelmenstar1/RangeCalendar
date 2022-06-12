@@ -3,12 +3,12 @@
 package io.github.pelmenstar1.rangecalendar.utils
 
 import android.graphics.Color
+import android.graphics.Paint
+import android.os.Build
 import androidx.annotation.ColorInt
 import androidx.annotation.ColorLong
-import androidx.core.graphics.alpha
-import androidx.core.graphics.blue
-import androidx.core.graphics.green
-import androidx.core.graphics.red
+import androidx.annotation.RequiresApi
+import androidx.core.graphics.*
 
 @ColorInt
 internal fun Int.withAlpha(alpha: Int): Int {
@@ -18,6 +18,11 @@ internal fun Int.withAlpha(alpha: Int): Int {
 @ColorInt
 internal fun Int.withAlpha(alpha: Byte): Int {
     return withAlpha(alpha.toInt() and 0xFF)
+}
+
+@ColorInt
+internal fun Int.withAlpha(alpha: Float): Int {
+    return withAlpha((alpha * 255f + 0.5f).toInt())
 }
 
 @ColorLong
@@ -69,4 +74,17 @@ internal fun Int.darkerColor(factor: Float): Int {
         (green * invFactor + 0.5f).toInt(),
         (blue * invFactor + 0.5f).toInt()
     )
+}
+
+@RequiresApi(26)
+internal fun Paint.setColorLongFast(@ColorLong color: Long) {
+    if(Build.VERSION.SDK_INT >= 29) {
+        if(color.isSrgb) {
+            setColor(color.asSrgbUnsafe())
+        } else {
+            setColor(color)
+        }
+    } else {
+        setColor(Color.toArgb(color))
+    }
 }
