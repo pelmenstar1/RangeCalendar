@@ -98,6 +98,22 @@ internal value class PackedSize(val bits: Long) {
     }
 }
 
+internal inline fun PackedSizeArray(size: Int): PackedSizeArray {
+    return PackedSizeArray(LongArray(size))
+}
+
+@JvmInline
+internal value class PackedSizeArray(val array: LongArray) {
+    inline val size: Int
+        get() = array.size
+
+    inline operator fun get(index: Int) = PackedSize(array[index])
+
+    inline operator fun set(index: Int, value: PackedSize) {
+        array[index] = value.bits
+    }
+}
+
 internal fun PackedRectF(left: Float, top: Float, right: Float, bottom: Float): PackedRectF {
     return packRectF(float32To16(left), float32To16(top), float32To16(right), float32To16(bottom))
 }

@@ -1,55 +1,47 @@
 package io.github.pelmenstar1.rangecalendar
 
-import android.content.res.ColorStateList
-import android.util.TypedValue
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
 import android.icu.text.DateFormatSymbols
 import android.os.Build
+import android.util.TypedValue
 import androidx.annotation.AttrRes
 import androidx.core.content.res.ResourcesCompat
-import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.utils.darkerColor
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
-import io.github.pelmenstar1.rangecalendar.utils.getTextBounds
-import java.lang.IllegalArgumentException
+import io.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 
 internal class CalendarResources(context: Context) {
-    private val dayNumberSizes: LongArray
-    val weekdayWidths: IntArray
-    val dayNumberTextSize: Float
     val hPadding: Float
-    val colorPrimary: Int
-    val colorPrimaryDark: Int
     val cellSize: Float
     val yCellMargin: Float
+
+    val colorPrimary: Int
+    val colorPrimaryDark: Int
     val hoverColor: Int
     val textColor: Int
     val outMonthTextColor: Int
     val disabledTextColor: Int
+
     val weekdayTextSize: Float
     val weekdays: Array<String>
-    val shortWeekdayRowHeight: Float
-    val narrowWeekdayRowHeight: Float
+
+    val dayNumberTextSize: Float
+
+    // Can only be used when text size is default one (dayNumberTextSize)
+    val defaultDayNumberSizes: PackedSizeArray
+
+    /*
+     * These are precomputed values for default weekdayTextSize and cannot be used for another text size.
+     */
+    val defaultWeekdayWidths: FloatArray
+    val defaultShortWeekdayRowHeight: Float
+    val defaultNarrowWeekdayRowHeight: Float
+    /* ----- */
+
     val weekdayRowMarginBottom: Float
     val colorControlNormal: ColorStateList
-
-    private fun computeWeekdayWidthAndMaxHeight(offset: Int): Float {
-        var maxHeight = -1
-        for (i in offset until offset + 7) {
-            val name = weekdays[i]
-
-            val size = getTextBounds(name, weekdayTextSize)
-            val height = size.height
-            if (height > maxHeight) {
-                maxHeight = height
-            }
-
-            weekdayWidths[i] = size.width
-        }
-
-        return maxHeight.toFloat()
-    }
 
     init {
         val res = context.resources
@@ -70,7 +62,7 @@ internal class CalendarResources(context: Context) {
         weekdayRowMarginBottom = res.getDimension(R.dimen.rangeCalendar_weekdayRowMarginBottom)
 
         // Compute text size of numbers in [0; 31]
-        dayNumberSizes = LongArray(31) { i -> getTextBounds(DAYS[i], weekdayTextSize).bits }
+        defaultDayNumberSizes = getTextBoundsArray(DAYS, dayNumberTextSize)
 
         // First element in getShortWeekDays() is empty and actual items start from 1
         // It's better to copy them to another array where elements start from 0
@@ -100,19 +92,30 @@ internal class CalendarResources(context: Context) {
             System.arraycopy(narrowWeekdays, 1, weekdays, 7, 7)
         }
 
-        weekdayWidths = IntArray(weekdaysLength)
-        shortWeekdayRowHeight = computeWeekdayWidthAndMaxHeight(SHORT_WEEKDAYS_OFFSET)
-        narrowWeekdayRowHeight = if (Build.VERSION.SDK_INT >= 24) {
+        defaultWeekdayWidths = FloatArray(weekdaysLength)
+        defaultShortWeekdayRowHeight = computeWeekdayWidthAndMaxHeight(SHORT_WEEKDAYS_OFFSET)
+        defaultNarrowWeekdayRowHeight = if (Build.VERSION.SDK_INT >= 24) {
             computeWeekdayWidthAndMaxHeight(NARROW_WEEKDAYS_OFFSET)
         } else Float.NaN
     }
 
-    fun getDayNumberSize(day: Int): PackedSize {
-        return PackedSize(dayNumberSizes[day - 1])
+    private fun computeWeekdayWidthAndMaxHeight(offset: Int): Float {
+        var maxHeight = -1
+
+        getTextBoundsArray(weekdays, offset, offset + 7, weekdayTextSize, typeface = null) { i, size ->
+            val height = size.height
+            if (height > maxHeight) {
+                maxHeight = height
+            }
+
+            defaultWeekdayWidths[i + offset] = size.width.toFloat()
+        }
+
+        return maxHeight.toFloat()
     }
 
     companion object {
-        private val DAYS = arrayOf(
+        val DAYS = arrayOf(
             "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
             "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
             "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",

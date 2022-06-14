@@ -251,9 +251,9 @@ They are enabled by default (currently they cannot be disabled).
         <td>rangeCalendar_weekdayType</td>
         <td>
             Type of weekday. <br/> 
-            Format of weekdays is very dependent on locale. In examples, English locale is used.
+            Format of weekdays is very dependent on locale. In example, English locale is used.
             <ul>
-                <li>shortName (WeekdayType.SHORT) - weekdays will look like Mo, Tue, Wed. </li>
+                <li>shortName (WeekdayType.SHORT) - weekdays will look like Mob, Tue, Wed. </li>
                 <li>narrowName (WeekdayType.NARROW) - weekdays will look like M, T, W,. </li>
             </ul>
         </td>

@@ -4,6 +4,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
 import io.github.pelmenstar1.rangecalendar.PackedSize
+import io.github.pelmenstar1.rangecalendar.PackedSizeArray
 
 private val textBoundsCache = Rect()
 private val tempPaint = Paint()
@@ -19,6 +20,32 @@ internal fun getTextBounds(text: String, textSize: Float, typeface: Typeface? = 
     initTempPaint(textSize, typeface)
 
     return tempPaint.getTextBounds(text)
+}
+
+internal fun getTextBoundsArray(
+    texts: Array<String>,
+    textSize: Float,
+    typeface: Typeface? = null
+): PackedSizeArray {
+    val bitsArray = LongArray(texts.size)
+    getTextBoundsArray(texts, 0, texts.size, textSize, typeface) { i, size ->
+        bitsArray[i] = size.bits
+    }
+
+    return PackedSizeArray(bitsArray)
+}
+
+internal inline fun getTextBoundsArray(
+    texts: Array<String>,
+    start: Int,
+    end: Int,
+    textSize: Float,
+    typeface: Typeface?,
+    block: (index: Int, PackedSize) -> Unit
+) {
+    initTempPaint(textSize, typeface)
+
+    tempPaint.getTextBoundsArray(texts, start, end, block)
 }
 
 internal fun getTextBounds(
@@ -39,6 +66,17 @@ internal fun Paint.getTextBounds(text: String): PackedSize {
     getTextBounds(text, 0, text.length, textBoundsCache)
 
     return packTextBoundsCache()
+}
+
+internal inline fun Paint.getTextBoundsArray(
+    texts: Array<String>,
+    start: Int,
+    end: Int,
+    block: (index: Int, PackedSize) -> Unit
+) {
+    for (i in start until end) {
+        block(i - start, getTextBounds(texts[i]))
+    }
 }
 
 private fun packTextBoundsCache(): PackedSize {

@@ -283,7 +283,7 @@ internal class RangeCalendarGridView(
 
     val cells = ByteArray(42)
 
-    internal var cellSize: Float
+    internal var cellSize: Float = cr.cellSize
     private var columnWidth = 0f
 
     // The cell is circle by default and to achieve it with any possible cell size,
@@ -342,6 +342,15 @@ internal class RangeCalendarGridView(
     private val touchHelper: TouchHelper
 
     private var weekdayType = WeekdayType.SHORT
+
+    private var isWeekdayMeasurementsDirty = false
+
+    private var weekdayWidths: FloatArray = cr.defaultWeekdayWidths
+    private var maxWeekdayHeight: Float = cr.defaultShortWeekdayRowHeight
+
+    private var isDayNumberMeasurementsDirty = false
+    private var dayNumberSizes = cr.defaultDayNumberSizes
+
     var clickOnCellSelectionBehavior = 0
     var commonAnimationDuration = DEFAULT_COMMON_ANIM_DURATION
     var hoverAnimationDuration = DEFAULT_HOVER_ANIM_DURATION
@@ -376,8 +385,6 @@ internal class RangeCalendarGridView(
 
         touchHelper = TouchHelper(this)
         ViewCompat.setAccessibilityDelegate(this, touchHelper)
-
-        cellSize = cr.cellSize
 
         styleColors = CompatColorArray(7).apply {
             setColorInt(COLOR_STYLE_IN_MONTH, defTextColor)
@@ -429,10 +436,22 @@ internal class RangeCalendarGridView(
 
     fun setDayNumberTextSize(size: Float) = updateUIState {
         dayNumberPaint.textSize = size
+
+        if (size != cr.dayNumberTextSize) {
+            isDayNumberMeasurementsDirty = true
+
+            refreshAllDecorVisualStates()
+        }
     }
 
     fun setWeekdayTextSize(size: Float) = updateUIState {
         weekdayPaint.textSize = size
+
+        if (size != cr.weekdayTextSize) {
+            isWeekdayMeasurementsDirty = true
+        }
+
+        onGridTopChanged()
     }
 
     fun setStyleColorInt(index: Int, @ColorInt color: Int) = updateUIState {
@@ -457,7 +476,7 @@ internal class RangeCalendarGridView(
 
         cellSize = size
 
-        refreshAllDecorVisualStatesOnSizeChange()
+        refreshAllDecorVisualStates()
 
         refreshColumnWidth()
         requestLayout()
@@ -468,7 +487,7 @@ internal class RangeCalendarGridView(
 
         rrRadius = value
 
-        refreshAllDecorVisualStatesOnSizeChange()
+        refreshAllDecorVisualStates()
 
         if (selectionType == SelectionType.MONTH) {
             forceResetCustomPath()
@@ -486,26 +505,25 @@ internal class RangeCalendarGridView(
         reselect()
     }
 
-    fun setWeekdayType(@WeekdayTypeInt _type: Int) {
-        // There is no narrow weekdays before API < 24
-        val type = WeekdayType.resolve(_type)
-
-        require(type == WeekdayType.SHORT || type == WeekdayType.NARROW) {
-            "Invalid weekday type. Use constants from WeekdayType"
-        }
+    fun setWeekdayType(_type: WeekdayType) = updateUIState {
+        // There is no narrow weekdays before API < 24, so we need to resolve it
+        val type = _type.resolved()
 
         weekdayType = type
 
-        if (selectionType == SelectionType.MONTH) {
-            forceResetCustomPath()
+        // If weekdays measurements are from calendar resources then we can use precomputed values and don't make them "dirty"
+        if (weekdayWidths === cr.defaultWeekdayWidths) {
+            maxWeekdayHeight = if (type == WeekdayType.SHORT) {
+                cr.defaultShortWeekdayRowHeight
+            } else {
+                cr.defaultNarrowWeekdayRowHeight
+            }
+        } else {
+            // Widths and max height needs to be precomputed if they are not from calendar resources.
+            isWeekdayMeasurementsDirty = true
         }
 
-        updateGradientBoundsIfNeeded()
-
-        invalidate()
-
-        // y-axis of entries depends on type of weekday, so we need to refresh accessibility info
-        touchHelper.invalidateRoot()
+        onGridTopChanged()
     }
 
     fun setTodayCell(cell: Cell) {
@@ -1008,7 +1026,7 @@ internal class RangeCalendarGridView(
 
         val halfCellSize = cellSize * 0.5f
 
-        val cellTextSize = cr.getDayNumberSize(cells[cell.index].toInt())
+        val cellTextSize = getDayNumberSize(cell)
         val halfCellTextWidth = cellTextSize.width * 0.5f
         val halfCellTextHeight = cellTextSize.height * 0.5f
 
@@ -1033,7 +1051,9 @@ internal class RangeCalendarGridView(
         )
     }
 
-    private fun refreshAllDecorVisualStatesOnSizeChange() {
+    private fun refreshAllDecorVisualStates() {
+        measureDayNumberTextSizesIfNecessary()
+
         decorVisualStates.forEachNotNull { cell, value ->
             val stateHandler = value.visual().stateHandler()
 
@@ -1521,7 +1541,13 @@ internal class RangeCalendarGridView(
     private fun drawWeekdayRow(c: Canvas) {
         styleColors.initPaintColor(COLOR_STYLE_WEEKDAY, weekdayPaint)
 
-        var x = cr.hPadding
+        if (isWeekdayMeasurementsDirty) {
+            isWeekdayMeasurementsDirty = false
+
+            measureWeekdays()
+        }
+
+        var x = cr.hPadding + columnWidth * 0.5f
 
         val offset = if (weekdayType == WeekdayType.SHORT)
             CalendarResources.SHORT_WEEKDAYS_OFFSET
@@ -1530,23 +1556,52 @@ internal class RangeCalendarGridView(
 
         val startIndex = if (isFirstDaySunday) 0 else 1
 
-        val halfColumnWidth = columnWidth * 0.5f
+        // If widths are from calendar resources, then we do not need any widths-offset to get the size,
+        // because it contains both short and narrow (if API level >= 24) weekday widths.
+        // But if the widths are recomputed, not from calendar resources,
+        // then it contains either short or narrow (if API level >= 24) weekday widths and
+        // we need to shift the index.
+        val widthsOffset = if (weekdayWidths === cr.defaultWeekdayWidths) 0 else offset
 
         for (i in offset + startIndex until offset + 7) {
-            drawWeekday(c, i, x + halfColumnWidth)
+            drawWeekday(c, i, widthsOffset, x)
 
             x += columnWidth
         }
 
         if (!isFirstDaySunday) {
-            drawWeekday(c, offset, x + halfColumnWidth)
+            drawWeekday(c, offset, widthsOffset, x)
         }
     }
 
-    private fun drawWeekday(c: Canvas, index: Int, midX: Float) {
-        val textX = midX - (cr.weekdayWidths[index] / 2).toFloat()
+    private fun drawWeekday(c: Canvas, index: Int, widthsOffset: Int, midX: Float) {
+        val textX = midX - weekdayWidths[index - widthsOffset] * 0.5f
+        val textY = maxWeekdayHeight
 
-        c.drawText(cr.weekdays[index], textX, cr.shortWeekdayRowHeight, weekdayPaint)
+        c.drawText(cr.weekdays[index], textX, textY, weekdayPaint)
+    }
+
+    private fun measureWeekdays() {
+        val offset = if (weekdayType == WeekdayType.SHORT) 0 else 7
+
+        var maxHeight = -1
+
+        // If weekdays are from calendar resources,
+        // then create new array to not overwrite the resources' one.
+        if (weekdayWidths === cr.defaultWeekdayWidths) {
+            weekdayWidths = FloatArray(7)
+        }
+
+        weekdayPaint.getTextBoundsArray(cr.weekdays, offset, offset + 7) { i, size ->
+            val height = size.height
+            if (height > maxHeight) {
+                maxHeight = height
+            }
+
+            weekdayWidths[i] = size.width.toFloat()
+        }
+
+        maxWeekdayHeight = maxHeight.toFloat()
     }
 
     private fun drawHover(c: Canvas) {
@@ -1578,6 +1633,8 @@ internal class RangeCalendarGridView(
     }
 
     private fun drawCells(c: Canvas) {
+        measureDayNumberTextSizesIfNecessary()
+
         for (i in 0..41) {
             val cell = Cell(i)
 
@@ -1631,15 +1688,31 @@ internal class RangeCalendarGridView(
         if (day > 0) {
             val colorStyle = cellTypeToColorStyle(cellType)
 
-            val size = cr.getDayNumberSize(day)
+            val size = getDayNumberSize(day)
             val halfCellSize = cellSize * 0.5f
 
-            val textX = x + halfCellSize - (size.width / 2).toFloat()
-            val textY = y + halfCellSize + (size.height / 2).toFloat()
+            val textX = x + halfCellSize - size.width * 0.5f
+            val textY = y + halfCellSize + size.height * 0.5f
 
             styleColors.initPaintColor(colorStyle, dayNumberPaint)
 
             c.drawText(CalendarResources.getDayText(day), textX, textY, dayNumberPaint)
+        }
+    }
+
+    private fun measureDayNumberTextSizesIfNecessary() {
+        if (isDayNumberMeasurementsDirty) {
+            isDayNumberMeasurementsDirty = false
+
+            var sizes = dayNumberSizes
+            if (sizes.array === cr.defaultDayNumberSizes.array) {
+                sizes = PackedSizeArray(31)
+                dayNumberSizes = sizes
+            }
+
+            dayNumberPaint.getTextBoundsArray(CalendarResources.DAYS, 0, 31) { i, size ->
+                sizes[i] = size
+            }
         }
     }
 
@@ -1807,15 +1880,19 @@ internal class RangeCalendarGridView(
         customPathRange = CellRange.Invalid
     }
 
-    private fun gridTop(): Float {
-        // Top of grid is height of weekday row plus bottom margin of weekday row
-        val height = if (weekdayType == WeekdayType.SHORT) {
-            cr.shortWeekdayRowHeight
-        } else {
-            cr.narrowWeekdayRowHeight
+    private fun onGridTopChanged() {
+        if (selectionType == SelectionType.MONTH) {
+            forceResetCustomPath()
         }
 
-        return height + cr.weekdayRowMarginBottom
+        updateGradientBoundsIfNeeded()
+
+        // y-axis of entries depends on type of weekday, so we need to refresh accessibility info
+        touchHelper.invalidateRoot()
+    }
+
+    private fun gridTop(): Float {
+        return maxWeekdayHeight + cr.weekdayRowMarginBottom
     }
 
     // It'd be better if cellRoundRadius() returns round radius that isn't greater than half of cell size.
@@ -1857,6 +1934,9 @@ internal class RangeCalendarGridView(
     private fun isXInActiveZone(x: Float): Boolean {
         return x >= cr.hPadding && x <= width - cr.hPadding
     }
+
+    private fun getDayNumberSize(day: Int) = dayNumberSizes[day - 1]
+    private fun getDayNumberSize(cell: Cell) = getDayNumberSize(cells[cell.index].toInt())
 
     companion object {
         const val COLOR_STYLE_IN_MONTH = 0
