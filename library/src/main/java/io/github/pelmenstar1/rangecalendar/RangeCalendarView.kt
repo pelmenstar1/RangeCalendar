@@ -235,6 +235,8 @@ class RangeCalendarView @JvmOverloads constructor(
     private val nextOrClearButton: ImageButton
     private val infoView: TextView
 
+    private var _timeZone: TimeZone
+
     private var _minDate = PackedDate.MIN_DATE
     private var _maxDate = PackedDate.MAX_DATE
 
@@ -294,9 +296,21 @@ class RangeCalendarView @JvmOverloads constructor(
 
     private val onDateChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val action = intent.action
-            if (action == Intent.ACTION_DATE_CHANGED) {
-                refreshToday()
+            when(intent.action) {
+                Intent.ACTION_DATE_CHANGED -> {
+                    refreshToday()
+                }
+                Intent.ACTION_TIMEZONE_CHANGED -> {
+                    if(observeTimeZoneChanges) {
+                        _timeZone = if(Build.VERSION.SDK_INT >= 30) {
+                            TimeZone.getTimeZone(intent.getStringExtra(Intent.EXTRA_TIMEZONE))
+                        } else {
+                            TimeZone.getDefault()
+                        }
+
+                        refreshToday()
+                    }
+                }
             }
         }
     }
@@ -497,6 +511,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
         setYearAndMonthInternal(YearMonth.forDate(today), false)
 
+        _timeZone = TimeZone.getDefault()
+
         attrs?.let { initFromAttributes(context, it, defStyleAttr) }
     }
 
@@ -591,7 +607,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun refreshToday() {
-        adapter.setToday(PackedDate.today())
+        adapter.setToday(PackedDate.today(_timeZone))
     }
 
     private fun initLocaleDependentValues() {
@@ -652,20 +668,30 @@ class RangeCalendarView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
 
-        if (!isReceiverRegistered) {
-            isReceiverRegistered = true
-
-            registerReceiver()
-        }
+        registerReceiver()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
 
+        unregisterReceiver()
+    }
+
+    private fun registerReceiver() {
+        if (!isReceiverRegistered) {
+            isReceiverRegistered = true
+
+            context.registerReceiver(onDateChangedReceiver, IntentFilter().apply {
+                addAction(Intent.ACTION_DATE_CHANGED)
+            })
+        }
+    }
+
+    private fun unregisterReceiver() {
         if (isReceiverRegistered) {
             isReceiverRegistered = false
 
-            unregisterReceiver()
+            context.unregisterReceiver(onDateChangedReceiver)
         }
     }
 
@@ -770,16 +796,6 @@ class RangeCalendarView @JvmOverloads constructor(
         theme.resolveAttribute(R.attr.selectableItemBackgroundBorderless, value, true)
 
         return ResourcesCompat.getDrawable(context.resources, value.resourceId, theme)
-    }
-
-    private fun registerReceiver() {
-        context.registerReceiver(onDateChangedReceiver, IntentFilter().apply {
-            addAction(Intent.ACTION_DATE_CHANGED)
-        })
-    }
-
-    private fun unregisterReceiver() {
-        context.unregisterReceiver(onDateChangedReceiver)
     }
 
     private fun setSelectionViewOnScreen(state: Boolean) {
@@ -1000,6 +1016,38 @@ class RangeCalendarView @JvmOverloads constructor(
 
         setYearAndMonthInternal(currentCalendarYm, false)
     }
+
+    /**
+     * Gets or sets whether system time zone changes should be observed.
+     *
+     * If `true`, then when system time zone is changed, [timeZone] is updated to the new one
+     * and "today" cell is updated as well.
+     * If 'false', then system time zone changes are unobserved.
+     */
+    var observeTimeZoneChanges: Boolean = true
+
+    /**
+     * Gets or sets calendar's time zone.
+     * By default, it's default system time zone ([TimeZone.getDefault]).
+     *
+     * Calendar's time zone affects to "today" cell recognition.
+     * When new time zone is set, "today" cell is updated.
+     *
+     * **NOTE:** when new value is set, [observeTimeZoneChanges] is set to `false`.
+     * This is due to the assumption that when custom time zone (not default system one) is set,
+     * it's expected that the calendar's time zone wouldn't be overwritten when system one is changed.
+     * In spite of the assumption, it's not forbidden to set [observeTimeZoneChanges] to `true`.
+     */
+    var timeZone: TimeZone
+        get() = _timeZone
+        set(value) {
+            if(!_timeZone.hasSameRules(value)) {
+                _timeZone = value
+                observeTimeZoneChanges = false
+
+                refreshToday()
+            }
+        }
 
     /**
      * Gets or sets a listener which responds to selection changes

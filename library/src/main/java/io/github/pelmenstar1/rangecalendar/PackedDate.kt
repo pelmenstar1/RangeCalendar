@@ -1,6 +1,5 @@
 package io.github.pelmenstar1.rangecalendar
 
-import io.github.pelmenstar1.rangecalendar.TimeUtils.currentLocalTimeMillis
 import io.github.pelmenstar1.rangecalendar.TimeUtils.isLeapYear
 import io.github.pelmenstar1.rangecalendar.utils.floorMod
 import java.time.LocalDate
@@ -87,12 +86,15 @@ internal value class PackedDate(val bits: Int) {
         private const val DAYS_PER_CYCLE = 146097
         private const val DAYS_0000_TO_1970 = DAYS_PER_CYCLE * 5 - (30 * 365 + 7)
 
-        fun today(): PackedDate {
-            return fromEpochDay(todayEpochDay())
+        fun today(timeZone: TimeZone = TimeZone.getDefault()): PackedDate {
+            return fromEpochDay(todayEpochDay(timeZone))
         }
 
-        fun todayEpochDay(): Long {
-            return currentLocalTimeMillis() / MILLIS_IN_DAY
+        fun todayEpochDay(timeZone: TimeZone = TimeZone.getDefault()): Long {
+            val utcMillis = System.currentTimeMillis()
+            val localMillis = utcMillis + timeZone.getOffset(utcMillis)
+
+            return localMillis / MILLIS_IN_DAY
         }
 
         fun fromEpochDay(epochDay: Long): PackedDate {

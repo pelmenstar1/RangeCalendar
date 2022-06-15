@@ -166,6 +166,17 @@ They are enabled by default (currently they cannot be disabled).
 - Long-press to start selecting a custom range.
 - Click on month information view (on top center) to select month
 
+## Time zone
+
+- `getTimeZone()/setTimeZone()` to get or set calendar's time zone. 
+By default, it's default system time zone (`TimeZone.getDefault()`). 
+Calendar's time zone affects to "today" cell recognition. 
+When new time zone is set, "today" cell is updated. If new value (not system default one) is set,
+system time zone changes become unobserved due to the assumption that when custom time zone is set,
+it's expected that calendar's time zone wouldn't be overwritten when system time zone is changed.
+- `getObserveTimeZoneChanges()/setObserveTimeZoneChanges()` to get or set whether system time zone changes
+should be observed.
+
 ## Other
 
 - `allowedSelectionTypes()` returns special object that manages allowed types of selection. Example:
