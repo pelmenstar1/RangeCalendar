@@ -764,15 +764,12 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun getSelectableItemBackground(context: Context): Drawable? {
-        if (Build.VERSION.SDK_INT >= 21) {
-            val theme = context.theme
+        val theme = context.theme
 
-            val value = TypedValue()
-            theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, value, true)
-            return ResourcesCompat.getDrawable(context.resources, value.resourceId, theme)
-        }
+        val value = TypedValue()
+        theme.resolveAttribute(R.attr.selectableItemBackgroundBorderless, value, true)
 
-        return null
+        return ResourcesCompat.getDrawable(context.resources, value.resourceId, theme)
     }
 
     private fun registerReceiver() {
