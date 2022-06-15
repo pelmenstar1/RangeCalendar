@@ -240,8 +240,8 @@ class RangeCalendarView @JvmOverloads constructor(
     private var _minDate = PackedDate.MIN_DATE
     private var _maxDate = PackedDate.MAX_DATE
 
-    private var _minDateEpoch = MIN_DATE_EPOCH
-    private var _maxDateEpoch = MAX_DATE_EPOCH
+    private var _minDateEpoch = PackedDate.MIN_DATE_EPOCH
+    private var _maxDateEpoch = PackedDate.MAX_DATE_EPOCH
 
     private var infoViewYm = YearMonth(0)
     private var isReceiverRegistered = false
@@ -978,7 +978,8 @@ class RangeCalendarView @JvmOverloads constructor(
     /**
      * Gets or sets minimum date.
      *
-     * @throws IllegalArgumentException if date is less than 1 January 1970 or greater than 30 December 32767, or if minimum date is greater than maximum.
+     * @throws IllegalArgumentException if date is before 1 January 0000 or after 30 December 65535,
+     * or if minimum date is greater than maximum.
      */
     var minDate: LocalDate
         get() = _minDate.toLocalDate()
@@ -996,7 +997,8 @@ class RangeCalendarView @JvmOverloads constructor(
     /**
      * Gets or sets minimum date.
      *
-     * @throws IllegalArgumentException if date is less than 1 January 1970 or greater than 30 December 32767, or if minimum date is greater than maximum.
+     * @throws IllegalArgumentException if date is before 1 January 0000 or after 30 December 65535,
+     * or if minimum date is greater than maximum.
      */
     var maxDate: LocalDate
         get() = _maxDate.toLocalDate()
@@ -1498,8 +1500,9 @@ class RangeCalendarView @JvmOverloads constructor(
      * @param smoothScroll whether to do it with slide animation or not
      * @throws IllegalArgumentException if year and month are out of their valid ranges
      */
+    @JvmOverloads
     fun setYearAndMonth(year: Int, month: Int, smoothScroll: Boolean = true) {
-        require(year in 1970..PackedDate.MAX_YEAR) { "Invalid year ($year)" }
+        require(year in 0..PackedDate.MAX_YEAR) { "Invalid year ($year)" }
         require(month in 1..12) { "Invalid month ($month)" }
 
         setYearAndMonthInternal(YearMonth(year, month), smoothScroll)
@@ -1786,12 +1789,6 @@ class RangeCalendarView @JvmOverloads constructor(
         private const val DATE_FORMAT = "MMMM y"
         private const val SV_TRANSITION_DURATION: Long = 300
 
-        @JvmField
-        val MIN_DATE_EPOCH = PackedDate.MIN_DATE.toEpochDay()
-
-        @JvmField
-        val MAX_DATE_EPOCH = PackedDate.MAX_DATE.toEpochDay()
-
         private const val SELECTION_DAY_FLAG = 1 shl 1
         private const val SELECTION_WEEK_FLAG = 1 shl 2
         private const val SELECTION_MONTH_FLAG = 1 shl 3
@@ -1804,7 +1801,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         private fun requireValidEpochDayOnLocalDateTransform(epochDay: Long) {
-            require(epochDay in MIN_DATE_EPOCH..MAX_DATE_EPOCH) { "Date is out of valid range" }
+            require(PackedDate.isValidEpochDay(epochDay)) { "Date is out of valid range" }
         }
     }
 }

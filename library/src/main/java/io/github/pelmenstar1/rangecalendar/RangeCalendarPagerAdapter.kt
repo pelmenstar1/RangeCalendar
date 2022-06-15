@@ -152,8 +152,8 @@ internal class RangeCalendarPagerAdapter(
 
     private var minDate = PackedDate.MIN_DATE
     private var maxDate = PackedDate.MAX_DATE
-    private var minDateEpoch = RangeCalendarView.MIN_DATE_EPOCH
-    private var maxDateEpoch = RangeCalendarView.MAX_DATE_EPOCH
+    private var minDateEpoch = PackedDate.MIN_DATE_EPOCH
+    private var maxDateEpoch = PackedDate.MAX_DATE_EPOCH
 
     private var prevSelectionType = SelectionType.NONE
     private var prevSelectionData = 0
@@ -1219,16 +1219,7 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS = 34
         const val STYLE_SELECTION_FILL = 35
 
-        private val PAGES_BETWEEN_ABS_MIN_MAX: Int
-
-        init {
-            val absMin = PackedDate.MIN_DATE
-            val absMax = PackedDate.MAX_DATE
-
-            val absMaxMonths = YearMonth.forDate(absMax).totalMonths
-            val absMinMonths = YearMonth.forDate(absMin).totalMonths
-
-            PAGES_BETWEEN_ABS_MIN_MAX = absMaxMonths - absMinMonths + 1
-        }
+        // Precomputed value
+        private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
     }
 }

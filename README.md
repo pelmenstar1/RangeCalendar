@@ -150,11 +150,11 @@ They are enabled by default (currently they cannot be disabled).
 - `selectDay()` to select a day. If the day is out of enabled range, it won't be selected and
   listeners won't be fired.
 - `selectWeek(year, month, weekIndex)` to select a week.
-    - year should be in range of [1970; 32767]
+    - year should be in range [0; 65535]
     - month is 1-based
     - weekIndex is 0-based
 - `selectMonth(year, month)` to select a month.
-    - year should be in range of [1970; 32767]
+    - year should be in range of [0; 65535]
     - month is 1-based
 - `selectCustom(LocalDate startDate, LocalDate endDate)` to select custom range. The range should
   fit in single month, otherwise the exception will be thrown.
