@@ -58,6 +58,70 @@ class RangeCalendarView @JvmOverloads constructor(
     @AttrRes defStyleAttr: Int = 0
 ) : ViewGroup(context, attrs, defStyleAttr) {
     /**
+     * Represents a "gate" which determines whether to allow selection or not.
+     * Note
+     */
+    interface SelectionGate {
+        /**
+         * Determines whether cell selection is valid.
+         *
+         * @param year  year of selected date
+         * @param month month of selected date, 1-based
+         * @param dayOfMonth   day of month of selected date, 1-based
+         *
+         * @return true, if selection is valid; false, if selection request should be declined for some reasons.
+         */
+        fun cell(year: Int, month: Int, dayOfMonth: Int): Boolean
+
+        /**
+         * Determines whether week selection is valid.
+         *
+         * @param weekIndex  index of the week, 0-based
+         * @param startYear  year of selection's start
+         * @param startMonth month of selection's start, 1-based
+         * @param startDay   day of month of selection's start, 1-based
+         * @param endYear    year of selection's end
+         * @param endMonth   month of selection's end, 1-based
+         * @param endDay     day of month of selection's end, 1-based
+         *
+         * @return true, if selection is valid; false, if selection request should be declined for some reasons.
+         */
+        fun week(
+            weekIndex: Int,
+            startYear: Int, startMonth: Int, startDay: Int,
+            endYear: Int, endMonth: Int, endDay: Int
+        ): Boolean
+
+        /**
+         * Determines whether month selection is valid.
+         *
+         * @param year  year of selection
+         * @param month month of selection, 1-based
+         *
+         * @return true, if selection is valid; false, if selection request should be declined for some reasons.
+         */
+        fun month(year: Int, month: Int): Boolean
+
+        /**
+         * Determines whether custom-range selection is valid.
+         *
+         * @param startYear year of start of the range
+         * @param startMonth month of start of the range, 1-based
+         * @param startDay day of start of the range, 1-based
+         *
+         * @param endYear year of end of the range
+         * @param endMonth year of end of the range, 1-based
+         * @param endDay year of end of the range, 1-based
+         *
+         * @return true, if selection is valid; false, if selection request should be declined for some reasons.
+         */
+        fun customRange(
+            startYear: Int, startMonth: Int, startDay: Int,
+            endYear: Int, endMonth: Int, endDay: Int
+        ): Boolean
+    }
+
+    /**
      * Fires appropriate method when user selects day, week or month.
      */
     interface OnSelectionListener {
@@ -73,9 +137,8 @@ class RangeCalendarView @JvmOverloads constructor(
          * @param year  year of selected date
          * @param month month of selected date, 1-based
          * @param day   day of month of selected date, 1-based
-         * @return if for some reasons selected day is not valid, returns false, otherwise true
          */
-        fun onDaySelected(year: Int, month: Int, day: Int): Boolean
+        fun onDaySelected(year: Int, month: Int, day: Int)
 
         /**
          * Fires when user selects a week.
@@ -87,23 +150,20 @@ class RangeCalendarView @JvmOverloads constructor(
          * @param endYear    year of selection's end
          * @param endMonth   month of selection's end, 1-based
          * @param endDay     day of month of selection's end, 1-based
-         * @return if for some reasons selected week is not valid, returns false, otherwise true
          */
         fun onWeekSelected(
             weekIndex: Int,
             startYear: Int, startMonth: Int, startDay: Int,
             endYear: Int, endMonth: Int, endDay: Int
-        ): Boolean
+        )
 
         /**
          * Fires when user selects a month.
          *
          * @param year  year of selection
          * @param month month of selection, 1-based
-         *
-         * @return if for some reasons selected range is not valid, returns false, otherwise true
          */
-        fun onMonthSelected(year: Int, month: Int): Boolean
+        fun onMonthSelected(year: Int, month: Int)
 
         /**
          * Fires when user selects a custom range.
@@ -115,13 +175,11 @@ class RangeCalendarView @JvmOverloads constructor(
          * @param endYear year of end of the range
          * @param endMonth year of end of the range, 1-based
          * @param endDay year of end of the range, 1-based
-         *
-         * @return if for some reasons selected range is not valid, returns false, otherwise true
          */
         fun onCustomRangeSelected(
             startYear: Int, startMonth: Int, startDay: Int,
             endYear: Int, endMonth: Int, endDay: Int
-        ): Boolean
+        )
     }
 
     /**
@@ -175,16 +233,14 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         private fun setFlag(type: SelectionType, state: Boolean): AllowedSelectionTypes {
-            val shift = type.ordinal
-
-            // Set the bit at 'shift' position if 'state' is true, otherwise unset the bit.
-            val bit = 1 shl shift
+            // Set the bit at position specified by type if 'state' is true, otherwise unset the bit.
+            val mask = selectionTypeMask(type)
             val flags = allowedSelectionFlags
 
             val newFlags = if (state) {
-                flags or bit
+                flags or mask
             } else {
-                flags and bit.inv()
+                flags and mask.inv()
             }
 
             setAllowedSelectionFlags(newFlags)
@@ -249,10 +305,9 @@ class RangeCalendarView @JvmOverloads constructor(
     private val adapter: RangeCalendarPagerAdapter
 
     private var allowedSelectionTypesObj: AllowedSelectionTypes? = null
-    private var allowedSelectionFlags = SELECTION_DAY_FLAG or
-            SELECTION_WEEK_FLAG or
-            SELECTION_MONTH_FLAG or
-            SELECTION_CUSTOM_FLAG
+
+    // All the types are allowed
+    private var allowedSelectionFlags = 0x1E
 
     private val buttonSize: Int
     private val hPadding: Int
@@ -289,20 +344,15 @@ class RangeCalendarView @JvmOverloads constructor(
     private val layoutRect = Rect()
     private val layoutOutRect = Rect()
 
-    private var pendingSelectionPagePosition = 0
-    private var pendingSelectionWithAnimation = false
-
-    private var onSelectionActuallyChanged: (() -> Unit)? = null
-
     private val onDateChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            when(intent.action) {
+            when (intent.action) {
                 Intent.ACTION_DATE_CHANGED -> {
                     refreshToday()
                 }
                 Intent.ACTION_TIMEZONE_CHANGED -> {
-                    if(observeTimeZoneChanges) {
-                        _timeZone = if(Build.VERSION.SDK_INT >= 30) {
+                    if (observeTimeZoneChanges) {
+                        _timeZone = if (Build.VERSION.SDK_INT >= 30) {
                             TimeZone.getTimeZone(intent.getStringExtra(Intent.EXTRA_TIMEZONE))
                         } else {
                             TimeZone.getDefault()
@@ -331,6 +381,55 @@ class RangeCalendarView @JvmOverloads constructor(
 
         adapter = RangeCalendarPagerAdapter(cr, isFirstDaySunday)
         adapter.setToday(today)
+        adapter.setSelectionGate(object : SelectionGate {
+            override fun cell(year: Int, month: Int, dayOfMonth: Int) = internalGate(SelectionType.CELL) {
+                it.cell(year, month, dayOfMonth)
+            }
+
+            override fun week(
+                weekIndex: Int,
+                startYear: Int,
+                startMonth: Int,
+                startDay: Int,
+                endYear: Int,
+                endMonth: Int,
+                endDay: Int
+            ) = internalGate(SelectionType.WEEK) {
+                it.week(weekIndex, startYear, startMonth, startDay, endYear, endMonth, endDay)
+            }
+
+            override fun month(year: Int, month: Int) = internalGate(SelectionType.MONTH) {
+                it.month(year, month)
+            }
+
+            override fun customRange(
+                startYear: Int,
+                startMonth: Int,
+                startDay: Int,
+                endYear: Int,
+                endMonth: Int,
+                endDay: Int
+            ) = internalGate(SelectionType.CUSTOM) {
+                it.customRange(startYear, startMonth, startDay, endYear, endMonth, endDay)
+            }
+
+            private inline fun internalGate(
+                type: SelectionType,
+                method: (SelectionGate) -> Boolean
+            ): Boolean {
+                return if(isSelectionTypeAllowed(type)) {
+                    val gate = selectionGate
+
+                    if(gate != null) {
+                        method(gate)
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            }
+        })
         adapter.setOnSelectionListener(object : OnSelectionListener {
             override fun onSelectionCleared() {
                 if (_selectionView != null) {
@@ -340,8 +439,8 @@ class RangeCalendarView @JvmOverloads constructor(
                 onSelectionListener?.onSelectionCleared()
             }
 
-            override fun onDaySelected(year: Int, month: Int, day: Int): Boolean {
-                return onSelectedHandler(SELECTION_DAY_FLAG) {
+            override fun onDaySelected(year: Int, month: Int, day: Int) {
+                onSelectedHandler {
                     onDaySelected(year, month, day)
                 }
             }
@@ -354,8 +453,8 @@ class RangeCalendarView @JvmOverloads constructor(
                 endYear: Int,
                 endMonth: Int,
                 endDay: Int
-            ): Boolean {
-                return onSelectedHandler(SELECTION_WEEK_FLAG) {
+            ) {
+                onSelectedHandler {
                     onWeekSelected(
                         weekIndex,
                         startYear, startMonth, startDay,
@@ -364,8 +463,8 @@ class RangeCalendarView @JvmOverloads constructor(
                 }
             }
 
-            override fun onMonthSelected(year: Int, month: Int): Boolean {
-                return onSelectedHandler(SELECTION_MONTH_FLAG) {
+            override fun onMonthSelected(year: Int, month: Int) {
+                onSelectedHandler {
                     onMonthSelected(year, month)
                 }
             }
@@ -373,8 +472,8 @@ class RangeCalendarView @JvmOverloads constructor(
             override fun onCustomRangeSelected(
                 startYear: Int, startMonth: Int, startDay: Int,
                 endYear: Int, endMonth: Int, endDay: Int
-            ): Boolean {
-                return onSelectedHandler(SELECTION_CUSTOM_FLAG) {
+            ) {
+                onSelectedHandler {
                     onCustomRangeSelected(
                         startYear, startMonth, startDay,
                         endYear, endMonth, endDay
@@ -382,28 +481,9 @@ class RangeCalendarView @JvmOverloads constructor(
                 }
             }
 
-            private inline fun onSelectedHandler(
-                flag: Int,
-                method: OnSelectionListener.() -> Boolean
-            ): Boolean {
-                if ((allowedSelectionFlags and flag) == 0) {
-                    return false
-                }
-
-                val listener = onSelectionListener
-                if (listener != null) {
-                    val allowed = listener.method()
-
-                    if (allowed) {
-                        startSelectionViewTransition(true)
-                    }
-
-                    return allowed
-                } else {
-                    startSelectionViewTransition(true)
-                }
-
-                return true
+            private inline fun onSelectedHandler(method: OnSelectionListener.() -> Unit) {
+                startSelectionViewTransition(true)
+                onSelectionListener?.method()
             }
         })
 
@@ -1043,7 +1123,7 @@ class RangeCalendarView @JvmOverloads constructor(
     var timeZone: TimeZone
         get() = _timeZone
         set(value) {
-            if(!_timeZone.hasSameRules(value)) {
+            if (!_timeZone.hasSameRules(value)) {
                 _timeZone = value
                 observeTimeZoneChanges = false
 
@@ -1055,6 +1135,11 @@ class RangeCalendarView @JvmOverloads constructor(
      * Gets or sets a listener which responds to selection changes
      */
     var onSelectionListener: OnSelectionListener? = null
+
+    /**
+     * Gets or sets a selection "gate" which determines whether to allow selection or not.
+     */
+    var selectionGate: SelectionGate? = null
 
     /**
      * Gets or sets a listener which responds when calendar page is changed (by user or from code)
@@ -1587,17 +1672,16 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun selectInternal(type: SelectionType, data: Long, withAnimation: Boolean) {
-        if (onSelectionActuallyChanged == null) {
-            onSelectionActuallyChanged = {
-                pager.setCurrentItem(pendingSelectionPagePosition, pendingSelectionWithAnimation)
+        if (isSelectionTypeAllowed(type)) {
+            val ym = adapter.getYearMonthForSelection(type, data)
+
+            val actuallySelected = adapter.select(type, data, withAnimation)
+            if(actuallySelected) {
+                val position = adapter.getItemPositionForYearMonth(ym)
+
+                pager.setCurrentItem(position, withAnimation)
             }
         }
-
-        val ym = adapter.getYearMonthForSelection(type, data)
-        pendingSelectionPagePosition = adapter.getItemPositionForYearMonth(ym)
-        pendingSelectionWithAnimation = withAnimation
-
-        adapter.select(type, data, withAnimation, onSelectionActuallyChanged)
     }
 
     /**
@@ -1629,9 +1713,24 @@ class RangeCalendarView @JvmOverloads constructor(
         val selectionType = adapter.selectionType
 
         // Clear selection if current selection type become disallowed.
-        if (selectionType != SelectionType.NONE && flags and (1 shl selectionType.ordinal) == 0) {
+        if (!isSelectionTypeAllowed(selectionType)) {
             clearSelection()
         }
+    }
+
+    /**
+     * Determines whether specified selection type is allowed. [SelectionType.NONE] is always disallowed.
+     *
+     * @param type selection type to test.
+     *
+     * @see allowedSelectionTypes
+     */
+    fun isSelectionTypeAllowed(type: SelectionType): Boolean {
+        return (allowedSelectionFlags and selectionTypeMask(type)) != 0
+    }
+
+    private fun selectionTypeMask(type: SelectionType): Int {
+        return 1 shl type.ordinal
     }
 
     /**
@@ -1786,13 +1885,9 @@ class RangeCalendarView @JvmOverloads constructor(
 
     companion object {
         private val TAG = RangeCalendarView::class.java.simpleName
+
         private const val DATE_FORMAT = "MMMM y"
         private const val SV_TRANSITION_DURATION: Long = 300
-
-        private const val SELECTION_DAY_FLAG = 1 shl 1
-        private const val SELECTION_WEEK_FLAG = 1 shl 2
-        private const val SELECTION_MONTH_FLAG = 1 shl 3
-        private const val SELECTION_CUSTOM_FLAG = 1 shl 4
 
         private fun setButtonAlphaIfEnabled(button: ImageButton, alpha: Int) {
             if (button.isEnabled) {

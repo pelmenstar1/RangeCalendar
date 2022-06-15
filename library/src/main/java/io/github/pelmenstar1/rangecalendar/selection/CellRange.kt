@@ -23,7 +23,11 @@ internal value class CellRange(val bits: Int) {
     val cell: Cell
         get() = start
 
-    fun intersectionWidth(other: CellRange): CellRange {
+    fun hasIntersectionWith(other: CellRange): Boolean {
+        return !(other.start > end || start > other.end)
+    }
+
+    fun intersectionWith(other: CellRange): CellRange {
         val start = start
         val end = end
         val otherStart = other.start

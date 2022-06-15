@@ -1,3 +1,5 @@
+@file:Suppress("NOTHING_TO_INLINE")
+
 package io.github.pelmenstar1.rangecalendar
 
 internal fun YearMonth(year: Int, month: Int): YearMonth {
@@ -11,6 +13,9 @@ internal value class YearMonth(val totalMonths: Int) {
 
     val month: Int
         get() = totalMonths % 12 + 1
+
+    inline operator fun component1() = year
+    inline operator fun component2() = month
 
     operator fun minus(other: YearMonth): YearMonth {
         return YearMonth(totalMonths - other.totalMonths)
