@@ -1692,7 +1692,7 @@ internal class RangeCalendarGridView(
         return cellType
     }
 
-    private fun cellTypeToColorStyle(type: Int) = when (type) {
+    private fun cellTypeToColorStyle(type: Int) = when (type and CELL_DATA_MASK) {
         CELL_SELECTED, CELL_IN_MONTH -> COLOR_STYLE_IN_MONTH
         CELL_OUT_MONTH -> COLOR_STYLE_OUT_MONTH
         CELL_DISABLED -> COLOR_STYLE_DISABLED

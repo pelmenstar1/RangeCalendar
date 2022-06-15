@@ -5,13 +5,14 @@ package io.github.pelmenstar1.rangecalendar.utils
 import android.graphics.Color
 import android.graphics.Paint
 import android.os.Build
-import androidx.annotation.ColorInt
-import androidx.annotation.ColorLong
-import androidx.annotation.RequiresApi
+import androidx.annotation.*
+import androidx.annotation.IntRange
 import androidx.core.graphics.*
 
 @ColorInt
-internal fun Int.withAlpha(alpha: Int): Int {
+internal fun Int.withAlpha(
+    @IntRange(from = 0, to = 255) alpha: Int
+): Int {
     return this and 0x00FFFFFF or (alpha shl 24)
 }
 
@@ -21,17 +22,60 @@ internal fun Int.withAlpha(alpha: Byte): Int {
 }
 
 @ColorInt
-internal fun Int.withAlpha(alpha: Float): Int {
+internal fun Int.withAlpha(@FloatRange(from = 0.0, to = 1.0) alpha: Float): Int {
     return withAlpha((alpha * 255f + 0.5f).toInt())
 }
 
 @ColorLong
-internal fun Long.withAlpha(alpha: Float): Long {
-    return if ((this and 0x3fL) == 0L) {
-        (this and 0x00FFFFFF_FFFFFFFF) or ((alpha * 255f + 0.5f).toLong() shl 56)
+internal fun Long.withAlpha(@FloatRange(from = 0.0, to = 1.0) alpha: Float): Long {
+    return if (colorSpaceIdRaw == 0L) {
+        withAlphaSrgb((alpha * 255f + 0.5f).toLong())
     } else {
-        (this and (-65473L)) or ((alpha * 1023f + 0.5f).toLong() shl 6)
+        withAlphaNonSrgb((alpha * 1023f + 0.5f).toLong())
     }
+}
+
+@ColorLong
+internal inline fun Long.withAlphaSrgb(
+    @IntRange(from = 0, to = 255) alpha: Long
+): Long {
+    return (this and 0x00FFFFFF_FFFFFFFF) or (alpha shl 56)
+}
+
+@ColorLong
+internal inline fun Long.withAlphaNonSrgb(
+    @IntRange(from = 0, to = 1023) alpha: Long
+): Long {
+    return (this and (-65473L)) or (alpha shl 6)
+}
+
+@ColorInt
+fun Int.withCombinedAlpha(
+    @FloatRange(from = 0.0, to = 1.0) newAlpha: Float,
+    @IntRange(from = 0, to = 255) originAlpha: Int = alpha
+): Int {
+    return withAlpha((originAlpha * newAlpha + 0.5f).toInt())
+}
+
+@ColorLong
+fun Long.withCombinedAlpha(@FloatRange(from = 0.0, to = 1.0) newAlpha: Float): Long {
+    return if (colorSpaceIdRaw == 0L) {
+        val alpha = (this shr 56) and 0xff
+
+        withAlphaSrgb((alpha * newAlpha + 0.5f).toLong())
+    } else {
+        val alpha = (this shr 6) and 0x3ff
+
+        withAlphaNonSrgb((alpha * newAlpha + 0.5f).toLong())
+    }
+}
+
+@ColorLong
+fun Long.withCombinedAlpha(
+    @FloatRange(from = 0.0, to = 1.0) newAlpha: Float,
+    @FloatRange(from = 0.0, to = 1.0) originAlpha: Float
+): Long {
+    return withAlpha(newAlpha * originAlpha)
 }
 
 internal inline val Long.colorSpaceIdRaw: Long
@@ -66,7 +110,7 @@ internal fun colorLerp(@ColorInt start: Int, @ColorInt end: Int, fraction: Float
 }
 
 @ColorInt
-internal fun Int.darkerColor(factor: Float): Int {
+internal fun Int.darkerColor(@FloatRange(from = 0.0, to = 1.0) factor: Float): Int {
     val invFactor = 1f - factor
 
     return withRGB(
@@ -78,8 +122,8 @@ internal fun Int.darkerColor(factor: Float): Int {
 
 @RequiresApi(26)
 internal fun Paint.setColorLongFast(@ColorLong color: Long) {
-    if(Build.VERSION.SDK_INT >= 29) {
-        if(color.isSrgb) {
+    if (Build.VERSION.SDK_INT >= 29) {
+        if (color.isSrgb) {
             setColor(color.asSrgbUnsafe())
         } else {
             setColor(color)

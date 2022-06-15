@@ -70,9 +70,9 @@ internal value class CompatColorArray(private val array: Any) {
 
     fun initPaintColor(index: Int, alpha: Float, paint: Paint) {
         if(Build.VERSION.SDK_INT >= 26) {
-            paint.setColorLongFast(getColorLong(index).withAlpha(alpha))
+            paint.setColorLongFast(getColorLong(index).withCombinedAlpha(alpha))
         } else {
-            paint.color = getColorInt(index).withAlpha(alpha)
+            paint.color = getColorInt(index).withCombinedAlpha(alpha)
         }
     }
 

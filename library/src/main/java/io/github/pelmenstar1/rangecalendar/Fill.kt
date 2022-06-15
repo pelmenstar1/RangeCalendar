@@ -9,6 +9,7 @@ import androidx.core.graphics.*
 import io.github.pelmenstar1.rangecalendar.utils.colorSpaceIdRaw
 import io.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import io.github.pelmenstar1.rangecalendar.utils.withAlpha
+import io.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 
 /**
  * Represents either a solid fill or gradient fill.
@@ -504,14 +505,6 @@ sealed class Fill(protected val type: Int) {
                 }
                 append(']')
             }
-        }
-
-        private fun Int.withCombinedAlpha(newAlpha: Float, originAlpha: Int = alpha): Int {
-            return withAlpha((originAlpha * newAlpha + 0.5f).toInt())
-        }
-
-        private fun Long.withCombinedAlpha(newAlpha: Float, originAlpha: Float = alpha): Long {
-            return withAlpha(originAlpha * newAlpha)
         }
 
         private fun combineAlphas(alpha: Float, originAlphas: ByteArray, colors: IntArray) {
