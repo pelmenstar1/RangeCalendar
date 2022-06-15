@@ -1,9 +1,48 @@
 package io.github.pelmenstar1.rangecalendar
 
-object SelectionType {
-    const val NONE = 0
-    const val CELL = 1
-    const val WEEK = 2
-    const val MONTH = 3
-    const val CUSTOM = 4
+/**
+ * Defines all supported types of selection.
+ */
+enum class SelectionType {
+    /**
+     * None, no selection.
+     */
+    NONE,
+
+    /**
+     * Cell is selected.
+     */
+    CELL,
+
+    /**
+     * Week is selected.
+     */
+    WEEK,
+
+    /**
+     * Month is selected.
+     */
+    MONTH,
+
+    /**
+     * Custom-range selection.
+     */
+    CUSTOM;
+
+    companion object {
+        /**
+         * Returns [SelectionType] which has specified ordinal.
+         *
+         * @param index ordinal of [SelectionType]
+         * @throws IllegalArgumentException if index is negative or greater than enum value with largest ordinal
+         */
+        fun ofOrdinal(index: Int) = when (index) {
+            0 -> NONE
+            1 -> CELL
+            2 -> WEEK
+            3 -> MONTH
+            4 -> CUSTOM
+            else -> throw IllegalArgumentException("index is out of bounds")
+        }
+    }
 }

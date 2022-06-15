@@ -137,8 +137,8 @@ internal class RangeCalendarGridView(
         // 32-24 bits - type
         // 24-16 bits - withAnimation (1 if true, 0 if false)
 
-        val type: Int
-            get() = (bits shr 24).toInt() and 0xFF
+        val type: SelectionType
+            get() = SelectionType.ofOrdinal((bits shr 24).toInt() and 0xFF)
 
         val data: Int
             get() = (bits shr 32).toInt()
@@ -147,12 +147,12 @@ internal class RangeCalendarGridView(
             get() = (bits shr 16) and 0xFF == 1L
 
         companion object {
-            val Undefined = create(-1, -1, false)
+            val Undefined = create(SelectionType.NONE, -1, false)
 
-            fun create(type: Int, data: Int, withAnimation: Boolean): SetSelectionInfo {
+            fun create(type: SelectionType, data: Int, withAnimation: Boolean): SetSelectionInfo {
                 return SetSelectionInfo(
                     (data.toLong() shl 32) or
-                            (type.toLong() shl 24) or
+                            (type.ordinal.toLong() shl 24) or
                             ((if (withAnimation) 1L else 0L) shl 16)
                 )
             }
@@ -318,8 +318,8 @@ internal class RangeCalendarGridView(
 
     var ym = YearMonth(0)
 
-    private var prevSelectionType = 0
-    private var selectionType = 0
+    private var prevSelectionType = SelectionType.NONE
+    private var selectionType = SelectionType.NONE
 
     private var prevSelectedRange = CellRange(0)
     private var selectedRange = CellRange(0)
@@ -351,7 +351,7 @@ internal class RangeCalendarGridView(
     private var isDayNumberMeasurementsDirty = false
     private var dayNumberSizes = cr.defaultDayNumberSizes
 
-    var clickOnCellSelectionBehavior = 0
+    var clickOnCellSelectionBehavior = ClickOnCellSelectionBehavior.NONE
     var commonAnimationDuration = DEFAULT_COMMON_ANIM_DURATION
     var hoverAnimationDuration = DEFAULT_HOVER_ANIM_DURATION
     var commonAnimationInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
@@ -543,6 +543,7 @@ internal class RangeCalendarGridView(
             SelectionType.WEEK -> selectWeek(savedWeekIndex, doAnimation = true)
             SelectionType.MONTH -> selectMonth(doAnimation = true, reselect = true)
             SelectionType.CUSTOM -> selectCustom(savedRange, false)
+            else -> {}
         }
     }
 
@@ -738,7 +739,7 @@ internal class RangeCalendarGridView(
         return select(info.type, info.data, info.withAnimation)
     }
 
-    fun select(type: Int, data: Int, doAnimation: Boolean): Boolean {
+    fun select(type: SelectionType, data: Int, doAnimation: Boolean): Boolean {
         return when (type) {
             SelectionType.CELL -> selectCell(Cell(data), doAnimation)
             SelectionType.WEEK -> selectWeek(data, doAnimation)
@@ -814,6 +815,7 @@ internal class RangeCalendarGridView(
                 SelectionType.MONTH -> {
                     animType = MONTH_TO_CELL_ANIMATION
                 }
+                else -> {}
             }
 
             startAnimation(animType)
@@ -1362,14 +1364,15 @@ internal class RangeCalendarGridView(
 
     private fun drawSelectionNoAnimation(
         c: Canvas,
-        sType: Int,
+        type: SelectionType,
         range: CellRange,
         alpha: Float = 1f
     ) {
-        when (sType) {
+        when (type) {
             SelectionType.CELL -> drawCellSelection(c, range.cell, 1f, 1f, alpha)
             SelectionType.WEEK -> drawWeekFromCenterSelection(c, 1f, range, alpha)
             SelectionType.MONTH, SelectionType.CUSTOM -> drawCustomRange(c, range, alpha)
+            else -> {}
         }
     }
 

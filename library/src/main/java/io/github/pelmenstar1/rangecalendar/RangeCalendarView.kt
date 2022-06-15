@@ -1,36 +1,37 @@
 package io.github.pelmenstar1.rangecalendar
 
 import android.animation.Animator
-import kotlin.jvm.JvmOverloads
-import android.view.ViewGroup
-import androidx.viewpager2.widget.ViewPager2
-import android.widget.ImageButton
-import android.widget.TextView
-import android.animation.ValueAnimator
+import android.animation.AnimatorListenerAdapter
 import android.animation.TimeInterpolator
+import android.animation.ValueAnimator
 import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.TypedArray
+import android.graphics.Rect
+import android.graphics.drawable.Drawable
+import android.icu.text.DisplayContext
 import android.os.Build
 import android.os.Parcelable
-import android.view.Gravity
-import android.graphics.drawable.Drawable
-import android.util.TypedValue
-import androidx.core.content.res.ResourcesCompat
-import android.content.IntentFilter
-import android.animation.AnimatorListenerAdapter
-import android.content.Context
-import android.graphics.Rect
-import android.icu.text.DisplayContext
 import android.text.format.DateFormat
 import android.util.AttributeSet
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.TextView
 import androidx.annotation.*
-import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
-import io.github.pelmenstar1.rangecalendar.decoration.*
+import androidx.core.content.res.ResourcesCompat
+import androidx.viewpager2.widget.ViewPager2
+import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
+import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
+import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
+import io.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -173,9 +174,10 @@ class RangeCalendarView @JvmOverloads constructor(
             return setFlag(SelectionType.CUSTOM, state)
         }
 
-        private fun setFlag(shift: Int, state: Boolean): AllowedSelectionTypes {
-            // Set the bit at 'shift' position if 'state' is true, otherwise unset the bit.
+        private fun setFlag(type: SelectionType, state: Boolean): AllowedSelectionTypes {
+            val shift = type.ordinal
 
+            // Set the bit at 'shift' position if 'state' is true, otherwise unset the bit.
             val bit = 1 shl shift
             val flags = allowedSelectionFlags
 
@@ -196,7 +198,7 @@ class RangeCalendarView @JvmOverloads constructor(
         private val attrs: TypedArray
     ) {
         fun color(@StyleableRes index: Int, styleType: Int) {
-            if(attrs.hasValue(index)) {
+            if (attrs.hasValue(index)) {
                 val color = attrs.getColor(index, 0)
 
                 calendarView.adapter.setStyleColor(styleType, color, notify = false)
@@ -1061,11 +1063,16 @@ class RangeCalendarView @JvmOverloads constructor(
      * Gets or sets the way of determining bounds of selection. It only matters when selection fill is gradient-like.
      */
     var selectionFillGradientBoundsType: SelectionFillGradientBoundsType
-        get() = SelectionFillGradientBoundsType.ofOrdinal(adapter.getStyleInt(
-            RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE,
-        ))
+        get() = SelectionFillGradientBoundsType.ofOrdinal(
+            adapter.getStyleInt(
+                RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE,
+            )
+        )
         set(value) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE, value.ordinal)
+            adapter.setStyleInt(
+                RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE,
+                value.ordinal
+            )
         }
 
     /**
@@ -1316,22 +1323,28 @@ class RangeCalendarView @JvmOverloads constructor(
      *
      * @throws IllegalArgumentException if type is not one of [WeekdayType] constants
      */
-    @get:WeekdayTypeInt
-    var weekdayType: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_WEEKDAY_TYPE)
+    var weekdayType: WeekdayType
+        get() = adapter.getStyleEnum(
+            RangeCalendarPagerAdapter.STYLE_WEEKDAY_TYPE,
+            WeekdayType::ofOrdinal
+        )
         set(type) {
-            adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_WEEKDAY_TYPE, type)
+            adapter.setStyleEnum(RangeCalendarPagerAdapter.STYLE_WEEKDAY_TYPE, type)
         }
 
 
     /**
      * Gets or sets behavior of what to do when user clicks on already selected cell.
      */
-    @get:ClickOnCellSelectionBehaviourInt
-    var clickOnCellSelectionBehavior: Int
-        get() = adapter.getStyleInt(RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR)
+    var clickOnCellSelectionBehavior: ClickOnCellSelectionBehavior
+        get() {
+            return adapter.getStyleEnum(
+                RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR,
+                ClickOnCellSelectionBehavior::ofOrdinal
+            )
+        }
         set(value) {
-            adapter.setStyleInt(
+            adapter.setStyleEnum(
                 RangeCalendarPagerAdapter.STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR,
                 value
             )
@@ -1525,7 +1538,7 @@ class RangeCalendarView @JvmOverloads constructor(
         )
     }
 
-    private fun selectInternal(type: Int, data: Long, withAnimation: Boolean) {
+    private fun selectInternal(type: SelectionType, data: Long, withAnimation: Boolean) {
         if (onSelectionActuallyChanged == null) {
             onSelectionActuallyChanged = {
                 pager.setCurrentItem(pendingSelectionPagePosition, pendingSelectionWithAnimation)
@@ -1568,7 +1581,7 @@ class RangeCalendarView @JvmOverloads constructor(
         val selectionType = adapter.selectionType
 
         // Clear selection if current selection type become disallowed.
-        if (selectionType != SelectionType.NONE && flags and (1 shl selectionType) == 0) {
+        if (selectionType != SelectionType.NONE && flags and (1 shl selectionType.ordinal) == 0) {
             clearSelection()
         }
     }
@@ -1734,10 +1747,10 @@ class RangeCalendarView @JvmOverloads constructor(
         @JvmField
         val MAX_DATE_EPOCH = PackedDate.MAX_DATE.toEpochDay()
 
-        private const val SELECTION_DAY_FLAG = 1 shl SelectionType.CELL
-        private const val SELECTION_WEEK_FLAG = 1 shl SelectionType.WEEK
-        private const val SELECTION_MONTH_FLAG = 1 shl SelectionType.MONTH
-        private const val SELECTION_CUSTOM_FLAG = 1 shl SelectionType.CUSTOM
+        private const val SELECTION_DAY_FLAG = 1 shl 1
+        private const val SELECTION_WEEK_FLAG = 1 shl 2
+        private const val SELECTION_MONTH_FLAG = 1 shl 3
+        private const val SELECTION_CUSTOM_FLAG = 1 shl 4
 
         private fun setButtonAlphaIfEnabled(button: ImageButton, alpha: Int) {
             if (button.isEnabled) {

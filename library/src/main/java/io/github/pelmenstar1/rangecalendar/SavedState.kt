@@ -1,13 +1,13 @@
 package io.github.pelmenstar1.rangecalendar
 
-import android.os.Parcelable
 import android.os.Parcel
+import android.os.Parcelable
 import android.os.Parcelable.Creator
 import android.view.AbsSavedState
 
 internal class SavedState : AbsSavedState {
     var ym = YearMonth(0)
-    var selectionType = 0
+    var selectionType = SelectionType.NONE
     var selectionYm = YearMonth(0)
     var selectionData = 0
 
@@ -16,7 +16,7 @@ internal class SavedState : AbsSavedState {
     constructor(source: Parcel) : super(source) {
         source.run {
             ym = YearMonth(readInt())
-            selectionType = readInt()
+            selectionType = SelectionType.ofOrdinal(readInt())
             selectionYm = YearMonth(readInt())
             selectionData = readInt()
         }
@@ -28,7 +28,7 @@ internal class SavedState : AbsSavedState {
 
         dest.run {
             writeInt(ym.totalMonths)
-            writeInt(selectionType)
+            writeInt(selectionType.ordinal)
             writeInt(selectionYm.totalMonths)
             writeInt(selectionData)
         }

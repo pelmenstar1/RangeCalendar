@@ -155,11 +155,11 @@ internal class RangeCalendarPagerAdapter(
     private var minDateEpoch = RangeCalendarView.MIN_DATE_EPOCH
     private var maxDateEpoch = RangeCalendarView.MAX_DATE_EPOCH
 
-    private var prevSelectionType = 0
+    private var prevSelectionType = SelectionType.NONE
     private var prevSelectionData = 0
     private var prevSelectionYm = YearMonth(0)
 
-    var selectionType = 0
+    var selectionType = SelectionType.NONE
 
     // if selectionType = CELL, index of selected date is stored
     // if selectionType = WEEK, week index is stored
@@ -232,6 +232,10 @@ internal class RangeCalendarPagerAdapter(
         initStyle(type, data.toBits())
     }
 
+    private fun <T : Enum<T>> initStyle(type: Int, data: T) {
+        initStyle(type, data.ordinal)
+    }
+
     private fun initStyle(type: Int, data: Any) {
         styleObjData[type - STYLE_OBJ_START] = data
     }
@@ -273,6 +277,10 @@ internal class RangeCalendarPagerAdapter(
         return Float.fromBits(getStyleInt(type))
     }
 
+    inline fun <T : Enum<T>> getStyleEnum(type: Int, toInt: (Int) -> T): T {
+        return toInt(getStyleInt(type))
+    }
+
     @Suppress("UNCHECKED_CAST")
     fun <T> getStyleObject(type: Int): T {
         return styleObjData[type - STYLE_OBJ_START] as T
@@ -286,6 +294,10 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
+    fun <T : Enum<T>> setStyleEnum(type: Int, value: T, notify: Boolean = true) {
+        setStyleInt(type, value.ordinal, notify)
+    }
+
     fun setStyleBool(type: Int, value: Boolean, notify: Boolean = true) {
         setStyleInt(type, if (value) 1 else 0, notify)
     }
@@ -297,7 +309,7 @@ internal class RangeCalendarPagerAdapter(
     fun setStyleColor(type: Int, @ColorInt color: Int, notify: Boolean = true) {
         styleColors.setColorInt(type, color)
 
-        if(notify) {
+        if (notify) {
             notifyItemRangeChanged(0, count, Payload.updateStyleColor(type, color))
         }
     }
@@ -306,7 +318,7 @@ internal class RangeCalendarPagerAdapter(
     fun setStyleColor(type: Int, @ColorLong color: Long, notify: Boolean = true) {
         styleColors.setColorLong(type, color)
 
-        if(notify) {
+        if (notify) {
             notifyItemRangeChanged(0, count, Payload.updateStyleColor(type, color))
         }
     }
@@ -329,8 +341,9 @@ internal class RangeCalendarPagerAdapter(
             STYLE_WEEKDAY_TEXT_SIZE -> gridView.setWeekdayTextSize(f)
             STYLE_CELL_RR_RADIUS -> gridView.setCellRoundRadius(f)
             STYLE_CELL_SIZE -> gridView.cellSize = f
-            STYLE_WEEKDAY_TYPE -> gridView.setWeekdayType(data)
-            STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR -> gridView.clickOnCellSelectionBehavior = data
+            STYLE_WEEKDAY_TYPE -> gridView.setWeekdayType(WeekdayType.ofOrdinal(data))
+            STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR ->
+                gridView.clickOnCellSelectionBehavior = ClickOnCellSelectionBehavior.ofOrdinal(data)
             STYLE_COMMON_ANIMATION_DURATION -> gridView.commonAnimationDuration = data
             STYLE_HOVER_ANIMATION_DURATION -> gridView.hoverAnimationDuration = data
             STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE -> gridView.vibrateOnSelectingCustomRange = b
@@ -552,7 +565,7 @@ internal class RangeCalendarPagerAdapter(
             }
 
             private inline fun onSelectedHandler(
-                selType: Int,
+                selType: SelectionType,
                 selData: Int,
                 method: RangeCalendarView.OnSelectionListener.() -> Boolean
             ): Boolean {
@@ -578,7 +591,7 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    private fun setSelectionValues(type: Int, data: Int, ym: YearMonth) {
+    private fun setSelectionValues(type: SelectionType, data: Int, ym: YearMonth) {
         prevSelectionType = selectionType
         prevSelectionData = selectionData
         prevSelectionYm = selectionYm
@@ -617,7 +630,7 @@ internal class RangeCalendarPagerAdapter(
     // if type = MONTH, data is year-month,
     // if type = CUSTOM, data is date int range.
     // NOTE, that this year-month will point to the page where selection is (partially) in currentMonthRange
-    fun getYearMonthForSelection(type: Int, data: Long): YearMonth {
+    fun getYearMonthForSelection(type: SelectionType, data: Long): YearMonth {
         return when (type) {
             SelectionType.CELL -> YearMonth.forDate(PackedDate(data.toInt()))
             SelectionType.WEEK, SelectionType.MONTH -> YearMonth(data.toInt())
@@ -632,7 +645,7 @@ internal class RangeCalendarPagerAdapter(
     // if type = CUSTOM, data is date int range
     private fun transformToGridSelection(
         position: Int,
-        type: Int,
+        type: SelectionType,
         data: Long,
         withAnimation: Boolean
     ): RangeCalendarGridView.SetSelectionInfo {
@@ -675,7 +688,7 @@ internal class RangeCalendarPagerAdapter(
     // if type = MONTH, data is year-month
     // if type = CUSTOM, data is date int range
     fun select(
-        type: Int,
+        type: SelectionType,
         data: Long,
         withAnimation: Boolean,
         onSelectionActuallyChanged: (() -> Unit)?
@@ -715,7 +728,7 @@ internal class RangeCalendarPagerAdapter(
     // if type = CUSTOM, data is start and end indices of the range
     //
     // this is special case for RangeCalendarView.onRestoreInstanceState
-    fun select(ym: YearMonth, type: Int, data: Int) {
+    fun select(ym: YearMonth, type: SelectionType, data: Int) {
         val position = getItemPositionForYearMonth(ym)
 
         if (type == SelectionType.MONTH) {
