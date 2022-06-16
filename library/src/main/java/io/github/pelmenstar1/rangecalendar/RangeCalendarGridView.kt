@@ -23,6 +23,7 @@ import androidx.customview.widget.ExploreByTouchHelper
 import io.github.pelmenstar1.rangecalendar.decoration.*
 import io.github.pelmenstar1.rangecalendar.selection.Cell
 import io.github.pelmenstar1.rangecalendar.selection.CellRange
+import io.github.pelmenstar1.rangecalendar.selection.NarrowSelectionData
 import io.github.pelmenstar1.rangecalendar.utils.*
 import java.lang.ref.WeakReference
 import java.util.*
@@ -37,15 +38,15 @@ internal class RangeCalendarGridView(
 ) : View(context) {
     interface OnSelectionListener {
         fun onSelectionCleared()
-        fun onCellSelected(index: Int)
-        fun onWeekSelected(weekIndex: Int, startIndex: Int, endIndex: Int)
-        fun onCustomRangeSelected(startIndex: Int, endIndex: Int)
+        fun onCellSelected(cell: Cell)
+        fun onWeekSelected(weekIndex: Int, range: CellRange)
+        fun onCustomRangeSelected(range: CellRange)
     }
 
     interface SelectionGate {
-        fun cell(index: Int): Boolean
-        fun week(weekIndex: Int, startIndex: Int, endIndex: Int): Boolean
-        fun customRange(startIndex: Int, endIndex: Int): Boolean
+        fun cell(cell: Cell): Boolean
+        fun week(weekIndex: Int, range: CellRange): Boolean
+        fun customRange(range: CellRange): Boolean
     }
 
     private object Radii {
@@ -146,37 +147,45 @@ internal class RangeCalendarGridView(
         val type: SelectionType
             get() = SelectionType.ofOrdinal((bits shr 24).toInt() and 0xFF)
 
-        val data: Int
-            get() = (bits shr 32).toInt()
+        val data: NarrowSelectionData
+            get() = NarrowSelectionData((bits shr 32).toInt())
 
         val withAnimation: Boolean
             get() = (bits shr 16) and 0xFF == 1L
 
         companion object {
-            val Undefined = create(SelectionType.NONE, -1, false)
+            val Undefined = create(SelectionType.NONE, NarrowSelectionData(0), false)
 
-            fun create(type: SelectionType, data: Int, withAnimation: Boolean): SetSelectionInfo {
+            fun create(
+                type: SelectionType,
+                data: NarrowSelectionData,
+                withAnimation: Boolean
+            ): SetSelectionInfo {
                 return SetSelectionInfo(
-                    (data.toLong() shl 32) or
+                    (data.bits.toLong() shl 32) or
                             (type.ordinal.toLong() shl 24) or
                             ((if (withAnimation) 1L else 0L) shl 16)
                 )
             }
 
             fun cell(cell: Cell, withAnimation: Boolean): SetSelectionInfo {
-                return create(SelectionType.CELL, cell.index, withAnimation)
+                return create(SelectionType.CELL, NarrowSelectionData.cell(cell), withAnimation)
             }
 
             fun week(index: Int, withAnimation: Boolean): SetSelectionInfo {
-                return create(SelectionType.WEEK, index, withAnimation)
+                return create(SelectionType.WEEK, NarrowSelectionData.week(index), withAnimation)
             }
 
             fun month(withAnimation: Boolean): SetSelectionInfo {
-                return create(SelectionType.MONTH, 0, withAnimation)
+                return create(SelectionType.MONTH, NarrowSelectionData(0), withAnimation)
             }
 
             fun customRange(range: CellRange, withAnimation: Boolean): SetSelectionInfo {
-                return create(SelectionType.CUSTOM, range.bits, withAnimation)
+                return create(
+                    SelectionType.CUSTOM,
+                    NarrowSelectionData.customRange(range),
+                    withAnimation
+                )
             }
         }
     }
@@ -204,12 +213,11 @@ internal class RangeCalendarGridView(
         ) {
             val cell = Cell(virtualViewId)
 
-            val x = grid.getCellLeft(cell).toInt()
-            val y = grid.getCellTop(cell).toInt()
+            val (x, y) = grid.getCellLeftTop(cell)
 
-            val cellSize = grid.cellSize.toInt()
+            val cellSize = grid.cellSize
 
-            tempRect.set(x, y, x + cellSize, y + cellSize)
+            tempRect.set(x.toInt(), y.toInt(), (x + cellSize).toInt(), (y + cellSize).toInt())
 
             node.apply {
                 @Suppress("DEPRECATION")
@@ -699,24 +707,21 @@ internal class RangeCalendarGridView(
     }
 
     override fun getFocusedRect(r: Rect) {
-        val size = cellSize.toInt()
+        val size = cellSize
 
         when (selectionType) {
             SelectionType.CELL -> {
-                val left = getCellLeft(selectedRange.cell).toInt()
-                val top = getCellTop(selectedRange.cell).toInt()
+                val (left, top) = getCellLeftTop(selectedRange.cell)
 
-                r.set(left, top, left + size, top + size)
+                r.set(left.toInt(), top.toInt(), (left + size).toInt(), (top + size).toInt())
             }
             SelectionType.WEEK -> {
-                val startIndex = selectedRange.start
-                val endIndex = selectedRange.end
+                val (start, end) = selectedRange
 
-                val left = getCellLeft(startIndex).toInt()
-                val right = getCellRight(endIndex).toInt()
-                val top = getCellTop(startIndex).toInt()
+                val (left, top) = getCellLeftTop(start)
+                val right = getCellRight(end)
 
-                r.set(left, top, right, top + size)
+                r.set(left.toInt(), top.toInt(), right.toInt(), (top + size).toInt())
             }
 
             else -> super.getFocusedRect(r)
@@ -728,9 +733,9 @@ internal class RangeCalendarGridView(
     }
 
     private fun updateSelectionRange() {
-        when(selectionType) {
+        when (selectionType) {
             SelectionType.CELL -> {
-                if(!enabledCellRange.contains(selectedRange.cell)) {
+                if (!enabledCellRange.contains(selectedRange.cell)) {
                     clearSelection(fireEvent = true, doAnimation = true)
                 }
             }
@@ -751,12 +756,12 @@ internal class RangeCalendarGridView(
         select(info.type, info.data, info.withAnimation)
     }
 
-    fun select(type: SelectionType, data: Int, doAnimation: Boolean) {
+    fun select(type: SelectionType, data: NarrowSelectionData, doAnimation: Boolean) {
         when (type) {
-            SelectionType.CELL -> selectCell(Cell(data), doAnimation)
-            SelectionType.WEEK -> selectWeek(data, doAnimation)
+            SelectionType.CELL -> selectCell(data.cell, doAnimation)
+            SelectionType.WEEK -> selectWeek(data.weekIndex, doAnimation)
             SelectionType.MONTH -> selectMonth(doAnimation)
-            SelectionType.CUSTOM -> selectCustom(CellRange(data), false)
+            SelectionType.CUSTOM -> selectCustom(data.range, false)
             else -> {}
         }
     }
@@ -779,13 +784,13 @@ internal class RangeCalendarGridView(
 
         // Call listeners and check if such selection is allowed.
         val gate = selectionGate
-        if(gate != null) {
-            if(!gate.cell(cell.index)) {
+        if (gate != null) {
+            if (!gate.cell(cell)) {
                 return
             }
         }
 
-        onSelectionListener?.onCellSelected(cell.index)
+        onSelectionListener?.onCellSelected(cell)
 
         if (hoverCell.isDefined) {
             clearHoverCellWithAnimation()
@@ -836,24 +841,19 @@ internal class RangeCalendarGridView(
 
     private fun selectWeek(weekIndex: Int, doAnimation: Boolean) {
         // 1. Resolve week range.
-        var start = Cell(weekIndex * 7)
-        var end = start + 6
-
-        val weekRange = CellRange(start, end).intersectionWith(enabledCellRange)
-
+        val weekRange = CellRange.week(weekIndex).intersectionWith(enabledCellRange)
         if (weekRange == CellRange.Invalid) {
             return
         }
 
-        start = weekRange.start
-        end = weekRange.end
+        val start = weekRange.start
 
         // 2. If we're selecting the same range or range is cell, stop it or redirect to selectCell().
         if (selectionType == SelectionType.WEEK && selectedRange == weekRange) {
             clearSelection(fireEvent = true, doAnimation)
 
             return
-        } else if (end == start) {
+        } else if (weekRange.end == start) {
             selectCell(start, doAnimation)
 
             return
@@ -861,13 +861,13 @@ internal class RangeCalendarGridView(
 
         // 3. Call listeners and check if such selection is allowed.
         val gate = selectionGate
-        if(gate != null) {
-            if(!gate.week(weekIndex, start.index, end.index)) {
+        if (gate != null) {
+            if (!gate.week(weekIndex, weekRange)) {
                 return
             }
         }
 
-        onSelectionListener?.onWeekSelected(weekIndex, start.index, end.index)
+        onSelectionListener?.onWeekSelected(weekIndex, weekRange)
 
         // 4. Update fields
 
@@ -928,17 +928,14 @@ internal class RangeCalendarGridView(
 
     // Returns whether selection was actually changed
     fun selectCustom(range: CellRange, startSelecting: Boolean) {
-        val rangeStart = range.start
-        val rangeEnd = range.end
-
         val gate = selectionGate
-        if(gate != null) {
-            if(!gate.customRange(rangeStart.index, rangeEnd.index)) {
+        if (gate != null) {
+            if (!gate.customRange(range)) {
                 return
             }
         }
 
-        onSelectionListener?.onCustomRangeSelected(rangeStart.index, rangeEnd.index)
+        onSelectionListener?.onCustomRangeSelected(range)
 
         if (vibrateOnSelectingCustomRange && startSelecting) {
             if (vibrator == null) {
@@ -967,7 +964,9 @@ internal class RangeCalendarGridView(
         // hover will be cleared but it shouldn't.
         clearHoverCellWithAnimation()
 
-        if (selectedRange == CellRange.Invalid) {
+        val intersection = range.intersectionWith(enabledCellRange)
+
+        if (intersection == CellRange.Invalid) {
             clearSelection(fireEvent = true, doAnimation = true)
             customRangePath?.rewind()
 
@@ -979,7 +978,7 @@ internal class RangeCalendarGridView(
         prevSelectionType = selectionType
         selectionType = SelectionType.CUSTOM
         prevSelectedRange = selectedRange
-        selectedRange = range.intersectionWith(enabledCellRange)
+        selectedRange = intersection
 
         invalidate()
     }
@@ -1408,21 +1407,20 @@ internal class RangeCalendarGridView(
     ) {
         updateCustomRangePath(monthRange)
 
-        val cellLeft = getCellLeft(cell)
+        val centerCenterLeft = getCellCenterLeft(cell)
         val cellTop = getCellTop(cell)
 
         val halfCellSize = cellSize * 0.5f
-        val startX = cellLeft + halfCellSize
         val startY = cellTop + halfCellSize
 
-        val finalRadius = getCircleRadiusForMonthAnimation(startX, startY)
+        val finalRadius = getCircleRadiusForMonthAnimation(centerCenterLeft, startY)
         val currentRadius = lerp(halfCellSize, finalRadius, fraction)
 
         prepareSelectionFill(customRangePathBounds, alpha = 1f)
 
         c.withSave {
             clipPath(customRangePath!!)
-            drawCircle(startX, startY, currentRadius, selectionPaint)
+            drawCircle(centerCenterLeft, startY, currentRadius, selectionPaint)
         }
     }
 
@@ -1434,11 +1432,9 @@ internal class RangeCalendarGridView(
         weekRange: CellRange,
         alpha: Float = 1f
     ) {
-        val start = weekRange.start
-        val end = weekRange.end
+        val (start, end) = weekRange
+        val (rectLeft, rectTop) = getCellLeftTop(start)
 
-        val rectLeft = getCellLeft(start)
-        val rectTop = getCellTop(start)
         val rectRight = getCellRight(end)
         val rectBottom = rectTop + cellSize
 
@@ -1506,19 +1502,15 @@ internal class RangeCalendarGridView(
         alpha: Float = 1f
     ) {
         val prevSelectedCell = prevSelectedRange.cell
+        val (endLeft, endTop) = getCellLeftTop(cell)
 
-        val left: Float
-        val top: Float
-        val endLeft = getCellLeft(cell)
-        val endTop = getCellTop(cell)
-
-        left = if (xFraction != 1f) {
+        val left = if (xFraction != 1f) {
             lerp(getCellLeft(prevSelectedCell), endLeft, xFraction)
         } else {
             endLeft
         }
 
-        top = if (yFraction != 1f) {
+        val top = if (yFraction != 1f) {
             lerp(getCellTop(prevSelectedCell), endTop, yFraction)
         } else {
             endTop
@@ -1628,9 +1620,7 @@ internal class RangeCalendarGridView(
 
         if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
             val cell = if (isHoverAnimation) animationHoverCell else hoverCell
-
-            val left = getCellLeft(cell)
-            val top = getCellTop(cell)
+            val (left, top) = getCellLeftTop(cell)
 
             val index = if (isSelectionRangeContains(cell)) {
                 COLOR_STYLE_HOVER_ON_SELECTION
@@ -1654,13 +1644,15 @@ internal class RangeCalendarGridView(
     private fun drawCells(c: Canvas) {
         measureDayNumberTextSizesIfNecessary()
 
-        for (i in 0..41) {
+        val halfCellSize = cellSize * 0.5f
+
+        for (i in 0 until 42) {
             val cell = Cell(i)
 
-            val x = getCellLeft(cell)
-            val y = getCellTop(cell)
+            val centerX = getCellCenterLeft(cell)
+            val centerY = getCellTop(cell) + halfCellSize
 
-            drawCell(c, x, y, cells[i].toInt(), resolveCellType(cell))
+            drawCell(c, centerX, centerY, cells[i].toInt(), resolveCellType(cell))
         }
     }
 
@@ -1703,15 +1695,14 @@ internal class RangeCalendarGridView(
         else -> throw IllegalArgumentException("type")
     }
 
-    private fun drawCell(c: Canvas, x: Float, y: Float, day: Int, cellType: Int) {
+    private fun drawCell(c: Canvas, centerX: Float, centerY: Float, day: Int, cellType: Int) {
         if (day > 0) {
             val colorStyle = cellTypeToColorStyle(cellType)
 
-            val size = getDayNumberSize(day)
-            val halfCellSize = cellSize * 0.5f
+            val textSize = getDayNumberSize(day)
 
-            val textX = x + halfCellSize - size.width * 0.5f
-            val textY = y + halfCellSize + size.height * 0.5f
+            val textX = centerY - textSize.width * 0.5f
+            val textY = centerX + textSize.height * 0.5f
 
             styleColors.initPaintColor(colorStyle, dayNumberPaint)
 
@@ -1736,13 +1727,11 @@ internal class RangeCalendarGridView(
     }
 
     private fun getDecorAnimationHandler(): () -> Unit {
-        var cb = decorAnimationHandler
-        if (cb == null) {
-            cb = this::handleDecorationAnimation
-            decorAnimationHandler = cb
-        }
-
-        return cb
+        return getLazyValue(
+            decorAnimationHandler,
+            { this::handleDecorationAnimation },
+            { decorAnimationHandler = it }
+        )
     }
 
     private fun handleDecorationAnimation() {
@@ -1757,13 +1746,10 @@ internal class RangeCalendarGridView(
 
     private fun drawDecorations(c: Canvas) {
         decorVisualStates.forEachNotNull { cell, state ->
-            val dx = getCellLeft(cell)
-            val dy = getCellTop(cell)
+            val (dx, dy) = getCellLeftTop(cell)
 
             c.translate(dx, dy)
-
             state.visual().renderer().renderState(c, state)
-
             c.translate(-dx, -dy)
         }
     }
@@ -1785,16 +1771,13 @@ internal class RangeCalendarGridView(
             path.rewind()
         }
 
-        val start = range.start
-        val end = range.end
-
+        val (start, end) = range
         val radius = cellRoundRadius()
 
         if (start.sameY(end)) {
-            val left = getCellLeft(start)
-            val right = getCellRight(end)
+            val (left, top) = getCellLeftTop(start)
 
-            val top = getCellTop(start)
+            val right = getCellRight(end)
             val bottom = top + cellSize
 
             customRangePathBounds = PackedRectF(left, top, right, bottom)
@@ -1804,8 +1787,7 @@ internal class RangeCalendarGridView(
             val firstCellOnRowX = cr.hPadding + (columnWidth - cellSize) * 0.5f
             val lastCellOnRowRight = cr.hPadding + columnWidth * 6.5f + cellSize * 0.5f
 
-            val startLeft = getCellLeft(start)
-            val startTop = getCellTop(start)
+            val (startLeft, startTop) = getCellLeftTop(start)
             val startBottom = startTop + cellSize
 
             val endRight = getCellRight(end)
@@ -1873,16 +1855,12 @@ internal class RangeCalendarGridView(
             return Float.NaN
         }
 
-        val startCell = intersection.start
-        val endCell = intersection.end
-
-        val startCellLeft = getCellLeft(startCell)
-        val startCellTop = getCellTop(startCell)
-        val endCellLeft = getCellLeft(endCell)
-        val endCellBottom = getCellTop(endCell) + cellSize
+        val (startCell, endCell) = intersection
+        val (startCellLeft, startCellTop) = getCellLeftTop(startCell)
+        val (endCellLeft, endCellTop) = getCellLeftTop(endCell)
 
         val distToStartCellSq = distanceSquare(startCellLeft, startCellTop, x, y)
-        val distToEndCellSq = distanceSquare(endCellLeft, endCellBottom, x, y)
+        val distToEndCellSq = distanceSquare(endCellLeft, endCellTop + cellSize, x, y)
 
         var maxDist = max(distToLeftCorner, distToRightCorner)
         maxDist = max(maxDist, distToTopCorner)
@@ -1922,17 +1900,31 @@ internal class RangeCalendarGridView(
     }
 
     private fun getCellLeft(cell: Cell): Float {
-        return cr.hPadding + columnWidth * (cell.gridX + 0.5f) - cellSize * 0.5f
+        return getCellCenterLeft(cell) - cellSize * 0.5f
+    }
+
+    private fun getCellCenterLeft(cell: Cell): Float {
+        return cr.hPadding + columnWidth * (cell.gridX + 0.5f)
     }
 
     private fun getCellTop(cell: Cell): Float {
-        val gridY = cell.gridY
+        return gridTop() + cell.gridY * (cellSize + cr.yCellMargin)
+    }
 
-        return gridTop() + gridY * cellSize + gridY * cr.yCellMargin
+    private fun getCellCenterTop(cell: Cell): Float {
+        return getCellTop(cell) + cellSize * 0.5f
+    }
+
+    private fun getCellLeftTop(cell: Cell): PackedPointF {
+        return PackedPointF(getCellLeft(cell), getCellTop(cell))
+    }
+
+    private fun getCellCenter(cell: Cell): PackedPointF {
+        return PackedPointF(getCellCenterLeft(cell), getCellCenterTop(cell))
     }
 
     private fun getCellRight(cell: Cell): Float {
-        return getCellLeft(cell) + cellSize
+        return getCellCenterLeft(cell) + cellSize * 0.5f
     }
 
     private fun isSelectionRangeContains(cell: Cell): Boolean {

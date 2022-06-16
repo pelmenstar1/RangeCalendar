@@ -4,12 +4,13 @@ import android.os.Parcel
 import android.os.Parcelable
 import android.os.Parcelable.Creator
 import android.view.AbsSavedState
+import io.github.pelmenstar1.rangecalendar.selection.NarrowSelectionData
 
 internal class SavedState : AbsSavedState {
     var ym = YearMonth(0)
     var selectionType = SelectionType.NONE
     var selectionYm = YearMonth(0)
-    var selectionData = 0
+    var selectionData = NarrowSelectionData(0)
 
     constructor(superState: Parcelable) : super(superState)
 
@@ -18,7 +19,7 @@ internal class SavedState : AbsSavedState {
             ym = YearMonth(readInt())
             selectionType = SelectionType.ofOrdinal(readInt())
             selectionYm = YearMonth(readInt())
-            selectionData = readInt()
+            selectionData = NarrowSelectionData(readInt())
         }
 
     }
@@ -30,7 +31,7 @@ internal class SavedState : AbsSavedState {
             writeInt(ym.totalMonths)
             writeInt(selectionType.ordinal)
             writeInt(selectionYm.totalMonths)
-            writeInt(selectionData)
+            writeInt(selectionData.bits)
         }
     }
 

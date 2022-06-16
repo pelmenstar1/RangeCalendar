@@ -251,11 +251,14 @@ internal fun PackedPointF(x: Float, y: Float): PackedPointF {
 
 @JvmInline
 internal value class PackedPointF(val bits: Long) {
-    val x: Float
+    inline val x: Float
         get() = Float.fromBits(unpackFirstInt(bits))
 
-    val y: Float
+    inline val y: Float
         get() = Float.fromBits(unpackSecondInt(bits))
+
+    inline operator fun component1() = x
+    inline operator fun component2() = y
 
     override fun toString(): String {
         return "PackedPointF(x=$x, y=$y)"
@@ -294,4 +297,21 @@ internal value class PackedPointFArray(val array: LongArray) {
 
         System.arraycopy(array, pos, outArray.array, pos, outArray.size - pos)
     }
+}
+
+internal inline fun PackedInt(value: Float) = PackedInt(value.toBits())
+internal inline fun PackedInt(value: Boolean) = PackedInt(if(value) 1 else 0)
+internal inline fun <T : Enum<T>> PackedInt(value: T) = PackedInt(value.ordinal)
+
+@JvmInline
+internal value class PackedInt(val value: Int) {
+    inline fun float() = Float.fromBits(value)
+    inline fun boolean() = value == 1
+    inline fun <T : Enum<T>> enum(fromInt: (Int) -> T) = fromInt(value)
+}
+
+@Suppress("UNCHECKED_CAST")
+@JvmInline
+internal value class PackedObject(private val value: Any?) {
+    inline fun <T> value() = value as T
 }

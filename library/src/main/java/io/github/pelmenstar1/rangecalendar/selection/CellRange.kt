@@ -1,3 +1,5 @@
+@file:Suppress("NOTHING_TO_INLINE")
+
 package io.github.pelmenstar1.rangecalendar.selection
 
 import io.github.pelmenstar1.rangecalendar.packShorts
@@ -23,15 +25,16 @@ internal value class CellRange(val bits: Int) {
     val cell: Cell
         get() = start
 
+    inline operator fun component1() = start
+    inline operator fun component2() = end
+
     fun hasIntersectionWith(other: CellRange): Boolean {
         return !(other.start > end || start > other.end)
     }
 
     fun intersectionWith(other: CellRange): CellRange {
-        val start = start
-        val end = end
-        val otherStart = other.start
-        val otherEnd = other.end
+        val (start, end) = this
+        val (otherStart, otherEnd) = other
 
         if (otherStart > end || start > otherEnd) {
             return Invalid
@@ -45,8 +48,7 @@ internal value class CellRange(val bits: Int) {
     }
 
     fun normalize(): CellRange {
-        val start = start
-        val end = end
+        val (start, end) = this
 
         return CellRange(min(start, end), max(start, end))
     }
@@ -55,5 +57,12 @@ internal value class CellRange(val bits: Int) {
         val Invalid = CellRange(packShorts(-1, -1))
 
         fun cell(cell: Cell) = CellRange(cell, cell)
+
+        fun week(index: Int): CellRange {
+            val start = index * 7
+            val end = start + 6
+
+            return CellRange(start, end)
+        }
     }
 }

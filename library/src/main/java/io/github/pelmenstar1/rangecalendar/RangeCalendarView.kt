@@ -32,6 +32,8 @@ import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import io.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
+import io.github.pelmenstar1.rangecalendar.selection.WideSelectionData
+import io.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -1611,7 +1613,7 @@ class RangeCalendarView @JvmOverloads constructor(
     fun selectDay(date: LocalDate, withAnimation: Boolean = true) {
         selectInternal(
             SelectionType.CELL,
-            PackedDate.fromLocalDate(date).bits.toLong(),
+            WideSelectionData.cell(PackedDate.fromLocalDate(date)),
             withAnimation
         )
     }
@@ -1628,7 +1630,7 @@ class RangeCalendarView @JvmOverloads constructor(
     fun selectWeek(year: Int, month: Int, weekIndex: Int, withAnimation: Boolean = true) {
         selectInternal(
             SelectionType.WEEK,
-            packInts(YearMonth(year, month).totalMonths, weekIndex),
+            WideSelectionData.week(YearMonth(year, month), weekIndex),
             withAnimation
         )
     }
@@ -1648,7 +1650,7 @@ class RangeCalendarView @JvmOverloads constructor(
     private fun selectMonth(ym: YearMonth, withAnimation: Boolean) {
         selectInternal(
             SelectionType.MONTH,
-            ym.totalMonths.toLong(),
+            WideSelectionData.month(ym),
             withAnimation
         )
     }
@@ -1663,15 +1665,12 @@ class RangeCalendarView @JvmOverloads constructor(
     fun selectCustom(startDate: LocalDate, endDate: LocalDate, withAnimation: Boolean = true) {
         selectInternal(
             SelectionType.CUSTOM,
-            packInts(
-                PackedDate.fromLocalDate(startDate).bits,
-                PackedDate.fromLocalDate(endDate).bits
-            ),
+            WideSelectionData.customRange(PackedDateRange.fromLocalDates(startDate, endDate)),
             withAnimation
         )
     }
 
-    private fun selectInternal(type: SelectionType, data: Long, withAnimation: Boolean) {
+    private fun selectInternal(type: SelectionType, data: WideSelectionData, withAnimation: Boolean) {
         if (isSelectionTypeAllowed(type)) {
             val ym = adapter.getYearMonthForSelection(type, data)
 
@@ -1699,13 +1698,11 @@ class RangeCalendarView @JvmOverloads constructor(
      *
      */
     fun allowedSelectionTypes(): AllowedSelectionTypes {
-        var obj = allowedSelectionTypesObj
-        if (obj == null) {
-            obj = AllowedSelectionTypes()
-            allowedSelectionTypesObj = obj
-        }
-
-        return obj
+        return getLazyValue(
+            allowedSelectionTypesObj,
+            { AllowedSelectionTypes() },
+            { allowedSelectionTypesObj = it }
+        )
     }
 
     private fun setAllowedSelectionFlags(flags: Int) {

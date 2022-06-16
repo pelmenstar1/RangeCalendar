@@ -1,3 +1,5 @@
+@file:Suppress("NOTHING_TO_INLINE")
+
 package io.github.pelmenstar1.rangecalendar
 
 import io.github.pelmenstar1.rangecalendar.TimeUtils.isLeapYear
@@ -145,6 +147,28 @@ internal value class PackedDate(val bits: Int) {
         fun isValidLocalDate(date: LocalDate): Boolean {
             return localDateCompare(date, 0, 1, 1) { a, b -> a >= b } &&
                     localDateCompare(date, MAX_YEAR, 12, 30) { a, b -> a <= b }
+        }
+    }
+}
+
+internal fun PackedDateRange(start: PackedDate, end: PackedDate): PackedDateRange {
+    return PackedDateRange(packInts(start.bits, end.bits))
+}
+
+@JvmInline
+internal value class PackedDateRange(val bits: Long) {
+    inline val start: PackedDate
+        get() = PackedDate(unpackFirstInt(bits))
+
+    inline val end: PackedDate
+        get() = PackedDate(unpackSecondInt(bits))
+
+    inline operator fun component1() = start
+    inline operator fun component2() = end
+
+    companion object {
+        fun fromLocalDates(start: LocalDate, end: LocalDate): PackedDateRange {
+            return PackedDateRange(PackedDate.fromLocalDate(start), PackedDate.fromLocalDate(end))
         }
     }
 }

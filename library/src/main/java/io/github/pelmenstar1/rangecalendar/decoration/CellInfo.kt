@@ -1,6 +1,10 @@
 package io.github.pelmenstar1.rangecalendar.decoration
 
 import android.graphics.RectF
+import androidx.core.graphics.component1
+import androidx.core.graphics.component2
+import androidx.core.graphics.component3
+import androidx.core.graphics.component4
 import io.github.pelmenstar1.rangecalendar.PackedRectF
 import io.github.pelmenstar1.rangecalendar.Padding
 import io.github.pelmenstar1.rangecalendar.VerticalAlignment
@@ -47,10 +51,7 @@ class CellInfo internal constructor() {
      */
     fun narrowRectOnBottom(outRect: RectF) {
         if (radius > 0f) {
-            var left = outRect.left
-            val top = outRect.top
-            var right = outRect.right
-            val bottom = outRect.bottom
+            var (left, top, right, bottom) = outRect
 
             val sizeWithoutRadius = size - radius
 
