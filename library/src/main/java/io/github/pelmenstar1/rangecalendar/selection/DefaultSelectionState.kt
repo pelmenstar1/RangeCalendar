@@ -24,13 +24,27 @@ internal sealed class DefaultSelectionState(
         val top: Float
     ) : DefaultSelectionState(SelectionType.WEEK, range)
 
+    abstract class CustomRangeStateBase(
+        type: SelectionType,
+        range: CellRange,
+        val startLeft: Float, val startTop: Float,
+        val endRight: Float, val endTop: Float,
+        val firstCellLeft: Float, val lastCellRight: Float
+    ): DefaultSelectionState(type, range)
+
     class MonthState(
-        range: CellRange
-    ): DefaultSelectionState(SelectionType.MONTH, range)
+        range: CellRange,
+        startLeft: Float, startTop: Float,
+        endRight: Float, endTop: Float,
+        firstCellLeft: Float, lastCellRight: Float
+    ): CustomRangeStateBase(SelectionType.MONTH, range, startLeft, startTop, endRight, endTop, firstCellLeft, lastCellRight)
 
     class CustomRangeState(
-        range: CellRange
-    ): DefaultSelectionState(SelectionType.CUSTOM, range)
+        range: CellRange,
+        startLeft: Float, startTop: Float,
+        endRight: Float, endTop: Float,
+        firstCellLeft: Float, lastCellRight: Float
+    ): CustomRangeStateBase(SelectionType.CUSTOM, range, startLeft, startTop, endRight, endTop, firstCellLeft, lastCellRight)
 
     object None : DefaultSelectionState(SelectionType.NONE, CellRange.Invalid)
 }

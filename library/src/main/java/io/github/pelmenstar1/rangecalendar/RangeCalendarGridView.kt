@@ -215,10 +215,10 @@ internal class RangeCalendarGridView(
         override val lastCellRight: Float
             get() = view.lastCellRight()
 
-        override val gridTop: Float
+        override val firstCellTop: Float
             get() = view.gridTop()
 
-        override val gridBottom: Float
+        override val lastCellBottom: Float
             get() = view.height.toFloat()
 
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
@@ -263,7 +263,7 @@ internal class RangeCalendarGridView(
     var onSelectionListener: OnSelectionListener? = null
     var selectionGate: SelectionGate? = null
 
-    private var selectionManager: SelectionManager<SelectionState> = DefaultSelectionManager()
+    private var selectionManager: SelectionManager = DefaultSelectionManager()
     private var selectionRenderOptions: SelectionRenderOptions
 
     private val cellMeasureManager = CellMeasureManagerImpl(this)
@@ -415,6 +415,36 @@ internal class RangeCalendarGridView(
 
         updateGradientBoundsIfNeeded()
         updateSelectionState(isTransitionRequested = false)
+    }
+
+    fun setSelectionManager(manager: SelectionManager?) = updateUIState {
+        val resolvedManager = manager ?: DefaultSelectionManager()
+
+        // DefaultSelectionManager has no options and preferences which means re-setting it has no effect.
+        if(resolvedManager.javaClass == DefaultSelectionManager::class.java &&
+            resolvedManager.javaClass == DefaultSelectionManager::class.java) {
+            return
+        }
+
+        val prevSelState = selectionManager.currentState
+        val selState = selectionManager.currentState
+
+        resolvedManager.setState(
+            prevSelState.type,
+            prevSelState.rangeStart,
+            prevSelState.rangeEnd,
+            cellMeasureManager,
+            selectionRenderOptions
+        )
+        resolvedManager.setState(
+            selState.type,
+            selState.rangeStart,
+            selState.rangeEnd,
+            cellMeasureManager,
+            selectionRenderOptions
+        )
+
+        selectionManager = resolvedManager
     }
 
     fun setDayNumberTextSize(size: Float) = updateUIState {
@@ -769,8 +799,7 @@ internal class RangeCalendarGridView(
 
         selectionManager.setState(
             SelectionType.CELL,
-            cell,
-            cell,
+            cell, cell,
             cellMeasureManager,
             selectionRenderOptions
         )
@@ -1254,15 +1283,18 @@ internal class RangeCalendarGridView(
     }
 
     private fun drawSelection(c: Canvas) {
+        val manager = selectionManager
+        val options = selectionRenderOptions
+
         if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
-            selectionManager.drawTransition(
+            manager.drawTransition(
                 c,
                 cellMeasureManager,
-                selectionRenderOptions,
+                options,
                 animFraction
             )
         } else {
-            selectionManager.draw(c, cellMeasureManager, selectionRenderOptions, 1f)
+            manager.draw(c, options, 1f)
         }
     }
 

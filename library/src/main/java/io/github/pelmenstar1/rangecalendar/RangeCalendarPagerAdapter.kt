@@ -11,10 +11,7 @@ import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import io.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import io.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
-import io.github.pelmenstar1.rangecalendar.selection.Cell
-import io.github.pelmenstar1.rangecalendar.selection.CellRange
-import io.github.pelmenstar1.rangecalendar.selection.NarrowSelectionData
-import io.github.pelmenstar1.rangecalendar.selection.WideSelectionData
+import io.github.pelmenstar1.rangecalendar.selection.*
 import io.github.pelmenstar1.rangecalendar.utils.CompatColorArray
 
 internal class RangeCalendarPagerAdapter(
@@ -180,7 +177,7 @@ internal class RangeCalendarPagerAdapter(
     private val calendarInfo = CalendarInfo()
     private val styleData = IntArray(10)
     private val styleColors = CompatColorArray(7)
-    private val styleObjData = arrayOfNulls<Any>(5)
+    private val styleObjData = arrayOfNulls<Any>(6)
 
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
     private var selectionGate: RangeCalendarView.SelectionGate? = null
@@ -218,6 +215,7 @@ internal class RangeCalendarPagerAdapter(
         initStyle(STYLE_HOVER_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true)
         initStyle(STYLE_SELECTION_FILL, Fill.solid(cr.colorPrimary))
+        initStyle(STYLE_SELECTION_MANAGER, DefaultSelectionManager())
     }
 
     private fun initStyleColor(type: Int, @ColorInt color: Int) {
@@ -372,6 +370,9 @@ internal class RangeCalendarPagerAdapter(
                 gridView.setDecorationDefaultLayoutOptions(data.value())
             STYLE_SELECTION_FILL ->
                 gridView.setSelectionFill(data.value())
+            STYLE_SELECTION_MANAGER -> {
+                gridView.setSelectionManager(data.value())
+            }
         }
     }
 
@@ -1337,6 +1338,7 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_HOVER_ANIMATION_INTERPOLATOR = 33
         const val STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS = 34
         const val STYLE_SELECTION_FILL = 35
+        const val STYLE_SELECTION_MANAGER = 36
 
         // Precomputed value
         private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
