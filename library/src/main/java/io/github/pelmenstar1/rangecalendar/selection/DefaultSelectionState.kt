@@ -24,7 +24,7 @@ internal sealed class DefaultSelectionState(
         val top: Float
     ) : DefaultSelectionState(SelectionType.WEEK, range)
 
-    abstract class CustomRangeStateBase(
+    sealed class CustomRangeStateBase(
         type: SelectionType,
         range: CellRange,
         val startLeft: Float, val startTop: Float,

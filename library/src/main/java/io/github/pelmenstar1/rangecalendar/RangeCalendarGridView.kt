@@ -9,6 +9,7 @@ import android.content.Context
 import android.graphics.*
 import android.os.*
 import android.text.format.DateFormat
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -21,6 +22,7 @@ import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
 import io.github.pelmenstar1.rangecalendar.decoration.*
 import io.github.pelmenstar1.rangecalendar.selection.*
+import io.github.pelmenstar1.rangecalendar.utils.*
 import io.github.pelmenstar1.rangecalendar.utils.CompatColorArray
 import io.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import io.github.pelmenstar1.rangecalendar.utils.getLazyValue
@@ -223,6 +225,14 @@ internal class RangeCalendarGridView(
 
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
         override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
+
+        override fun lerpCellLeft(startIndex: Int, endIndex: Int, fraction: Float, outPoint: PointF) {
+            view.lerpCellLeft(Cell(startIndex), Cell(endIndex), fraction, outPoint)
+        }
+
+        override fun lerpCellRight(startIndex: Int, endIndex: Int, fraction: Float, outPoint: PointF) {
+            view.lerpCellRight(Cell(startIndex), Cell(endIndex), fraction, outPoint)
+        }
     }
 
     val cells = ByteArray(42)
@@ -759,7 +769,7 @@ internal class RangeCalendarGridView(
             SelectionType.CELL -> selectCell(data.cell, doAnimation)
             SelectionType.WEEK -> selectWeek(data.weekIndex, doAnimation)
             SelectionType.MONTH -> selectMonth(doAnimation)
-            SelectionType.CUSTOM -> selectCustom(data.range, false)
+            SelectionType.CUSTOM -> selectCustom(data.range, startSelecting = false, doAnimation)
             else -> {}
         }
     }
@@ -858,7 +868,6 @@ internal class RangeCalendarGridView(
         }
     }
 
-    // Returns whether selection was actually changed
     fun selectMonth(doAnimation: Boolean, reselect: Boolean = false) {
         val selState = selectionManager.currentState
 
@@ -892,8 +901,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    // Returns whether selection was actually changed
-    fun selectCustom(range: CellRange, startSelecting: Boolean) {
+    fun selectCustom(range: CellRange, startSelecting: Boolean, doAnimation: Boolean = true) {
         val gate = selectionGate
         if (gate != null) {
             if (!gate.customRange(range)) {
@@ -942,13 +950,17 @@ internal class RangeCalendarGridView(
         }
 
         selectionManager.setState(
-            SelectionType.NONE,
+            SelectionType.CUSTOM,
             intersection,
             cellMeasureManager,
             selectionRenderOptions
         )
 
-        invalidate()
+        if(doAnimation && selectionManager.hasTransition()) {
+            startCalendarAnimation(SELECTION_ANIMATION)
+        } else {
+            invalidate()
+        }
     }
 
     private fun setHoverCell(cell: Cell) {
@@ -1559,6 +1571,52 @@ internal class RangeCalendarGridView(
 
     private fun getCellRight(cell: Cell): Float {
         return getCellCenterLeft(cell) + cellSize * 0.5f
+    }
+
+    private fun lerpCellLeft(start: Cell, end: Cell, fraction: Float, outPoint: PointF) {
+        val cellF = lerp(start.index.toFloat(), end.index.toFloat(), fraction)
+
+        val currentCell = Cell(cellF.toInt())
+        val currentCellLeft = getCellLeft(currentCell)
+        val nextCell = currentCell + 1
+
+        // If currentCell's and nextCell's rows are different, then we should end this part of 'lerp' in the end of the current cell.
+        val nextCellLeft = if(nextCell.index % 7 == 0) {
+            currentCellLeft + cellSize
+        } else {
+            getCellLeft(nextCell)
+        }
+
+        val leftover = cellF - currentCell.index.toFloat()
+
+        outPoint.x = lerp(currentCellLeft, nextCellLeft, leftover)
+        outPoint.y = getCellTop(currentCell)
+    }
+
+    private fun lerpCellRight(start: Cell, end: Cell, fraction: Float, outPoint: PointF) {
+        val cellF = lerp(start.index.toFloat(), end.index.toFloat(), fraction)
+
+        val currentCell = Cell(cellF.toInt())
+        val nextCell = currentCell + 1
+
+        // Specifies whether currentCell's and nextCell's rows are different.
+        val isDiffRow = nextCell.index % 7 == 0
+
+        // If the rows are different, then we should start this part of 'lerp' from next row's first cell.
+        val currentCellRight = if(isDiffRow) {
+            firstCellLeft()
+        } else {
+            getCellRight(currentCell)
+        }
+
+        val nextCellRight = getCellRight(nextCell)
+
+        val leftover = cellF - currentCell.index.toFloat()
+
+        outPoint.x = lerp(currentCellRight, nextCellRight, leftover)
+
+        // If the rows are different, then we should start this part of 'lerp' from next row.
+        outPoint.y = getCellTop(if(isDiffRow) nextCell else currentCell)
     }
 
     private fun isSelectionRangeContains(cell: Cell): Boolean {
