@@ -7,26 +7,6 @@ import android.graphics.PointF
  */
 interface CellMeasureManager {
     /**
-     * X-axis of the coordinate that specifies left corner of the first cell.
-     */
-    val firstCellLeft: Float
-
-    /**
-     * Y-axis of the coordinate that specifies top corner of the first cell.
-     */
-    val firstCellTop: Float
-
-    /**
-     * X-axis of the coordinate that specifies right corner of the last cell.
-     */
-    val lastCellRight: Float
-
-    /**
-     * Y-axis of the coordinate that specifies bottom corner of the last cell.
-     */
-    val lastCellBottom: Float
-
-    /**
      * Gets x-axis value of the coordinate that specifies left corner of the cell.
      *
      * @param cellIndex index of the cell, should be in range 0..42

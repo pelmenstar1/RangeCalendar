@@ -163,22 +163,22 @@ internal class DefaultSelectionManager : SelectionManager {
                 val endRight = measureManager.getCellLeft(rangeEnd) + cellSize
                 val endTop = measureManager.getCellTop(rangeEnd)
 
-                val firstCellLeft = measureManager.firstCellLeft
-                val lastCellRight = measureManager.lastCellRight
+                val firstCellOnRowLeft = measureManager.getCellLeft(0)
+                val lastCellOnRowRight = measureManager.getCellLeft(6) + cellSize
 
                 if (type == SelectionType.MONTH) {
                     DefaultSelectionState.MonthState(
                         range,
                         startLeft, startTop,
                         endRight, endTop,
-                        firstCellLeft, lastCellRight
+                        firstCellOnRowLeft, lastCellOnRowRight
                     )
                 } else {
                     DefaultSelectionState.CustomRangeState(
                         range,
                         startLeft, startTop,
                         endRight, endTop,
-                        firstCellLeft, lastCellRight
+                        firstCellOnRowLeft, lastCellOnRowRight
                     )
                 }
             }
@@ -571,7 +571,7 @@ internal class DefaultSelectionManager : SelectionManager {
 
             updateCustomRangePath(
                 range,
-                state.firstCellLeft, state.lastCellRight,
+                state.firstCellOnRowLeft, state.lastCellOnRowRight,
                 state.startLeft, state.startTop,
                 state.endRight, state.endTop,
                 options,
@@ -594,7 +594,7 @@ internal class DefaultSelectionManager : SelectionManager {
     ) {
         updateCustomRangePath(
             state.range,
-            state.firstCellLeft, state.lastCellRight,
+            state.firstCellOnRowLeft, state.lastCellOnRowRight,
             state.startLeft, state.startTop,
             state.endRight, state.endTop,
             options,
@@ -690,9 +690,12 @@ internal class DefaultSelectionManager : SelectionManager {
 
         val (endRight, endTop) = tempPoint
 
+        val firstCellOnRowLeft = measureManager.getCellLeft(0)
+        val lastCellOnRowRight = measureManager.getCellLeft(6) + options.cellSize
+
         val canDrawWithoutPath = updateCustomRangePath(
             lerpRangeToRange(startRange, endRange, fraction),
-            measureManager.firstCellLeft, measureManager.lastCellRight,
+            firstCellOnRowLeft, lastCellOnRowRight,
             startLeft, startTop,
             endRight, endTop,
             options,
@@ -841,10 +844,12 @@ internal class DefaultSelectionManager : SelectionManager {
         // Try distance to left, top, right, bottom corners.
         // Then try distance to start and end cells.
 
-        val distToLeftCorner = x - state.firstCellLeft
-        val distToRightCorner = state.lastCellRight - x
-        val distToTopCorner = y - measureManager.firstCellTop
-        val distToBottomCorner = measureManager.lastCellBottom - y
+        val cellSize = options.cellSize
+
+        val distToLeftCorner = x - state.firstCellOnRowLeft
+        val distToRightCorner = state.lastCellOnRowRight - x
+        val distToTopCorner = y - measureManager.getCellLeft(0)
+        val distToBottomCorner = measureManager.getCellTop(41) + cellSize - y
 
         val startLeft = state.startLeft
         val startTop = state.startTop

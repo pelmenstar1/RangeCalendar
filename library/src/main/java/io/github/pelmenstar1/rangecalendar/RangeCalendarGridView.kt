@@ -211,18 +211,6 @@ internal class RangeCalendarGridView(
 
     private class CellMeasureManagerImpl(private val view: RangeCalendarGridView) :
         CellMeasureManager {
-        override val firstCellLeft: Float
-            get() = view.firstCellLeft()
-
-        override val lastCellRight: Float
-            get() = view.lastCellRight()
-
-        override val firstCellTop: Float
-            get() = view.gridTop()
-
-        override val lastCellBottom: Float
-            get() = view.height.toFloat()
-
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
         override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
 
@@ -1539,10 +1527,6 @@ internal class RangeCalendarGridView(
 
     private fun firstCellLeft(): Float {
         return cr.hPadding + (columnWidth - cellSize) * 0.5f
-    }
-
-    private fun lastCellRight(): Float {
-        return cr.hPadding + columnWidth * 6.5f + cellSize * 0.5f
     }
 
     private fun getCellLeft(cell: Cell): Float {

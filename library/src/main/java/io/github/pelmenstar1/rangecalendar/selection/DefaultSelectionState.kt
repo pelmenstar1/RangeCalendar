@@ -29,22 +29,34 @@ internal sealed class DefaultSelectionState(
         range: CellRange,
         val startLeft: Float, val startTop: Float,
         val endRight: Float, val endTop: Float,
-        val firstCellLeft: Float, val lastCellRight: Float
-    ): DefaultSelectionState(type, range)
+        val firstCellOnRowLeft: Float, val lastCellOnRowRight: Float
+    ) : DefaultSelectionState(type, range)
 
     class MonthState(
         range: CellRange,
         startLeft: Float, startTop: Float,
         endRight: Float, endTop: Float,
-        firstCellLeft: Float, lastCellRight: Float
-    ): CustomRangeStateBase(SelectionType.MONTH, range, startLeft, startTop, endRight, endTop, firstCellLeft, lastCellRight)
+        firstCellOnRowLeft: Float, lastCellOnRowRight: Float
+    ) : CustomRangeStateBase(
+        SelectionType.MONTH,
+        range,
+        startLeft, startTop,
+        endRight, endTop,
+        firstCellOnRowLeft, lastCellOnRowRight
+    )
 
     class CustomRangeState(
         range: CellRange,
         startLeft: Float, startTop: Float,
         endRight: Float, endTop: Float,
-        firstCellLeft: Float, lastCellRight: Float
-    ): CustomRangeStateBase(SelectionType.CUSTOM, range, startLeft, startTop, endRight, endTop, firstCellLeft, lastCellRight)
+        firstCellOnRowLeft: Float, lastCellOnRowRight: Float
+    ) : CustomRangeStateBase(
+        SelectionType.CUSTOM,
+        range,
+        startLeft, startTop,
+        endRight, endTop,
+        firstCellOnRowLeft, lastCellOnRowRight
+    )
 
     object None : DefaultSelectionState(SelectionType.NONE, CellRange.Invalid)
 }
