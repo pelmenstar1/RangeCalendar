@@ -7,10 +7,8 @@ import android.graphics.PointF
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.withSave
+import io.github.pelmenstar1.rangecalendar.*
 import io.github.pelmenstar1.rangecalendar.PackedRectF
-import io.github.pelmenstar1.rangecalendar.RectangleShape
-import io.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
-import io.github.pelmenstar1.rangecalendar.SelectionType
 import io.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
 import io.github.pelmenstar1.rangecalendar.utils.distanceSquare
 import io.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
@@ -36,13 +34,13 @@ internal class DefaultSelectionManager : SelectionManager {
         }
 
         private fun setFlag(shift: Int) {
-            // Set bit at 'shift' position.
             flags = flags or (1 shl shift)
         }
 
         private fun setFlag(shift: Int, condition: Boolean) {
-            // Set bit at 'shift' position if 'condition' is true, otherwise do nothing.
-            flags = flags or ((if (condition) 1 else 0) shl shift)
+            val bit = if (condition) 1 else 0
+
+            flags = flags or (bit shl shift)
         }
 
         // left top
@@ -62,15 +60,11 @@ internal class DefaultSelectionManager : SelectionManager {
         fun lb(condition: Boolean) = setFlag(LB_SHIFT, condition)
 
         private fun createMask(shift: Int): Int {
-            // Creates conditional select mask.
-            // If bit at 'shift' position is set, all bits set in mask, otherwise it's 0
-            // Steps:
-            // 1. Right-shift flags by 'shift' value to have the bit at LSB position.
-            // 2. Then when we have 0 or 1 value, multiply it by -0x1 to get all bits set if the bit is set
-            // and 0 if isn't.
-            // (-0x1 in Kotlin because Int is signed and 0xFFFFFFFF fits on in Long,
-            // so -0x1 is the way to get all bits set in 32-bit signed int).
-
+            // If the bit at 'shift' position is set, returns 'all bits set' mask, otherwise 0
+            // (flags shr shift and 1) part extracts state of bit at 'shift' position. It can be either 1 or 0.
+            // Then it's multiplied by -0x1
+            // (as signed integers are used, it's the only way to represent all bits set in decimal notation)
+            // to get the mask. If the bit is 1, then -1 * 1 = -1 (all bits set). If it's 0, then -1 * 0 = 0
             return -0x1 * (flags shr shift and 1)
         }
 
@@ -93,14 +87,7 @@ internal class DefaultSelectionManager : SelectionManager {
         }
 
         private fun initCorner(radiusBits: Int, offset: Int, shift: Int) {
-            // createMask(shift) creates mask which is all bits set mask if bit at 'shift' position is set,
-            // and 0 if isn't.
-            // So, we need to binary AND bits of radius float to get the same value if the bit is set,
-            // and 0 if isn't.
-            //
-            // Then we convert it back to float and init 'value' array.
-            //
-            // (0.0f in bit representation is 0, so Float.intBitsToFloat(0) = 0.0f).
+            // This is works, because 0.0f in binary representation is 0, so Float.fromBits(0) == 0.0f
             val cornerRadius = Float.fromBits(radiusBits and createMask(shift))
 
             value[offset] = cornerRadius
@@ -195,6 +182,7 @@ internal class DefaultSelectionManager : SelectionManager {
 
     override fun hasTransition(): Boolean {
         return if (_prevState.type == SelectionType.NONE) {
+            // There's no transition between none and none.
             _currentState.type != SelectionType.NONE
         } else {
             true
@@ -282,12 +270,14 @@ internal class DefaultSelectionManager : SelectionManager {
 
         when (val currentState = _currentState) {
             is DefaultSelectionState.None -> {
+                // It's reversed alpha animation to fade the cell away.
                 drawCell(canvas, prevState, options, alpha = 1f - fraction)
             }
 
             is DefaultSelectionState.CellState -> {
                 when {
                     prevState.cell.sameY(currentState.cell) -> {
+                        // As two cells are on the same row, they have same Y, thus there should be transition only X-axis
                         drawCellToCell(
                             canvas,
                             prevState, currentState,
@@ -296,6 +286,7 @@ internal class DefaultSelectionManager : SelectionManager {
                         )
                     }
                     prevState.cell.sameX(currentState.cell) -> {
+                        // As two cells are on the same column, they have same X, thus there should be transition only Y-axis
                         drawCellToCell(
                             canvas,
                             prevState, currentState,
@@ -304,6 +295,8 @@ internal class DefaultSelectionManager : SelectionManager {
                         )
                     }
                     else -> {
+                        // If cells are identical, it means that either options or measureManager configuration has changed
+                        // and presumably we have to only move cell to the new position.
                         if (prevState.cell == currentState.cell) {
                             drawCellToCell(
                                 canvas,
@@ -314,6 +307,7 @@ internal class DefaultSelectionManager : SelectionManager {
                                 options
                             )
                         } else {
+                            // Previous cell should fade away and current one should become gradually visible.
                             drawCell(canvas, prevState, options, alpha = 1f - fraction)
                             drawCell(canvas, currentState, options, alpha = fraction)
                         }
@@ -321,6 +315,8 @@ internal class DefaultSelectionManager : SelectionManager {
                 }
             }
             is DefaultSelectionState.WeekState -> {
+                // Checks whether previous cell is in range of current week. Based on the assumption that
+                // week range fill all the row.
                 if (prevState.cell.sameY(currentState.startCell)) {
                     drawRangeToRangeTransition(
                         canvas,
@@ -363,9 +359,12 @@ internal class DefaultSelectionManager : SelectionManager {
 
         when (val currentState = _currentState) {
             is DefaultSelectionState.None -> {
+                // It's reversed alpha animation to fade the week range away.
                 drawWeekSelectionFromCenter(canvas, prevState, options, 1f - fraction)
             }
             is DefaultSelectionState.CellState -> {
+                // Checks whether current cell is in range of previous week. Based on the assumption that
+                // week range fill all the row.
                 if (prevState.startCell.sameY(currentState.cell)) {
                     drawRangeToRangeTransition(
                         canvas,
@@ -374,10 +373,12 @@ internal class DefaultSelectionManager : SelectionManager {
                         fraction
                     )
                 } else {
+                    // Inverses cell-to-week transition.
                     drawCellToWeekSelection(canvas, currentState, prevState, options, 1f - fraction)
                 }
             }
             is DefaultSelectionState.WeekState -> {
+                // Previous week should fade away and in that time current week should gradually become visible.
                 drawWeekSelectionFromCenter(canvas, prevState, options, 1f - fraction)
                 drawWeekSelectionFromCenter(canvas, currentState, options, fraction)
             }
@@ -400,9 +401,11 @@ internal class DefaultSelectionManager : SelectionManager {
 
         when (val currentState = _currentState) {
             is DefaultSelectionState.None -> {
+                // It's reversed alpha animation to fade the month range away.
                 drawCustomRange(canvas, prevState, options, alpha = 1f - fraction)
             }
             is DefaultSelectionState.CellState -> {
+                // Inverses cell-to-month transition.
                 drawCellToMonthSelection(
                     canvas,
                     currentState.cell,
@@ -436,6 +439,7 @@ internal class DefaultSelectionManager : SelectionManager {
 
         when (val currentState = _currentState) {
             is DefaultSelectionState.None -> {
+                // It's reversed alpha animation to fade the custom range away.
                 drawCustomRange(
                     canvas,
                     prevState,
@@ -508,6 +512,7 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         fraction: Float
     ) {
+        // Previous cell should fade away and in that time, week should gradually become visible.
         drawCell(c, start, options, alpha = 1f - fraction)
 
         drawWeekSelectionFromCenter(c, end, options, fraction)
@@ -557,26 +562,26 @@ internal class DefaultSelectionManager : SelectionManager {
 
         val (rangeStart, rangeEnd) = range
 
+        // If start and end of the range are on the same row, there could be applied some optimizations
+        // that allow drawing the range with using Path.
         if (rangeStart.sameY(rangeEnd)) {
             drawRectOnRow(canvas, state.startLeft, state.startTop, state.endRight, options, alpha)
         } else {
-            // Check if sth is updated
-            if (pathRange == range && pathCellSize == cellSize && pathRoundRadius == roundRadius) {
-                return
+            // Update Path only if some properties are changed.
+            if(!(pathRange == range && pathCellSize == cellSize && pathRoundRadius == roundRadius)) {
+                pathRange = range
+                pathCellSize = cellSize
+                pathRoundRadius = roundRadius
+
+                updateCustomRangePath(
+                    range,
+                    state.firstCellOnRowLeft, state.lastCellOnRowRight,
+                    state.startLeft, state.startTop,
+                    state.endRight, state.endTop,
+                    options,
+                    preferWithoutPath = false
+                )
             }
-
-            pathRange = range
-            pathCellSize = cellSize
-            pathRoundRadius = roundRadius
-
-            updateCustomRangePath(
-                range,
-                state.firstCellOnRowLeft, state.lastCellOnRowRight,
-                state.startLeft, state.startTop,
-                state.endRight, state.endTop,
-                options,
-                preferWithoutPath = false
-            )
 
             path?.let {
                 options.prepareSelectionFill(pathBounds, alpha)
@@ -646,6 +651,7 @@ internal class DefaultSelectionManager : SelectionManager {
         val endRange = endState.range
         val cell = startState.cell
 
+        // Animation become not so pretty, if end range doesn't contain the cell to start from.
         if (endRange.contains(cell)) {
             drawRangeToRangeTransition(
                 canvas,
@@ -654,6 +660,9 @@ internal class DefaultSelectionManager : SelectionManager {
                 fraction
             )
         } else {
+            // If the range doesn't contain the cell, then apply more simple transition:
+            // the cell should fade away and the range should become visible.
+
             drawCustomRange(
                 canvas,
                 endState,
@@ -677,6 +686,10 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         fraction: Float
     ) {
+        // The transition works so:
+        // start of startRange should gradually become start of endRange,
+        // end of startRange should gradually become end of endRange.
+
         measureManager.lerpCellLeft(
             startRange.start.index,
             endRange.start.index,
@@ -691,6 +704,8 @@ internal class DefaultSelectionManager : SelectionManager {
         val (endRight, endTop) = tempPoint
 
         val firstCellOnRowLeft = measureManager.getCellLeft(0)
+
+        // 6 cell is the last cell on row.
         val lastCellOnRowRight = measureManager.getCellLeft(6) + options.cellSize
 
         val canDrawWithoutPath = updateCustomRangePath(
@@ -702,6 +717,7 @@ internal class DefaultSelectionManager : SelectionManager {
             preferWithoutPath = true
         )
 
+        // The range could be drawn without path only if it's located on the same row.
         if (canDrawWithoutPath) {
             drawRectOnRow(canvas, startLeft, startTop, endRight, options)
         } else {
@@ -711,31 +727,28 @@ internal class DefaultSelectionManager : SelectionManager {
         }
     }
 
+    private inline fun SelectionRenderOptions.prepareSelectionFill(setBounds: Fill.() -> Unit, alpha: Float) {
+        fill.run {
+            if(fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
+                setBounds()
+            }
+
+            applyToPaint(paint, alpha)
+        }
+    }
+
     private fun SelectionRenderOptions.prepareSelectionFill(
         left: Float,
         top: Float,
         right: Float,
         bottom: Float,
         alpha: Float
-    ) {
-        fill.run {
-            if (fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
-                setBounds(left, top, right, bottom)
-            }
+    ) = prepareSelectionFill({ setBounds(left, top, right, bottom) }, alpha)
 
-            applyToPaint(paint, alpha)
-        }
-    }
-
-    private fun SelectionRenderOptions.prepareSelectionFill(bounds: PackedRectF, alpha: Float) {
-        fill.run {
-            if (fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
-                setBounds(bounds, RectangleShape)
-            }
-
-            applyToPaint(paint, alpha)
-        }
-    }
+    private fun SelectionRenderOptions.prepareSelectionFill(
+        bounds: PackedRectF,
+        alpha: Float
+    ) = prepareSelectionFill({ setBounds(bounds, RectangleShape) }, alpha)
 
     private fun updateCustomRangePath(
         range: CellRange,
@@ -840,9 +853,7 @@ internal class DefaultSelectionManager : SelectionManager {
         measureManager: CellMeasureManager,
         options: SelectionRenderOptions
     ): Float {
-        // Find max radius for circle (with center at center of cell) to fully fit in month selection.
-        // Try distance to left, top, right, bottom corners.
-        // Then try distance to start and end cells.
+        // Find min radius for circle (with center at (x; y)) to fully fit in month selection.
 
         val cellSize = options.cellSize
 
