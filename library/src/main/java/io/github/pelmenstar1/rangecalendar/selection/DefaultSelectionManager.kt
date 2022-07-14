@@ -249,7 +249,7 @@ internal class DefaultSelectionManager : SelectionManager {
     ) {
         when (val currentState = _currentState) {
             is DefaultSelectionState.CellState -> {
-                drawCell(canvas, currentState, options, alpha = fraction)
+                drawCellAppearTransition(canvas, currentState, options, fraction)
             }
             is DefaultSelectionState.WeekState -> {
                 drawWeekSelectionFromCenter(canvas, currentState, options, fraction)
@@ -270,8 +270,8 @@ internal class DefaultSelectionManager : SelectionManager {
 
         when (val currentState = _currentState) {
             is DefaultSelectionState.None -> {
-                // It's reversed alpha animation to fade the cell away.
-                drawCell(canvas, prevState, options, alpha = 1f - fraction)
+                // Reversed cell-appear animation
+                drawCellAppearTransition(canvas, prevState, options, 1f - fraction)
             }
 
             is DefaultSelectionState.CellState -> {
@@ -308,8 +308,8 @@ internal class DefaultSelectionManager : SelectionManager {
                             )
                         } else {
                             // Previous cell should fade away and current one should become gradually visible.
-                            drawCell(canvas, prevState, options, alpha = 1f - fraction)
-                            drawCell(canvas, currentState, options, alpha = fraction)
+                            drawCellAppearTransition(canvas, prevState, options,1f - fraction)
+                            drawCellAppearTransition(canvas, currentState, options, fraction)
                         }
                     }
                 }
@@ -486,6 +486,35 @@ internal class DefaultSelectionManager : SelectionManager {
         )
     }
 
+    private fun drawCellAppearTransition(
+        canvas: Canvas,
+        state: DefaultSelectionState.CellState,
+        options: SelectionRenderOptions,
+        fraction: Float
+    ) {
+        if(options.cellAnimationType == CellAnimationType.ALPHA) {
+            drawCell(canvas, state, options, alpha = fraction)
+        } else {
+            val cellSize = options.cellSize
+            val halfCellSize = cellSize * 0.5f
+
+            val left = state.left
+            val top = state.top
+
+            val cx = left + halfCellSize
+            val cy = top + halfCellSize
+
+            val radius = halfCellSize * fraction
+
+            drawRectOnRow(
+                canvas,
+                cx - radius, cy - radius,
+                cx + radius, cy + radius,
+                options
+            )
+        }
+    }
+
     private fun drawCellToCell(
         canvas: Canvas,
         start: DefaultSelectionState.CellState, end: DefaultSelectionState.CellState,
@@ -506,16 +535,16 @@ internal class DefaultSelectionManager : SelectionManager {
     }
 
     private fun drawCellToWeekSelection(
-        c: Canvas,
+        canvas: Canvas,
         start: DefaultSelectionState.CellState,
         end: DefaultSelectionState.WeekState,
         options: SelectionRenderOptions,
         fraction: Float
     ) {
-        // Previous cell should fade away and in that time, week should gradually become visible.
-        drawCell(c, start, options, alpha = 1f - fraction)
+        // Reversed cell-appear animation
+        drawCellAppearTransition(canvas, start, options, 1f - fraction)
 
-        drawWeekSelectionFromCenter(c, end, options, fraction)
+        drawWeekSelectionFromCenter(canvas, end, options, fraction)
     }
 
     private fun drawWeekSelectionFromCenter(
@@ -632,6 +661,16 @@ internal class DefaultSelectionManager : SelectionManager {
         alpha: Float = 1f
     ) {
         val bottom = top + options.cellSize
+
+        drawRectOnRow(canvas, left, top, right, bottom, options, alpha)
+    }
+
+    private fun drawRectOnRow(
+        canvas: Canvas,
+        left: Float, top: Float, right: Float, bottom: Float,
+        options: SelectionRenderOptions,
+        alpha: Float = 1f
+    ) {
         options.prepareSelectionFill(left, top, right, bottom, alpha)
 
         canvas.drawRoundRectCompat(
@@ -670,11 +709,11 @@ internal class DefaultSelectionManager : SelectionManager {
                 alpha = fraction
             )
 
-            drawCell(
+            drawCellAppearTransition(
                 canvas,
                 startState,
                 options,
-                alpha = 1f - fraction
+                1f - fraction
             )
         }
     }

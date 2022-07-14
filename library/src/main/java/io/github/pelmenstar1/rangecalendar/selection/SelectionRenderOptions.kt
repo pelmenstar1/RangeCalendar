@@ -26,4 +26,9 @@ data class SelectionRenderOptions(
      * Size of the cell, measured in pixels.
      */
     val cellSize: Float,
+
+    /**
+     * Specifies type of cell animation.
+     */
+    val cellAnimationType: CellAnimationType
 )

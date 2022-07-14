@@ -175,7 +175,7 @@ internal class RangeCalendarPagerAdapter(
 
     private var today = PackedDate(0)
     private val calendarInfo = CalendarInfo()
-    private val styleData = IntArray(10)
+    private val styleData = IntArray(11)
     private val styleColors = CompatColorArray(7)
     private val styleObjData = arrayOfNulls<Any>(6)
 
@@ -211,6 +211,7 @@ internal class RangeCalendarPagerAdapter(
 
         initStyle(STYLE_COMMON_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
         initStyle(STYLE_HOVER_ANIMATION_DURATION, RangeCalendarGridView.DEFAULT_HOVER_ANIM_DURATION)
+        initStyle(STYLE_CELL_ANIMATION_TYPE, CellAnimationType.BUBBLE)
 
         initStyle(STYLE_HOVER_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true)
@@ -354,6 +355,7 @@ internal class RangeCalendarPagerAdapter(
             STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> gridView.setSelectionFillGradientBoundsType(
                 data.enum(SelectionFillGradientBoundsType::ofOrdinal)
             )
+            STYLE_CELL_ANIMATION_TYPE -> gridView.setCellAnimationType(data.enum(CellAnimationType::ofOrdinal))
         }
     }
 
@@ -1332,6 +1334,7 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_HOVER_ANIMATION_DURATION = 7
         const val STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 8
         const val STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE = 9
+        const val STYLE_CELL_ANIMATION_TYPE = 10
 
         private const val STYLE_OBJ_START = 32
         const val STYLE_COMMON_ANIMATION_INTERPOLATOR = 32

@@ -32,6 +32,7 @@ import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import io.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
+import io.github.pelmenstar1.rangecalendar.selection.CellAnimationType
 import io.github.pelmenstar1.rangecalendar.selection.SelectionManager
 import io.github.pelmenstar1.rangecalendar.selection.WideSelectionData
 import io.github.pelmenstar1.rangecalendar.utils.getLazyValue
@@ -1544,6 +1545,18 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleBool(
                 RangeCalendarPagerAdapter.STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE,
                 state
+            )
+        }
+
+    /**
+     * Gets or sets animation type for cells.
+     */
+    var cellAnimationType: CellAnimationType
+        get() = adapter.getStyleEnum(RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE, CellAnimationType::ofOrdinal)
+        set(type) {
+            adapter.setStyleEnum(
+                RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE,
+                type
             )
         }
 

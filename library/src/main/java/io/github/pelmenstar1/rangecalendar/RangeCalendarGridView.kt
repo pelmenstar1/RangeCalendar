@@ -294,6 +294,8 @@ internal class RangeCalendarGridView(
     var commonAnimationInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
     var hoverAnimationInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
 
+    private var cellAnimationType = CellAnimationType.BUBBLE
+
     private var vibrator: Vibrator? = null
     private var vibrationEffect: VibrationEffect? = null
 
@@ -340,7 +342,8 @@ internal class RangeCalendarGridView(
             selectionFill,
             SelectionFillGradientBoundsType.GRID,
             cr.cellSize * 0.5f,
-            cr.cellSize
+            cr.cellSize,
+            CellAnimationType.BUBBLE
         )
 
         selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -373,7 +376,8 @@ internal class RangeCalendarGridView(
             selectionFill,
             selectionFillGradientBoundsType,
             cellRoundRadius(),
-            cellSize
+            cellSize,
+            cellAnimationType
         )
 
         val selState = selectionManager.currentState
@@ -443,6 +447,12 @@ internal class RangeCalendarGridView(
         )
 
         selectionManager = resolvedManager
+    }
+
+    fun setCellAnimationType(type: CellAnimationType) = updateUIState {
+        cellAnimationType = type
+
+        updateSelectionState(isTransitionRequested = false)
     }
 
     fun setDayNumberTextSize(size: Float) = updateUIState {
