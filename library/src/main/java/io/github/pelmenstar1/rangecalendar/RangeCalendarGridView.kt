@@ -439,10 +439,9 @@ internal class RangeCalendarGridView(
 
         if (size != cr.dayNumberTextSize) {
             isDayNumberMeasurementsDirty = true
-
-            // TODO: Move it line a below, it's a bug
-            refreshAllDecorVisualStates()
         }
+
+        refreshAllDecorVisualStates()
     }
 
     fun setWeekdayTextSize(size: Float) = updateUIState {
