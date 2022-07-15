@@ -53,7 +53,8 @@ interface SelectionManager {
     fun draw(canvas: Canvas, options: SelectionRenderOptions)
 
     /**
-     * Draws transition between [previousState] and [currentState] on [canvas]
+     * Draws transition between [previousState] and [currentState] on [canvas].
+     * It is called only if [hasTransition] returns true.
      *
      * @param canvas a [Canvas] instance to draw transition on.
      * @param measureManager used to determine position of cells.
