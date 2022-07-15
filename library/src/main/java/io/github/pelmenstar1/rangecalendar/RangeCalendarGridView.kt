@@ -23,10 +23,6 @@ import androidx.customview.widget.ExploreByTouchHelper
 import io.github.pelmenstar1.rangecalendar.decoration.*
 import io.github.pelmenstar1.rangecalendar.selection.*
 import io.github.pelmenstar1.rangecalendar.utils.*
-import io.github.pelmenstar1.rangecalendar.utils.CompatColorArray
-import io.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
-import io.github.pelmenstar1.rangecalendar.utils.getLazyValue
-import io.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 import java.lang.ref.WeakReference
 import java.util.*
 
@@ -209,8 +205,10 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private class CellMeasureManagerImpl(private val view: RangeCalendarGridView) :
-        CellMeasureManager {
+    private class CellMeasureManagerImpl(private val view: RangeCalendarGridView) : CellMeasureManager {
+        override val cellSize: Float
+            get() = view.cellSize
+
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
         override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
 
@@ -342,7 +340,6 @@ internal class RangeCalendarGridView(
             selectionFill,
             SelectionFillGradientBoundsType.GRID,
             cr.cellSize * 0.5f,
-            cr.cellSize,
             CellAnimationType.BUBBLE
         )
 
@@ -371,36 +368,21 @@ internal class RangeCalendarGridView(
         invalidate()
     }
 
-    private fun updateSelectionState(isTransitionRequested: Boolean) {
+    private fun updateSelectionRenderOptions() {
         selectionRenderOptions = SelectionRenderOptions(
             selectionFill,
             selectionFillGradientBoundsType,
             cellRoundRadius(),
-            cellSize,
             cellAnimationType
         )
 
-        val selState = selectionManager.currentState
+        invalidate()
+    }
 
-        if(selState.type == SelectionType.NONE) {
-            selectionManager.setNoneState()
-        } else {
-            selectionManager.setState(
-                selState.type,
-                selState.rangeStart,
-                selState.rangeEnd,
-                cellMeasureManager,
-                selectionRenderOptions
-            )
-        }
+    private fun updateSelectionStateConfiguration() {
+        selectionManager.updateConfiguration(cellMeasureManager)
 
-        // Yes, we are checking whether selection state can be transitioned to literally itself.
-        // But this is required, because it can be disallowed.
-        if(isTransitionRequested && selectionManager.hasTransition()) {
-            startCalendarAnimation(SELECTION_ANIMATION)
-        } else {
-            invalidate()
-        }
+        invalidate()
     }
 
     fun setSelectionFill(fill: Fill) = updateUIState {
@@ -408,15 +390,14 @@ internal class RangeCalendarGridView(
 
         updateGradientBoundsIfNeeded()
 
-        // For now, we don't make color transitions.
-        updateSelectionState(isTransitionRequested = false)
+        updateSelectionRenderOptions()
     }
 
     fun setSelectionFillGradientBoundsType(value: SelectionFillGradientBoundsType) = updateUIState {
         selectionFillGradientBoundsType = value
 
         updateGradientBoundsIfNeeded()
-        updateSelectionState(isTransitionRequested = false)
+        updateSelectionRenderOptions()
     }
 
     fun setSelectionManager(manager: SelectionManager?) = updateUIState {
@@ -435,15 +416,13 @@ internal class RangeCalendarGridView(
             prevSelState.type,
             prevSelState.rangeStart,
             prevSelState.rangeEnd,
-            cellMeasureManager,
-            selectionRenderOptions
+            cellMeasureManager
         )
         resolvedManager.setState(
             selState.type,
             selState.rangeStart,
             selState.rangeEnd,
-            cellMeasureManager,
-            selectionRenderOptions
+            cellMeasureManager
         )
 
         selectionManager = resolvedManager
@@ -452,7 +431,7 @@ internal class RangeCalendarGridView(
     fun setCellAnimationType(type: CellAnimationType) = updateUIState {
         cellAnimationType = type
 
-        updateSelectionState(isTransitionRequested = false)
+        updateSelectionRenderOptions()
     }
 
     fun setDayNumberTextSize(size: Float) = updateUIState {
@@ -461,6 +440,7 @@ internal class RangeCalendarGridView(
         if (size != cr.dayNumberTextSize) {
             isDayNumberMeasurementsDirty = true
 
+            // TODO: Move it line a below, it's a bug
             refreshAllDecorVisualStates()
         }
     }
@@ -499,7 +479,7 @@ internal class RangeCalendarGridView(
 
         refreshAllDecorVisualStates()
         refreshColumnWidth()
-        updateSelectionState(isTransitionRequested = true)
+        updateSelectionStateConfiguration()
 
         requestLayout()
     }
@@ -510,7 +490,7 @@ internal class RangeCalendarGridView(
         rrRadius = value
 
         refreshAllDecorVisualStates()
-        updateSelectionState(isTransitionRequested = false)
+        updateSelectionRenderOptions()
     }
 
     fun setInMonthRange(range: CellRange) {
@@ -571,7 +551,7 @@ internal class RangeCalendarGridView(
         refreshColumnWidth()
 
         updateGradientBoundsIfNeeded()
-        updateSelectionState(isTransitionRequested = true)
+        updateSelectionStateConfiguration()
     }
 
     private fun updateGradientBoundsIfNeeded() {
@@ -808,8 +788,7 @@ internal class RangeCalendarGridView(
         selectionManager.setState(
             SelectionType.CELL,
             cell, cell,
-            cellMeasureManager,
-            selectionRenderOptions
+            cellMeasureManager
         )
 
         if (doAnimation && selectionManager.hasTransition()) {
@@ -852,10 +831,8 @@ internal class RangeCalendarGridView(
 
         selectionManager.setState(
             SelectionType.WEEK,
-            start,
-            end,
+            start, end,
             cellMeasureManager,
-            selectionRenderOptions
         )
 
         // 4. Start appropriate animation if it's necessary.
@@ -884,12 +861,7 @@ internal class RangeCalendarGridView(
             return
         }
 
-        selectionManager.setState(
-            SelectionType.MONTH,
-            intersection,
-            cellMeasureManager,
-            selectionRenderOptions
-        )
+        selectionManager.setState(SelectionType.MONTH, intersection, cellMeasureManager)
 
         // Start appropriate animation if it's necessary.
         if (doAnimation && selectionManager.hasTransition()) {
@@ -947,12 +919,7 @@ internal class RangeCalendarGridView(
             return
         }
 
-        selectionManager.setState(
-            SelectionType.CUSTOM,
-            intersection,
-            cellMeasureManager,
-            selectionRenderOptions
-        )
+        selectionManager.setState(SelectionType.CUSTOM, intersection, cellMeasureManager)
 
         if(doAnimation && selectionManager.hasTransition()) {
             startCalendarAnimation(SELECTION_ANIMATION)
@@ -1249,6 +1216,7 @@ internal class RangeCalendarGridView(
                     animType = NO_ANIMATION
                     onAnimationEnd?.run()
 
+                    Log.i("Calendar", "onAnimationEnd()")
                     invalidate()
                 }
             })
@@ -1297,6 +1265,7 @@ internal class RangeCalendarGridView(
         val options = selectionRenderOptions
 
         if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
+            Log.i("Calendar", "drawSelection(): animation")
             manager.drawTransition(
                 c,
                 cellMeasureManager,
@@ -1304,7 +1273,9 @@ internal class RangeCalendarGridView(
                 animFraction
             )
         } else {
-            manager.draw(c, options, 1f)
+            Log.i("Calendar", "drawSelection(): non-animation")
+
+            manager.draw(c, options)
         }
     }
 
@@ -1518,7 +1489,7 @@ internal class RangeCalendarGridView(
 
     private fun onGridTopChanged() {
         updateGradientBoundsIfNeeded()
-        updateSelectionState(isTransitionRequested = true)
+        updateSelectionStateConfiguration()
 
         // y-axis of entries depends on type of weekday, so we need to refresh accessibility info
         touchHelper.invalidateRoot()

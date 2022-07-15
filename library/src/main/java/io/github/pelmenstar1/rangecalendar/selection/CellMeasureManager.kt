@@ -7,6 +7,11 @@ import android.graphics.PointF
  */
 interface CellMeasureManager {
     /**
+     * Size of a cell, measured in pixels.
+     */
+    val cellSize: Float
+
+    /**
      * Gets x-axis value of the coordinate that specifies left corner of the cell.
      *
      * @param cellIndex index of the cell, should be in range 0..42
@@ -47,6 +52,10 @@ interface CellMeasureManager {
      * @throws IllegalArgumentException if [startIndex] or [endIndex] are out of the range 0..42
      */
     fun lerpCellRight(startIndex: Int, endIndex: Int, fraction: Float, outPoint: PointF)
+}
+
+fun CellMeasureManager.getCellRight(cellIndex: Int): Float {
+    return getCellLeft(cellIndex) + cellSize
 }
 
 internal fun CellMeasureManager.getCellLeft(cell: Cell) = getCellLeft(cell.index)

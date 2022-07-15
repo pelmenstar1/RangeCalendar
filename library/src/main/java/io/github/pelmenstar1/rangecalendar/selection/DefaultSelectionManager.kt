@@ -8,7 +8,6 @@ import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.withSave
 import io.github.pelmenstar1.rangecalendar.*
-import io.github.pelmenstar1.rangecalendar.PackedRectF
 import io.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
 import io.github.pelmenstar1.rangecalendar.utils.distanceSquare
 import io.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
@@ -101,9 +100,6 @@ internal class DefaultSelectionManager : SelectionManager {
 
     private var path: Path? = null
     private var pathBounds = PackedRectF(0)
-    private var pathRange = CellRange.Invalid
-    private var pathCellSize = Float.NaN
-    private var pathRoundRadius = Float.NaN
 
     private var _prevState: DefaultSelectionState = DefaultSelectionState.None
     private var _currentState: DefaultSelectionState = DefaultSelectionState.None
@@ -122,57 +118,107 @@ internal class DefaultSelectionManager : SelectionManager {
         type: SelectionType,
         rangeStart: Int,
         rangeEnd: Int,
-        measureManager: CellMeasureManager,
-        options: SelectionRenderOptions
+        measureManager: CellMeasureManager
     ) {
-        val range = CellRange(rangeStart, rangeEnd)
-        val cellSize = options.cellSize
-
         val state = when (type) {
-            SelectionType.CELL -> {
-                val left = measureManager.getCellLeft(rangeStart)
-                val top = measureManager.getCellTop(rangeStart)
-
-                DefaultSelectionState.CellState(Cell(rangeStart), left, top)
-            }
-            SelectionType.WEEK -> {
-                val left = measureManager.getCellLeft(rangeStart)
-                val right = measureManager.getCellLeft(rangeEnd) + cellSize
-
-                val top = measureManager.getCellTop(rangeStart)
-
-                DefaultSelectionState.WeekState(range, left, right, top)
-            }
+            SelectionType.CELL -> createCellState(Cell(rangeStart), measureManager)
+            SelectionType.WEEK -> createWeekState(rangeStart, rangeEnd, measureManager)
             SelectionType.MONTH, SelectionType.CUSTOM -> {
-                val startLeft = measureManager.getCellLeft(rangeStart)
-                val startTop = measureManager.getCellTop(rangeStart)
-
-                val endRight = measureManager.getCellLeft(rangeEnd) + cellSize
-                val endTop = measureManager.getCellTop(rangeEnd)
-
-                val firstCellOnRowLeft = measureManager.getCellLeft(0)
-                val lastCellOnRowRight = measureManager.getCellLeft(6) + cellSize
-
-                if (type == SelectionType.MONTH) {
-                    DefaultSelectionState.MonthState(
-                        range,
-                        startLeft, startTop,
-                        endRight, endTop,
-                        firstCellOnRowLeft, lastCellOnRowRight
-                    )
-                } else {
-                    DefaultSelectionState.CustomRangeState(
-                        range,
-                        startLeft, startTop,
-                        endRight, endTop,
-                        firstCellOnRowLeft, lastCellOnRowRight
-                    )
-                }
+                createCustomRangeBaseState(type, rangeStart, rangeEnd, measureManager)
             }
             SelectionType.NONE -> throw IllegalArgumentException("Type can't be NONE")
         }
 
         setStateInternal(state)
+    }
+
+    override fun updateConfiguration(measureManager: CellMeasureManager) {
+        _prevState = createStateOnConfigurationUpdate(_prevState, measureManager)
+        _currentState = createStateOnConfigurationUpdate(_currentState, measureManager)
+    }
+
+    private fun createStateOnConfigurationUpdate(
+        state: DefaultSelectionState,
+        measureManager: CellMeasureManager,
+    ): DefaultSelectionState {
+        return when (state) {
+            is DefaultSelectionState.CellState -> {
+                createCellState(state.cell, measureManager)
+            }
+            is DefaultSelectionState.WeekState -> {
+                createWeekState(state.rangeStart, state.rangeEnd, measureManager)
+            }
+            is DefaultSelectionState.CustomRangeStateBase -> {
+                val selType =
+                    if (state is DefaultSelectionState.MonthState) SelectionType.MONTH else SelectionType.CUSTOM
+
+                createCustomRangeBaseState(selType, state.rangeStart, state.rangeEnd, measureManager)
+            }
+            DefaultSelectionState.None -> DefaultSelectionState.None
+        }
+    }
+
+    private fun createCellState(cell: Cell, measureManager: CellMeasureManager): DefaultSelectionState.CellState {
+        val left = measureManager.getCellLeft(cell)
+        val top = measureManager.getCellTop(cell)
+
+        return DefaultSelectionState.CellState(cell, left, top, measureManager.cellSize)
+    }
+
+    private fun createWeekState(
+        rangeStart: Int,
+        rangeEnd: Int,
+        measureManager: CellMeasureManager
+    ): DefaultSelectionState.WeekState {
+        val cellSize = measureManager.cellSize
+
+        val left = measureManager.getCellLeft(rangeStart)
+        val right = measureManager.getCellLeft(rangeEnd) + cellSize
+
+        val top = measureManager.getCellTop(rangeStart)
+
+        return DefaultSelectionState.WeekState(
+            CellRange(rangeStart, rangeEnd),
+            left, top, right, bottom = top + cellSize
+        )
+    }
+
+    private fun createCustomRangeBaseState(
+        type: SelectionType,
+        rangeStart: Int,
+        rangeEnd: Int,
+        measureManager: CellMeasureManager
+    ): DefaultSelectionState.CustomRangeStateBase {
+        val cellSize = measureManager.cellSize
+
+        val startLeft = measureManager.getCellLeft(rangeStart)
+        val startTop = measureManager.getCellTop(rangeStart)
+
+        val endRight = measureManager.getCellLeft(rangeEnd) + cellSize
+        val endTop = measureManager.getCellTop(rangeEnd)
+
+        val firstCellOnRowLeft = measureManager.getCellLeft(0)
+        val lastCellOnRowRight = measureManager.getCellLeft(6) + cellSize
+
+        val range = CellRange(rangeStart, rangeEnd)
+
+        return if (type == SelectionType.MONTH) {
+            DefaultSelectionState.MonthState(
+                range,
+                startLeft, startTop,
+                endRight, endTop,
+                firstCellOnRowLeft, lastCellOnRowRight,
+                cellSize
+            )
+        } else {
+            DefaultSelectionState.CustomRangeState(
+                range,
+                startLeft, startTop,
+                endRight, endTop,
+                firstCellOnRowLeft, lastCellOnRowRight,
+                cellSize
+            )
+        }
     }
 
     private fun setStateInternal(state: DefaultSelectionState) {
@@ -191,19 +237,12 @@ internal class DefaultSelectionManager : SelectionManager {
 
     override fun draw(
         canvas: Canvas,
-        options: SelectionRenderOptions,
-        alpha: Float
+        options: SelectionRenderOptions
     ) {
         when (val state = _currentState) {
-            is DefaultSelectionState.CellState -> {
-                drawCell(canvas, state, options, alpha)
-            }
-            is DefaultSelectionState.WeekState -> {
-                drawWeekSelection(canvas, state, options, alpha)
-            }
-            is DefaultSelectionState.CustomRangeStateBase -> {
-                drawCustomRange(canvas, state, options, alpha)
-            }
+            is DefaultSelectionState.CellState -> drawCell(canvas, state, options)
+            is DefaultSelectionState.WeekState -> drawWeekSelection(canvas, state, options)
+            is DefaultSelectionState.CustomRangeStateBase -> drawCustomRange(canvas, state, options)
             else -> {}
         }
     }
@@ -295,22 +334,9 @@ internal class DefaultSelectionManager : SelectionManager {
                         )
                     }
                     else -> {
-                        // If cells are identical, it means that either options or measureManager configuration has changed
-                        // and presumably we have to only move cell to the new position.
-                        if (prevState.cell == currentState.cell) {
-                            drawCellToCell(
-                                canvas,
-                                prevState,
-                                currentState,
-                                xFraction = fraction,
-                                yFraction = fraction,
-                                options
-                            )
-                        } else {
-                            // Previous cell should fade away and current one should become gradually visible.
-                            drawCellAppearTransition(canvas, prevState, options,1f - fraction)
-                            drawCellAppearTransition(canvas, currentState, options, fraction)
-                        }
+                        // Previous cell should fade away and current one should become gradually visible.
+                        drawCellAppearTransition(canvas, prevState, options, 1f - fraction)
+                        drawCellAppearTransition(canvas, currentState, options, fraction)
                     }
                 }
             }
@@ -475,14 +501,14 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        val cellSize = options.cellSize
-
+        val cellSize = state.cellSize
         val left = state.left
         val top = state.top
 
         drawRectOnRow(
             canvas,
-            left, top, right = left + cellSize, options, alpha
+            left, top, right = left + cellSize, bottom = top + cellSize,
+            options, alpha
         )
     }
 
@@ -492,10 +518,10 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         fraction: Float
     ) {
-        if(options.cellAnimationType == CellAnimationType.ALPHA) {
+        if (options.cellAnimationType == CellAnimationType.ALPHA) {
             drawCell(canvas, state, options, alpha = fraction)
         } else {
-            val cellSize = options.cellSize
+            val cellSize = state.cellSize
             val halfCellSize = cellSize * 0.5f
 
             val left = state.left
@@ -522,13 +548,14 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        val cellSize = options.cellSize
+        // start.cellSize and end.cellSize are expected to be the same.
+        val cellSize = start.cellSize
 
         val left = lerp(start.left, end.left, xFraction)
         val top = lerp(start.top, end.top, yFraction)
 
         drawRectOnRow(
-            canvas, left, top, right = left + cellSize,
+            canvas, left, top, right = left + cellSize, bottom = top + cellSize,
             options,
             alpha
         )
@@ -554,28 +581,28 @@ internal class DefaultSelectionManager : SelectionManager {
         fraction: Float,
         alpha: Float = 1f
     ) {
-        val centerX = (state.startLeft + state.endRight) * 0.5f
+        val startLeft = state.startLeft
+        val endRight = state.endRight
 
-        val left = lerp(centerX, state.startLeft, fraction)
-        val right = lerp(centerX, state.endRight, fraction)
+        val centerX = (startLeft + endRight) * 0.5f
 
-        drawRectOnRow(canvas, left, state.top, right, options, alpha)
+        val left = lerp(centerX, startLeft, fraction)
+        val right = lerp(centerX, endRight, fraction)
+
+        drawRectOnRow(canvas, left, state.top, right, state.bottom, options, alpha)
     }
 
     private fun drawWeekSelection(
         canvas: Canvas,
         state: DefaultSelectionState.WeekState,
         options: SelectionRenderOptions,
-        alpha: Float = 1f
     ) {
-        val left = state.startLeft
-        val right = state.endRight
-
-        val top = state.top
-
         drawRectOnRow(
-            canvas, left, top, right,
-            options, alpha
+            canvas,
+            state.startLeft, state.top,
+            state.endRight, state.bottom,
+            options,
+            alpha = 1f
         )
     }
 
@@ -585,8 +612,7 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        val cellSize = options.cellSize
-        val roundRadius = options.roundRadius
+        val cellSize = state.cellSize
         val range = state.range
 
         val (rangeStart, rangeEnd) = range
@@ -594,23 +620,24 @@ internal class DefaultSelectionManager : SelectionManager {
         // If start and end of the range are on the same row, there could be applied some optimizations
         // that allow drawing the range with using Path.
         if (rangeStart.sameY(rangeEnd)) {
-            drawRectOnRow(canvas, state.startLeft, state.startTop, state.endRight, options, alpha)
-        } else {
-            // Update Path only if some properties are changed.
-            if(!(pathRange == range && pathCellSize == cellSize && pathRoundRadius == roundRadius)) {
-                pathRange = range
-                pathCellSize = cellSize
-                pathRoundRadius = roundRadius
+            val top = state.startTop
 
-                updateCustomRangePath(
-                    range,
-                    state.firstCellOnRowLeft, state.lastCellOnRowRight,
-                    state.startLeft, state.startTop,
-                    state.endRight, state.endTop,
-                    options,
-                    preferWithoutPath = false
-                )
-            }
+            drawRectOnRow(
+                canvas,
+                state.startLeft, state.startTop,
+                state.endRight, bottom = top + state.cellSize,
+                options, alpha
+            )
+        } else {
+            updateCustomRangePath(
+                range,
+                state.firstCellOnRowLeft, state.lastCellOnRowRight,
+                state.startLeft, state.startTop,
+                state.endRight, state.endTop,
+                cellSize,
+                options,
+                preferWithoutPath = false
+            )
 
             path?.let {
                 options.prepareSelectionFill(pathBounds, alpha)
@@ -626,11 +653,14 @@ internal class DefaultSelectionManager : SelectionManager {
         measureManager: CellMeasureManager, options: SelectionRenderOptions,
         fraction: Float
     ) {
+        val cellSize = state.cellSize
+
         updateCustomRangePath(
             state.range,
             state.firstCellOnRowLeft, state.lastCellOnRowRight,
             state.startLeft, state.startTop,
             state.endRight, state.endTop,
+            cellSize,
             options,
             preferWithoutPath = false
         )
@@ -638,12 +668,12 @@ internal class DefaultSelectionManager : SelectionManager {
         val cellLeft = measureManager.getCellLeft(cell)
         val cellTop = measureManager.getCellTop(cell)
 
-        val halfCellSize = options.cellSize * 0.5f
+        val halfCellSize = cellSize * 0.5f
 
         val x = cellLeft + halfCellSize
         val y = cellTop + halfCellSize
 
-        val finalRadius = getCircleRadiusForCellMonthAnimation(state, x, y, measureManager, options)
+        val finalRadius = getCircleRadiusForCellMonthAnimation(state, x, y, measureManager)
         val currentRadius = lerp(halfCellSize, finalRadius, fraction)
 
         options.prepareSelectionFill(pathBounds, alpha = 1f)
@@ -652,17 +682,6 @@ internal class DefaultSelectionManager : SelectionManager {
             path?.let(::clipPath)
             drawCircle(x, y, currentRadius, paint)
         }
-    }
-
-    private fun drawRectOnRow(
-        canvas: Canvas,
-        left: Float, top: Float, right: Float,
-        options: SelectionRenderOptions,
-        alpha: Float = 1f
-    ) {
-        val bottom = top + options.cellSize
-
-        drawRectOnRow(canvas, left, top, right, bottom, options, alpha)
     }
 
     private fun drawRectOnRow(
@@ -742,23 +761,31 @@ internal class DefaultSelectionManager : SelectionManager {
 
         val (endRight, endTop) = tempPoint
 
+        val cellSize = measureManager.cellSize
+
         val firstCellOnRowLeft = measureManager.getCellLeft(0)
 
         // 6 cell is the last cell on row.
-        val lastCellOnRowRight = measureManager.getCellLeft(6) + options.cellSize
+        val lastCellOnRowRight = measureManager.getCellLeft(6) + cellSize
 
         val canDrawWithoutPath = updateCustomRangePath(
             lerpRangeToRange(startRange, endRange, fraction),
             firstCellOnRowLeft, lastCellOnRowRight,
             startLeft, startTop,
             endRight, endTop,
+            cellSize,
             options,
             preferWithoutPath = true
         )
 
         // The range could be drawn without path only if it's located on the same row.
         if (canDrawWithoutPath) {
-            drawRectOnRow(canvas, startLeft, startTop, endRight, options)
+            drawRectOnRow(
+                canvas,
+                startLeft, startTop,
+                endRight, bottom = startTop + cellSize,
+                options
+            )
         } else {
             options.prepareSelectionFill(pathBounds, alpha = 1f)
 
@@ -768,7 +795,7 @@ internal class DefaultSelectionManager : SelectionManager {
 
     private inline fun SelectionRenderOptions.prepareSelectionFill(setBounds: Fill.() -> Unit, alpha: Float) {
         fill.run {
-            if(fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
+            if (fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
                 setBounds()
             }
 
@@ -794,13 +821,13 @@ internal class DefaultSelectionManager : SelectionManager {
         firstCellLeft: Float, lastCellRight: Float,
         startLeft: Float, startTop: Float,
         endRight: Float, endTop: Float,
+        cellSize: Float,
         options: SelectionRenderOptions,
         preferWithoutPath: Boolean
     ): Boolean {
         val (start, end) = range
 
         val roundRadius = options.roundRadius
-        val cellSize = options.cellSize
 
         if (start.sameY(end)) {
             if (preferWithoutPath) {
@@ -889,12 +916,11 @@ internal class DefaultSelectionManager : SelectionManager {
     private fun getCircleRadiusForCellMonthAnimation(
         state: DefaultSelectionState.CustomRangeStateBase,
         x: Float, y: Float,
-        measureManager: CellMeasureManager,
-        options: SelectionRenderOptions
+        measureManager: CellMeasureManager
     ): Float {
         // Find min radius for circle (with center at (x; y)) to fully fit in month selection.
 
-        val cellSize = options.cellSize
+        val cellSize = measureManager.cellSize
 
         val distToLeftCorner = x - state.firstCellOnRowLeft
         val distToRightCorner = state.lastCellOnRowRight - x
@@ -908,7 +934,7 @@ internal class DefaultSelectionManager : SelectionManager {
         val endTop = state.endTop
 
         val distToStartCellSq = distanceSquare(startLeft, startTop, x, y)
-        val distToEndCellSq = distanceSquare(endRight, endTop + options.cellSize, x, y)
+        val distToEndCellSq = distanceSquare(endRight, endTop + cellSize, x, y)
 
         var maxDist = max(distToLeftCorner, distToRightCorner)
         maxDist = max(maxDist, distToTopCorner)

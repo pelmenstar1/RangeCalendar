@@ -31,9 +31,13 @@ interface SelectionManager {
         type: SelectionType,
         rangeStart: Int,
         rangeEnd: Int,
-        measureManager: CellMeasureManager,
-        options: SelectionRenderOptions
+        measureManager: CellMeasureManager
     )
+
+    /**
+     * Updates previous and current state due to the configuration change ([CellMeasureManager] measurements are changed)
+     */
+    fun updateConfiguration(measureManager: CellMeasureManager)
 
     /**
      * Returns whether there is a transition between [previousState] and [currentState].
@@ -45,9 +49,8 @@ interface SelectionManager {
      *
      * @param canvas canvas to draw current state on.
      * @param options contains essential for drawing values.
-     * @param alpha used to override alpha of the [SelectionRenderOptions.fill]
      */
-    fun draw(canvas: Canvas, options: SelectionRenderOptions, alpha: Float)
+    fun draw(canvas: Canvas, options: SelectionRenderOptions)
 
     /**
      * Draws transition between [previousState] and [currentState] on [canvas]
@@ -63,25 +66,23 @@ interface SelectionManager {
         canvas: Canvas,
         measureManager: CellMeasureManager,
         options: SelectionRenderOptions,
-        fraction: Float,
+        fraction: Float
     )
 }
 
 internal fun SelectionManager.setState(
     type: SelectionType,
     range: CellRange,
-    measureManager: CellMeasureManager,
-    options: SelectionRenderOptions
+    measureManager: CellMeasureManager
 ) {
-    setState(type, range.start, range.end, measureManager, options)
+    setState(type, range.start, range.end, measureManager)
 }
 
 internal fun SelectionManager.setState(
     type: SelectionType,
     rangeStart: Cell,
     rangeEnd: Cell,
-    measureManager: CellMeasureManager,
-    options: SelectionRenderOptions
+    measureManager: CellMeasureManager
 ) {
-    setState(type, rangeStart.index, rangeEnd.index, measureManager, options)
+    setState(type, rangeStart.index, rangeEnd.index, measureManager)
 }
