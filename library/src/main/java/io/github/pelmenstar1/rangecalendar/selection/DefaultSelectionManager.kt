@@ -578,8 +578,7 @@ internal class DefaultSelectionManager : SelectionManager {
         canvas: Canvas,
         state: DefaultSelectionState.WeekState,
         options: SelectionRenderOptions,
-        fraction: Float,
-        alpha: Float = 1f
+        fraction: Float
     ) {
         val startLeft = state.startLeft
         val endRight = state.endRight
@@ -589,7 +588,7 @@ internal class DefaultSelectionManager : SelectionManager {
         val left = lerp(centerX, startLeft, fraction)
         val right = lerp(centerX, endRight, fraction)
 
-        drawRectOnRow(canvas, left, state.top, right, state.bottom, options, alpha)
+        drawRectOnRow(canvas, left, state.top, right, state.bottom, options, alpha = 1f)
     }
 
     private fun drawWeekSelection(
@@ -639,9 +638,8 @@ internal class DefaultSelectionManager : SelectionManager {
                 preferWithoutPath = false
             )
 
-            path?.let {
-                options.prepareSelectionFill(pathBounds, alpha)
-                canvas.drawPath(it, paint)
+            useSelectionFill(canvas, options, pathBounds, alpha) {
+                path?.let { drawPath(it, paint) }
             }
         }
     }
@@ -676,11 +674,11 @@ internal class DefaultSelectionManager : SelectionManager {
         val finalRadius = getCircleRadiusForCellMonthAnimation(state, x, y, measureManager)
         val currentRadius = lerp(halfCellSize, finalRadius, fraction)
 
-        options.prepareSelectionFill(pathBounds, alpha = 1f)
-
-        canvas.withSave {
-            path?.let(::clipPath)
-            drawCircle(x, y, currentRadius, paint)
+        useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
+            canvas.withSave {
+                path?.let(::clipPath)
+                drawCircle(x, y, currentRadius, paint)
+            }
         }
     }
 
@@ -690,12 +688,12 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        options.prepareSelectionFill(left, top, right, bottom, alpha)
-
-        canvas.drawRoundRectCompat(
-            left, top, right, bottom,
-            options.roundRadius, paint
-        )
+        useSelectionFill(canvas, options, left, top, right, bottom, alpha) {
+            drawRoundRectCompat(
+                left, top, right, bottom,
+                options.roundRadius, paint
+            )
+        }
     }
 
     private fun drawCellToCustomRangeTransition(
@@ -787,34 +785,46 @@ internal class DefaultSelectionManager : SelectionManager {
                 options
             )
         } else {
-            options.prepareSelectionFill(pathBounds, alpha = 1f)
-
-            path?.let { canvas.drawPath(it, paint) }
-        }
-    }
-
-    private inline fun SelectionRenderOptions.prepareSelectionFill(setBounds: Fill.() -> Unit, alpha: Float) {
-        fill.run {
-            if (fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
-                setBounds()
+            useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
+                path?.let { drawPath(it, paint) }
             }
-
-            applyToPaint(paint, alpha)
         }
     }
 
-    private fun SelectionRenderOptions.prepareSelectionFill(
+    private inline fun useSelectionFill(
+        canvas: Canvas,
+        options: SelectionRenderOptions,
+        setBounds: Fill.() -> Unit,
+        alpha: Float,
+        block: Canvas.() -> Unit
+    ) {
+        val fill = options.fill
+
+        if (options.fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
+            fill.setBounds()
+        }
+
+        fill.drawWith(canvas, paint, alpha, block)
+    }
+
+    private inline fun useSelectionFill(
+        canvas: Canvas,
+        options: SelectionRenderOptions,
         left: Float,
         top: Float,
         right: Float,
         bottom: Float,
-        alpha: Float
-    ) = prepareSelectionFill({ setBounds(left, top, right, bottom) }, alpha)
+        alpha: Float,
+        block: Canvas.() -> Unit
+    ) = useSelectionFill(canvas, options, { setBounds(left, top, right, bottom) }, alpha, block)
 
-    private fun SelectionRenderOptions.prepareSelectionFill(
+    private inline fun useSelectionFill(
+        canvas: Canvas,
+        options: SelectionRenderOptions,
         bounds: PackedRectF,
-        alpha: Float
-    ) = prepareSelectionFill({ setBounds(bounds, RectangleShape) }, alpha)
+        alpha: Float,
+        block: Canvas.() -> Unit
+    ) = useSelectionFill(canvas, options, { setBounds(bounds, RectangleShape) }, alpha, block)
 
     private fun updateCustomRangePath(
         range: CellRange,

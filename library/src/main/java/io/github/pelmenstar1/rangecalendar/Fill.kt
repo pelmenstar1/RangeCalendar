@@ -17,7 +17,7 @@ import io.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
  * This class is declared as `sealed` which means classes outside the library module cannot extend [Fill].
  * To create an instance of [Fill], use [Fill.solid], [Fill.linearGradient], [Fill.radialGradient] methods.
  */
-sealed class Fill(protected val type: Int) {
+sealed class Fill(val type: Int) {
     private class Pre29(
         type: Int,
         private val color: Int = 0,
@@ -346,6 +346,10 @@ sealed class Fill(protected val type: Int) {
     internal var shaderBounds = PackedRectF(0)
     protected var shaderShape: Shape? = null
 
+    fun getBounds(outRect: RectF) {
+        shaderBounds.setTo(outRect)
+    }
+
     /**
      * Sets bounds in which the fill is applied
      */
@@ -407,7 +411,62 @@ sealed class Fill(protected val type: Int) {
         alpha: Float
     ): Shader
 
-    internal abstract fun applyToPaint(paint: Paint, alpha: Float = 1f)
+    /**
+     * Applies options of [Fill] to specified paint.
+     *
+     * If [Fill] is gradient-like (created by [linearGradient] or [radialGradient]) and [alpha] is less than 1,
+     * this method shouldn't be used to apply the options to the paint and draw something with the paint.
+     * For this purpose, there's [drawWith] method. In Kotlin, `inline` version of the method can be used, which
+     * makes it more performant than version with [Runnable] lambda.
+     */
+    abstract fun applyToPaint(paint: Paint, alpha: Float = 1f)
+
+    /**
+     * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
+     *
+     * It should be used to draw something on [canvas] using a [Fill] instance which might be gradient-like.
+     * If Kotlin is used, there's `inline` version of the method which makes it more performant.
+     *
+     * Implementation notes: internally it uses [Canvas.saveLayerAlpha] to override alpha of the layer.
+     * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
+     */
+    fun drawWith(canvas: Canvas, paint: Paint, alpha: Float, block: Runnable) {
+        drawWith(canvas, paint, alpha) { block.run() }
+    }
+
+    /**
+     * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
+     *
+     * It should be used to draw something on [canvas] using a [Fill] instance which might be gradient-like.
+     *
+     * Implementation notes: internally it uses [Canvas.saveLayerAlpha] to override alpha of the layer.
+     * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
+     */
+    inline fun drawWith(canvas: Canvas, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
+        if(Build.VERSION.SDK_INT < 21 || type == TYPE_SOLID) {
+            applyToPaint(paint, alpha)
+
+            canvas.block()
+        } else {
+            applyToPaint(paint, alpha = 1f)
+
+            if(alpha < 1f) {
+                val box = getTempBox()
+                getBounds(box)
+
+                val alpha255 = (alpha * 255f + 0.5f).toInt()
+                val count = canvas.saveLayerAlpha(box, alpha255)
+
+                try {
+                    canvas.block()
+                } finally {
+                    canvas.restoreToCount(count)
+                }
+            } else {
+                canvas.block()
+            }
+        }
+    }
 
     override fun equals(other: Any?): Boolean {
         if (other === this) return true
@@ -423,15 +482,17 @@ sealed class Fill(protected val type: Int) {
     }
 
     companion object {
-        private const val TYPE_SOLID = 0
-        private const val TYPE_LINEAR_GRADIENT = 1
-        private const val TYPE_RADIAL_GRADIENT = 2
+        const val TYPE_SOLID = 0
+        const val TYPE_LINEAR_GRADIENT = 1
+        const val TYPE_RADIAL_GRADIENT = 2
 
         private var zeroOneArrayHolder: FloatArray? = null
         private var tempBoxHolder: RectF? = null
         private var tempPointHolder: PointF? = null
 
-        private fun getTempBox(): RectF {
+        @PublishedApi
+        @JvmSynthetic
+        internal fun getTempBox(): RectF {
             return getLazyValue(tempBoxHolder, { RectF() }, { tempBoxHolder = it })
         }
 

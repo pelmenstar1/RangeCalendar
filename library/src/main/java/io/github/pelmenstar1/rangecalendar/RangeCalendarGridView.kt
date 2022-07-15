@@ -1251,7 +1251,6 @@ internal class RangeCalendarGridView(
                     animType = NO_ANIMATION
                     onAnimationEnd?.run()
 
-                    Log.i("Calendar", "onAnimationEnd()")
                     invalidate()
                 }
             })
@@ -1300,7 +1299,6 @@ internal class RangeCalendarGridView(
         val options = selectionRenderOptions
 
         if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
-            Log.i("Calendar", "drawSelection(): animation")
             manager.drawTransition(
                 c,
                 cellMeasureManager,
@@ -1308,8 +1306,6 @@ internal class RangeCalendarGridView(
                 animFraction
             )
         } else {
-            Log.i("Calendar", "drawSelection(): non-animation")
-
             manager.draw(c, options)
         }
     }
