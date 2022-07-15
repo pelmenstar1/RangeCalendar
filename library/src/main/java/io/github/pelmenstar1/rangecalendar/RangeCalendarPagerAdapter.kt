@@ -11,10 +11,7 @@ import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import io.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import io.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
-import io.github.pelmenstar1.rangecalendar.selection.Cell
-import io.github.pelmenstar1.rangecalendar.selection.CellRange
-import io.github.pelmenstar1.rangecalendar.selection.NarrowSelectionData
-import io.github.pelmenstar1.rangecalendar.selection.WideSelectionData
+import io.github.pelmenstar1.rangecalendar.selection.*
 import io.github.pelmenstar1.rangecalendar.utils.CompatColorArray
 
 internal class RangeCalendarPagerAdapter(
@@ -178,9 +175,9 @@ internal class RangeCalendarPagerAdapter(
 
     private var today = PackedDate(0)
     private val calendarInfo = CalendarInfo()
-    private val styleData = IntArray(10)
+    private val styleData = IntArray(11)
     private val styleColors = CompatColorArray(7)
-    private val styleObjData = arrayOfNulls<Any>(5)
+    private val styleObjData = arrayOfNulls<Any>(6)
 
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
     private var selectionGate: RangeCalendarView.SelectionGate? = null
@@ -214,10 +211,12 @@ internal class RangeCalendarPagerAdapter(
 
         initStyle(STYLE_COMMON_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
         initStyle(STYLE_HOVER_ANIMATION_DURATION, RangeCalendarGridView.DEFAULT_HOVER_ANIM_DURATION)
+        initStyle(STYLE_CELL_ANIMATION_TYPE, CellAnimationType.ALPHA)
 
         initStyle(STYLE_HOVER_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true)
         initStyle(STYLE_SELECTION_FILL, Fill.solid(cr.colorPrimary))
+        initStyle(STYLE_SELECTION_MANAGER, DefaultSelectionManager())
     }
 
     private fun initStyleColor(type: Int, @ColorInt color: Int) {
@@ -356,6 +355,7 @@ internal class RangeCalendarPagerAdapter(
             STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> gridView.setSelectionFillGradientBoundsType(
                 data.enum(SelectionFillGradientBoundsType::ofOrdinal)
             )
+            STYLE_CELL_ANIMATION_TYPE -> gridView.setCellAnimationType(data.enum(CellAnimationType::ofOrdinal))
         }
     }
 
@@ -372,6 +372,9 @@ internal class RangeCalendarPagerAdapter(
                 gridView.setDecorationDefaultLayoutOptions(data.value())
             STYLE_SELECTION_FILL ->
                 gridView.setSelectionFill(data.value())
+            STYLE_SELECTION_MANAGER -> {
+                gridView.setSelectionManager(data.value())
+            }
         }
     }
 
@@ -1331,12 +1334,14 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_HOVER_ANIMATION_DURATION = 7
         const val STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 8
         const val STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE = 9
+        const val STYLE_CELL_ANIMATION_TYPE = 10
 
         private const val STYLE_OBJ_START = 32
         const val STYLE_COMMON_ANIMATION_INTERPOLATOR = 32
         const val STYLE_HOVER_ANIMATION_INTERPOLATOR = 33
         const val STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS = 34
         const val STYLE_SELECTION_FILL = 35
+        const val STYLE_SELECTION_MANAGER = 36
 
         // Precomputed value
         private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432

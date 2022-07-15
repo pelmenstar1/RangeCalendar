@@ -32,6 +32,8 @@ import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import io.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import io.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import io.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
+import io.github.pelmenstar1.rangecalendar.selection.CellAnimationType
+import io.github.pelmenstar1.rangecalendar.selection.SelectionManager
 import io.github.pelmenstar1.rangecalendar.selection.WideSelectionData
 import io.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import io.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
@@ -674,6 +676,10 @@ class RangeCalendarView @JvmOverloads constructor(
                 int(
                     R.styleable.RangeCalendarView_rangeCalendar_selectionFillGradientBoundsType,
                     RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE
+                )
+                int(
+                    R.styleable.RangeCalendarView_rangeCalendar_cellAnimationType,
+                    RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE
                 )
             }
         } finally {
@@ -1466,7 +1472,6 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleEnum(RangeCalendarPagerAdapter.STYLE_WEEKDAY_TYPE, type)
         }
 
-
     /**
      * Gets or sets behavior of what to do when user clicks on already selected cell.
      */
@@ -1523,7 +1528,6 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleInt(RangeCalendarPagerAdapter.STYLE_HOVER_ANIMATION_DURATION, duration)
         }
 
-
     /**
      * Gets or sets time interpolator of hover animation.
      */
@@ -1545,6 +1549,18 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleBool(
                 RangeCalendarPagerAdapter.STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE,
                 state
+            )
+        }
+
+    /**
+     * Gets or sets animation type for cells.
+     */
+    var cellAnimationType: CellAnimationType
+        get() = adapter.getStyleEnum(RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE, CellAnimationType::ofOrdinal)
+        set(type) {
+            adapter.setStyleEnum(
+                RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE,
+                type
             )
         }
 
@@ -1688,6 +1704,13 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     fun clearSelection() {
         adapter.clearSelection()
+    }
+
+    /**
+     * Sets custom implementation of selection manager. If you want to use default one, pass null as an argument.
+     */
+    fun setSelectionManager(selectionManager: SelectionManager?) {
+        adapter.setStyleObject(RangeCalendarPagerAdapter.STYLE_SELECTION_MANAGER, selectionManager)
     }
 
     /**

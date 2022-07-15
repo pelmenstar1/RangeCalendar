@@ -134,6 +134,7 @@ They are enabled by default (currently they cannot be disabled).
   of hover animation
 - `getHoverAnimationInterpolator()/setHoverAnimationInterpolator()` to get or set time interpolator
   of hover animation. By default, it's linear.
+- `getCellAnimationType()/setCellAnimationType()` to get or set type of animation for cells. See `CellAnimationType`.
 
 ## Changing page of calendar
 
@@ -159,6 +160,35 @@ They are enabled by default (currently they cannot be disabled).
 - `selectCustom(LocalDate startDate, LocalDate endDate)` to select custom range. The range should
   fit in single month, otherwise the exception will be thrown.
 - `clearSelection()` to clear selection.
+
+## Custom selection manager
+
+If you want to draw the selection in other way than the library does, you can implement `SelectionManager` on your own.
+There are two main abstractions in selection management:
+- 'selection state' - saves type of selection, its range (rangeStart and rangeEnd) and other data required to draw it on canvas.
+- 'selection manager' - handles creating selection state, accessing to it, drawing the state on canvas, drawing transition between states.
+
+There's a description of methods in `SelectionManager` and what they are expected to do:
+- `previousState` - saves a selection state that was before currentState.
+If there's no such state, then it should contain selection state whose type is NONE
+- `currentState` - current state of the manager. 
+If there's no such state, then it should contain selection state whose type is NONE
+- `setNoneState()` - sets current state as the state whose type is NONE. Also updates previousState.
+- `setState(type, rangeStart, rangeEnd, measureManager)` - creates and assigns new selection state using passed arguments. Note that, rangeEnd is **inclusive**.
+measureManager should be used to determine bounds of a cell.
+- `updateConfiguration(measureManager)` - updates internal measurements and computation based on measureManager results of both previousState and currentState.
+Change of measureManager result means that cells might be moved or resized.
+- `hasTransition()` - returns whether there's a transition between previousState and currentState.
+- `draw(canvas, options)` - draws currentState on given canvas. 
+`options` is used to stylize the selection as selection state shouldn't contain any style-related information.
+- `drawTransition(canvas, measureMaanger, options, fraction)` - draws a transition between previousState and currentState. fraction is a float (in range `0..1`),
+that specifies which fraction of the transition should be drawn.
+
+To use the custom implementation of `SelectionManager` is the calendar view, use `RangeCalendarView.setSelectionManager()`
+To use default implementation, call setSelectionManager() with `null` as the selection manager.
+
+There's also a `CellMeasureManager` class which returns position and size of specified cell. It's passed as an argument to some methods of `SelectionManager`.
+Although it's a public interface and it can be implemented on your own, you cannot use your implementation in a calendar view. It's implemented inside the library.
 
 ## Movement
 

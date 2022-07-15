@@ -43,8 +43,10 @@ internal value class CellRange(val bits: Int) {
         return CellRange(max(start, otherStart), min(end, otherEnd))
     }
 
-    fun contains(cell: Cell): Boolean {
-        return cell.index in start.index..end.index
+    fun contains(cell: Cell) = contains(cell.index)
+
+    fun contains(cellIndex: Int): Boolean {
+        return cellIndex in start.index..end.index
     }
 
     fun normalize(): CellRange {

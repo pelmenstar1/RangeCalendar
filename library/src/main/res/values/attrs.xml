@@ -26,6 +26,10 @@
             <enum name="shape" value="0"/>
             <enum name="grid" value="1"/>
         </attr>
+        <attr name="rangeCalendar_cellAnimationType" format="enum">
+            <enum name="alpha" value="0"/>
+            <enum name="bubble" value="1"/>
+        </attr>
     </declare-styleable>
 
 </resources>
