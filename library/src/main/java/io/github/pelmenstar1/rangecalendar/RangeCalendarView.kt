@@ -677,6 +677,10 @@ class RangeCalendarView @JvmOverloads constructor(
                     R.styleable.RangeCalendarView_rangeCalendar_selectionFillGradientBoundsType,
                     RangeCalendarPagerAdapter.STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE
                 )
+                int(
+                    R.styleable.RangeCalendarView_rangeCalendar_cellAnimationType,
+                    RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE
+                )
             }
         } finally {
             a.recycle()
