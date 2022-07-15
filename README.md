@@ -185,6 +185,7 @@ Change of measureManager result means that cells might be moved or resized.
 that specifies which fraction of the transition should be drawn.
 
 To use the custom implementation of `SelectionManager` is the calendar view, use `RangeCalendarView.setSelectionManager()`
+To use default implementation, call setSelectionManager() with `null` as the selection manager.
 
 There's also a `CellMeasureManager` class which returns position and size of specified cell. It's passed as an argument to some methods of `SelectionManager`.
 Although it's a public interface and it can be implemented on your own, you cannot use your implementation in a calendar view. It's implemented inside the library.
