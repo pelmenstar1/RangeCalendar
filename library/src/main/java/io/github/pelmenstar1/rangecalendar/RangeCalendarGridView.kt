@@ -362,10 +362,21 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private inline fun updateUIState(block: () -> Unit) {
-        block()
+    private inline fun updateUIState(block: () -> Unit) =
+        updateUIState(condition = true, block)
 
-        invalidate()
+    private inline fun <T> updateUIState(oldValue: T, newValue: T, block: () -> Unit) =
+        updateUIState(oldValue != newValue, block)
+
+    private inline fun updateUIState(oldValue: Float, newValue: Float, block: () -> Unit) =
+        updateUIState(oldValue != newValue, block)
+
+    private inline fun updateUIState(condition: Boolean, block: () -> Unit) {
+        if (condition) {
+            block()
+
+            invalidate()
+        }
     }
 
     private fun updateSelectionRenderOptions() {
@@ -393,19 +404,21 @@ internal class RangeCalendarGridView(
         updateSelectionRenderOptions()
     }
 
-    fun setSelectionFillGradientBoundsType(value: SelectionFillGradientBoundsType) = updateUIState {
-        selectionFillGradientBoundsType = value
+    fun setSelectionFillGradientBoundsType(value: SelectionFillGradientBoundsType) =
+        updateUIState(selectionFillGradientBoundsType, value) {
+            selectionFillGradientBoundsType = value
 
-        updateGradientBoundsIfNeeded()
-        updateSelectionRenderOptions()
-    }
+            updateGradientBoundsIfNeeded()
+            updateSelectionRenderOptions()
+        }
 
     fun setSelectionManager(manager: SelectionManager?) = updateUIState {
         val resolvedManager = manager ?: DefaultSelectionManager()
 
         // DefaultSelectionManager has no options and preferences which means re-setting it has no effect.
-        if(resolvedManager.javaClass == DefaultSelectionManager::class.java &&
-            resolvedManager.javaClass == DefaultSelectionManager::class.java) {
+        if (resolvedManager.javaClass == DefaultSelectionManager::class.java &&
+            resolvedManager.javaClass == DefaultSelectionManager::class.java
+        ) {
             return
         }
 
@@ -428,13 +441,13 @@ internal class RangeCalendarGridView(
         selectionManager = resolvedManager
     }
 
-    fun setCellAnimationType(type: CellAnimationType) = updateUIState {
+    fun setCellAnimationType(type: CellAnimationType) = updateUIState(cellAnimationType, type) {
         cellAnimationType = type
 
         updateSelectionRenderOptions()
     }
 
-    fun setDayNumberTextSize(size: Float) = updateUIState {
+    fun setDayNumberTextSize(size: Float) = updateUIState(dayNumberPaint.textSize, size) {
         dayNumberPaint.textSize = size
 
         if (size != cr.dayNumberTextSize) {
@@ -444,7 +457,7 @@ internal class RangeCalendarGridView(
         refreshAllDecorVisualStates()
     }
 
-    fun setWeekdayTextSize(size: Float) = updateUIState {
+    fun setWeekdayTextSize(size: Float) = updateUIState(weekdayPaint.textSize, size) {
         weekdayPaint.textSize = size
 
         if (size != cr.weekdayTextSize) {
@@ -454,12 +467,12 @@ internal class RangeCalendarGridView(
         onGridTopChanged()
     }
 
-    fun setStyleColorInt(index: Int, @ColorInt color: Int) = updateUIState {
+    fun setStyleColorInt(index: Int, @ColorInt color: Int) = updateUIState(styleColors.getColorInt(index), color) {
         styleColors.setColorInt(index, color)
     }
 
     @RequiresApi(26)
-    fun setStyleColorLong(index: Int, @ColorLong color: Long) = updateUIState {
+    fun setStyleColorLong(index: Int, @ColorLong color: Long) = updateUIState(styleColors.getColorLong(index), color) {
         styleColors.setColorLong(index, color)
     }
 
@@ -474,16 +487,18 @@ internal class RangeCalendarGridView(
     fun setCellSize(size: Float) {
         require(size > 0f) { "size <= 0" }
 
-        cellSize = size
+        if (cellSize != size) {
+            cellSize = size
 
-        refreshAllDecorVisualStates()
-        refreshColumnWidth()
-        updateSelectionStateConfiguration()
+            refreshAllDecorVisualStates()
+            refreshColumnWidth()
+            updateSelectionStateConfiguration()
 
-        requestLayout()
+            requestLayout()
+        }
     }
 
-    fun setCellRoundRadius(value: Float) = updateUIState {
+    fun setCellRoundRadius(value: Float) = updateUIState(rrRadius, value) {
         require(value >= 0f) { "ratio < 0" }
 
         rrRadius = value
@@ -504,28 +519,31 @@ internal class RangeCalendarGridView(
         updateSelectionRange()
     }
 
-    fun setWeekdayType(_type: WeekdayType) = updateUIState {
+    fun setWeekdayType(_type: WeekdayType) {
         // There is no narrow weekdays before API < 24, so we need to resolve it
         val type = _type.resolved()
 
-        weekdayType = type
+        if (weekdayType != type) {
+            weekdayType = type
 
-        // If weekdays measurements are from calendar resources then we can use precomputed values and don't make them "dirty"
-        if (weekdayWidths === cr.defaultWeekdayWidths) {
-            maxWeekdayHeight = if (type == WeekdayType.SHORT) {
-                cr.defaultShortWeekdayRowHeight
+            // If weekdays measurements are from calendar resources then we can use precomputed values and don't make them "dirty"
+            if (weekdayWidths === cr.defaultWeekdayWidths) {
+                maxWeekdayHeight = if (type == WeekdayType.SHORT) {
+                    cr.defaultShortWeekdayRowHeight
+                } else {
+                    cr.defaultNarrowWeekdayRowHeight
+                }
             } else {
-                cr.defaultNarrowWeekdayRowHeight
+                // Widths and max height needs to be precomputed if they are not from calendar resources.
+                isWeekdayMeasurementsDirty = true
             }
-        } else {
-            // Widths and max height needs to be precomputed if they are not from calendar resources.
-            isWeekdayMeasurementsDirty = true
-        }
 
-        onGridTopChanged()
+            onGridTopChanged()
+            invalidate()
+        }
     }
 
-    fun setTodayCell(cell: Cell) {
+    fun setTodayCell(cell: Cell) = updateUIState(todayCell != cell) {
         todayCell = cell
         invalidate()
     }
@@ -920,7 +938,7 @@ internal class RangeCalendarGridView(
 
         selectionManager.setState(SelectionType.CUSTOM, intersection, cellMeasureManager)
 
-        if(doAnimation && selectionManager.hasTransition()) {
+        if (doAnimation && selectionManager.hasTransition()) {
             startCalendarAnimation(SELECTION_ANIMATION)
         } else {
             invalidate()
@@ -1545,7 +1563,7 @@ internal class RangeCalendarGridView(
         val nextCell = currentCell + 1
 
         // If currentCell's and nextCell's rows are different, then we should end this part of 'lerp' in the end of the current cell.
-        val nextCellLeft = if(nextCell.index % 7 == 0) {
+        val nextCellLeft = if (nextCell.index % 7 == 0) {
             currentCellLeft + cellSize
         } else {
             getCellLeft(nextCell)
@@ -1567,7 +1585,7 @@ internal class RangeCalendarGridView(
         val isDiffRow = nextCell.index % 7 == 0
 
         // If the rows are different, then we should start this part of 'lerp' from next row's first cell.
-        val currentCellRight = if(isDiffRow) {
+        val currentCellRight = if (isDiffRow) {
             firstCellLeft()
         } else {
             getCellRight(currentCell)
@@ -1580,7 +1598,7 @@ internal class RangeCalendarGridView(
         outPoint.x = lerp(currentCellRight, nextCellRight, leftover)
 
         // If the rows are different, then we should start this part of 'lerp' from next row.
-        outPoint.y = getCellTop(if(isDiffRow) nextCell else currentCell)
+        outPoint.y = getCellTop(if (isDiffRow) nextCell else currentCell)
     }
 
     private fun isSelectionRangeContains(cell: Cell): Boolean {

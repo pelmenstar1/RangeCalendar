@@ -282,11 +282,13 @@ internal class RangeCalendarPagerAdapter(
         return styleObjData[type - STYLE_OBJ_START] as T
     }
 
-    private fun setStylePacked(type: Int, value: PackedInt, notify: Boolean) {
-        styleData[type] = value.value
+    private fun setStylePacked(type: Int, packed: PackedInt, notify: Boolean) {
+        if(styleData[type] != packed.value) {
+            styleData[type] = packed.value
 
-        if (notify) {
-            notifyItemRangeChanged(0, count, Payload.updateStyle(type, value))
+            if (notify) {
+                notifyItemRangeChanged(0, count, Payload.updateStyle(type, packed))
+            }
         }
     }
 
