@@ -739,22 +739,6 @@ class LineDecor(val style: Style) : CellDecor() {
             fun border(@ColorInt color: Int, width: Float) = border(Border(color, width))
 
             /**
-             * Sets border of the line using color specified by color long and stroke width.
-             *
-             * Supported when API level is 26 and higher,
-             * but actually color longs are used when API level is 29 or higher because
-             * color long support was added to [Paint] in Android 10 (API level 29).
-             * So before it, [color] is converted to color int and used as such.
-             *
-             * @param color color of border
-             * @param width stroke width, in pixels
-             *
-             * @return reference to this object
-             */
-            @RequiresApi(26)
-            fun border(@ColorLong color: Long, width: Float) = border(Border(color, width))
-
-            /**
              * Sets border of the line.
              *
              * @param value [Border] object that describes border more precisely

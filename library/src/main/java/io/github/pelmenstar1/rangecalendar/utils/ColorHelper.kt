@@ -3,11 +3,13 @@
 package io.github.pelmenstar1.rangecalendar.utils
 
 import android.graphics.Color
-import android.graphics.Paint
-import android.os.Build
-import androidx.annotation.*
+import androidx.annotation.ColorInt
+import androidx.annotation.FloatRange
 import androidx.annotation.IntRange
-import androidx.core.graphics.*
+import androidx.core.graphics.alpha
+import androidx.core.graphics.blue
+import androidx.core.graphics.green
+import androidx.core.graphics.red
 
 @ColorInt
 internal fun Int.withAlpha(
@@ -26,66 +28,12 @@ internal fun Int.withAlpha(@FloatRange(from = 0.0, to = 1.0) alpha: Float): Int 
     return withAlpha((alpha * 255f + 0.5f).toInt())
 }
 
-@ColorLong
-internal fun Long.withAlpha(@FloatRange(from = 0.0, to = 1.0) alpha: Float): Long {
-    return if (colorSpaceIdRaw == 0L) {
-        withAlphaSrgb((alpha * 255f + 0.5f).toLong())
-    } else {
-        withAlphaNonSrgb((alpha * 1023f + 0.5f).toLong())
-    }
-}
-
-@ColorLong
-internal inline fun Long.withAlphaSrgb(
-    @IntRange(from = 0, to = 255) alpha: Long
-): Long {
-    return (this and 0x00FFFFFF_FFFFFFFF) or (alpha shl 56)
-}
-
-@ColorLong
-internal inline fun Long.withAlphaNonSrgb(
-    @IntRange(from = 0, to = 1023) alpha: Long
-): Long {
-    return (this and (-65473L)) or (alpha shl 6)
-}
-
 @ColorInt
-fun Int.withCombinedAlpha(
+internal fun Int.withCombinedAlpha(
     @FloatRange(from = 0.0, to = 1.0) newAlpha: Float,
     @IntRange(from = 0, to = 255) originAlpha: Int = alpha
 ): Int {
     return withAlpha((originAlpha * newAlpha + 0.5f).toInt())
-}
-
-@ColorLong
-fun Long.withCombinedAlpha(@FloatRange(from = 0.0, to = 1.0) newAlpha: Float): Long {
-    return if (colorSpaceIdRaw == 0L) {
-        val alpha = (this shr 56) and 0xff
-
-        withAlphaSrgb((alpha * newAlpha + 0.5f).toLong())
-    } else {
-        val alpha = (this shr 6) and 0x3ff
-
-        withAlphaNonSrgb((alpha * newAlpha + 0.5f).toLong())
-    }
-}
-
-@ColorLong
-fun Long.withCombinedAlpha(
-    @FloatRange(from = 0.0, to = 1.0) newAlpha: Float,
-    @FloatRange(from = 0.0, to = 1.0) originAlpha: Float
-): Long {
-    return withAlpha(newAlpha * originAlpha)
-}
-
-internal inline val Long.colorSpaceIdRaw: Long
-    get() = this and 0x3fL
-
-/**
- * Compat version of [Color.pack]
- */
-internal fun Int.packColorCompat(): Long {
-    return (this.toLong() and 0xFFFFFFFFL) shl 32
 }
 
 /**
@@ -118,17 +66,4 @@ internal fun Int.darkerColor(@FloatRange(from = 0.0, to = 1.0) factor: Float): I
         (green * invFactor + 0.5f).toInt(),
         (blue * invFactor + 0.5f).toInt()
     )
-}
-
-@RequiresApi(26)
-internal fun Paint.setColorLongFast(@ColorLong color: Long) {
-    if (Build.VERSION.SDK_INT >= 29) {
-        if (color.isSrgb) {
-            setColor(color.asSrgbUnsafe())
-        } else {
-            setColor(color)
-        }
-    } else {
-        setColor(Color.toArgb(color))
-    }
 }

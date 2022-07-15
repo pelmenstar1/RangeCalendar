@@ -6,7 +6,7 @@ import androidx.annotation.ColorInt
 import androidx.annotation.ColorLong
 import androidx.annotation.RequiresApi
 import androidx.core.graphics.*
-import io.github.pelmenstar1.rangecalendar.utils.colorSpaceIdRaw
+import io.github.pelmenstar1.rangecalendar.utils.asSrgbUnsafe
 import io.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import io.github.pelmenstar1.rangecalendar.utils.withAlpha
 import io.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
@@ -215,12 +215,16 @@ sealed class Fill(protected val type: Int) {
     @RequiresApi(29)
     private class Post29(
         type: Int,
+
+        // Always sRGB color space
         private val color: Long = 0,
+
+        // Always sRGB color space
         private val gradientColors: LongArray? = null,
         private val gradientPositions: FloatArray? = null
     ) : Fill(type) {
         private var shaderAlpha: Float = 1f
-        private var originGradientColorsAlphas: FloatArray? = null
+        private var originGradientColorsAlphas: ByteArray? = null
 
         override fun createShader(
             left: Float,
@@ -240,7 +244,7 @@ sealed class Fill(protected val type: Int) {
             if (shaderAlpha != alpha) {
                 var originAlphas = originGradientColorsAlphas
                 if (originAlphas == null) {
-                    originAlphas = extractAlphas(gradientColors)
+                    originAlphas = extractAlphasSrgb(gradientColors)
                     originGradientColorsAlphas = originAlphas
                 }
 
@@ -279,11 +283,7 @@ sealed class Fill(protected val type: Int) {
             paint.style = Paint.Style.FILL
 
             if (type == TYPE_SOLID) {
-                if (color.isSrgb) {
-                    paint.color = (color shr 32).toInt().withCombinedAlpha(alpha)
-                } else {
-                    paint.setColor(color.withCombinedAlpha(alpha))
-                }
+                paint.color = color.asSrgbUnsafe().withCombinedAlpha(alpha)
 
                 paint.shader = null
             } else {
@@ -515,11 +515,12 @@ sealed class Fill(protected val type: Int) {
             }
         }
 
-        private fun combineAlphas(alpha: Float, originAlphas: FloatArray, colors: LongArray) {
+        @RequiresApi(26)
+        private fun combineAlphas(alpha: Float, originAlphas: ByteArray, colors: LongArray) {
             for (i in colors.indices) {
-                val originAlpha = originAlphas[i]
+                val originAlpha = originAlphas[i].toInt() and 0xFF
 
-                colors[i] = colors[i].withAlpha(originAlpha * alpha)
+                colors[i] = Color.pack(colors[i].asSrgbUnsafe().withCombinedAlpha(alpha, originAlpha))
             }
         }
 
@@ -553,21 +554,21 @@ sealed class Fill(protected val type: Int) {
         @RequiresApi(26)
         private fun colorsContentEquals(
             a: LongArray,
-            aAlphas: FloatArray?,
+            aAlphas: ByteArray?,
             b: LongArray,
-            bAlphas: FloatArray?
+            bAlphas: ByteArray?
         ): Boolean {
             if (a.size != b.size) return false
 
             for (i in a.indices) {
                 var aElement = a[i]
                 if (aAlphas != null) {
-                    aElement = aElement.withAlpha(aAlphas[i])
+                    aElement = Color.pack(aElement.asSrgbUnsafe().withAlpha(aAlphas[i]))
                 }
 
                 var bElement = b[i]
                 if (bAlphas != null) {
-                    bElement = bElement.withAlpha(bAlphas[i])
+                    bElement = Color.pack(bElement.asSrgbUnsafe().withAlpha(bAlphas[i]))
                 }
 
                 if (aElement != bElement) {
@@ -583,8 +584,8 @@ sealed class Fill(protected val type: Int) {
         }
 
         @RequiresApi(26)
-        private fun extractAlphas(colors: LongArray): FloatArray {
-            return FloatArray(colors.size) { i -> colors[i].alpha }
+        private fun extractAlphasSrgb(colors: LongArray): ByteArray {
+            return ByteArray(colors.size) { i -> colors[i].asSrgbUnsafe().alpha.toByte() }
         }
 
         @RequiresApi(26)
@@ -597,38 +598,13 @@ sealed class Fill(protected val type: Int) {
             return LongArray(colors.size) { i -> Color.pack(colors[i]) }
         }
 
-        @RequiresApi(26)
-        private fun convertColorLongsToInts(colors: LongArray): IntArray {
-            return IntArray(colors.size) { i -> Color.toArgb(colors[i]) }
-        }
-
-        private inline fun <T> checkColorsAndPositionsInternal(
-            colors: T,
-            positions: FloatArray,
-            getSizeOfT: (T) -> Int
-        ) {
-            if (getSizeOfT(colors) != positions.size) {
+        private fun checkColorsAndPositions(colors: IntArray, positions: FloatArray) {
+            if (colors.size != positions.size) {
                 throw IllegalArgumentException("colors and positions must have equal length")
             }
 
-            if (getSizeOfT(colors) < 2) {
+            if (colors.size < 2) {
                 throw IllegalArgumentException("colors length <= 2")
-            }
-        }
-
-        private fun checkColorsAndPositions(colors: IntArray, positions: FloatArray) {
-            checkColorsAndPositionsInternal(colors, positions, IntArray::size)
-        }
-
-        private fun checkColorsAndPositions(colors: LongArray, positions: FloatArray) {
-            checkColorsAndPositionsInternal(colors, positions, LongArray::size)
-
-            val colorSpaceId = colors[0].colorSpaceIdRaw
-
-            for (i in 1 until colors.size) {
-                if (colors[i].colorSpaceIdRaw != colorSpaceId) {
-                    throw IllegalArgumentException("All colors must be in the same ColorSpace")
-                }
             }
         }
 
@@ -637,21 +613,12 @@ sealed class Fill(protected val type: Int) {
          *
          * @param color color of fill.
          */
+        @JvmStatic
         fun solid(@ColorInt color: Int): Fill {
             return if (Build.VERSION.SDK_INT >= 29) {
                 Post29(TYPE_SOLID, color = Color.pack(color))
             } else {
                 Pre29(TYPE_SOLID, color)
-            }
-        }
-
-        @RequiresApi(26)
-        fun solid(@ColorLong color: Long): Fill {
-            return if (Build.VERSION.SDK_INT >= 29) {
-                Post29(TYPE_SOLID, color = color)
-            } else {
-                // Color long have no sense in rendering before API 29, so forward it to simple ARGB int
-                Pre29(TYPE_SOLID, Color.toArgb(color))
             }
         }
 
@@ -675,29 +642,6 @@ sealed class Fill(protected val type: Int) {
             }
         }
 
-        @RequiresApi(26)
-        private fun createGradient(
-            type: Int,
-            @ColorLong startColor: Long,
-            @ColorLong endColor: Long
-        ): Fill {
-            return if (Build.VERSION.SDK_INT >= 29) {
-                Post29(
-                    type,
-                    gradientColors = longArrayOf(startColor, endColor),
-                    gradientPositions = getZeroOneArray()
-                )
-            } else {
-                // Color longs have no sense in rendering before API 29,
-                // so forward them to simple ARGB ints
-                Pre29(
-                    type,
-                    gradientColor1 = Color.toArgb(startColor),
-                    gradientColor2 = Color.toArgb(endColor)
-                )
-            }
-        }
-
         private fun createGradient(type: Int, colors: IntArray, positions: FloatArray): Fill {
             checkColorsAndPositions(colors, positions)
 
@@ -716,50 +660,14 @@ sealed class Fill(protected val type: Int) {
             }
         }
 
-        @RequiresApi(26)
-        private fun createGradient(type: Int, colors: LongArray, positions: FloatArray): Fill {
-            checkColorsAndPositions(colors, positions)
-
-            return if (Build.VERSION.SDK_INT >= 29) {
-                Post29(
-                    type,
-                    gradientColors = colors.copyOf(),
-                    gradientPositions = positions
-                )
-            } else {
-                // Color longs have no sense in rendering before API 29,
-                // so forward them to simple ARGB ints
-                Pre29(
-                    type,
-                    gradientColors = convertColorLongsToInts(colors),
-                    gradientPositions = positions
-                )
-            }
-        }
-
         /**
          * Creates a linear gradient fill using start and end color specified by color int.
          *
          * @param startColor start color of gradient.
          * @param endColor end color of gradient.
          */
+        @JvmStatic
         fun linearGradient(@ColorInt startColor: Int, @ColorInt endColor: Int): Fill {
-            return createGradient(TYPE_LINEAR_GRADIENT, startColor, endColor)
-        }
-
-        /**
-         * Creates a linear gradient fill using start and end color specified by color long.
-         *
-         * Supported when API level is 26 and higher,
-         * but actually color longs are used when API level is 29 or higher because
-         * color long support was added to [Paint], [LinearGradient], [RadialGradient] in Android 10 (API level 29).
-         * So before it, [startColor] and [endColor] are converted to color ints and used as such.
-         *
-         * @param startColor start color of gradient.
-         * @param endColor end color of gradient.
-         */
-        @RequiresApi(26)
-        fun linearGradient(@ColorLong startColor: Long, @ColorLong endColor: Long): Fill {
             return createGradient(TYPE_LINEAR_GRADIENT, startColor, endColor)
         }
 
@@ -769,23 +677,8 @@ sealed class Fill(protected val type: Int) {
          * @param colors colors of gradient
          * @param positions relative positions of each color, each element should be in range `[0; 1]`
          */
+        @JvmStatic
         fun linearGradient(colors: IntArray, positions: FloatArray): Fill {
-            return createGradient(TYPE_LINEAR_GRADIENT, colors, positions)
-        }
-
-        /**
-         * Creates a linear gradient fill using array of colors specified by color longs and relative positions for colors
-         *
-         * Supported when API level is 26 and higher,
-         * but actually color longs are used when API level is 29 or higher because
-         * color long support was added to [Paint], [LinearGradient], [RadialGradient] in Android 10 (API level 29).
-         * So before it, [colors] are converted to color ints and used as such.
-         *
-         * @param colors colors of gradient
-         * @param positions relative positions of each color, each element should be in range `[0; 1]`
-         */
-        @RequiresApi(26)
-        fun linearGradient(colors: LongArray, positions: FloatArray): Fill {
             return createGradient(TYPE_LINEAR_GRADIENT, colors, positions)
         }
 
@@ -795,23 +688,8 @@ sealed class Fill(protected val type: Int) {
          * @param startColor start color of gradient.
          * @param endColor end color of gradient.
          */
+        @JvmStatic
         fun radialGradient(@ColorInt startColor: Int, @ColorInt endColor: Int): Fill {
-            return createGradient(TYPE_RADIAL_GRADIENT, startColor, endColor)
-        }
-
-        /**
-         * Creates a radial gradient fill using start and end color specified by color long.
-         *
-         * Supported when API level is 26 and higher,
-         * but actually color longs are used when API level is 29 or higher because
-         * color long support was added to [Paint], [LinearGradient], [RadialGradient] in Android 10 (API level 29).
-         * So before it, [startColor] and [endColor] are converted to color ints and used as such.
-         *
-         * @param startColor start color of gradient.
-         * @param endColor end color of gradient.
-         */
-        @RequiresApi(26)
-        fun radialGradient(@ColorLong startColor: Long, @ColorLong endColor: Long): Fill {
             return createGradient(TYPE_RADIAL_GRADIENT, startColor, endColor)
         }
 
@@ -821,23 +699,8 @@ sealed class Fill(protected val type: Int) {
          * @param colors colors of gradient
          * @param positions relative positions of each color, each element should be in range `[0; 1]`
          */
+        @JvmStatic
         fun radialGradient(colors: IntArray, positions: FloatArray): Fill {
-            return createGradient(TYPE_RADIAL_GRADIENT, colors, positions)
-        }
-
-        /**
-         * Creates a radial gradient fill using array of colors specified by color longs and relative positions for colors
-         *
-         * Supported when API level is 26 and higher,
-         * but actually color longs are used when API level is 29 or higher because
-         * color long support was added to [Paint], [LinearGradient], [RadialGradient] in Android 10 (API level 29).
-         * So before it, [colors] are converted to color ints and used as such.
-         *
-         * @param colors colors of gradient
-         * @param positions relative positions of each color, each element should be in range `[0; 1]`
-         */
-        @RequiresApi(26)
-        fun radialGradient(colors: LongArray, positions: FloatArray): Fill {
             return createGradient(TYPE_RADIAL_GRADIENT, colors, positions)
         }
     }
