@@ -6,10 +6,7 @@ import androidx.annotation.ColorInt
 import androidx.annotation.ColorLong
 import androidx.annotation.RequiresApi
 import androidx.core.graphics.*
-import io.github.pelmenstar1.rangecalendar.utils.asSrgbUnsafe
-import io.github.pelmenstar1.rangecalendar.utils.getLazyValue
-import io.github.pelmenstar1.rangecalendar.utils.withAlpha
-import io.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
+import io.github.pelmenstar1.rangecalendar.utils.*
 
 /**
  * Represents either a solid fill or gradient fill.
@@ -17,7 +14,32 @@ import io.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
  * This class is declared as `sealed` which means classes outside the library module cannot extend [Fill].
  * To create an instance of [Fill], use [Fill.solid], [Fill.linearGradient], [Fill.radialGradient] methods.
  */
-sealed class Fill(val type: Int) {
+sealed class Fill(val type: Int, protected val orientation: Orientation) {
+    /**
+     * Represents orientations for gradients.
+     */
+    enum class Orientation {
+        /**
+         * From top to bottom.
+         */
+        TOP_BOTTOM,
+
+        /**
+         * From bottom to top.
+         */
+        BOTTOM_TOP,
+
+        /**
+         * From left to right.
+         */
+        LEFT_RIGHT,
+
+        /**
+         * From right to left.
+         */
+        RIGHT_LEFT
+    }
+
     private class Pre29(
         type: Int,
         private val color: Int = 0,
@@ -31,8 +53,9 @@ sealed class Fill(val type: Int) {
         private val gradientColors: IntArray? = null,
 
         // it's only valid if gradientColors is not null
-        private val gradientPositions: FloatArray? = null
-    ) : Fill(type) {
+        private val gradientPositions: FloatArray? = null,
+        orientation: Orientation = Orientation.LEFT_RIGHT,
+    ) : Fill(type, orientation) {
         private var shaderAlpha: Float = 1f
 
         // These variables can be initialized on-place, there's no need for lazy-init
@@ -51,16 +74,9 @@ sealed class Fill(val type: Int) {
             return gradientColors!![index].withAlpha(originGradientColorsAlphas!![index])
         }
 
-        override fun createShader(
-            left: Float,
-            top: Float,
-            right: Float,
-            bottom: Float,
-            shape: Shape,
-            alpha: Float
-        ): Shader {
+        override fun createShader(shape: Shape, alpha: Float): Shader {
             val tempBox = getTempBox()
-            tempBox.set(left, top, right, bottom)
+            tempBox.set(shaderLeft, shaderTop, shaderRight, shaderBottom)
 
             if (shaderAlpha != alpha) {
                 shaderAlpha = alpha
@@ -85,18 +101,20 @@ sealed class Fill(val type: Int) {
                 TYPE_LINEAR_GRADIENT -> {
                     shape.narrowBox(tempBox)
 
-                    if (gradientColors != null) {
-                        LinearGradient(
-                            tempBox.left, tempBox.top, tempBox.right, tempBox.bottom,
-                            gradientColors, gradientPositions,
-                            Shader.TileMode.MIRROR
-                        )
-                    } else {
-                        LinearGradient(
-                            tempBox.left, tempBox.top, tempBox.right, tempBox.bottom,
-                            gradientColor1, gradientColor2,
-                            Shader.TileMode.MIRROR
-                        )
+                    createLinearShader(orientation, tempBox) { x0, y0, x1, y1 ->
+                        if (gradientColors != null) {
+                            LinearGradient(
+                                x0, y0, x1, y1,
+                                gradientColors, gradientPositions,
+                                Shader.TileMode.MIRROR
+                            )
+                        } else {
+                            LinearGradient(
+                                x0, y0, x1, y1,
+                                gradientColor1, gradientColor2,
+                                Shader.TileMode.MIRROR
+                            )
+                        }
                     }
                 }
                 TYPE_RADIAL_GRADIENT -> {
@@ -132,9 +150,7 @@ sealed class Fill(val type: Int) {
                 paint.shader = null
             } else {
                 if (shaderAlpha != alpha) {
-                    val (left, top, right, bottom) = shaderBounds
-
-                    shader = createShader(left, top, right, bottom, shaderShape!!, alpha)
+                    shader = createShader(shaderShape!!, alpha)
                 }
 
                 paint.shader = shader
@@ -221,47 +237,46 @@ sealed class Fill(val type: Int) {
 
         // Always sRGB color space
         private val gradientColors: LongArray? = null,
-        private val gradientPositions: FloatArray? = null
-    ) : Fill(type) {
+        private val gradientPositions: FloatArray? = null,
+        orientation: Orientation = Orientation.LEFT_RIGHT,
+    ) : Fill(type, orientation) {
         private var shaderAlpha: Float = 1f
         private var originGradientColorsAlphas: ByteArray? = null
 
         override fun createShader(
-            left: Float,
-            top: Float,
-            right: Float,
-            bottom: Float,
             shape: Shape,
             alpha: Float
         ): Shader {
             val tempBox = getTempBox()
 
-            tempBox.set(left, top, right, bottom)
+            tempBox.set(shaderLeft, shaderTop, shaderRight, shaderBottom)
 
-            gradientColors!!
-            gradientPositions!!
+            val colors = gradientColors!!
+            val positions = gradientPositions!!
 
             if (shaderAlpha != alpha) {
-                var originAlphas = originGradientColorsAlphas
-                if (originAlphas == null) {
-                    originAlphas = extractAlphasSrgb(gradientColors)
-                    originGradientColorsAlphas = originAlphas
-                }
-
                 shaderAlpha = alpha
 
-                combineAlphas(alpha, originAlphas, gradientColors)
+                val originAlphas = getLazyValue(
+                    originGradientColorsAlphas,
+                    { extractAlphasSrgb(colors) },
+                    { originGradientColorsAlphas = it }
+                )
+
+                combineAlphas(alpha, originAlphas, colors)
             }
 
             return when (type) {
                 TYPE_LINEAR_GRADIENT -> {
                     shape.narrowBox(tempBox)
 
-                    LinearGradient(
-                        tempBox.left, tempBox.top, tempBox.right, tempBox.bottom,
-                        gradientColors, gradientPositions,
-                        Shader.TileMode.MIRROR
-                    )
+                    createLinearShader(orientation, tempBox) { x0, y0, x1, y1 ->
+                        LinearGradient(
+                            x0, y0, x1, y1,
+                            colors, positions,
+                            Shader.TileMode.MIRROR
+                        )
+                    }
                 }
                 TYPE_RADIAL_GRADIENT -> {
                     val tempPoint = getTempPoint()
@@ -271,7 +286,7 @@ sealed class Fill(val type: Int) {
                     RadialGradient(
                         tempPoint.x, tempPoint.y,
                         radius,
-                        gradientColors, gradientPositions,
+                        colors, positions,
                         Shader.TileMode.MIRROR
                     )
                 }
@@ -288,9 +303,7 @@ sealed class Fill(val type: Int) {
                 paint.shader = null
             } else {
                 if (shaderAlpha != alpha) {
-                    val (left, top, right, bottom) = shaderBounds
-
-                    shader = createShader(left, top, right, bottom, shaderShape!!, alpha)
+                    shader = createShader(shaderShape!!, alpha)
                 }
 
                 paint.shader = shader
@@ -343,11 +356,15 @@ sealed class Fill(val type: Int) {
 
     protected var shader: Shader? = null
 
-    internal var shaderBounds = PackedRectF(0)
+    internal var shaderLeft = 0f
+    internal var shaderTop = 0f
+    internal var shaderRight = 0f
+    internal var shaderBottom = 0f
+
     protected var shaderShape: Shape? = null
 
     fun getBounds(outRect: RectF) {
-        shaderBounds.setTo(outRect)
+        outRect.set(shaderLeft, shaderTop, shaderRight, shaderBottom)
     }
 
     /**
@@ -369,47 +386,48 @@ sealed class Fill(val type: Int) {
         bottom: Float,
         shape: Shape = RectangleShape
     ) {
-        setBounds(left, top, right, bottom, shape) { PackedRectF(left, top, right, bottom) }
-    }
-
-    internal fun setBounds(bounds: PackedRectF, shape: Shape) {
-        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom, shape) { bounds }
-    }
-
-    internal inline fun setBounds(
-        left: Float, top: Float, right: Float, bottom: Float, shape: Shape,
-        computePackedBounds: () -> PackedRectF
-    ) {
         if (type != TYPE_SOLID) {
-            val packedBounds = computePackedBounds()
-            if (shaderBounds != packedBounds) {
-                shaderBounds = packedBounds
+            val oldShape = shaderShape
 
-                setBoundsInternal(left, top, right, bottom, shape)
+            if ((shaderLeft != left || shaderTop != top || shaderRight != right || shaderBottom != bottom) || oldShape != shape) {
+                val shouldUpdateDueToBounds = shouldUpdateShaderOnBoundsChange(
+                    shaderLeft, shaderTop, shaderRight, shaderBottom,
+                    left, top, right, bottom
+                )
+
+                val shapeChanged = oldShape != shape
+
+                shaderLeft = left
+                shaderTop = top
+                shaderRight = right
+                shaderBottom = bottom
+
+                shaderShape = shape
+
+                if (shouldUpdateDueToBounds || shapeChanged) {
+                    shader = createShader(shape, alpha = 1f)
+                }
             }
         }
     }
 
-    private fun setBoundsInternal(
-        left: Float,
-        top: Float,
-        right: Float,
-        bottom: Float,
-        shape: Shape
-    ) {
-        shaderShape = shape
-
-        shader = createShader(left, top, right, bottom, shape, 1f)
+    internal fun setBounds(bounds: PackedRectF, shape: Shape) {
+        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom, shape)
     }
 
-    protected abstract fun createShader(
-        left: Float,
-        top: Float,
-        right: Float,
-        bottom: Float,
-        shape: Shape,
-        alpha: Float
-    ): Shader
+    private fun shouldUpdateShaderOnBoundsChange(
+        oldLeft: Float, oldTop: Float, oldRight: Float, oldBottom: Float,
+        newLeft: Float, newTop: Float, newRight: Float, newBottom: Float
+    ) = when (orientation) {
+        Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT -> {
+            !oldLeft.equalsWithPrecision(newLeft, EPSILON) || !oldRight.equalsWithPrecision(newRight, EPSILON)
+        }
+        Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP -> {
+            !oldTop.equalsWithPrecision(newTop, EPSILON) || !oldBottom.equalsWithPrecision(newBottom, EPSILON)
+        }
+    }
+
+    protected abstract fun createShader(shape: Shape, alpha: Float): Shader
 
     /**
      * Applies options of [Fill] to specified paint.
@@ -443,14 +461,14 @@ sealed class Fill(val type: Int) {
      * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
      */
     inline fun drawWith(canvas: Canvas, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
-        if(Build.VERSION.SDK_INT < 21 || type == TYPE_SOLID) {
+        if (Build.VERSION.SDK_INT < 21 || type == TYPE_SOLID) {
             applyToPaint(paint, alpha)
 
             canvas.block()
         } else {
             applyToPaint(paint, alpha = 1f)
 
-            if(alpha < 1f) {
+            if (alpha < 1f) {
                 val box = getTempBox()
                 getBounds(box)
 
@@ -477,11 +495,11 @@ sealed class Fill(val type: Int) {
         return type == other.type
     }
 
-    override fun hashCode(): Int {
-        return type
-    }
+    override fun hashCode(): Int = type
 
     companion object {
+        private const val EPSILON = 0.1f
+
         const val TYPE_SOLID = 0
         const val TYPE_LINEAR_GRADIENT = 1
         const val TYPE_RADIAL_GRADIENT = 2
@@ -683,40 +701,84 @@ sealed class Fill(val type: Int) {
             }
         }
 
+        private inline fun <T : Shader> createLinearShader(
+            orientation: Orientation,
+            bounds: RectF,
+            create: (x0: Float, y0: Float, x1: Float, y1: Float) -> T
+        ): T {
+            val (left, top, right, bottom) = bounds
+
+            val x0: Float
+            val y0: Float
+            val x1: Float
+            val y1: Float
+
+            when (orientation) {
+                Orientation.LEFT_RIGHT -> {
+                    x0 = left; y0 = top
+                    x1 = right; y1 = top
+                }
+                Orientation.RIGHT_LEFT -> {
+                    x0 = right; y0 = top
+                    x1 = left; y1 = top
+                }
+                Orientation.TOP_BOTTOM -> {
+                    x0 = left; y0 = top
+                    x1 = left; y1 = bottom
+                }
+                Orientation.BOTTOM_TOP -> {
+                    x0 = left; y0 = bottom
+                    x1 = left; y1 = top
+                }
+            }
+
+            return create(x0, y0, x1, y1)
+        }
+
         private fun createGradient(
             type: Int,
             @ColorInt startColor: Int,
-            @ColorInt endColor: Int
+            @ColorInt endColor: Int,
+            orientation: Orientation = Orientation.LEFT_RIGHT,
         ): Fill {
             return if (Build.VERSION.SDK_INT >= 29) {
                 Post29(
                     type,
                     gradientColors = startEndColorsToLongArray(startColor, endColor),
-                    gradientPositions = getZeroOneArray()
+                    gradientPositions = getZeroOneArray(),
+                    orientation = orientation
                 )
             } else {
                 Pre29(
                     type,
                     gradientColor1 = startColor,
-                    gradientColor2 = endColor
+                    gradientColor2 = endColor,
+                    orientation = orientation
                 )
             }
         }
 
-        private fun createGradient(type: Int, colors: IntArray, positions: FloatArray): Fill {
+        private fun createGradient(
+            type: Int,
+            colors: IntArray,
+            positions: FloatArray,
+            orientation: Orientation = Orientation.LEFT_RIGHT
+        ): Fill {
             checkColorsAndPositions(colors, positions)
 
             return if (Build.VERSION.SDK_INT >= 29) {
                 Post29(
                     type,
                     gradientColors = convertColorIntsToLongs(colors),
-                    gradientPositions = positions
+                    gradientPositions = positions,
+                    orientation = orientation
                 )
             } else {
                 Pre29(
                     type,
                     gradientColors = colors.copyOf(),
-                    gradientPositions = positions
+                    gradientPositions = positions,
+                    orientation = orientation
                 )
             }
         }
@@ -726,10 +788,11 @@ sealed class Fill(val type: Int) {
          *
          * @param startColor start color of gradient.
          * @param endColor end color of gradient.
+         * @param orientation orientation of gradient.
          */
         @JvmStatic
-        fun linearGradient(@ColorInt startColor: Int, @ColorInt endColor: Int): Fill {
-            return createGradient(TYPE_LINEAR_GRADIENT, startColor, endColor)
+        fun linearGradient(@ColorInt startColor: Int, @ColorInt endColor: Int, orientation: Orientation): Fill {
+            return createGradient(TYPE_LINEAR_GRADIENT, startColor, endColor, orientation)
         }
 
         /**
@@ -737,10 +800,11 @@ sealed class Fill(val type: Int) {
          *
          * @param colors colors of gradient
          * @param positions relative positions of each color, each element should be in range `[0; 1]`
+         * @param orientation orientation of gradient.
          */
         @JvmStatic
-        fun linearGradient(colors: IntArray, positions: FloatArray): Fill {
-            return createGradient(TYPE_LINEAR_GRADIENT, colors, positions)
+        fun linearGradient(colors: IntArray, positions: FloatArray, orientation: Orientation): Fill {
+            return createGradient(TYPE_LINEAR_GRADIENT, colors, positions, orientation)
         }
 
         /**

@@ -863,7 +863,7 @@ internal class DefaultSelectionManager : SelectionManager {
 
             val gridYDiff = end.gridY - start.gridY
 
-            pathBounds = PackedRectF(startLeft, startTop, endRight, endBottom)
+            pathBounds = PackedRectF(firstCellLeft, startTop, lastCellRight, endBottom)
 
             Radii.withRadius(roundRadius) {
                 lt()

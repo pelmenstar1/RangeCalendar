@@ -1,9 +1,13 @@
 package io.github.pelmenstar1.rangecalendar.utils
 
+import kotlin.math.abs
+
 /**
  * sqrt(2)
  */
 internal const val SQRT_2 = 1.41421356237f
+
+internal fun Float.equalsWithPrecision(other: Float, precision: Float) = abs(this - other) <= precision
 
 internal fun floorMod(x: Long, y: Long): Long {
     val r = x / y

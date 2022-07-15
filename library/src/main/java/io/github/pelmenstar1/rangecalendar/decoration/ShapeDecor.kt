@@ -282,7 +282,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 val packedRect = PackedRectF(left, decorTop, right, bottom)
 
                 boundsArray[i] = packedRect
-                style.fill.setBounds(left, decorTop, right, bottom, style.shape) { packedRect }
+                style.fill.setBounds(left, decorTop, right, bottom, style.shape)
 
                 left += size
                 if (i < length - 1) {
