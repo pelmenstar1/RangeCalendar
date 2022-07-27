@@ -30,6 +30,7 @@
             <enum name="alpha" value="0"/>
             <enum name="bubble" value="1"/>
         </attr>
+        <attr name="rangeCalendar_showAdjacentMonths" format="boolean"/>
     </declare-styleable>
 
 </resources>

@@ -151,7 +151,7 @@ internal class RangeCalendarPagerAdapter(
 
     private var today = PackedDate(0)
     private val calendarInfo = CalendarInfo()
-    private val styleData = IntArray(18)
+    private val styleData = IntArray(19)
     private val styleObjData = arrayOfNulls<Any>(6)
 
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
@@ -199,6 +199,7 @@ internal class RangeCalendarPagerAdapter(
 
         // other stuff
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true)
+        initStyle(STYLE_SHOW_ADJACENT_MONTHS, true)
     }
 
     private fun initStyle(type: Int, data: Boolean) {
@@ -339,6 +340,8 @@ internal class RangeCalendarPagerAdapter(
             // other stuff
             STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE ->
                 gridView.vibrateOnSelectingCustomRange = data.boolean()
+            STYLE_SHOW_ADJACENT_MONTHS ->
+                gridView.setShowAdjacentMonths(data.boolean())
         }
     }
 
@@ -1302,7 +1305,6 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 8
         const val STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE = 9
         const val STYLE_CELL_ANIMATION_TYPE = 10
-
         const val STYLE_IN_MONTH_TEXT_COLOR = 11
         const val STYLE_OUT_MONTH_TEXT_COLOR = 12
         const val STYLE_DISABLED_TEXT_COLOR = 13
@@ -1310,6 +1312,7 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_WEEKDAY_TEXT_COLOR = 15
         const val STYLE_HOVER_COLOR = 16
         const val STYLE_HOVER_ON_SELECTION_COLOR = 17
+        const val STYLE_SHOW_ADJACENT_MONTHS = 18
 
         private const val STYLE_OBJ_START = 32
         const val STYLE_COMMON_ANIMATION_INTERPOLATOR = 32

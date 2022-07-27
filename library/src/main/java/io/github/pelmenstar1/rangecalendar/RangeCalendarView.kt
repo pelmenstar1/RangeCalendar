@@ -678,6 +678,10 @@ class RangeCalendarView @JvmOverloads constructor(
                     R.styleable.RangeCalendarView_rangeCalendar_cellAnimationType,
                     RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE
                 )
+                boolean(
+                    R.styleable.RangeCalendarView_rangeCalendar_showAdjacentMonths,
+                    RangeCalendarPagerAdapter.STYLE_SHOW_ADJACENT_MONTHS
+                )
             }
         } finally {
             a.recycle()
@@ -1424,6 +1428,15 @@ class RangeCalendarView @JvmOverloads constructor(
                 RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE,
                 type
             )
+        }
+
+    /**
+     * Gets or sets whether adjacent month should be shown on the calendar page. By default, it's `true`.
+     */
+    var showAdjacentMonths: Boolean
+        get() = adapter.getStyleBool(RangeCalendarPagerAdapter.STYLE_SHOW_ADJACENT_MONTHS)
+        set(value) {
+            adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_SHOW_ADJACENT_MONTHS, value)
         }
 
     /**
