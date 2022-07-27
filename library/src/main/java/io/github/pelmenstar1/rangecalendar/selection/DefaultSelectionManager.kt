@@ -344,10 +344,10 @@ internal class DefaultSelectionManager : SelectionManager {
                 // Checks whether previous cell is in range of current week. Based on the assumption that
                 // week range fill all the row.
                 if (prevState.cell.sameY(currentState.startCell)) {
-                    drawRangeToRangeTransition(
+                    drawCellToWeekOnRowSelection(
                         canvas,
-                        prevState.range, currentState.range,
-                        measureManager, options,
+                        prevState, currentState,
+                        options,
                         fraction
                     )
                 } else {
@@ -392,11 +392,11 @@ internal class DefaultSelectionManager : SelectionManager {
                 // Checks whether current cell is in range of previous week. Based on the assumption that
                 // week range fill all the row.
                 if (prevState.startCell.sameY(currentState.cell)) {
-                    drawRangeToRangeTransition(
+                    drawCellToWeekOnRowSelection(
                         canvas,
-                        prevState.range, currentState.range,
-                        measureManager, options,
-                        fraction
+                        currentState, prevState,
+                        options,
+                        1f - fraction
                     )
                 } else {
                     // Inverses cell-to-week transition.
@@ -558,6 +558,25 @@ internal class DefaultSelectionManager : SelectionManager {
             canvas, left, top, right = left + cellSize, bottom = top + cellSize,
             options,
             alpha
+        )
+    }
+
+    private fun drawCellToWeekOnRowSelection(
+        canvas: Canvas,
+        start: DefaultSelectionState.CellState,
+        end: DefaultSelectionState.WeekState,
+        options: SelectionRenderOptions,
+        fraction: Float
+    ) {
+        val left = lerp(start.left, end.startLeft, fraction)
+        val right = lerp(start.left + start.cellSize, end.endRight, fraction)
+
+        val top = start.top
+        val bottom = top + start.cellSize
+
+        drawRectOnRow(
+            canvas,
+            left, top, right, bottom, options
         )
     }
 
