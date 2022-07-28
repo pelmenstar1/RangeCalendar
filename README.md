@@ -179,10 +179,11 @@ measureManager should be used to determine bounds of a cell.
 - `updateConfiguration(measureManager)` - updates internal measurements and computation based on measureManager results of both previousState and currentState.
 Change of measureManager result means that cells might be moved or resized.
 - `hasTransition()` - returns whether there's a transition between previousState and currentState.
+- `createTransition(measureManager, options)` - creates a transitive state between previousState and currentState. 
+It's only called if hasTransition() returns true.
 - `draw(canvas, options)` - draws currentState on given canvas. 
 `options` is used to stylize the selection as selection state shouldn't contain any style-related information.
-- `drawTransition(canvas, measureMaanger, options, fraction)` - draws a transition between previousState and currentState. fraction is a float (in range `0..1`),
-that specifies which fraction of the transition should be drawn.
+- `drawTransition(canvas, transitiveState, options)` - draws a transitive state on given canvas.
 
 To use the custom implementation of `SelectionManager` is the calendar view, use `RangeCalendarView.setSelectionManager()`
 To use default implementation, call setSelectionManager() with `null` as the selection manager.

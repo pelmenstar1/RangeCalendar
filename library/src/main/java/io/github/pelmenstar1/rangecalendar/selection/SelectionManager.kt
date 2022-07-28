@@ -45,6 +45,13 @@ interface SelectionManager {
     fun hasTransition(): Boolean
 
     /**
+     * Creates a transitive state between [previousState] and [currentState].
+     *
+     * It should only be called if [hasTransition] returns true.
+     */
+    fun createTransition(measureManager: CellMeasureManager, options: SelectionRenderOptions): SelectionState.Transitive
+
+    /**
      * Draws current state on canvas using specified options.
      *
      * @param canvas canvas to draw current state on.
@@ -53,21 +60,16 @@ interface SelectionManager {
     fun draw(canvas: Canvas, options: SelectionRenderOptions)
 
     /**
-     * Draws transition between [previousState] and [currentState] on [canvas].
-     * It is called only if [hasTransition] returns true.
+     * Draws specified transitive state on canvas using specified options.
      *
      * @param canvas a [Canvas] instance to draw transition on.
-     * @param measureManager used to determine position of cells.
+     * @param state a [SelectionState.Transitive] instance to draw on [canvas].
      * @param options contains essential for drawing values.
-     * @param fraction specifies what fraction of transition should be drawn.
-     * If it's 0, then result on [canvas] should be as `draw(canvas, start)` is called.
-     * If it's 1, then result on [canvas] should be as `draw(canvas, end)` is called.
      */
     fun drawTransition(
         canvas: Canvas,
-        measureManager: CellMeasureManager,
+        state: SelectionState.Transitive,
         options: SelectionRenderOptions,
-        fraction: Float
     )
 }
 

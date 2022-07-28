@@ -237,9 +237,6 @@ internal class RangeCalendarGridView(
     private val selectionPaint: Paint
     private val cellHoverPaint: Paint
 
-    private var selectionFill: Fill
-    private var selectionFillGradientBoundsType = SelectionFillGradientBoundsType.GRID
-
     private var inMonthTextColor: Int
     private var outMonthTextColor: Int
     private var disabledCellTextColor: Int
@@ -261,8 +258,16 @@ internal class RangeCalendarGridView(
     var onSelectionListener: OnSelectionListener? = null
     var selectionGate: SelectionGate? = null
 
+    private var selectionTransitionHandler: (() -> Unit)? = null
+    private var onSelectionTransitionEnd: (() -> Unit)? = null
+
+    private var selectionTransitiveState: SelectionState.Transitive? = null
+
     private var selectionManager: SelectionManager = DefaultSelectionManager()
     private var selectionRenderOptions: SelectionRenderOptions
+
+    private var selectionFill: Fill
+    private var selectionFillGradientBoundsType = SelectionFillGradientBoundsType.GRID
 
     private val cellMeasureManager = CellMeasureManagerImpl(this)
 
@@ -272,7 +277,7 @@ internal class RangeCalendarGridView(
     private var animType = 0
     private var animFraction = 0f
     private var animator: ValueAnimator? = null
-    private var onAnimationEnd: Runnable? = null
+    private var onAnimationEnd: (() -> Unit)? = null
     private var animationHandler: (() -> Unit)? = null
 
     var isFirstDaySunday = false
@@ -813,7 +818,7 @@ internal class RangeCalendarGridView(
 
         // Check if cell is enabled
         if (!enabledCellRange.contains(cell)) {
-            if(!isUser) {
+            if (!isUser) {
                 clearSelection(fireEvent = true, doAnimation)
             }
 
@@ -822,7 +827,7 @@ internal class RangeCalendarGridView(
 
         // Check if the cell is shown at all.
         if (!showAdjacentMonths && !inMonthRange.contains(cell)) {
-            if(!isUser) {
+            if (!isUser) {
                 clearSelection(fireEvent = true, doAnimation)
             }
 
@@ -833,7 +838,7 @@ internal class RangeCalendarGridView(
         val gate = selectionGate
         if (gate != null) {
             if (!gate.cell(cell)) {
-                if(!isUser) {
+                if (!isUser) {
                     clearSelection(fireEvent = true, doAnimation)
                 }
 
@@ -854,7 +859,7 @@ internal class RangeCalendarGridView(
         )
 
         if (doAnimation && selectionManager.hasTransition()) {
-            startCalendarAnimation(SELECTION_ANIMATION)
+            startSelectionTransition()
         } else {
             invalidate()
         }
@@ -865,7 +870,7 @@ internal class RangeCalendarGridView(
         var weekRange = CellRange.week(weekIndex).intersectionWith(enabledCellRange)
 
         if (weekRange == CellRange.Invalid) {
-            if(!isUser) {
+            if (!isUser) {
                 clearSelection(fireEvent = true, doAnimation)
             }
 
@@ -883,7 +888,7 @@ internal class RangeCalendarGridView(
         if (selState.type == SelectionType.WEEK && selState.range == weekRange) {
             return
         } else if (weekRange == CellRange.Invalid) {
-            if(!isUser) {
+            if (!isUser) {
                 clearSelection(fireEvent = true, doAnimation)
             }
 
@@ -898,7 +903,7 @@ internal class RangeCalendarGridView(
         val gate = selectionGate
         if (gate != null) {
             if (!gate.week(weekIndex, weekRange)) {
-                if(!isUser) {
+                if (!isUser) {
                     // Clear the selection if a request came not from the user.
                     clearSelection(fireEvent = true, doAnimation)
                 }
@@ -917,7 +922,7 @@ internal class RangeCalendarGridView(
 
         // 4. Start appropriate animation if it's necessary.
         if (doAnimation && selectionManager.hasTransition()) {
-            startCalendarAnimation(SELECTION_ANIMATION)
+            startSelectionTransition()
         } else {
             invalidate()
         }
@@ -945,7 +950,7 @@ internal class RangeCalendarGridView(
 
         // Start appropriate animation if it's necessary.
         if (doAnimation && selectionManager.hasTransition()) {
-            startCalendarAnimation(SELECTION_ANIMATION)
+            startSelectionTransition()
         } else {
             invalidate()
         }
@@ -955,7 +960,7 @@ internal class RangeCalendarGridView(
         val gate = selectionGate
         if (gate != null) {
             if (!gate.customRange(range)) {
-                if(!isUser) {
+                if (!isUser) {
                     clearSelection(fireEvent = true, doAnimation)
                 }
 
@@ -1010,10 +1015,33 @@ internal class RangeCalendarGridView(
         }
 
         if (doAnimation && selectionManager.hasTransition()) {
-            startCalendarAnimation(SELECTION_ANIMATION)
+            startSelectionTransition()
         } else {
             invalidate()
         }
+    }
+
+    private fun startSelectionTransition() {
+        val handler = getLazyValue(
+            selectionTransitionHandler,
+            {
+                { selectionTransitiveState?.handleTransition(animFraction) }
+            },
+            { selectionTransitionHandler = it }
+        )
+        val onEnd = getLazyValue(
+            onSelectionTransitionEnd,
+            { { selectionTransitiveState = null } },
+            { onSelectionTransitionEnd = it }
+        )
+
+        // Before changing selectionTransitiveState, previous animation (which may be selection-like) should be stopped.
+        endCalendarAnimation()
+
+        selectionTransitiveState = selectionManager.createTransition(cellMeasureManager, selectionRenderOptions)
+        Log.i(TAG, "transitiveState: $selectionTransitiveState")
+
+        startCalendarAnimation(SELECTION_ANIMATION, handler, onEnd)
     }
 
     private fun setHoverCell(cell: Cell) {
@@ -1051,7 +1079,7 @@ internal class RangeCalendarGridView(
         }
 
         if (doAnimation) {
-            startCalendarAnimation(SELECTION_ANIMATION)
+            startSelectionTransition()
         } else {
             invalidate()
         }
@@ -1276,21 +1304,27 @@ internal class RangeCalendarGridView(
         decorVisualStates[cell] = if (endState.isEmpty) null else endState
     }
 
+    private fun endCalendarAnimation() {
+        animator?.let {
+            if(it.isRunning) {
+                it.end()
+            }
+        }
+    }
+
     // It could be startAnimation(), but this name would interfere with View's startAnimation(Animation)
     private fun startCalendarAnimation(
         type: Int,
         handler: (() -> Unit)? = null,
-        onEnd: Runnable? = null
+        onEnd: (() -> Unit)? = null
     ) {
         var animator = animator
-        if (animator != null && animator.isRunning) {
-            animator.end()
-        }
+        endCalendarAnimation()
 
         animType = type
         onAnimationEnd = onEnd
         animationHandler = handler
-        animFraction = if((animType and ANIMATION_REVERSE_BIT) != 0) 1f else 0f
+        animFraction = if ((animType and ANIMATION_REVERSE_BIT) != 0) 1f else 0f
 
         if (animator == null) {
             animator = AnimationHelper.createFractionAnimator { value: Float ->
@@ -1305,7 +1339,7 @@ internal class RangeCalendarGridView(
                     Log.i(TAG, "onAnimationEnd()")
 
                     animType = NO_ANIMATION
-                    onAnimationEnd?.run()
+                    onAnimationEnd?.invoke()
 
                     invalidate()
                 }
@@ -1355,12 +1389,9 @@ internal class RangeCalendarGridView(
         val options = selectionRenderOptions
 
         if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
-            manager.drawTransition(
-                c,
-                cellMeasureManager,
-                options,
-                animFraction
-            )
+            selectionTransitiveState?.let {
+                manager.drawTransition(c, it, options)
+            }
         } else {
             manager.draw(c, options)
         }

@@ -1,20 +1,10 @@
 package io.github.pelmenstar1.rangecalendar.selection
 
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.PointF
-import androidx.core.graphics.component1
-import androidx.core.graphics.component2
-import androidx.core.graphics.withSave
+import android.graphics.*
+import androidx.core.graphics.*
 import io.github.pelmenstar1.rangecalendar.*
 import io.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
-import io.github.pelmenstar1.rangecalendar.utils.distanceSquare
 import io.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
-import io.github.pelmenstar1.rangecalendar.utils.lerp
-import kotlin.math.ceil
-import kotlin.math.max
-import kotlin.math.sqrt
 
 internal class DefaultSelectionManager : SelectionManager {
     private object Radii {
@@ -247,251 +237,258 @@ internal class DefaultSelectionManager : SelectionManager {
         }
     }
 
-    override fun drawTransition(
-        canvas: Canvas,
-        measureManager: CellMeasureManager, options: SelectionRenderOptions,
-        fraction: Float
-    ) {
-        when (_prevState) {
-            is DefaultSelectionState.None -> drawFromNoneTransition(canvas, fraction, options)
-            is DefaultSelectionState.CellState -> drawFromCellTransition(
-                canvas,
-                fraction,
-                measureManager,
-                options
-            )
-            is DefaultSelectionState.WeekState -> drawFromWeekTransition(
-                canvas,
-                fraction,
-                measureManager,
-                options
-            )
-            is DefaultSelectionState.MonthState -> drawFromMonthTransition(
-                canvas,
-                fraction,
-                measureManager,
-                options
-            )
-            is DefaultSelectionState.CustomRangeState -> drawFromCustomRangeTransition(
-                canvas,
-                fraction,
-                measureManager,
-                options
-            )
-        }
-    }
-
-    private fun drawFromNoneTransition(
-        canvas: Canvas,
-        fraction: Float,
+    override fun createTransition(
+        measureManager: CellMeasureManager,
         options: SelectionRenderOptions
-    ) {
-        when (val currentState = _currentState) {
-            is DefaultSelectionState.CellState -> {
-                drawCellAppearTransition(canvas, currentState, options, fraction)
-            }
-            is DefaultSelectionState.WeekState -> {
-                drawWeekSelectionFromCenter(canvas, currentState, options, fraction)
-            }
-            is DefaultSelectionState.CustomRangeStateBase -> {
-                drawCustomRange(canvas, currentState, options, alpha = fraction)
-            }
-            else -> throwTransitionUnsupported(_prevState, currentState)
-        }
-    }
-
-    private fun drawFromCellTransition(
-        canvas: Canvas,
-        fraction: Float,
-        measureManager: CellMeasureManager, options: SelectionRenderOptions
-    ) {
-        val prevState = _prevState as DefaultSelectionState.CellState
-
-        when (val currentState = _currentState) {
-            is DefaultSelectionState.None -> {
-                // Reversed cell-appear animation
-                drawCellAppearTransition(canvas, prevState, options, 1f - fraction)
-            }
-
-            is DefaultSelectionState.CellState -> {
-                when {
-                    prevState.cell.sameY(currentState.cell) -> {
-                        // As two cells are on the same row, they have same Y, thus there should be transition only X-axis
-                        drawCellToCell(
-                            canvas,
-                            prevState, currentState,
-                            xFraction = fraction, yFraction = 1f,
-                            options
-                        )
+    ): SelectionState.Transitive {
+        return when (val prevState = _prevState) {
+            DefaultSelectionState.None -> {
+                when (val currentState = _currentState) {
+                    DefaultSelectionState.None -> throwTransitionUnsupported(prevState, currentState)
+                    is DefaultSelectionState.CellState -> {
+                        createCellAppearTransition(currentState, options, isReversed = false)
                     }
-                    prevState.cell.sameX(currentState.cell) -> {
-                        // As two cells are on the same column, they have same X, thus there should be transition only Y-axis
-                        drawCellToCell(
-                            canvas,
-                            prevState, currentState,
-                            xFraction = 1f, yFraction = fraction,
-                            options
-                        )
+                    is DefaultSelectionState.WeekState -> {
+                        DefaultSelectionState.WeekState.FromCenter(currentState, isReversed = false)
                     }
-                    else -> {
-                        // Previous cell should fade away and current one should become gradually visible.
-                        drawCellAppearTransition(canvas, prevState, options, 1f - fraction)
-                        drawCellAppearTransition(canvas, currentState, options, fraction)
+                    is DefaultSelectionState.CustomRangeStateBase -> {
+                        DefaultSelectionState.CustomRangeStateBase.Alpha(currentState, isReversed = false)
+                    }
+                }
+            }
+            is DefaultSelectionState.CellState -> {
+                when (val currentState = _currentState) {
+                    DefaultSelectionState.None -> {
+                        createCellAppearTransition(prevState, options, isReversed = true)
+                    }
+                    is DefaultSelectionState.CellState -> {
+                        val prevCell = prevState.cell
+                        val currentCell = currentState.cell
+
+                        if (prevCell.sameX(currentCell) || prevCell.sameY(currentCell)) {
+                            DefaultSelectionState.CellState.MoveToCell(prevState, currentState)
+                        } else {
+                            when (options.cellAnimationType) {
+                                CellAnimationType.ALPHA ->
+                                    DefaultSelectionState.CellState.DualAlpha(prevState, currentState)
+
+                                CellAnimationType.BUBBLE ->
+                                    DefaultSelectionState.CellState.DualBubble(prevState, currentState)
+                            }
+                        }
+                    }
+                    is DefaultSelectionState.WeekState -> {
+                        createCellToWeekTransition(prevState, currentState, isReversed = false)
+                    }
+                    is DefaultSelectionState.MonthState -> {
+                        DefaultSelectionState.cellToMonth(prevState, currentState, measureManager, isReversed = false)
+                    }
+                    is DefaultSelectionState.CustomRangeState -> {
+                        createCellToCustomRangeTransition(
+                            prevState,
+                            currentState,
+                            measureManager,
+                            options,
+                            isReversed = false
+                        )
                     }
                 }
             }
             is DefaultSelectionState.WeekState -> {
-                // Checks whether previous cell is in range of current week. Based on the assumption that
-                // week range fill all the row.
-                if (prevState.cell.sameY(currentState.startCell)) {
-                    drawCellToWeekOnRowSelection(
-                        canvas,
-                        prevState, currentState,
-                        options,
-                        fraction
-                    )
-                } else {
-                    drawCellToWeekSelection(canvas, prevState, currentState, options, fraction)
+                when (val currentState = _currentState) {
+                    DefaultSelectionState.None -> {
+                        DefaultSelectionState.WeekState.FromCenter(prevState, isReversed = true)
+                    }
+                    is DefaultSelectionState.CellState -> {
+                        createCellToWeekTransition(currentState, prevState, isReversed = true)
+                    }
+                    is DefaultSelectionState.WeekState -> {
+                        DefaultSelectionState.WeekState.ToWeek(prevState, currentState)
+                    }
+                    is DefaultSelectionState.CustomRangeStateBase -> {
+                        DefaultSelectionState.RangeToRange(prevState, currentState, measureManager)
+                    }
                 }
             }
             is DefaultSelectionState.MonthState -> {
-                drawCellToMonthSelection(
-                    canvas,
-                    prevState.cell,
-                    currentState,
-                    measureManager,
-                    options,
-                    fraction
-                )
-            }
-            is DefaultSelectionState.CustomRangeState -> {
-                drawCellToCustomRangeTransition(
-                    canvas,
-                    prevState,
-                    currentState,
-                    measureManager, options,
-                    fraction
-                )
-            }
-        }
-    }
-
-    private fun drawFromWeekTransition(
-        canvas: Canvas,
-        fraction: Float,
-        measureManager: CellMeasureManager, options: SelectionRenderOptions
-    ) {
-        val prevState = _prevState as DefaultSelectionState.WeekState
-
-        when (val currentState = _currentState) {
-            is DefaultSelectionState.None -> {
-                // It's reversed alpha animation to fade the week range away.
-                drawWeekSelectionFromCenter(canvas, prevState, options, 1f - fraction)
-            }
-            is DefaultSelectionState.CellState -> {
-                // Checks whether current cell is in range of previous week. Based on the assumption that
-                // week range fill all the row.
-                if (prevState.startCell.sameY(currentState.cell)) {
-                    drawCellToWeekOnRowSelection(
-                        canvas,
-                        currentState, prevState,
-                        options,
-                        1f - fraction
-                    )
-                } else {
-                    // Inverses cell-to-week transition.
-                    drawCellToWeekSelection(canvas, currentState, prevState, options, 1f - fraction)
+                when (val currentState = _currentState) {
+                    DefaultSelectionState.None -> {
+                        DefaultSelectionState.CustomRangeStateBase.Alpha(prevState, isReversed = true)
+                    }
+                    is DefaultSelectionState.CellState -> {
+                        DefaultSelectionState.cellToMonth(currentState, prevState, measureManager, isReversed = true)
+                    }
+                    else -> {
+                        DefaultSelectionState.RangeToRange(prevState, currentState, measureManager)
+                    }
                 }
             }
-            is DefaultSelectionState.WeekState -> {
-                // Previous week should fade away and in that time current week should gradually become visible.
-                drawWeekSelectionFromCenter(canvas, prevState, options, 1f - fraction)
-                drawWeekSelectionFromCenter(canvas, currentState, options, fraction)
-            }
-            is DefaultSelectionState.CustomRangeStateBase -> {
-                drawRangeToRangeTransition(
-                    canvas,
-                    prevState.range, currentState.range,
-                    measureManager, options, fraction
-                )
-            }
-        }
-    }
-
-    private fun drawFromMonthTransition(
-        canvas: Canvas,
-        fraction: Float,
-        measureManager: CellMeasureManager, options: SelectionRenderOptions
-    ) {
-        val prevState = _prevState as DefaultSelectionState.MonthState
-
-        when (val currentState = _currentState) {
-            is DefaultSelectionState.None -> {
-                // It's reversed alpha animation to fade the month range away.
-                drawCustomRange(canvas, prevState, options, alpha = 1f - fraction)
-            }
-            is DefaultSelectionState.CellState -> {
-                // Inverses cell-to-month transition.
-                drawCellToMonthSelection(
-                    canvas,
-                    currentState.cell,
-                    prevState,
-                    measureManager, options, 1f - fraction
-                )
-            }
-            is DefaultSelectionState.WeekState -> {
-                drawRangeToRangeTransition(
-                    canvas,
-                    prevState.range, currentState.range,
-                    measureManager, options, fraction
-                )
-            }
-            is DefaultSelectionState.CustomRangeStateBase -> {
-                drawRangeToRangeTransition(
-                    canvas,
-                    prevState.range, currentState.range,
-                    measureManager, options, fraction
-                )
+            is DefaultSelectionState.CustomRangeState -> {
+                when (val currentState = _currentState) {
+                    DefaultSelectionState.None -> {
+                        DefaultSelectionState.CustomRangeStateBase.Alpha(prevState, isReversed = true)
+                    }
+                    is DefaultSelectionState.CellState -> {
+                        createCellToCustomRangeTransition(
+                            currentState,
+                            prevState,
+                            measureManager,
+                            options,
+                            isReversed = true
+                        )
+                    }
+                    else -> {
+                        DefaultSelectionState.RangeToRange(prevState, currentState, measureManager)
+                    }
+                }
             }
         }
     }
 
-    private fun drawFromCustomRangeTransition(
-        canvas: Canvas,
-        fraction: Float,
-        measureManager: CellMeasureManager, options: SelectionRenderOptions
-    ) {
-        val prevState = _prevState as DefaultSelectionState.CustomRangeState
+    private fun createCellAppearTransition(
+        state: DefaultSelectionState.CellState,
+        options: SelectionRenderOptions,
+        isReversed: Boolean
+    ): SelectionState.Transitive {
+        return when (options.cellAnimationType) {
+            CellAnimationType.ALPHA -> DefaultSelectionState.CellState.AppearAlpha(state, isReversed)
+            CellAnimationType.BUBBLE -> DefaultSelectionState.CellState.AppearBubble(state, isReversed)
+        }
+    }
 
-        when (val currentState = _currentState) {
-            is DefaultSelectionState.None -> {
-                // It's reversed alpha animation to fade the custom range away.
-                drawCustomRange(
-                    canvas,
-                    prevState,
-                    options,
-                    alpha = 1f - fraction
-                )
+    private fun createCellToWeekTransition(
+        startState: DefaultSelectionState.CellState,
+        endState: DefaultSelectionState.WeekState,
+        isReversed: Boolean
+    ): SelectionState.Transitive {
+        return if (startState.cell.sameY(endState.range.start)) {
+            DefaultSelectionState.CellState.ToWeekOnRow(startState, endState, isReversed)
+        } else {
+            DefaultSelectionState.CellToWeek(startState, endState, isReversed)
+        }
+    }
+
+    private fun createCellToCustomRangeTransition(
+        startState: DefaultSelectionState.CellState,
+        endState: DefaultSelectionState.CustomRangeStateBase,
+        measureManager: CellMeasureManager,
+        options: SelectionRenderOptions,
+        isReversed: Boolean
+    ): SelectionState.Transitive {
+        return if (endState.range.contains(startState.cell)) {
+            if (isReversed) {
+                DefaultSelectionState.RangeToRange(endState, startState, measureManager)
+            } else {
+                DefaultSelectionState.RangeToRange(startState, endState, measureManager)
             }
-            is DefaultSelectionState.CellState -> {
-                drawCellToCustomRangeTransition(
-                    canvas,
-                    startState = currentState,
-                    endState = prevState,
-                    measureManager, options,
-                    1f - fraction
-                )
+        } else {
+            val startTransition = createCellAppearTransition(startState, options, isReversed = false)
+
+            DefaultSelectionState.CellToCustomRangeAlpha(
+                startState,
+                endState,
+                startTransition,
+                isReversed = isReversed
+            )
+        }
+    }
+
+    override fun drawTransition(canvas: Canvas, state: SelectionState.Transitive, options: SelectionRenderOptions) {
+        val isHandled = drawCellAppearTransition(canvas, state, options)
+        if (isHandled) {
+            return
+        }
+
+        when (state) {
+            is DefaultSelectionState.CellState.DualAlpha -> {
+                drawCell(canvas, state.start, options, state.startAlpha)
+                drawCell(canvas, state.end, options, state.endAlpha)
             }
-            else -> {
-                drawRangeToRangeTransition(
-                    canvas,
-                    prevState.range,
-                    currentState.range,
-                    measureManager,
-                    options,
-                    fraction
-                )
+            is DefaultSelectionState.CellState.DualBubble -> {
+                drawRectOnRow(canvas, state.startBounds, options)
+                drawRectOnRow(canvas, state.endBounds, options)
             }
+
+            is DefaultSelectionState.BoundsTransitionBase -> {
+                drawRectOnRow(canvas, state.bounds, options)
+            }
+
+            is DefaultSelectionState.CellToWeek -> {
+                drawRectOnRow(canvas, state.weekTransition.bounds, options)
+                drawCell(canvas, state.start, options, state.cellAlpha)
+            }
+
+            is DefaultSelectionState.CellToMonth -> {
+                updateCustomRangePath(state.end, options, preferWithoutPath = false)
+
+                useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
+                    canvas.withSave {
+                        path?.let(::clipPath)
+                        drawCircle(state.cx, state.cy, state.radius, paint)
+                    }
+                }
+            }
+
+            is DefaultSelectionState.CellToCustomRangeAlpha -> {
+                drawCellAppearTransition(canvas, state.startTransition, options)
+                drawCustomRange(canvas, state.end, options, state.rangeAlpha)
+            }
+
+            is DefaultSelectionState.RangeToRange -> {
+                val startLeft = state.startLeft
+                val startTop = state.startTop
+                val endRight = state.endRight
+                val cellSize = state.cellSize
+
+                val canDrawWithoutPath = updateCustomRangePath(
+                    state.range,
+                    state.firstCellOnRowLeft, state.lastCellOnRowRight,
+                    startLeft, startTop,
+                    endRight, state.endTop,
+                    cellSize, options,
+                    preferWithoutPath = true
+                )
+
+                // The range could be drawn without path only if it's located on the same row.
+                if (canDrawWithoutPath) {
+                    drawRectOnRow(
+                        canvas,
+                        startLeft, startTop,
+                        endRight, bottom = startTop + cellSize,
+                        options
+                    )
+                } else {
+                    useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
+                        path?.let { drawPath(it, paint) }
+                    }
+                }
+            }
+
+            is DefaultSelectionState.WeekState.ToWeek -> {
+                drawRectOnRow(canvas, state.startTransition.bounds, options)
+                drawRectOnRow(canvas, state.endTransition.bounds, options)
+            }
+        }
+    }
+
+    private fun drawCellAppearTransition(
+        canvas: Canvas,
+        state: SelectionState.Transitive,
+        options: SelectionRenderOptions
+    ): Boolean {
+        return when (state) {
+            is DefaultSelectionState.CellState.AppearAlpha -> {
+                drawCell(canvas, state.baseState, options, state.alpha)
+
+                true
+            }
+            is DefaultSelectionState.CellState.AppearBubble -> {
+                drawRectOnRow(canvas, state.bounds, options)
+
+                true
+            }
+
+            else -> false
         }
     }
 
@@ -510,104 +507,6 @@ internal class DefaultSelectionManager : SelectionManager {
             left, top, right = left + cellSize, bottom = top + cellSize,
             options, alpha
         )
-    }
-
-    private fun drawCellAppearTransition(
-        canvas: Canvas,
-        state: DefaultSelectionState.CellState,
-        options: SelectionRenderOptions,
-        fraction: Float
-    ) {
-        if (options.cellAnimationType == CellAnimationType.ALPHA) {
-            drawCell(canvas, state, options, alpha = fraction)
-        } else {
-            val cellSize = state.cellSize
-            val halfCellSize = cellSize * 0.5f
-
-            val left = state.left
-            val top = state.top
-
-            val cx = left + halfCellSize
-            val cy = top + halfCellSize
-
-            val radius = halfCellSize * fraction
-
-            drawRectOnRow(
-                canvas,
-                cx - radius, cy - radius,
-                cx + radius, cy + radius,
-                options
-            )
-        }
-    }
-
-    private fun drawCellToCell(
-        canvas: Canvas,
-        start: DefaultSelectionState.CellState, end: DefaultSelectionState.CellState,
-        xFraction: Float, yFraction: Float,
-        options: SelectionRenderOptions,
-        alpha: Float = 1f
-    ) {
-        // start.cellSize and end.cellSize are expected to be the same.
-        val cellSize = start.cellSize
-
-        val left = lerp(start.left, end.left, xFraction)
-        val top = lerp(start.top, end.top, yFraction)
-
-        drawRectOnRow(
-            canvas, left, top, right = left + cellSize, bottom = top + cellSize,
-            options,
-            alpha
-        )
-    }
-
-    private fun drawCellToWeekOnRowSelection(
-        canvas: Canvas,
-        start: DefaultSelectionState.CellState,
-        end: DefaultSelectionState.WeekState,
-        options: SelectionRenderOptions,
-        fraction: Float
-    ) {
-        val left = lerp(start.left, end.startLeft, fraction)
-        val right = lerp(start.left + start.cellSize, end.endRight, fraction)
-
-        val top = start.top
-        val bottom = top + start.cellSize
-
-        drawRectOnRow(
-            canvas,
-            left, top, right, bottom, options
-        )
-    }
-
-    private fun drawCellToWeekSelection(
-        canvas: Canvas,
-        start: DefaultSelectionState.CellState,
-        end: DefaultSelectionState.WeekState,
-        options: SelectionRenderOptions,
-        fraction: Float
-    ) {
-        // Reversed cell-appear animation
-        drawCellAppearTransition(canvas, start, options, 1f - fraction)
-
-        drawWeekSelectionFromCenter(canvas, end, options, fraction)
-    }
-
-    private fun drawWeekSelectionFromCenter(
-        canvas: Canvas,
-        state: DefaultSelectionState.WeekState,
-        options: SelectionRenderOptions,
-        fraction: Float
-    ) {
-        val startLeft = state.startLeft
-        val endRight = state.endRight
-
-        val centerX = (startLeft + endRight) * 0.5f
-
-        val left = lerp(centerX, startLeft, fraction)
-        val right = lerp(centerX, endRight, fraction)
-
-        drawRectOnRow(canvas, left, state.top, right, state.bottom, options, alpha = 1f)
     }
 
     private fun drawWeekSelection(
@@ -630,10 +529,7 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        val cellSize = state.cellSize
-        val range = state.range
-
-        val (rangeStart, rangeEnd) = range
+        val (rangeStart, rangeEnd) = state.range
 
         // If start and end of the range are on the same row, there could be applied some optimizations
         // that allow drawing the range with using Path.
@@ -647,15 +543,7 @@ internal class DefaultSelectionManager : SelectionManager {
                 options, alpha
             )
         } else {
-            updateCustomRangePath(
-                range,
-                state.firstCellOnRowLeft, state.lastCellOnRowRight,
-                state.startLeft, state.startTop,
-                state.endRight, state.endTop,
-                cellSize,
-                options,
-                preferWithoutPath = false
-            )
+            updateCustomRangePath(state, options, preferWithoutPath = false)
 
             useSelectionFill(canvas, options, pathBounds, alpha) {
                 path?.let { drawPath(it, paint) }
@@ -663,42 +551,15 @@ internal class DefaultSelectionManager : SelectionManager {
         }
     }
 
-    private fun drawCellToMonthSelection(
+    private fun drawRectOnRow(
         canvas: Canvas,
-        cell: Cell,
-        state: DefaultSelectionState.CustomRangeStateBase,
-        measureManager: CellMeasureManager, options: SelectionRenderOptions,
-        fraction: Float
+        bounds: RectF,
+        options: SelectionRenderOptions,
+        alpha: Float = 1f
     ) {
-        val cellSize = state.cellSize
+        val (left, top, right, bottom) = bounds
 
-        updateCustomRangePath(
-            state.range,
-            state.firstCellOnRowLeft, state.lastCellOnRowRight,
-            state.startLeft, state.startTop,
-            state.endRight, state.endTop,
-            cellSize,
-            options,
-            preferWithoutPath = false
-        )
-
-        val cellLeft = measureManager.getCellLeft(cell)
-        val cellTop = measureManager.getCellTop(cell)
-
-        val halfCellSize = cellSize * 0.5f
-
-        val x = cellLeft + halfCellSize
-        val y = cellTop + halfCellSize
-
-        val finalRadius = getCircleRadiusForCellMonthAnimation(state, x, y, measureManager)
-        val currentRadius = lerp(halfCellSize, finalRadius, fraction)
-
-        useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
-            canvas.withSave {
-                path?.let(::clipPath)
-                drawCircle(x, y, currentRadius, paint)
-            }
-        }
+        drawRectOnRow(canvas, left, top, right, bottom, options, alpha)
     }
 
     private fun drawRectOnRow(
@@ -712,101 +573,6 @@ internal class DefaultSelectionManager : SelectionManager {
                 left, top, right, bottom,
                 options.roundRadius, paint
             )
-        }
-    }
-
-    private fun drawCellToCustomRangeTransition(
-        canvas: Canvas,
-        startState: DefaultSelectionState.CellState,
-        endState: DefaultSelectionState.CustomRangeState,
-        measureManager: CellMeasureManager,
-        options: SelectionRenderOptions,
-        fraction: Float
-    ) {
-        val endRange = endState.range
-        val cell = startState.cell
-
-        // Animation become not so pretty, if end range doesn't contain the cell to start from.
-        if (endRange.contains(cell)) {
-            drawRangeToRangeTransition(
-                canvas,
-                startState.range, endRange,
-                measureManager, options,
-                fraction
-            )
-        } else {
-            // If the range doesn't contain the cell, then apply more simple transition:
-            // the cell should fade away and the range should become visible.
-
-            drawCustomRange(
-                canvas,
-                endState,
-                options,
-                alpha = fraction
-            )
-
-            drawCellAppearTransition(
-                canvas,
-                startState,
-                options,
-                1f - fraction
-            )
-        }
-    }
-
-    private fun drawRangeToRangeTransition(
-        canvas: Canvas,
-        startRange: CellRange, endRange: CellRange,
-        measureManager: CellMeasureManager,
-        options: SelectionRenderOptions,
-        fraction: Float
-    ) {
-        // The transition works so:
-        // start of startRange should gradually become start of endRange,
-        // end of startRange should gradually become end of endRange.
-
-        measureManager.lerpCellLeft(
-            startRange.start.index,
-            endRange.start.index,
-            fraction,
-            tempPoint
-        )
-
-        val (startLeft, startTop) = tempPoint
-
-        measureManager.lerpCellRight(startRange.end.index, endRange.end.index, fraction, tempPoint)
-
-        val (endRight, endTop) = tempPoint
-
-        val cellSize = measureManager.cellSize
-
-        val firstCellOnRowLeft = measureManager.getCellLeft(0)
-
-        // 6 cell is the last cell on row.
-        val lastCellOnRowRight = measureManager.getCellLeft(6) + cellSize
-
-        val canDrawWithoutPath = updateCustomRangePath(
-            lerpRangeToRange(startRange, endRange, fraction),
-            firstCellOnRowLeft, lastCellOnRowRight,
-            startLeft, startTop,
-            endRight, endTop,
-            cellSize,
-            options,
-            preferWithoutPath = true
-        )
-
-        // The range could be drawn without path only if it's located on the same row.
-        if (canDrawWithoutPath) {
-            drawRectOnRow(
-                canvas,
-                startLeft, startTop,
-                endRight, bottom = startTop + cellSize,
-                options
-            )
-        } else {
-            useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
-                path?.let { drawPath(it, paint) }
-            }
         }
     }
 
@@ -844,6 +610,22 @@ internal class DefaultSelectionManager : SelectionManager {
         alpha: Float,
         block: Canvas.() -> Unit
     ) = useSelectionFill(canvas, options, { setBounds(bounds, RectangleShape) }, alpha, block)
+
+    private fun updateCustomRangePath(
+        state: DefaultSelectionState.CustomRangeStateBase,
+        options: SelectionRenderOptions,
+        preferWithoutPath: Boolean
+    ): Boolean {
+        return updateCustomRangePath(
+            state.range,
+            state.firstCellOnRowLeft, state.lastCellOnRowRight,
+            state.startLeft, state.startTop,
+            state.endRight, state.endTop,
+            state.cellSize,
+            options,
+            preferWithoutPath
+        )
+    }
 
     private fun updateCustomRangePath(
         range: CellRange,
@@ -942,39 +724,6 @@ internal class DefaultSelectionManager : SelectionManager {
         return path
     }
 
-    private fun getCircleRadiusForCellMonthAnimation(
-        state: DefaultSelectionState.CustomRangeStateBase,
-        x: Float, y: Float,
-        measureManager: CellMeasureManager
-    ): Float {
-        // Find min radius for circle (with center at (x; y)) to fully fit in month selection.
-
-        val cellSize = measureManager.cellSize
-
-        val distToLeftCorner = x - state.firstCellOnRowLeft
-        val distToRightCorner = state.lastCellOnRowRight - x
-        val distToTopCorner = y - measureManager.getCellLeft(0)
-        val distToBottomCorner = measureManager.getCellTop(41) + cellSize - y
-
-        val startLeft = state.startLeft
-        val startTop = state.startTop
-
-        val endRight = state.endRight
-        val endTop = state.endTop
-
-        val distToStartCellSq = distanceSquare(startLeft, startTop, x, y)
-        val distToEndCellSq = distanceSquare(endRight, endTop + cellSize, x, y)
-
-        var maxDist = max(distToLeftCorner, distToRightCorner)
-        maxDist = max(maxDist, distToTopCorner)
-        maxDist = max(maxDist, distToBottomCorner)
-
-        // Save on expensive sqrt() call: max(sqrt(a), sqrt(b)) => sqrt(max(a, b))
-        maxDist = max(maxDist, sqrt(max(distToStartCellSq, distToEndCellSq)))
-
-        return maxDist
-    }
-
     companion object {
         private val tempPoint = PointF()
 
@@ -982,27 +731,6 @@ internal class DefaultSelectionManager : SelectionManager {
             prevState: SelectionState, currentState: SelectionState
         ): Nothing {
             throw IllegalStateException("${prevState.type} can't be transitioned to ${currentState.type} by this manager")
-        }
-
-        private fun lerpRangeToRange(
-            startRange: CellRange,
-            endRange: CellRange,
-            fraction: Float
-        ): CellRange {
-            val interpolatedStart = lerp(
-                startRange.start.index.toFloat(),
-                endRange.start.index.toFloat(),
-                fraction
-            ).toInt()
-            val interpolatedEnd = ceil(
-                lerp(
-                    startRange.end.index.toFloat(),
-                    endRange.end.index.toFloat(),
-                    fraction
-                )
-            ).toInt()
-
-            return CellRange(interpolatedStart, interpolatedEnd)
         }
     }
 }
