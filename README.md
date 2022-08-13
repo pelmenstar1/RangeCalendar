@@ -6,7 +6,10 @@
 </p>
 
 <div align="center">
-  <img src="https://maven-badges.herokuapp.com/maven-central/io.github.pelmenstar1/rangeCalendar/badge.svg" height="22">
+  <a href="https://jitpack.io/#pelmenstar1/RangeCalendar">
+    <img src="https://jitpack.io/v/pelmenstar1/RangeCalendar.svg" height="22">
+  </a>
+  
   <img src="https://img.shields.io/badge/API-16%2B-brightgreen.svg?style=flat" height="22">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" height="22">
 </div>
@@ -18,18 +21,32 @@
 
 ## Getting started
 
-This library is available on Maven Central, add the following dependency:
+This library is available on Jitpack.
+
+Add it in your root build.gradle:
 
 ```gradle
-implementation 'io.github.pelmenstar1:rangeCalendar:0.9.2'
+allprojects {
+  repositories {
+    ...
+    maven { url 'https://jitpack.io' }
+  }
+}
+```
+
+Add the dependency:
+
+```gradle
+implementation 'com.github.pelmenstar1:RangeCalendar:0.9.3'
 ```
 
 Define `RangeCalendarView` in your XML layout:
 
 ```xml
-
-<io.github.pelmenstar1.RangeCalendarView android:id="@+id/picker"
-    android:layout_width="match_parent" android:layout_height="wrap_content" />
+<com.github.pelmenstar1.RangeCalendarView 
+    android:id="@+id/picker" 
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content" />
 ```
 
 Get notified when the date or range are selected:
@@ -86,19 +103,16 @@ It's a view that will be shown when user selects date or range. <br/>
 
 <img src="./art/example-selection-view.gif" width="400px"/>
 
-To keep information on that view relevant,
-use `getOnSelectionListener()/setOnSelectionListener()` <br/>
+To keep information on that view relevant, use `getOnSelectionListener()/setOnSelectionListener()` <br/>
 
 - `getSelectionView()/setSelectionView()` to assign or get the view.
-- `getSelectionViewTransitionDuration()/setSelectionViewTransitionDuration()` to assign or get
-  duration (in milliseconds) of selection view show/hide animation
-- `getSelectionViewTransitionInterpolator()/setSelectionViewTransitionInterpolator()` to assign or
-  get time interpolator of selection show/hide animation
-- `getSelectionViewLayoutParams()/getSelectionViewLayoutParams()` to assign or get layout params for
-  the view
-- `hasSelectionViewClearButton()/setHasSelectionViewClearButton()` to get or set whether on
-  selection (if selection view is not null) 'next month' button will become 'clear selection'
-  button.
+- `getSelectionViewTransitionDuration()/setSelectionViewTransitionDuration()` to assign or get duration (in
+  milliseconds) of selection view show/hide animation
+- `getSelectionViewTransitionInterpolator()/setSelectionViewTransitionInterpolator()` to assign or get time interpolator
+  of selection show/hide animation
+- `getSelectionViewLayoutParams()/getSelectionViewLayoutParams()` to assign or get layout params for the view
+- `hasSelectionViewClearButton()/setHasSelectionViewClearButton()` to get or set whether on selection (if selection view
+  is not null) 'next month' button will become 'clear selection' button.
 
 ## Minimum and maximum dates
 
@@ -107,49 +121,44 @@ use `getOnSelectionListener()/setOnSelectionListener()` <br/>
 
 ## Listener
 
-Use `getOnSelectionListener()/setOnSelectionListener()` to get or set the listener. In all methods,
-month and day of month are 1-based.
+Use `getOnSelectionListener()/setOnSelectionListener()` to get or set the listener. In all methods, month and day of
+month are 1-based.
 
 - `onSelectionCleared()` fires when selection is cleared.
 - `onDaySelected(year, month, day)` fires when day is selected.
-- onWeekSelected(weekIndex, startYear, startMonth, startDay, endYear, endMonth, endDay) fires when
-  week is selected.
+- onWeekSelected(weekIndex, startYear, startMonth, startDay, endYear, endMonth, endDay) fires when week is selected.
     - weekIndex - index of selected week, 0-based
 - onMonthSelected(year, month) fires when month is selected.
-- onCustomRangeSelected(startYear, startMonth, startDay, endYear, endMonth, endDay) fires when
-  custom range is selected
+- onCustomRangeSelected(startYear, startMonth, startDay, endYear, endMonth, endDay) fires when custom range is selected
 
-The methods (except `onSelectionCleared()`) should return boolean that indicate whether the
-selection is valid or not.
+The methods (except `onSelectionCleared()`) should return boolean that indicate whether the selection is valid or not.
 
 ## Animations
 
 They are enabled by default (currently they cannot be disabled).
 
-- `getCommonAnimationDuration()/setCommonAnimationDuration()` to get or set duration (in
-  milliseconds) of common animations
-- `getCommonAnimationInterpolator()/setCommonAnimationInterpolator()` to get or set time
-  interpolator of common animations. By default, it's linear.
+- `getCommonAnimationDuration()/setCommonAnimationDuration()` to get or set duration (in milliseconds) of common
+  animations
+- `getCommonAnimationInterpolator()/setCommonAnimationInterpolator()` to get or set time interpolator of common
+  animations. By default, it's linear.
 - `getHoverAnimationDuration()/setHoverAnimationDuration()` to get or set duration (in milliseconds)
   of hover animation
-- `getHoverAnimationInterpolator()/setHoverAnimationInterpolator()` to get or set time interpolator
-  of hover animation. By default, it's linear.
+- `getHoverAnimationInterpolator()/setHoverAnimationInterpolator()` to get or set time interpolator of hover animation.
+  By default, it's linear.
 - `getCellAnimationType()/setCellAnimationType()` to get or set type of animation for cells. See `CellAnimationType`.
 
 ## Changing page of calendar
 
-- `moveToPreviousMonth(withAnimation=true)` to slide to previous month (if it's possible) with
-  animation or not (it's controlled by `withAnimation` flag)
-- `moveToNextMonth(withAnimation=true)` to slide to next month (if it's possible) with animation or
-  not (it's controlled by `withAnimation` flag)
-- `setYearAndMonth(year, month, withAnimation=true)` to slide to given year & month with animation
-  or not (it's controlled by `withAnimation` flag). If given page is out of enabled range, selected
-  page will remain the same
+- `moveToPreviousMonth(withAnimation=true)` to slide to previous month (if it's possible) with animation or not (it's
+  controlled by `withAnimation` flag)
+- `moveToNextMonth(withAnimation=true)` to slide to next month (if it's possible) with animation or not (it's controlled
+  by `withAnimation` flag)
+- `setYearAndMonth(year, month, withAnimation=true)` to slide to given year & month with animation or not (it's
+  controlled by `withAnimation` flag). If given page is out of enabled range, selected page will remain the same
 
 ## Managing selection through the code
 
-- `selectDay()` to select a day. If the day is out of enabled range, it won't be selected and
-  listeners won't be fired.
+- `selectDay()` to select a day. If the day is out of enabled range, it won't be selected and listeners won't be fired.
 - `selectWeek(year, month, weekIndex)` to select a week.
     - year should be in range [0; 65535]
     - month is 1-based
@@ -157,42 +166,48 @@ They are enabled by default (currently they cannot be disabled).
 - `selectMonth(year, month)` to select a month.
     - year should be in range of [0; 65535]
     - month is 1-based
-- `selectCustom(startDate, endDate)` to select custom range. The range should
-  fit in single month, otherwise the exception will be thrown.
+- `selectCustom(startDate, endDate)` to select custom range. The range should fit in single month, otherwise the
+  exception will be thrown.
 - `clearSelection()` to clear selection.
 
 Any 'selection' method accepts optional parameter `SelectionRequestRejectedBehaviour` which specifies expected behaviour
-when a selection request is rejected. 
+when a selection request is rejected.
 
 ## Custom selection manager
 
 If you want to draw the selection in other way than the library does, you can implement `SelectionManager` on your own.
 There are two main abstractions in selection management:
-- 'selection state' - saves type of selection, its range (rangeStart and rangeEnd) and other data required to draw it on canvas.
-- 'selection manager' - handles creating selection state, accessing to it, drawing the state on canvas, drawing transition between states.
+
+- 'selection state' - saves type of selection, its range (rangeStart and rangeEnd) and other data required to draw it on
+  canvas.
+- 'selection manager' - handles creating selection state, accessing to it, drawing the state on canvas, drawing
+  transition between states.
 
 There's a description of methods in `SelectionManager` and what they are expected to do:
-- `previousState` - saves a selection state that was before currentState.
-If there's no such state, then it should contain selection state whose type is NONE
-- `currentState` - current state of the manager. 
-If there's no such state, then it should contain selection state whose type is NONE
+
+- `previousState` - saves a selection state that was before currentState. If there's no such state, then it should
+  contain selection state whose type is NONE
+- `currentState` - current state of the manager. If there's no such state, then it should contain selection state whose
+  type is NONE
 - `setNoneState()` - sets current state as the state whose type is NONE. Also updates previousState.
-- `setState(type, rangeStart, rangeEnd, measureManager)` - creates and assigns new selection state using passed arguments. Note that, rangeEnd is **inclusive**.
-measureManager should be used to determine bounds of a cell.
-- `updateConfiguration(measureManager)` - updates internal measurements and computation based on measureManager results of both previousState and currentState.
-Change of measureManager result means that cells might be moved or resized.
+- `setState(type, rangeStart, rangeEnd, measureManager)` - creates and assigns new selection state using passed
+  arguments. Note that, rangeEnd is **inclusive**. measureManager should be used to determine bounds of a cell.
+- `updateConfiguration(measureManager)` - updates internal measurements and computation based on measureManager results
+  of both previousState and currentState. Change of measureManager result means that cells might be moved or resized.
 - `hasTransition()` - returns whether there's a transition between previousState and currentState.
-- `createTransition(measureManager, options)` - creates a transitive state between previousState and currentState. 
-It's only called if hasTransition() returns true.
-- `draw(canvas, options)` - draws currentState on given canvas. 
-`options` is used to stylize the selection as selection state shouldn't contain any style-related information.
+- `createTransition(measureManager, options)` - creates a transitive state between previousState and currentState. It's
+  only called if hasTransition() returns true.
+- `draw(canvas, options)` - draws currentState on given canvas.
+  `options` is used to stylize the selection as selection state shouldn't contain any style-related information.
 - `drawTransition(canvas, transitiveState, options)` - draws a transitive state on given canvas.
 
-To use the custom implementation of `SelectionManager` is the calendar view, use `RangeCalendarView.setSelectionManager()`
+To use the custom implementation of `SelectionManager` is the calendar view,
+use `RangeCalendarView.setSelectionManager()`
 To use default implementation, call setSelectionManager() with `null` as the selection manager.
 
-There's also a `CellMeasureManager` class which returns position and size of specified cell. It's passed as an argument to some methods of `SelectionManager`.
-Although it's a public interface and it can be implemented on your own, you cannot use your implementation in a calendar view. It's implemented inside the library.
+There's also a `CellMeasureManager` class which returns position and size of specified cell. It's passed as an argument
+to some methods of `SelectionManager`. Although it's a public interface and it can be implemented on your own, you
+cannot use your implementation in a calendar view. It's implemented inside the library.
 
 ## Movement
 
@@ -202,14 +217,13 @@ Although it's a public interface and it can be implemented on your own, you cann
 
 ## Time zone
 
-- `getTimeZone()/setTimeZone()` to get or set calendar's time zone. 
-By default, it's default system time zone (`TimeZone.getDefault()`). 
-Calendar's time zone affects to "today" cell recognition. 
-When new time zone is set, "today" cell is updated. If new value (not system default one) is set,
-system time zone changes become unobserved due to the assumption that when custom time zone is set,
-it's expected that calendar's time zone wouldn't be overwritten when system time zone is changed.
-- `getObserveTimeZoneChanges()/setObserveTimeZoneChanges()` to get or set whether system time zone changes
-should be observed.
+- `getTimeZone()/setTimeZone()` to get or set calendar's time zone. By default, it's default system time
+  zone (`TimeZone.getDefault()`). Calendar's time zone affects to "today" cell recognition. When new time zone is set, "
+  today" cell is updated. If new value (not system default one) is set, system time zone changes become unobserved due
+  to the assumption that when custom time zone is set, it's expected that calendar's time zone wouldn't be overwritten
+  when system time zone is changed.
+- `getObserveTimeZoneChanges()/setObserveTimeZoneChanges()` to get or set whether system time zone changes should be
+  observed.
 
 ## Other
 
@@ -219,8 +233,8 @@ should be observed.
     calendar.allowedSelectionTypes().month(false).customRange(true)
     ```
 
-  By code above, we disabled month and custom range selection. If selection type become disabled,
-  it'll be automatically cleared.
+  By code above, we disabled month and custom range selection. If selection type become disabled, it'll be automatically
+  cleared.
 
     - `cell(boolean)` sets whether cell can be selected
     - `week(boolean)` sets whether week can be selected
@@ -229,11 +243,10 @@ should be observed.
 
   By default all types of selection are allowed.
 
-- `getVibrateOnSelectingCustomRange()/setVibrateOnSelectingCustomRange()` to get or set whether the
-  device should vibrate on start of selecting custom range.
-- `getClickOnCellSelectionBehavior()/setClickOnCellSelectionBehavior()` to get or set behaviour when
-  user (note, not from code) clicks on already selected cell. Use constants
-  from `ClickOnCellSelectionBehavior`:
+- `getVibrateOnSelectingCustomRange()/setVibrateOnSelectingCustomRange()` to get or set whether the device should
+  vibrate on start of selecting custom range.
+- `getClickOnCellSelectionBehavior()/setClickOnCellSelectionBehavior()` to get or set behaviour when user (note, not
+  from code) clicks on already selected cell. Use constants from `ClickOnCellSelectionBehavior`:
     - `NONE` - nothing happens
     - `CLEAR` - selection clears
 
@@ -323,8 +336,8 @@ should be observed.
 
 ## Library status
 
-The library is not production-ready and its public API shape can change from version to version. If you notice any kind of bug or
-something unexpected, please file an issue.
+The library is not production-ready and its public API shape can change from version to version. If you notice any kind
+of bug or something unexpected, please file an issue.
 
 ## License
 
