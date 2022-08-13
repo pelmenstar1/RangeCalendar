@@ -42,11 +42,10 @@ internal class MoveButtonDrawable(
     private val linePoints = FloatArray(8)
     private var linePointsLength = 8
 
-    private var invStateChangeDuration = 0f
-    private var stateChangeStartTime: Long = 0
+    private var stateChangeDuration = 0L
+    private var stateChangeStartTime = 0L
 
     private var currentAnimationState: AnimationState? = null
-    private var queuedAnimationState: AnimationState? = null
 
     private val stateChangeAnimTickCb = FrameCallback { time -> onStateChangeAnimTick(time) }
     private val startStateChangeAnimCb = FrameCallback { time ->
@@ -77,8 +76,7 @@ internal class MoveButtonDrawable(
     }
 
     fun setStateChangeDuration(millis: Long) {
-        // convert to nanos and then, invert
-        invStateChangeDuration = 1f / (1000000 * millis).toFloat()
+        stateChangeDuration = millis
     }
 
     private fun onStateChangeAnimTick(time: Long) {
@@ -89,15 +87,11 @@ internal class MoveButtonDrawable(
             animState.isRunning = true
             animState.isCancelledBecauseOfQueue = false
 
-            // if current animation state is cancelled because of another state staying in a queue, that
-            // means queuedAnimationState can't be null
-            animState.set(queuedAnimationState!!)
-
             stateChangeStartTime = time
             setPaintColor(animState.startColor)
             choreographer.postFrameCallback(stateChangeAnimTickCb)
         } else {
-            val fraction = (time - stateChangeStartTime).toFloat() * invStateChangeDuration
+            val fraction = (time - stateChangeStartTime).toFloat() / stateChangeDuration
 
             if (fraction >= 1f) {
                 onStateChangeAnimTickFraction(1f)
