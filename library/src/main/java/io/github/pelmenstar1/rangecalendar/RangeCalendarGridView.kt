@@ -719,9 +719,6 @@ internal class RangeCalendarGridView(
     }
 
     private fun onCellLongPress(cell: Cell) {
-        customRangeStartCell = cell
-        isSelectingCustomRange = true
-
         selectCustom(CellRange.cell(cell), true, isUser = true)
     }
 
@@ -975,8 +972,14 @@ internal class RangeCalendarGridView(
             clearSelection(fireEvent = true, doAnimation = true)
 
             return
-        } else if (selState.range == intersection) {
+        } else if (selState.type == SelectionType.CUSTOM && selState.range == intersection) {
             return
+        }
+
+        if(startSelecting) {
+            // If startSelecting is true, range should be single-cell.
+            customRangeStartCell = range.cell
+            isSelectingCustomRange = true
         }
 
         selectionManager.setState(SelectionType.CUSTOM, intersection, cellMeasureManager)
@@ -1031,7 +1034,7 @@ internal class RangeCalendarGridView(
         endCalendarAnimation()
 
         selectionTransitiveState = selectionManager.createTransition(cellMeasureManager, selectionRenderOptions)
-        Log.i(TAG, "transitiveState: $selectionTransitiveState")
+        //Log.i(TAG, "transitiveState: $selectionTransitiveState")
 
         startCalendarAnimation(SELECTION_ANIMATION, handler, onEnd)
     }
@@ -1328,7 +1331,7 @@ internal class RangeCalendarGridView(
 
             animator.addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(a: Animator) {
-                    Log.i(TAG, "onAnimationEnd()")
+                    //Log.i(TAG, "onAnimationEnd()")
 
                     animType = NO_ANIMATION
                     onAnimationEnd?.invoke()
@@ -1459,16 +1462,19 @@ internal class RangeCalendarGridView(
         if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
             val cell = if (isHoverAnimation) animationHoverCell else hoverCell
             val (left, top) = getCellLeftTop(cell)
+            val isOnSelection = isSelectionRangeContains(cell)
 
-            var color = if (isSelectionRangeContains(cell)) {
+            var color = if (isOnSelection) {
                 hoverOnSelectionBgColor
             } else {
                 hoverCellBgColor
             }
 
             if (isHoverAnimation) {
-                color = color.withAlpha(animFraction)
+                color = color.withCombinedAlpha(animFraction)
             }
+
+            //Log.i(TAG, "af: $animFraction hoverColor: #${color.toString(16)}")
 
             cellHoverPaint.color = color
 
