@@ -23,17 +23,5 @@ class MainActivity : AppCompatActivity(R.layout.activity_main) {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             }
         }
-
-        findViewById<RangeCalendarView>(R.id.rangeCalendar).also {
-            it.showAdjacentMonths = false
-            it.allowedSelectionTypes().customRange(false)
-
-            it.selectionView = MaterialButton(this).apply {
-                text = "Action"
-            }
-
-            it.commonAnimationDuration = 2000
-            it.hoverAnimationDuration = 1000
-        }
     }
 }
