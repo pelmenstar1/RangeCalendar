@@ -77,7 +77,7 @@ internal class RangeCalendarPagerAdapter(
             }
 
             fun select(info: RangeCalendarGridView.SetSelectionInfo): Payload {
-                return Payload(SELECT, arg1 = info.bits)
+                return Payload(SELECT, obj1 = info)
             }
 
             fun onDecorAdded(
@@ -579,7 +579,7 @@ internal class RangeCalendarPagerAdapter(
             }
 
             override fun onCellSelected(cell: Cell) {
-                onSelectedHandler(SelectionType.CELL, NarrowSelectionData.cell(cell)) {
+                onSelectedHandler(SelectionType.CELL, NarrowSelectionData.cellSelection(cell)) {
                     val date = getDateAtCell(cell)
 
                     it.onDaySelected(date.year, date.month, date.dayOfMonth)
@@ -587,7 +587,7 @@ internal class RangeCalendarPagerAdapter(
             }
 
             override fun onWeekSelected(weekIndex: Int, range: CellRange) {
-                onSelectedHandler(SelectionType.WEEK, NarrowSelectionData.week(weekIndex)) {
+                onSelectedHandler(SelectionType.WEEK, NarrowSelectionData.weekSelection(weekIndex)) {
                     val (startDate, endDate) = getDateRangeByCellRange(range)
 
                     it.onWeekSelected(
@@ -601,7 +601,7 @@ internal class RangeCalendarPagerAdapter(
             override fun onCustomRangeSelected(range: CellRange) {
                 onSelectedHandler(
                     SelectionType.CUSTOM,
-                    NarrowSelectionData.customRange(range)
+                    NarrowSelectionData.customRangeSelection(range)
                 ) {
                     val (startDate, endDate) = getDateRangeByCellRange(range)
 
@@ -693,6 +693,7 @@ internal class RangeCalendarPagerAdapter(
         ym: YearMonth,
         type: SelectionType,
         data: WideSelectionData,
+        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ): RangeCalendarGridView.SetSelectionInfo {
         return when (type) {
@@ -701,20 +702,19 @@ internal class RangeCalendarPagerAdapter(
 
                 val cell = getCellByDate(data.date)
 
-                RangeCalendarGridView.SetSelectionInfo.cell(cell, withAnimation)
+                RangeCalendarGridView.SetSelectionInfo.cell(cell, requestRejectedBehaviour, withAnimation)
             }
             SelectionType.WEEK -> {
-                RangeCalendarGridView.SetSelectionInfo.week(data.weekIndex, withAnimation)
+                RangeCalendarGridView.SetSelectionInfo.week(data.weekIndex, requestRejectedBehaviour, withAnimation)
             }
             SelectionType.MONTH -> {
-                RangeCalendarGridView.SetSelectionInfo.month(withAnimation)
+                RangeCalendarGridView.SetSelectionInfo.month(requestRejectedBehaviour, withAnimation)
             }
             SelectionType.CUSTOM -> {
                 calendarInfo.set(ym)
 
                 val range = getCellRangeByDateRange(data.dateRange)
-
-                RangeCalendarGridView.SetSelectionInfo.customRange(range, withAnimation)
+                RangeCalendarGridView.SetSelectionInfo.customRange(range, requestRejectedBehaviour, withAnimation)
             }
             else -> RangeCalendarGridView.SetSelectionInfo.Undefined
         }
@@ -798,6 +798,7 @@ internal class RangeCalendarPagerAdapter(
     fun select(
         type: SelectionType,
         data: WideSelectionData,
+        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean,
     ): Boolean {
         val ym = getYearMonthForSelection(type, data)
@@ -805,7 +806,7 @@ internal class RangeCalendarPagerAdapter(
 
         // position can be negative if selection is out of min-max range
         if (position in 0 until count) {
-            val gridSelectionInfo = transformToGridSelection(ym, type, data, withAnimation)
+            val gridSelectionInfo = transformToGridSelection(ym, type, data, requestRejectedBehaviour, withAnimation)
 
             if (!isSelectionAllowed(ym, type, data)) {
                 return false
@@ -851,11 +852,16 @@ internal class RangeCalendarPagerAdapter(
         }
 
         if (position in 0 until count) {
-            notifyItemChanged(
-                position, Payload.select(
-                    RangeCalendarGridView.SetSelectionInfo.create(type, data, false)
+            val payload = Payload.select(
+                RangeCalendarGridView.SetSelectionInfo(
+                    type,
+                    data,
+                    SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                    false
                 )
             )
+
+            notifyItemChanged(position, payload)
         }
     }
 
@@ -1209,7 +1215,12 @@ internal class RangeCalendarPagerAdapter(
         if (selectionYm == ym) {
             // Animation should be seen because animation should be started when selection *changed*,
             // but in this case, it's actually *restored*
-            gridView.select(selectionType, selectionData, false)
+            gridView.select(
+                selectionType,
+                selectionData,
+                SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                false
+            )
         } else {
             gridView.clearSelection(fireEvent = false, doAnimation = false)
         }
@@ -1230,7 +1241,8 @@ internal class RangeCalendarPagerAdapter(
                     updateEnabledRange(gridView)
                 }
                 Payload.SELECT -> {
-                    val selectionInfo = RangeCalendarGridView.SetSelectionInfo(payload.arg1)
+                    val selectionInfo = payload.obj1 as RangeCalendarGridView.SetSelectionInfo
+
                     gridView.select(selectionInfo)
                 }
                 Payload.UPDATE_TODAY_INDEX -> {

@@ -47,9 +47,9 @@ import kotlin.math.abs
 
 /**
  * A calendar view which supports range selection and decorations.
- * Internally it uses [ViewPager2] view, so such term as "page" is used here to denote "page" in which calendar view with grid is stored.
+ * Internally it uses [ViewPager2] view, so such term as "page" is used here to denote ViewPager2`s page in which calendar view with grid is stored.
  * - Minimum and maximum dates can be set through [minDate] and [maxDate].
- * - [onSelectionListener] can be used to respond to selection
+ * - [onSelectionListener] can be used to respond to selection.
  * - [selectDay], [selectWeek], [selectMonth] can be used to programmatically set a selection with animation or not.
  * - Most appropriate colors are automatically extracted from attributes, but you can still change it.
  * - [allowedSelectionTypes] method can be used to (dis-)allow types of selection
@@ -58,6 +58,15 @@ import kotlin.math.abs
  * - [setYearAndMonth] can be used to change selected calendar. [moveToPreviousMonth], [moveToNextMonth] also can be used.
  * - [addDecoration], [addDecorations], [insertDecorations], [removeDecoration], [removeDecorationRange], [removeAllDecorationsFromCell]
  * can be used to manipulate cell decorations. See [CellDecor].
+ *
+ * ## Selection gate
+ *
+ * The gate is used to intercept all selection requests and determine whether such selection is valid and should be allowed.
+ * If the gate is specified, appropriate methods are called when there's a selection request. A selection request can
+ * come from user (motion events) or from the code. Such methods as [selectDay], [selectWeek], [selectMonth], [selectCustom]
+ * "sends" a selection request. There's also situations when a selection request may not be processed by [SelectionGate].
+ * Usually, it's when there are another factors that rejects a request, for example when a range to be selected is out of
+ * enabled range. Besides, a selection request can be processed by [SelectionGate] when [minDate] or [maxDate] are called.
  */
 class RangeCalendarView @JvmOverloads constructor(
     context: Context,
@@ -66,7 +75,6 @@ class RangeCalendarView @JvmOverloads constructor(
 ) : ViewGroup(context, attrs, defStyleAttr) {
     /**
      * Represents a "gate" which determines whether to allow selection or not.
-     * Note
      */
     interface SelectionGate {
         /**
@@ -534,7 +542,7 @@ class RangeCalendarView @JvmOverloads constructor(
         infoView = AppCompatTextView(context).apply {
             setTextColor(cr.textColor)
             setOnClickListener {
-                selectMonth(currentCalendarYm, true)
+                selectMonth(currentCalendarYm, SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION, true)
             }
         }
 
@@ -1498,13 +1506,20 @@ class RangeCalendarView @JvmOverloads constructor(
     /**
      * Selects a date if cell selection is allowed.
      *
+     * @param date a date to be selected
+     * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
      * @param withAnimation whether to do it with animation or not
      */
     @JvmOverloads
-    fun selectDay(date: LocalDate, withAnimation: Boolean = true) {
+    fun selectDay(
+        date: LocalDate,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = true
+    ) {
         selectInternal(
             SelectionType.CELL,
             WideSelectionData.cell(PackedDate.fromLocalDate(date)),
+            selectionRequestRejectedBehaviour,
             withAnimation
         )
     }
@@ -1515,13 +1530,20 @@ class RangeCalendarView @JvmOverloads constructor(
      * @param year          year, should be in range `[1970; 32767]`
      * @param month         month, 1-based
      * @param weekIndex     index of week, 0-based
+     * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
      * @param withAnimation whether to do it with animation or not
      */
     @JvmOverloads
-    fun selectWeek(year: Int, month: Int, weekIndex: Int, withAnimation: Boolean = true) {
+    fun selectWeek(
+        year: Int, month: Int,
+        weekIndex: Int,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = true
+    ) {
         selectInternal(
             SelectionType.WEEK,
             WideSelectionData.week(YearMonth(year, month), weekIndex),
+            selectionRequestRejectedBehaviour,
             withAnimation
         )
     }
@@ -1531,17 +1553,27 @@ class RangeCalendarView @JvmOverloads constructor(
      *
      * @param year          year, should be in range `[1970; 32767]`
      * @param month         month, 1-based
+     * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
      * @param withAnimation whether to do it with animation or not
      */
     @JvmOverloads
-    fun selectMonth(year: Int, month: Int, withAnimation: Boolean = true) {
-        selectMonth(YearMonth(year, month), withAnimation)
+    fun selectMonth(
+        year: Int, month: Int,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = true
+    ) {
+        selectMonth(YearMonth(year, month), selectionRequestRejectedBehaviour, withAnimation)
     }
 
-    private fun selectMonth(ym: YearMonth, withAnimation: Boolean) {
+    private fun selectMonth(
+        ym: YearMonth,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+        withAnimation: Boolean
+    ) {
         selectInternal(
             SelectionType.MONTH,
             WideSelectionData.month(ym),
+            selectionRequestRejectedBehaviour,
             withAnimation
         )
     }
@@ -1553,19 +1585,30 @@ class RangeCalendarView @JvmOverloads constructor(
      * @param endDate end of the range, inclusive
      * @param withAnimation whether to do it with animation of not
      */
-    fun selectCustom(startDate: LocalDate, endDate: LocalDate, withAnimation: Boolean = true) {
+    fun selectCustom(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        requestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = true
+    ) {
         selectInternal(
             SelectionType.CUSTOM,
             WideSelectionData.customRange(PackedDateRange.fromLocalDates(startDate, endDate)),
+            requestRejectedBehaviour,
             withAnimation
         )
     }
 
-    private fun selectInternal(type: SelectionType, data: WideSelectionData, withAnimation: Boolean) {
+    private fun selectInternal(
+        type: SelectionType,
+        data: WideSelectionData,
+        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+        withAnimation: Boolean
+    ) {
         if (isSelectionTypeAllowed(type)) {
             val ym = adapter.getYearMonthForSelection(type, data)
 
-            val actuallySelected = adapter.select(type, data, withAnimation)
+            val actuallySelected = adapter.select(type, data, requestRejectedBehaviour, withAnimation)
             if (actuallySelected) {
                 val position = adapter.getItemPositionForYearMonth(ym)
 

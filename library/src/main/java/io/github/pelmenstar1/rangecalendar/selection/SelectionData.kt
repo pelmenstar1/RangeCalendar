@@ -47,8 +47,10 @@ internal value class NarrowSelectionData(val bits: Int) {
         get() = CellRange(bits)
 
     companion object {
-        fun cell(value: Cell) = NarrowSelectionData(value.index)
-        fun week(index: Int) = NarrowSelectionData(index)
-        fun customRange(range: CellRange) = NarrowSelectionData(range.bits)
+        val Undefined = NarrowSelectionData(0)
+
+        fun cellSelection(value: Cell) = NarrowSelectionData(value.index)
+        fun weekSelection(index: Int) = NarrowSelectionData(index)
+        fun customRangeSelection(range: CellRange) = NarrowSelectionData(range.bits)
     }
 }
