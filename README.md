@@ -157,9 +157,12 @@ They are enabled by default (currently they cannot be disabled).
 - `selectMonth(year, month)` to select a month.
     - year should be in range of [0; 65535]
     - month is 1-based
-- `selectCustom(LocalDate startDate, LocalDate endDate)` to select custom range. The range should
+- `selectCustom(startDate, endDate)` to select custom range. The range should
   fit in single month, otherwise the exception will be thrown.
 - `clearSelection()` to clear selection.
+
+Any 'selection' method accepts optional parameter `SelectionRequestRejectedBehaviour` which specifies expected behaviour
+when a selection request is rejected. 
 
 ## Custom selection manager
 
@@ -317,6 +320,11 @@ should be observed.
       </td>
     </tr>
 </table>
+
+## Library status
+
+The library is not production-ready and its public API shape can change from version to version. If you notice any kind of bug or
+something unexpected, please file an issue.
 
 ## License
 
