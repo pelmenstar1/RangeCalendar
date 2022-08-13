@@ -89,7 +89,7 @@ internal class DefaultSelectionManager : SelectionManager {
     }
 
     private var path: Path? = null
-    private var pathBounds = PackedRectF(0)
+    private val pathBounds = RectF()
 
     private var _prevState: DefaultSelectionState = DefaultSelectionState.None
     private var _currentState: DefaultSelectionState = DefaultSelectionState.None
@@ -217,11 +217,24 @@ internal class DefaultSelectionManager : SelectionManager {
     }
 
     override fun hasTransition(): Boolean {
-        return if (_prevState.type == SelectionType.NONE) {
+        val prevType = _prevState.type
+        val currentType = _currentState.type
+
+        return when (prevType) {
             // There's no transition between none and none.
-            _currentState.type != SelectionType.NONE
-        } else {
-            true
+            SelectionType.NONE -> currentType != SelectionType.NONE
+
+            // Cell selection has transition with every selection except custom range.
+            SelectionType.CELL -> currentType != SelectionType.CUSTOM
+
+            // Week selection doesn't have transition with month and custom range.
+            SelectionType.WEEK -> currentType != SelectionType.MONTH && currentType != SelectionType.CUSTOM
+
+            // Month selection has transition only with none and cell.
+            SelectionType.MONTH -> currentType == SelectionType.NONE || currentType == SelectionType.CELL
+
+            // Custom range selection has transition only with none.
+            SelectionType.CUSTOM -> currentType == SelectionType.NONE
         }
     }
 
@@ -283,15 +296,7 @@ internal class DefaultSelectionManager : SelectionManager {
                     is DefaultSelectionState.MonthState -> {
                         DefaultSelectionState.cellToMonth(prevState, currentState, measureManager, isReversed = false)
                     }
-                    is DefaultSelectionState.CustomRangeState -> {
-                        createCellToCustomRangeTransition(
-                            prevState,
-                            currentState,
-                            measureManager,
-                            options,
-                            isReversed = false
-                        )
-                    }
+                    else -> throwTransitionUnsupported(prevState, currentState)
                 }
             }
             is DefaultSelectionState.WeekState -> {
@@ -305,9 +310,7 @@ internal class DefaultSelectionManager : SelectionManager {
                     is DefaultSelectionState.WeekState -> {
                         DefaultSelectionState.WeekState.ToWeek(prevState, currentState)
                     }
-                    is DefaultSelectionState.CustomRangeStateBase -> {
-                        DefaultSelectionState.RangeToRange(prevState, currentState, measureManager)
-                    }
+                    else -> throwTransitionUnsupported(prevState, currentState)
                 }
             }
             is DefaultSelectionState.MonthState -> {
@@ -318,9 +321,7 @@ internal class DefaultSelectionManager : SelectionManager {
                     is DefaultSelectionState.CellState -> {
                         DefaultSelectionState.cellToMonth(currentState, prevState, measureManager, isReversed = true)
                     }
-                    else -> {
-                        DefaultSelectionState.RangeToRange(prevState, currentState, measureManager)
-                    }
+                    else -> throwTransitionUnsupported(prevState, currentState)
                 }
             }
             is DefaultSelectionState.CustomRangeState -> {
@@ -328,18 +329,7 @@ internal class DefaultSelectionManager : SelectionManager {
                     DefaultSelectionState.None -> {
                         DefaultSelectionState.CustomRangeStateBase.Alpha(prevState, isReversed = true)
                     }
-                    is DefaultSelectionState.CellState -> {
-                        createCellToCustomRangeTransition(
-                            currentState,
-                            prevState,
-                            measureManager,
-                            options,
-                            isReversed = true
-                        )
-                    }
-                    else -> {
-                        DefaultSelectionState.RangeToRange(prevState, currentState, measureManager)
-                    }
+                    else -> throwTransitionUnsupported(prevState, currentState)
                 }
             }
         }
@@ -365,31 +355,6 @@ internal class DefaultSelectionManager : SelectionManager {
             DefaultSelectionState.CellState.ToWeekOnRow(startState, endState, isReversed)
         } else {
             DefaultSelectionState.CellToWeek(startState, endState, isReversed)
-        }
-    }
-
-    private fun createCellToCustomRangeTransition(
-        startState: DefaultSelectionState.CellState,
-        endState: DefaultSelectionState.CustomRangeStateBase,
-        measureManager: CellMeasureManager,
-        options: SelectionRenderOptions,
-        isReversed: Boolean
-    ): SelectionState.Transitive {
-        return if (endState.range.contains(startState.cell)) {
-            if (isReversed) {
-                DefaultSelectionState.RangeToRange(endState, startState, measureManager)
-            } else {
-                DefaultSelectionState.RangeToRange(startState, endState, measureManager)
-            }
-        } else {
-            val startTransition = createCellAppearTransition(startState, options, isReversed = false)
-
-            DefaultSelectionState.CellToCustomRangeAlpha(
-                startState,
-                endState,
-                startTransition,
-                isReversed = isReversed
-            )
         }
     }
 
@@ -419,7 +384,7 @@ internal class DefaultSelectionManager : SelectionManager {
             }
 
             is DefaultSelectionState.CellToMonth -> {
-                updateCustomRangePath(state.end, options, preferWithoutPath = false)
+                updateCustomRangePath(state.end, options)
 
                 useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
                     canvas.withSave {
@@ -429,44 +394,13 @@ internal class DefaultSelectionManager : SelectionManager {
                 }
             }
 
-            is DefaultSelectionState.CellToCustomRangeAlpha -> {
-                drawCellAppearTransition(canvas, state.startTransition, options)
-                drawCustomRange(canvas, state.end, options, state.rangeAlpha)
-            }
-
-            is DefaultSelectionState.RangeToRange -> {
-                val startLeft = state.startLeft
-                val startTop = state.startTop
-                val endRight = state.endRight
-                val cellSize = state.cellSize
-
-                val canDrawWithoutPath = updateCustomRangePath(
-                    state.range,
-                    state.firstCellOnRowLeft, state.lastCellOnRowRight,
-                    startLeft, startTop,
-                    endRight, state.endTop,
-                    cellSize, options,
-                    preferWithoutPath = true
-                )
-
-                // The range could be drawn without path only if it's located on the same row.
-                if (canDrawWithoutPath) {
-                    drawRectOnRow(
-                        canvas,
-                        startLeft, startTop,
-                        endRight, bottom = startTop + cellSize,
-                        options
-                    )
-                } else {
-                    useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
-                        path?.let { drawPath(it, paint) }
-                    }
-                }
-            }
-
             is DefaultSelectionState.WeekState.ToWeek -> {
                 drawRectOnRow(canvas, state.startTransition.bounds, options)
                 drawRectOnRow(canvas, state.endTransition.bounds, options)
+            }
+
+            is DefaultSelectionState.CustomRangeStateBase.Alpha -> {
+                drawCustomRange(canvas, state.baseState, options, state.alpha)
             }
         }
     }
@@ -543,7 +477,7 @@ internal class DefaultSelectionManager : SelectionManager {
                 options, alpha
             )
         } else {
-            updateCustomRangePath(state, options, preferWithoutPath = false)
+            updateCustomRangePath(state, options)
 
             useSelectionFill(canvas, options, pathBounds, alpha) {
                 path?.let { drawPath(it, paint) }
@@ -606,109 +540,77 @@ internal class DefaultSelectionManager : SelectionManager {
     private inline fun useSelectionFill(
         canvas: Canvas,
         options: SelectionRenderOptions,
-        bounds: PackedRectF,
+        bounds: RectF,
         alpha: Float,
         block: Canvas.() -> Unit
-    ) = useSelectionFill(canvas, options, { setBounds(bounds, RectangleShape) }, alpha, block)
+    ) = useSelectionFill(canvas, options, { setBounds(bounds) }, alpha, block)
 
     private fun updateCustomRangePath(
         state: DefaultSelectionState.CustomRangeStateBase,
-        options: SelectionRenderOptions,
-        preferWithoutPath: Boolean
-    ): Boolean {
-        return updateCustomRangePath(
-            state.range,
-            state.firstCellOnRowLeft, state.lastCellOnRowRight,
-            state.startLeft, state.startTop,
-            state.endRight, state.endTop,
-            state.cellSize,
-            options,
-            preferWithoutPath
-        )
-    }
+        options: SelectionRenderOptions
+    ) {
+        val path = getEmptyPath()
 
-    private fun updateCustomRangePath(
-        range: CellRange,
-        firstCellLeft: Float, lastCellRight: Float,
-        startLeft: Float, startTop: Float,
-        endRight: Float, endTop: Float,
-        cellSize: Float,
-        options: SelectionRenderOptions,
-        preferWithoutPath: Boolean
-    ): Boolean {
-        val (start, end) = range
+        val (start, end) = state.range
+        val startLeft = state.startLeft
+        val startTop = state.startTop
 
-        val roundRadius = options.roundRadius
+        val endRight = state.endRight
+        val endTop = state.endTop
 
-        if (start.sameY(end)) {
-            if (preferWithoutPath) {
-                return true
-            } else {
-                val bottom = startTop + cellSize
+        val firstCellLeft = state.firstCellOnRowLeft
+        val lastCellRight = state.lastCellOnRowRight
 
-                pathBounds = PackedRectF(startLeft, startTop, endRight, bottom)
+        val cellSize = state.cellSize
+        val rr = options.roundRadius
 
-                getEmptyPath().addRoundRectCompat(
-                    startLeft,
-                    startTop,
-                    endRight,
-                    bottom,
-                    roundRadius
-                )
-            }
+        val startBottom = startTop + cellSize
+        val gridYDiff = end.gridY - start.gridY
+
+        if (gridYDiff == 0) {
+            pathBounds.set(startLeft, startTop, endRight, startBottom)
+
+            path.addRoundRect(pathBounds, rr, rr, Path.Direction.CW)
         } else {
-            val path = getEmptyPath()
-
-            val startBottom = startTop + cellSize
             val endBottom = endTop + cellSize
 
-            val gridYDiff = end.gridY - start.gridY
+            pathBounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
 
-            pathBounds = PackedRectF(firstCellLeft, startTop, lastCellRight, endBottom)
-
-            Radii.withRadius(roundRadius) {
+            Radii.withRadius(rr) {
                 lt()
                 rt()
                 lb(start.gridX != 0)
                 rb(gridYDiff == 1 && end.gridX != 6)
 
-                path.addRoundRectCompat(
-                    startLeft, startTop, lastCellRight, startBottom, radii()
-                )
+                path.addRoundRectCompat(startLeft, startTop, lastCellRight, startBottom, radii())
             }
 
-            Radii.withRadius(roundRadius) {
+            Radii.withRadius(rr) {
                 rb()
                 lb()
                 rt(end.gridX != 6)
                 lt(gridYDiff == 1 && start.gridX != 0)
 
                 path.addRoundRectCompat(
-                    firstCellLeft,
-                    if (gridYDiff == 1) startBottom else endTop,
-                    endRight,
-                    endBottom,
+                    firstCellLeft, if (gridYDiff == 1) startBottom else endTop,
+                    endRight, endBottom,
                     radii()
                 )
             }
 
             if (gridYDiff > 1) {
-                Radii.withRadius(roundRadius) {
+                Radii.withRadius(rr) {
                     lt(start.gridX != 0)
                     rb(end.gridX != 6)
 
                     path.addRoundRectCompat(
-                        firstCellLeft,
-                        startBottom,
-                        lastCellRight,
-                        endTop,
+                        firstCellLeft, startBottom,
+                        lastCellRight, endTop,
                         radii()
                     )
                 }
             }
         }
-
-        return false
     }
 
     private fun getEmptyPath(): Path {

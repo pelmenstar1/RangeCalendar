@@ -111,7 +111,6 @@ internal sealed class DefaultSelectionState(
                     left = lerp(start.left, end.startLeft, f)
                     right = lerp(startLeft + cellSize, end.endRight, f)
                 }
-
             }
         }
     }
@@ -257,51 +256,6 @@ internal sealed class DefaultSelectionState(
             val f = fraction.reversedIf(isReversed)
 
             radius = lerp(halfCellSize, finalRadius, f)
-        }
-    }
-
-    class CellToCustomRangeAlpha(
-        override val start: CellState,
-        override val end: CustomRangeStateBase,
-        val startTransition: SelectionState.Transitive,
-        val isReversed: Boolean
-    ) : SelectionState.Transitive {
-        var rangeAlpha = Float.NaN
-
-        override fun handleTransition(fraction: Float) {
-            val f = fraction.reversedIf(isReversed)
-
-            startTransition.handleTransition(1f - f)
-            rangeAlpha = fraction
-        }
-    }
-
-    class RangeToRange(
-        override val start: DefaultSelectionState,
-        override val end: DefaultSelectionState,
-        private val measureManager: CellMeasureManager,
-    ) : SelectionState.Transitive {
-        var startLeft = Float.NaN
-        var startTop = Float.NaN
-        var endRight = Float.NaN
-        var endTop = Float.NaN
-
-        var range = CellRange.Invalid
-
-        val cellSize = measureManager.cellSize
-        val firstCellOnRowLeft = measureManager.getCellLeft(0)
-        val lastCellOnRowRight = measureManager.getCellRight(6)
-
-        override fun handleTransition(fraction: Float) {
-            range = lerpRangeToRange(start.range, end.range, fraction)
-
-            measureManager.lerpCellLeft(start.rangeStart, end.rangeStart, fraction, tempPoint)
-            startLeft = tempPoint.x
-            startTop = tempPoint.y
-
-            measureManager.lerpCellRight(start.rangeEnd, end.rangeEnd, fraction, tempPoint)
-            endRight = tempPoint.x
-            endTop = tempPoint.y
         }
     }
 
