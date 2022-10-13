@@ -43,7 +43,7 @@ implementation 'com.github.pelmenstar1:RangeCalendar:0.9.3'
 Define `RangeCalendarView` in your XML layout:
 
 ```xml
-<com.github.pelmenstar1.RangeCalendarView 
+<com.github.pelmenstar1.rangecalendar.RangeCalendarView
     android:id="@+id/picker" 
     android:layout_width="match_parent"
     android:layout_height="wrap_content" />
@@ -94,7 +94,7 @@ calendar.onSelectionListener = object : RangeCalendarView.OnSelectionListener {
 
 ## Demo
 
-[Try it yourself](https://github.com/pelmenstar1/RangeCalendar/releases/download/0.9.2/demo.apk)
+[Try it yourself](https://github.com/pelmenstar1/RangeCalendar/releases/download/0.9.3/demo-release.apk)
 
 ## Selection view
 
