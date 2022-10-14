@@ -5,6 +5,7 @@ plugins {
 }
 
 android {
+    namespace 'com.github.pelmenstar1.rangecalendar'
     compileSdk 31
 
     defaultConfig {
@@ -33,13 +34,13 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.0'
 
     implementation "androidx.viewpager2:viewpager2:1.0.0"
     implementation 'org.jetbrains:annotations:23.0.0'
-    implementation 'androidx.appcompat:appcompat:1.4.2'
+    implementation 'androidx.appcompat:appcompat:1.5.1'
 
-    implementation "androidx.core:core-ktx:1.8.0"
+    implementation "androidx.core:core-ktx:1.9.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     testImplementation 'junit:junit:4.13.2'
