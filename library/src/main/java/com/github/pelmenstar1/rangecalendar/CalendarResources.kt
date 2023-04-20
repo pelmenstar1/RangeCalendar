@@ -49,7 +49,7 @@ internal class CalendarResources(context: Context) {
         colorPrimary = getColorPrimary(context)
         colorPrimaryDark = colorPrimary.darkerColor(0.4f)
         textColor = getTextColor(context)
-        colorControlNormal = getColorStateListFromAttribute(context, R.attr.colorControlNormal)
+        colorControlNormal = getColorStateListFromAttribute(context, androidx.appcompat.R.attr.colorControlNormal)
         outMonthTextColor = colorControlNormal.getColorForState(ENABLED_STATE, 0)
         disabledTextColor = colorControlNormal.getColorForState(EMPTY_STATE, 0)
         hoverColor = getHoverColor(context)
@@ -133,25 +133,25 @@ internal class CalendarResources(context: Context) {
         fun getDayText(day: Int) = DAYS[day - 1]
 
         private fun getColorPrimary(context: Context): Int {
-            return getColorFromAttribute(context, R.attr.colorPrimary)
+            return getColorFromAttribute(context, androidx.appcompat.R.attr.colorPrimary)
         }
 
         @SuppressLint("PrivateResource")
         private fun getTextColor(context: Context): Int {
             val theme = context.theme
             val array = theme.obtainStyledAttributes(
-                R.style.TextAppearance_AppCompat,
-                R.styleable.TextAppearance
+                androidx.appcompat.R.style.TextAppearance_AppCompat,
+                androidx.appcompat.R.styleable.TextAppearance
             )
 
-            val colorList = array.getColorStateList(R.styleable.TextAppearance_android_textColor)
+            val colorList = array.getColorStateList(androidx.appcompat.R.styleable.TextAppearance_android_textColor)
             array.recycle()
 
             return colorList!!.getColorForState(ENABLED_STATE, 0)
         }
 
         private fun getHoverColor(context: Context): Int {
-            val hoverList = getColorStateListFromAttribute(context, R.attr.colorControlHighlight)
+            val hoverList = getColorStateListFromAttribute(context, androidx.appcompat.R.attr.colorControlHighlight)
 
             return hoverList.getColorForState(HOVER_STATE, 0)
         }

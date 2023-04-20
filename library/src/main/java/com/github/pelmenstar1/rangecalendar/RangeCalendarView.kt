@@ -890,7 +890,7 @@ class RangeCalendarView @JvmOverloads constructor(
         val theme = context.theme
 
         val value = TypedValue()
-        theme.resolveAttribute(R.attr.selectableItemBackgroundBorderless, value, true)
+        theme.resolveAttribute(androidx.appcompat.R.attr.selectableItemBackgroundBorderless, value, true)
 
         return ResourcesCompat.getDrawable(context.resources, value.resourceId, theme)
     }
