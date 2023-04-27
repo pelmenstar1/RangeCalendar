@@ -7,6 +7,8 @@ import com.github.pelmenstar1.rangecalendar.utils.distanceSquare
 import com.github.pelmenstar1.rangecalendar.utils.lerp
 import kotlin.math.ceil
 import kotlin.math.sqrt
+import kotlin.math.min
+import kotlin.math.max
 
 internal sealed class DefaultSelectionState(
     override val type: SelectionType,
@@ -22,7 +24,8 @@ internal sealed class DefaultSelectionState(
         val cell: Cell,
         val left: Float,
         val top: Float,
-        val cellSize: Float
+        val cellWidth: Float,
+        val cellHeight: Float
     ) : DefaultSelectionState(SelectionType.CELL, CellRange.cell(cell)) {
         class AppearAlpha(val baseState: CellState, val isReversed: Boolean) : SelectionState.Transitive {
             override val start: SelectionState
@@ -46,10 +49,7 @@ internal sealed class DefaultSelectionState(
                 get() = baseState
 
             override fun handleTransition(fraction: Float) {
-                var f = fraction
-                if (isReversed) {
-                    f = 1f - f
-                }
+                val f = fraction.reversedIf(isReversed)
 
                 bubbleAnimation(baseState, f, bounds)
             }
@@ -76,15 +76,16 @@ internal sealed class DefaultSelectionState(
         }
 
         class MoveToCell(override val start: CellState, override val end: CellState) : BoundsTransitionBase() {
-            val cellSize = start.cellSize
+            val cellWidth = start.cellWidth
+            val cellHeight = start.cellHeight
 
             override fun handleTransition(fraction: Float) {
                 bounds.apply {
                     left = lerp(start.left, end.left, fraction)
                     top = lerp(start.top, end.top, fraction)
 
-                    right = left + cellSize
-                    bottom = top + cellSize
+                    right = left + cellWidth
+                    bottom = top + cellHeight
                 }
             }
         }
@@ -94,12 +95,13 @@ internal sealed class DefaultSelectionState(
             override val end: WeekState,
             private val isReversed: Boolean
         ) : BoundsTransitionBase() {
-            val cellSize = start.cellSize
+            val cellWidth = start.cellWidth
+            val cellHeight = start.cellHeight
 
             init {
                 bounds.apply {
                     top = start.top
-                    bottom = top + cellSize
+                    bottom = top + cellHeight
                 }
             }
 
@@ -108,8 +110,8 @@ internal sealed class DefaultSelectionState(
                 val startLeft = start.left
 
                 bounds.apply {
-                    left = lerp(start.left, end.startLeft, f)
-                    right = lerp(startLeft + cellSize, end.endRight, f)
+                    left = lerp(startLeft, end.startLeft, f)
+                    right = lerp(startLeft + cellWidth, end.endRight, f)
                 }
             }
         }
@@ -176,7 +178,8 @@ internal sealed class DefaultSelectionState(
         val startLeft: Float, val startTop: Float,
         val endRight: Float, val endTop: Float,
         val firstCellOnRowLeft: Float, val lastCellOnRowRight: Float,
-        val cellSize: Float
+        val cellWidth: Float,
+        val cellHeight: Float
     ) : DefaultSelectionState(type, range) {
         class Alpha(val baseState: CustomRangeStateBase, val isReversed: Boolean) : SelectionState.Transitive {
             override val start: SelectionState
@@ -198,14 +201,14 @@ internal sealed class DefaultSelectionState(
         startLeft: Float, startTop: Float,
         endRight: Float, endTop: Float,
         firstCellOnRowLeft: Float, lastCellOnRowRight: Float,
-        cellSize: Float
+        cellWidth: Float, cellHeight: Float,
     ) : CustomRangeStateBase(
         SelectionType.MONTH,
         range,
         startLeft, startTop,
         endRight, endTop,
         firstCellOnRowLeft, lastCellOnRowRight,
-        cellSize
+        cellWidth, cellHeight
     )
 
     class CustomRangeState(
@@ -213,14 +216,14 @@ internal sealed class DefaultSelectionState(
         startLeft: Float, startTop: Float,
         endRight: Float, endTop: Float,
         firstCellOnRowLeft: Float, lastCellOnRowRight: Float,
-        cellSize: Float
+        cellWidth: Float, cellHeight: Float,
     ) : CustomRangeStateBase(
         SelectionType.CUSTOM,
         range,
         startLeft, startTop,
         endRight, endTop,
         firstCellOnRowLeft, lastCellOnRowRight,
-        cellSize
+        cellWidth, cellHeight
     )
 
     object None : DefaultSelectionState(SelectionType.NONE, CellRange.Invalid)
@@ -248,14 +251,14 @@ internal sealed class DefaultSelectionState(
         val finalRadius: Float,
         val isReversed: Boolean
     ) : SelectionState.Transitive {
-        private val halfCellSize = start.cellSize * 0.5f
+        private val startRadius = min(start.cellWidth, start.cellHeight) * 0.5f
 
         var radius = Float.NaN
 
         override fun handleTransition(fraction: Float) {
             val f = fraction.reversedIf(isReversed)
 
-            radius = lerp(halfCellSize, finalRadius, f)
+            radius = lerp(startRadius, finalRadius, f)
         }
     }
 
@@ -269,18 +272,20 @@ internal sealed class DefaultSelectionState(
         private fun Float.reversedIf(flag: Boolean) = if (flag) 1f - this else this
 
         private fun bubbleAnimation(state: CellState, fraction: Float, outRect: RectF) {
-            val halfCellSize = state.cellSize * 0.5f
+            val rx = state.cellWidth * 0.5f
+            val ry = state.cellHeight * 0.5f
 
-            val cx = state.left + halfCellSize
-            val cy = state.top + halfCellSize
+            val cx = state.left + rx
+            val cy = state.top + ry
 
-            val radius = halfCellSize * fraction
+            val frx = rx * fraction
+            val fry = ry * fraction
 
             outRect.apply {
-                left = cx - radius
-                top = cy - radius
-                right = cx + radius
-                bottom = cy + radius
+                left = cx - frx
+                top = cy - fry
+                right = cx + frx
+                bottom = cy + fry
             }
         }
 
@@ -311,10 +316,8 @@ internal sealed class DefaultSelectionState(
             measureManager: CellMeasureManager,
             isReversed: Boolean
         ): CellToMonth {
-            val halfCellSize = start.cellSize * 0.5f
-
-            val cx = start.left + halfCellSize
-            val cy = start.top + halfCellSize
+            val cx = start.left + measureManager.cellWidth * 0.5f
+            val cy = start.top + measureManager.cellHeight * 0.5f
 
             val radius = getCircleRadiusForCellMonthAnimation(end, cx, cy, measureManager)
 
@@ -327,12 +330,12 @@ internal sealed class DefaultSelectionState(
             measureManager: CellMeasureManager
         ): Float {
             // Find min radius for circle (with center at (x; y)) to fully fit in month selection.
-            val cellSize = measureManager.cellSize
+            val cellHeight = state.cellHeight
 
             val distToLeftCorner = x - state.firstCellOnRowLeft
             val distToRightCorner = state.lastCellOnRowRight - x
             val distToTopCorner = y - measureManager.getCellLeft(0)
-            val distToBottomCorner = measureManager.getCellTop(41) + cellSize - y
+            val distToBottomCorner = measureManager.getCellTop(41) + cellHeight - y
 
             val startLeft = state.startLeft
             val startTop = state.startTop
@@ -341,14 +344,14 @@ internal sealed class DefaultSelectionState(
             val endTop = state.endTop
 
             val distToStartCellSq = distanceSquare(startLeft, startTop, x, y)
-            val distToEndCellSq = distanceSquare(endRight, endTop + cellSize, x, y)
+            val distToEndCellSq = distanceSquare(endRight, endTop + cellHeight, x, y)
 
-            var maxDist = kotlin.math.max(distToLeftCorner, distToRightCorner)
-            maxDist = kotlin.math.max(maxDist, distToTopCorner)
-            maxDist = kotlin.math.max(maxDist, distToBottomCorner)
+            var maxDist = max(distToLeftCorner, distToRightCorner)
+            maxDist = max(maxDist, distToTopCorner)
+            maxDist = max(maxDist, distToBottomCorner)
 
             // Save on expensive sqrt() call: max(sqrt(a), sqrt(b)) => sqrt(max(a, b))
-            maxDist = kotlin.math.max(maxDist, sqrt(kotlin.math.max(distToStartCellSq, distToEndCellSq)))
+            maxDist = max(maxDist, sqrt(max(distToStartCellSq, distToEndCellSq)))
 
             return maxDist
         }

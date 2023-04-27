@@ -223,7 +223,7 @@ class LineDecor(val style: Style) : CellDecor() {
             }
 
             val textBounds = info.textBounds
-            val freeAreaHeight = info.size - textBounds.bottom
+            val freeAreaHeight = info.height - textBounds.bottom
 
             // The coefficient is hand-picked for line not to be very thin or thick
             val defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
@@ -266,7 +266,7 @@ class LineDecor(val style: Style) : CellDecor() {
                 val resolvedHeight = height.resolveHeight(defaultLineHeight)
                 val bottom = top + resolvedHeight
 
-                rect.set(0f, top, info.size, bottom)
+                rect.set(0f, top, info.width, bottom)
 
                 // If cell is round, then it should be narrowed to fit the cell shape
                 info.narrowRectOnBottom(rect)

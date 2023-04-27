@@ -44,6 +44,7 @@ import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.*
 import kotlin.math.abs
+import kotlin.math.max
 
 /**
  * A calendar view which supports range selection and decorations.
@@ -359,6 +360,7 @@ class RangeCalendarView @JvmOverloads constructor(
                 Intent.ACTION_DATE_CHANGED -> {
                     refreshToday()
                 }
+
                 Intent.ACTION_TIMEZONE_CHANGED -> {
                     if (observeTimeZoneChanges) {
                         _timeZone = if (Build.VERSION.SDK_INT >= 30) {
@@ -391,9 +393,10 @@ class RangeCalendarView @JvmOverloads constructor(
         adapter = RangeCalendarPagerAdapter(cr, isFirstDaySunday)
         adapter.setToday(today)
         adapter.setSelectionGate(object : SelectionGate {
-            override fun cell(year: Int, month: Int, dayOfMonth: Int) = internalGate(SelectionType.CELL) {
-                it.cell(year, month, dayOfMonth)
-            }
+            override fun cell(year: Int, month: Int, dayOfMonth: Int) =
+                internalGate(SelectionType.CELL) {
+                    it.cell(year, month, dayOfMonth)
+                }
 
             override fun week(
                 weekIndex: Int,
@@ -427,13 +430,7 @@ class RangeCalendarView @JvmOverloads constructor(
                 method: (SelectionGate) -> Boolean
             ): Boolean {
                 return if (isSelectionTypeAllowed(type)) {
-                    val gate = selectionGate
-
-                    if (gate != null) {
-                        method(gate)
-                    } else {
-                        true
-                    }
+                    selectionGate?.let(method) ?: true
                 } else {
                     false
                 }
@@ -542,7 +539,11 @@ class RangeCalendarView @JvmOverloads constructor(
         infoView = AppCompatTextView(context).apply {
             setTextColor(cr.textColor)
             setOnClickListener {
-                selectMonth(currentCalendarYm, SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION, true)
+                selectMonth(
+                    currentCalendarYm,
+                    SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                    true
+                )
             }
         }
 
@@ -658,10 +659,6 @@ class RangeCalendarView @JvmOverloads constructor(
                     R.styleable.RangeCalendarView_rangeCalendar_weekdayTextSize,
                     RangeCalendarPagerAdapter.STYLE_WEEKDAY_TEXT_SIZE
                 )
-                dimension(
-                    R.styleable.RangeCalendarView_rangeCalendar_cellSize,
-                    RangeCalendarPagerAdapter.STYLE_CELL_SIZE
-                )
                 int(
                     R.styleable.RangeCalendarView_rangeCalendar_weekdayType,
                     RangeCalendarPagerAdapter.STYLE_WEEKDAY_TYPE
@@ -690,6 +687,33 @@ class RangeCalendarView @JvmOverloads constructor(
                     R.styleable.RangeCalendarView_rangeCalendar_showAdjacentMonths,
                     RangeCalendarPagerAdapter.STYLE_SHOW_ADJACENT_MONTHS
                 )
+
+                // cellSize, cellWidth, cellHeight require special logic.
+                // If cellSize exists, it's written to both cellWidth and cellHeight, but
+                // if either of cellWidth or cellHeight exist, they take precedence over cellSize.
+                var cellWidth = a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellWidth, Float.NaN)
+                var cellHeight = a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellHeight, Float.NaN)
+
+                val cellSize = a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellSize, Float.NaN)
+                if (!cellSize.isNaN()) {
+                    if (cellWidth.isNaN()) cellWidth = cellSize
+                    if (cellHeight.isNaN()) cellHeight = cellSize
+                }
+
+                if (cellWidth == cellHeight) {
+                    // Both cellWidth and cellHeight are not NaN because
+                    // comparison with NaN always gives false.
+                    adapter.setCellSize(cellWidth)
+                } else {
+                    if (!cellWidth.isNaN()) {
+                        adapter.setStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_WIDTH, cellWidth)
+                    }
+
+                    if (!cellHeight.isNaN()) {
+                        adapter.setStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_HEIGHT, cellHeight)
+                    }
+                }
+
             }
         } finally {
             a.recycle()
@@ -890,7 +914,11 @@ class RangeCalendarView @JvmOverloads constructor(
         val theme = context.theme
 
         val value = TypedValue()
-        theme.resolveAttribute(androidx.appcompat.R.attr.selectableItemBackgroundBorderless, value, true)
+        theme.resolveAttribute(
+            androidx.appcompat.R.attr.selectableItemBackgroundBorderless,
+            value,
+            true
+        )
 
         return ResourcesCompat.getDrawable(context.resources, value.resourceId, theme)
     }
@@ -1177,7 +1205,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     /**
      * Gets or sets a background fill of selection,
-     * by default it's solid color which color is extracted from [R.attr.colorPrimary]
+     * by default it's solid color which color is extracted from [androidx.appcompat.R.attr.colorPrimary]
      */
     var selectionFill: Fill
         get() = adapter.getStyleObject(RangeCalendarPagerAdapter.STYLE_SELECTION_FILL)
@@ -1253,7 +1281,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     /**
      * Gets or sets a text color of cell which represents today date,
-     * by default it's color extracted from [R.attr.colorPrimary].
+     * by default it's color extracted from [androidx.appcompat.R.attr.colorPrimary].
      */
     @get:ColorInt
     var todayColor: Int
@@ -1264,7 +1292,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
     /**
      * Gets or sets a text color of weekday,
-     * by default it's a color extracted from [R.style.TextAppearance_AppCompat].
+     * by default it's a color extracted from [androidx.appcompat.R.style.TextAppearance_AppCompat].
      */
     @get:ColorInt
     var weekdayColor: Int
@@ -1319,12 +1347,33 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets size of cell, in pixels, should be greater than 0
+     * Gets or sets size of cells, in pixels, should be greater than 0.
+     * If [cellWidth] and [cellHeight] are different, returns the maximum of these.
+     * In general, the getter should not be used at all, meanwhile the setter will be slightly more
+     * efficient than manually setting [cellWidth] and [cellHeight] to the same value.
      */
     var cellSize: Float
-        get() = adapter.getStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_SIZE)
+        get() = max(cellWidth, cellHeight)
         set(size) {
-            adapter.setStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_SIZE, size)
+            adapter.setCellSize(size)
+        }
+
+    /**
+     * Gets or sets width of cells, in pixels, should be greater than 0.
+     */
+    var cellWidth: Float
+        get() = adapter.getStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_WIDTH)
+        set(value) {
+            adapter.setStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_WIDTH, value)
+        }
+
+    /**
+     * Gets or sets height of cells, in pixels, should be greater than 0.
+     */
+    var cellHeight: Float
+        get() = adapter.getStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_HEIGHT)
+        set(value) {
+            adapter.setStyleFloat(RangeCalendarPagerAdapter.STYLE_CELL_HEIGHT, value)
         }
 
     /**
@@ -1430,7 +1479,10 @@ class RangeCalendarView @JvmOverloads constructor(
      * Gets or sets animation type for cells.
      */
     var cellAnimationType: CellAnimationType
-        get() = adapter.getStyleEnum(RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE, CellAnimationType::ofOrdinal)
+        get() = adapter.getStyleEnum(
+            RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE,
+            CellAnimationType::ofOrdinal
+        )
         set(type) {
             adapter.setStyleEnum(
                 RangeCalendarPagerAdapter.STYLE_CELL_ANIMATION_TYPE,
@@ -1608,7 +1660,8 @@ class RangeCalendarView @JvmOverloads constructor(
         if (isSelectionTypeAllowed(type)) {
             val ym = adapter.getYearMonthForSelection(type, data)
 
-            val actuallySelected = adapter.select(type, data, requestRejectedBehaviour, withAnimation)
+            val actuallySelected =
+                adapter.select(type, data, requestRejectedBehaviour, withAnimation)
             if (actuallySelected) {
                 val position = adapter.getItemPositionForYearMonth(ym)
 

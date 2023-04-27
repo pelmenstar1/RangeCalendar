@@ -12,6 +12,8 @@
         <attr name="rangeCalendar_hoverColor" format="color"/>
         <attr name="rangeCalendar_hoverOnSelectionColor" format="color"/>
         <attr name="rangeCalendar_cellSize" format="dimension"/>
+        <attr name="rangeCalendar_cellWidth" format="dimension"/>
+        <attr name="rangeCalendar_cellHeight" format="dimension"/>
         <attr name="rangeCalendar_weekdayType" format="enum">
             <enum name="shortName" value="0"/>
             <enum name="narrowName" value="1"/>

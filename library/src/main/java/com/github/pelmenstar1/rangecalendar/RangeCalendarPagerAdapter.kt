@@ -51,11 +51,12 @@ internal class RangeCalendarPagerAdapter(
             const val SELECT = 1
             const val UPDATE_TODAY_INDEX = 2
             const val UPDATE_STYLE = 3
-            const val CLEAR_HOVER = 4
-            const val CLEAR_SELECTION = 5
-            const val ON_DECOR_ADDED = 6
-            const val ON_DECOR_REMOVED = 7
-            const val SET_DECOR_LAYOUT_OPTIONS = 8
+            const val UPDATE_CELL_SIZE = 4
+            const val CLEAR_HOVER = 5
+            const val CLEAR_SELECTION = 6
+            const val ON_DECOR_ADDED = 7
+            const val ON_DECOR_REMOVED = 8
+            const val SET_DECOR_LAYOUT_OPTIONS = 9
 
             private val CLEAR_HOVER_PAYLOAD = Payload(CLEAR_HOVER)
             private val CLEAR_SELECTION_PAYLOAD = Payload(CLEAR_SELECTION)
@@ -74,6 +75,10 @@ internal class RangeCalendarPagerAdapter(
 
             fun updateStyle(type: Int, obj: Any?): Payload {
                 return Payload(UPDATE_STYLE, type.toLong(), arg2 = 0, obj1 = obj)
+            }
+
+            fun updateCellSize(valueBits: Int): Payload {
+                return Payload(UPDATE_CELL_SIZE, arg1 = valueBits.toLong())
             }
 
             fun select(info: RangeCalendarGridView.SetSelectionInfo): Payload {
@@ -151,7 +156,7 @@ internal class RangeCalendarPagerAdapter(
 
     private var today = PackedDate(0)
     private val calendarInfo = CalendarInfo()
-    private val styleData = IntArray(19)
+    private val styleData = IntArray(20)
     private val styleObjData = arrayOfNulls<Any>(6)
 
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
@@ -175,7 +180,8 @@ internal class RangeCalendarPagerAdapter(
         initStyle(STYLE_WEEKDAY_TEXT_SIZE, cr.weekdayTextSize)
         initStyle(STYLE_WEEKDAY_TYPE, WeekdayType.SHORT)
         initStyle(STYLE_CELL_RR_RADIUS, Float.POSITIVE_INFINITY)
-        initStyle(STYLE_CELL_SIZE, cr.cellSize)
+        initStyle(STYLE_CELL_WIDTH, cr.cellSize)
+        initStyle(STYLE_CELL_HEIGHT, cr.cellSize)
         initStyle(STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR, ClickOnCellSelectionBehavior.NONE)
 
         // animations
@@ -286,20 +292,19 @@ internal class RangeCalendarPagerAdapter(
         notifyItemRangeChanged(0, count, Payload.updateStyle(type, data))
     }
 
+    fun setCellSize(value: Float) {
+        val valueBits = value.toBits()
+
+        styleData[STYLE_CELL_WIDTH] = valueBits
+        styleData[STYLE_CELL_HEIGHT] = valueBits
+
+        notifyItemRangeChanged(0, count, Payload.updateCellSize(valueBits))
+    }
+
     private fun updateStyle(
         gridView: RangeCalendarGridView,
         type: Int, data: PackedInt
     ) {
-        /*
-        const val STYLE_IN_MONTH_TEXT_COLOR = 11
-        const val STYLE_OUT_MONTH_TEXT_COLOR = 12
-        const val STYLE_DISABLED_TEXT_COLOR = 13
-        const val STYLE_TODAY_TEXT_COLOR = 14
-        const val STYLE_WEEKDAY_TEXT_COLOR = 15
-        const val STYLE_HOVER = 16
-        const val STYLE_HOVER_ON_SELECTION = 17
-         */
-
         when (type) {
             // colors
             STYLE_IN_MONTH_TEXT_COLOR -> gridView.setInMonthTextColor(data.value)
@@ -317,8 +322,10 @@ internal class RangeCalendarPagerAdapter(
                 gridView.setWeekdayTextSize(data.float())
             STYLE_CELL_RR_RADIUS ->
                 gridView.setCellRoundRadius(data.float())
-            STYLE_CELL_SIZE ->
-                gridView.cellSize = data.float()
+            STYLE_CELL_WIDTH ->
+                gridView.setCellWidth(data.float())
+            STYLE_CELL_HEIGHT ->
+                gridView.setCellHeight(data.float())
 
             // preferences
             STYLE_WEEKDAY_TYPE ->
@@ -1260,6 +1267,11 @@ internal class RangeCalendarPagerAdapter(
                         updateStyle(gridView, type, PackedInt(value))
                     }
                 }
+                Payload.UPDATE_CELL_SIZE -> {
+                    val value = Float.fromBits(payload.arg1.toInt())
+
+                    gridView.setCellSize(value)
+                }
                 Payload.CLEAR_HOVER -> {
                     gridView.clearHoverCellWithAnimation()
                 }
@@ -1309,22 +1321,23 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_DAY_NUMBER_TEXT_SIZE = 0
         const val STYLE_WEEKDAY_TEXT_SIZE = 1
         const val STYLE_CELL_RR_RADIUS = 2
-        const val STYLE_CELL_SIZE = 3
-        const val STYLE_WEEKDAY_TYPE = 4
-        const val STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR = 5
-        const val STYLE_COMMON_ANIMATION_DURATION = 6
-        const val STYLE_HOVER_ANIMATION_DURATION = 7
-        const val STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 8
-        const val STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE = 9
-        const val STYLE_CELL_ANIMATION_TYPE = 10
-        const val STYLE_IN_MONTH_TEXT_COLOR = 11
-        const val STYLE_OUT_MONTH_TEXT_COLOR = 12
-        const val STYLE_DISABLED_TEXT_COLOR = 13
-        const val STYLE_TODAY_TEXT_COLOR = 14
-        const val STYLE_WEEKDAY_TEXT_COLOR = 15
-        const val STYLE_HOVER_COLOR = 16
-        const val STYLE_HOVER_ON_SELECTION_COLOR = 17
-        const val STYLE_SHOW_ADJACENT_MONTHS = 18
+        const val STYLE_CELL_WIDTH = 3
+        const val STYLE_CELL_HEIGHT = 4
+        const val STYLE_WEEKDAY_TYPE = 5
+        const val STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR = 6
+        const val STYLE_COMMON_ANIMATION_DURATION = 7
+        const val STYLE_HOVER_ANIMATION_DURATION = 8
+        const val STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 9
+        const val STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE = 10
+        const val STYLE_CELL_ANIMATION_TYPE = 11
+        const val STYLE_IN_MONTH_TEXT_COLOR = 12
+        const val STYLE_OUT_MONTH_TEXT_COLOR = 13
+        const val STYLE_DISABLED_TEXT_COLOR = 14
+        const val STYLE_TODAY_TEXT_COLOR = 15
+        const val STYLE_WEEKDAY_TEXT_COLOR = 16
+        const val STYLE_HOVER_COLOR = 17
+        const val STYLE_HOVER_ON_SELECTION_COLOR = 18
+        const val STYLE_SHOW_ADJACENT_MONTHS = 19
 
         private const val STYLE_OBJ_START = 32
         const val STYLE_COMMON_ANIMATION_INTERPOLATOR = 32
