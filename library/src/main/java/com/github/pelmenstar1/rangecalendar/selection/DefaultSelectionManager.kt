@@ -152,7 +152,7 @@ internal class DefaultSelectionManager : SelectionManager {
         val left = measureManager.getCellLeft(cell)
         val top = measureManager.getCellTop(cell)
 
-        return DefaultSelectionState.CellState(cell, left, top, measureManager.cellSize)
+        return DefaultSelectionState.CellState(cell, left, top, measureManager.cellWidth, measureManager.cellHeight)
     }
 
     private fun createWeekState(
@@ -160,16 +160,14 @@ internal class DefaultSelectionManager : SelectionManager {
         rangeEnd: Int,
         measureManager: CellMeasureManager
     ): DefaultSelectionState.WeekState {
-        val cellSize = measureManager.cellSize
-
         val left = measureManager.getCellLeft(rangeStart)
-        val right = measureManager.getCellLeft(rangeEnd) + cellSize
+        val right = measureManager.getCellRight(rangeEnd)
 
         val top = measureManager.getCellTop(rangeStart)
 
         return DefaultSelectionState.WeekState(
             CellRange(rangeStart, rangeEnd),
-            left, top, right, bottom = top + cellSize
+            left, top, right, bottom = top + measureManager.cellHeight
         )
     }
 
@@ -179,16 +177,17 @@ internal class DefaultSelectionManager : SelectionManager {
         rangeEnd: Int,
         measureManager: CellMeasureManager
     ): DefaultSelectionState.CustomRangeStateBase {
-        val cellSize = measureManager.cellSize
+        val cellWidth = measureManager.cellWidth
+        val cellHeight = measureManager.cellHeight
 
         val startLeft = measureManager.getCellLeft(rangeStart)
         val startTop = measureManager.getCellTop(rangeStart)
 
-        val endRight = measureManager.getCellLeft(rangeEnd) + cellSize
+        val endRight = measureManager.getCellLeft(rangeEnd) + cellWidth
         val endTop = measureManager.getCellTop(rangeEnd)
 
         val firstCellOnRowLeft = measureManager.getCellLeft(0)
-        val lastCellOnRowRight = measureManager.getCellLeft(6) + cellSize
+        val lastCellOnRowRight = measureManager.getCellLeft(6) + cellWidth
 
         val range = CellRange(rangeStart, rangeEnd)
 
@@ -198,7 +197,7 @@ internal class DefaultSelectionManager : SelectionManager {
                 startLeft, startTop,
                 endRight, endTop,
                 firstCellOnRowLeft, lastCellOnRowRight,
-                cellSize
+                cellWidth, cellHeight
             )
         } else {
             DefaultSelectionState.CustomRangeState(
@@ -206,7 +205,7 @@ internal class DefaultSelectionManager : SelectionManager {
                 startLeft, startTop,
                 endRight, endTop,
                 firstCellOnRowLeft, lastCellOnRowRight,
-                cellSize
+                cellWidth, cellHeight
             )
         }
     }
@@ -432,13 +431,12 @@ internal class DefaultSelectionManager : SelectionManager {
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        val cellSize = state.cellSize
         val left = state.left
         val top = state.top
 
         drawRectOnRow(
             canvas,
-            left, top, right = left + cellSize, bottom = top + cellSize,
+            left, top, right = left + state.cellWidth, bottom = top + state.cellHeight,
             options, alpha
         )
     }
@@ -473,7 +471,7 @@ internal class DefaultSelectionManager : SelectionManager {
             drawRectOnRow(
                 canvas,
                 state.startLeft, state.startTop,
-                state.endRight, bottom = top + state.cellSize,
+                state.endRight, bottom = top + state.cellHeight,
                 options, alpha
             )
         } else {
@@ -561,10 +559,10 @@ internal class DefaultSelectionManager : SelectionManager {
         val firstCellLeft = state.firstCellOnRowLeft
         val lastCellRight = state.lastCellOnRowRight
 
-        val cellSize = state.cellSize
+        val cellHeight = state.cellHeight
         val rr = options.roundRadius
 
-        val startBottom = startTop + cellSize
+        val startBottom = startTop + cellHeight
         val gridYDiff = end.gridY - start.gridY
 
         if (gridYDiff == 0) {
@@ -572,7 +570,7 @@ internal class DefaultSelectionManager : SelectionManager {
 
             path.addRoundRect(pathBounds, rr, rr, Path.Direction.CW)
         } else {
-            val endBottom = endTop + cellSize
+            val endBottom = endTop + cellHeight
 
             pathBounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
 

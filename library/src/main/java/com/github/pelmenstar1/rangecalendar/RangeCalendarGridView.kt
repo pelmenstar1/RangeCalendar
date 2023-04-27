@@ -27,6 +27,7 @@ import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 import java.lang.ref.WeakReference
 import java.util.*
+import kotlin.math.min
 
 // It will never be XML layout, so there's no need to match conventions
 @SuppressLint("ViewConstructor")
@@ -59,7 +60,12 @@ internal class RangeCalendarGridView(
                 getSelData: NarrowSelectionData.Companion.() -> NarrowSelectionData,
                 requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
                 withAnimation: Boolean
-            ) = SetSelectionInfo(type, NarrowSelectionData.getSelData(), requestRejectedBehaviour, withAnimation)
+            ) = SetSelectionInfo(
+                type,
+                NarrowSelectionData.getSelData(),
+                requestRejectedBehaviour,
+                withAnimation
+            )
 
             val Undefined = create(
                 SelectionType.NONE,
@@ -68,20 +74,43 @@ internal class RangeCalendarGridView(
                 false
             )
 
-            fun cell(cell: Cell, requestRejectedBehaviour: SelectionRequestRejectedBehaviour, withAnimation: Boolean) =
-                create(SelectionType.CELL, { cellSelection(cell) }, requestRejectedBehaviour, withAnimation)
+            fun cell(
+                cell: Cell,
+                requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+                withAnimation: Boolean
+            ) = create(
+                SelectionType.CELL,
+                { cellSelection(cell) },
+                requestRejectedBehaviour,
+                withAnimation
+            )
 
-            fun week(index: Int, requestRejectedBehaviour: SelectionRequestRejectedBehaviour, withAnimation: Boolean) =
-                create(SelectionType.WEEK, { weekSelection(index) }, requestRejectedBehaviour, withAnimation)
+            fun week(
+                index: Int,
+                requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+                withAnimation: Boolean
+            ) = create(
+                SelectionType.WEEK,
+                { weekSelection(index) },
+                requestRejectedBehaviour,
+                withAnimation
+            )
 
-            fun month(requestRejectedBehaviour: SelectionRequestRejectedBehaviour, withAnimation: Boolean) =
-                create(SelectionType.MONTH, { Undefined }, requestRejectedBehaviour, withAnimation)
+            fun month(
+                requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+                withAnimation: Boolean
+            ) = create(SelectionType.MONTH, { Undefined }, requestRejectedBehaviour, withAnimation)
 
             fun customRange(
                 range: CellRange,
                 requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
                 withAnimation: Boolean
-            ) = create(SelectionType.CUSTOM, { customRangeSelection(range) }, requestRejectedBehaviour, withAnimation)
+            ) = create(
+                SelectionType.CUSTOM,
+                { customRangeSelection(range) },
+                requestRejectedBehaviour,
+                withAnimation
+            )
         }
     }
 
@@ -110,9 +139,12 @@ internal class RangeCalendarGridView(
 
             val (x, y) = grid.getCellLeftTop(cell)
 
-            val cellSize = grid.cellSize
-
-            tempRect.set(x.toInt(), y.toInt(), (x + cellSize).toInt(), (y + cellSize).toInt())
+            tempRect.set(
+                x.toInt(),
+                y.toInt(),
+                (x + grid.cellWidth).toInt(),
+                (y + grid.cellHeight).toInt()
+            )
 
             node.apply {
                 @Suppress("DEPRECATION")
@@ -197,9 +229,13 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private class CellMeasureManagerImpl(private val view: RangeCalendarGridView) : CellMeasureManager {
-        override val cellSize: Float
-            get() = view.cellSize
+    private class CellMeasureManagerImpl(private val view: RangeCalendarGridView) :
+        CellMeasureManager {
+        override val cellWidth: Float
+            get() = view.cellWidth
+
+        override val cellHeight: Float
+            get() = view.cellHeight
 
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
         override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
@@ -207,7 +243,9 @@ internal class RangeCalendarGridView(
 
     val cells = ByteArray(42)
 
-    internal var cellSize: Float = cr.cellSize
+    internal var cellWidth: Float = cr.cellSize
+    internal var cellHeight: Float = cr.cellSize
+
     private var columnWidth = 0f
 
     // The cell is circle by default and to achieve it with any possible cell size,
@@ -429,7 +467,7 @@ internal class RangeCalendarGridView(
 
     private fun SelectionManager.setStateOrNone(state: SelectionState) {
         val type = state.type
-        if(type == SelectionType.NONE) {
+        if (type == SelectionType.NONE) {
             setNoneState()
         } else {
             setState(type, state.rangeStart, state.rangeEnd, cellMeasureManager)
@@ -490,15 +528,12 @@ internal class RangeCalendarGridView(
         weekdayPaint.color = color
     }
 
-    fun getCellSize(): Float {
-        return cellSize
-    }
-
     fun setCellSize(size: Float) {
         require(size > 0f) { "size <= 0" }
 
-        if (cellSize != size) {
-            cellSize = size
+        if (cellWidth != size || cellHeight != size) {
+            cellWidth = size
+            cellHeight = size
 
             refreshAllDecorVisualStates()
             refreshColumnWidth()
@@ -506,6 +541,34 @@ internal class RangeCalendarGridView(
 
             requestLayout()
         }
+    }
+
+    private inline fun setCellWidthHeightInternal(
+        newValue: Float,
+        currentValue: Float,
+        setCurrent: (Float) -> Unit
+    ) {
+        if (currentValue != newValue) {
+            setCurrent(newValue)
+
+            refreshAllDecorVisualStates()
+            refreshColumnWidth()
+            updateSelectionStateConfiguration()
+
+            requestLayout()
+        }
+    }
+
+    fun setCellWidth(value: Float) {
+        require(value > 0f) { "width <= 0" }
+
+        setCellWidthHeightInternal(value, cellWidth) { cellWidth = it }
+    }
+
+    fun setCellHeight(value: Float) {
+        require(value > 0f) { "height <= 0" }
+
+        setCellWidthHeightInternal(value, cellHeight) { cellHeight = it }
     }
 
     fun setCellRoundRadius(value: Float) = updateUIState(rrRadius, value) {
@@ -572,8 +635,8 @@ internal class RangeCalendarGridView(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val preferredWidth = (cellSize * 7).toInt()
-        val preferredHeight = (gridTop() + (cellSize + cr.yCellMargin) * 6).toInt()
+        val preferredWidth = (cellWidth * 7).toInt()
+        val preferredHeight = (gridTop() + (cellHeight + cr.yCellMargin) * 6).toInt()
 
         setMeasuredDimension(
             resolveSize(preferredWidth, widthMeasureSpec),
@@ -643,6 +706,7 @@ internal class RangeCalendarGridView(
 
                     invalidate()
                 }
+
                 MotionEvent.ACTION_UP -> {
                     performClick()
                     if (!isSelectingCustomRange && isXInActiveZone(x)) {
@@ -687,6 +751,7 @@ internal class RangeCalendarGridView(
                     // There's something to update.
                     invalidate()
                 }
+
                 MotionEvent.ACTION_CANCEL -> {
                     // Delete all messages from queue, long-press or hover may already happened or not.
                     pressTimeoutHandler.removeCallbacksAndMessages(null)
@@ -697,6 +762,7 @@ internal class RangeCalendarGridView(
 
                     invalidate()
                 }
+
                 MotionEvent.ACTION_MOVE -> {
                     if (isSelectingCustomRange && isXInActiveZone(x) && y > gridTop()) {
                         parent?.requestDisallowInterceptTouchEvent(true)
@@ -735,15 +801,18 @@ internal class RangeCalendarGridView(
     }
 
     override fun getFocusedRect(r: Rect) {
-        val size = cellSize
+        val cw = cellWidth
+        val ch = cellHeight
+
         val selState = selectionManager.currentState
 
         when (selState.type) {
             SelectionType.CELL -> {
                 val (left, top) = getCellLeftTop(selState.startCell)
 
-                r.set(left.toInt(), top.toInt(), (left + size).toInt(), (top + size).toInt())
+                r.set(left.toInt(), top.toInt(), (left + cw).toInt(), (top + ch).toInt())
             }
+
             SelectionType.WEEK -> {
                 val start = Cell(selState.rangeStart)
                 val end = Cell(selState.rangeEnd)
@@ -751,7 +820,7 @@ internal class RangeCalendarGridView(
                 val (left, top) = getCellLeftTop(start)
                 val right = getCellRight(end)
 
-                r.set(left.toInt(), top.toInt(), right.toInt(), (top + size).toInt())
+                r.set(left.toInt(), top.toInt(), right.toInt(), (top + ch).toInt())
             }
 
             else -> super.getFocusedRect(r)
@@ -776,6 +845,7 @@ internal class RangeCalendarGridView(
                     isUser = false
                 )
             }
+
             SelectionType.WEEK -> {
                 // If type is WEEK, then rangeStart and rangeEnd should be on the same row.
                 val weekIndex = selState.rangeStart / 7
@@ -786,12 +856,14 @@ internal class RangeCalendarGridView(
                     doAnimation = true
                 )
             }
+
             SelectionType.MONTH -> {
                 selectMonth(
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     doAnimation = true
                 )
             }
+
             SelectionType.CUSTOM -> {
                 selectCustom(
                     selState.range,
@@ -800,6 +872,7 @@ internal class RangeCalendarGridView(
                     doAnimation = true
                 )
             }
+
             else -> {}
         }
     }
@@ -824,6 +897,7 @@ internal class RangeCalendarGridView(
                 startSelecting = false,
                 doAnimation = doAnimation
             )
+
             else -> {}
         }
     }
@@ -851,7 +925,8 @@ internal class RangeCalendarGridView(
         }
 
         // If selection type is CELL, then rangeStart and rangeEnd should point to the same cell.
-        val isSameSelection = selState.type == SelectionType.CELL && selState.rangeStart == cell.index
+        val isSameSelection =
+            selState.type == SelectionType.CELL && selState.rangeStart == cell.index
 
         // We don't do gate validation if the request come from user and it's the same selection and specified behaviour is CLEAR.
         // That's done because if the gate rejects the request and behaviour is PRESERVE, the cell won't be cleared but
@@ -954,7 +1029,10 @@ internal class RangeCalendarGridView(
         }
     }
 
-    fun selectMonth(requestRejectedBehaviour: SelectionRequestRejectedBehaviour, doAnimation: Boolean) {
+    fun selectMonth(
+        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+        doAnimation: Boolean
+    ) {
         val selState = selectionManager.currentState
 
         val intersection = inMonthRange.intersectionWith(enabledCellRange)
@@ -1075,7 +1153,8 @@ internal class RangeCalendarGridView(
         // Before changing selectionTransitiveState, previous animation (which may be selection-like) should be stopped.
         endCalendarAnimation()
 
-        selectionTransitiveState = selectionManager.createTransition(cellMeasureManager, selectionRenderOptions)
+        selectionTransitiveState =
+            selectionManager.createTransition(cellMeasureManager, selectionRenderOptions)
         //Log.i(TAG, "transitiveState: $selectionTransitiveState")
 
         startCalendarAnimation(SELECTION_ANIMATION, handler, onEnd)
@@ -1134,22 +1213,27 @@ internal class RangeCalendarGridView(
             return stateHandler.emptyState()
         }
 
-        val halfCellSize = cellSize * 0.5f
+        val cw = cellWidth
+        val ch = cellHeight
+
+        val halfCellWidth = cw * 0.5f
+        val halfCellHeight = ch * 0.5f
 
         val cellTextSize = getDayNumberSize(cell)
         val halfCellTextWidth = cellTextSize.width * 0.5f
         val halfCellTextHeight = cellTextSize.height * 0.5f
 
         cellInfo.apply {
-            size = cellSize
+            cellWidth = cw
+            cellHeight = ch
             radius = cellRoundRadius()
             layoutOptions = decorLayoutOptionsArray[cell] ?: decorDefaultLayoutOptions
 
             setTextBounds(
-                halfCellSize - halfCellTextWidth,
-                halfCellSize - halfCellTextHeight,
-                halfCellSize + halfCellTextWidth,
-                halfCellSize + halfCellTextHeight
+                halfCellWidth - halfCellTextWidth,
+                halfCellHeight - halfCellTextHeight,
+                halfCellWidth + halfCellTextWidth,
+                halfCellHeight + halfCellTextHeight
             )
         }
 
@@ -1516,12 +1600,10 @@ internal class RangeCalendarGridView(
                 color = color.withCombinedAlpha(animFraction)
             }
 
-            //Log.i(TAG, "af: $animFraction hoverColor: #${color.toString(16)}")
-
             cellHoverPaint.color = color
 
             c.drawRoundRectCompat(
-                left, top, left + cellSize, top + cellSize,
+                left, top, left + cellWidth, top + cellHeight,
                 cellRoundRadius(), cellHoverPaint
             )
         }
@@ -1530,7 +1612,7 @@ internal class RangeCalendarGridView(
     private fun drawCells(c: Canvas) {
         measureDayNumberTextSizesIfNecessary()
 
-        val halfCellSize = cellSize * 0.5f
+        val halfCellHeight = cellHeight * 0.5f
         val startIndex: Int
         val endIndex: Int
 
@@ -1550,7 +1632,7 @@ internal class RangeCalendarGridView(
             val cell = Cell(i)
 
             val centerX = getCellCenterLeft(cell)
-            val centerY = getCellTop(cell) + halfCellSize
+            val centerY = getCellTop(cell) + halfCellHeight
 
             drawCell(c, centerX, centerY, cells[i].toInt(), resolveCellType(cell))
         }
@@ -1598,6 +1680,7 @@ internal class RangeCalendarGridView(
                 } else {
                     todayCellTextColor
                 }
+
                 else -> throw IllegalArgumentException("type")
             }
 
@@ -1670,17 +1753,15 @@ internal class RangeCalendarGridView(
 
     // It'd be better if cellRoundRadius() returns round radius that isn't greater than half of cell size.
     private fun cellRoundRadius(): Float {
-        val halfCellSize = cellSize * 0.5f
-
-        return if (rrRadius > halfCellSize) halfCellSize else rrRadius
+        return min(rrRadius, min(cellWidth, cellHeight) * 0.5f)
     }
 
     private fun firstCellLeft(): Float {
-        return cr.hPadding + (columnWidth - cellSize) * 0.5f
+        return cr.hPadding + (columnWidth - cellWidth) * 0.5f
     }
 
     private fun getCellLeft(cell: Cell): Float {
-        return getCellCenterLeft(cell) - cellSize * 0.5f
+        return getCellCenterLeft(cell) - cellWidth * 0.5f
     }
 
     private fun getCellCenterLeft(cell: Cell): Float {
@@ -1688,11 +1769,11 @@ internal class RangeCalendarGridView(
     }
 
     private fun getCellTop(cell: Cell): Float {
-        return gridTop() + cell.gridY * (cellSize + cr.yCellMargin)
+        return gridTop() + cell.gridY * (cellHeight + cr.yCellMargin)
     }
 
     private fun getCellCenterTop(cell: Cell): Float {
-        return getCellTop(cell) + cellSize * 0.5f
+        return getCellTop(cell) + cellHeight * 0.5f
     }
 
     private fun getCellLeftTop(cell: Cell): PackedPointF {
@@ -1704,7 +1785,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun getCellRight(cell: Cell): Float {
-        return getCellCenterLeft(cell) + cellSize * 0.5f
+        return getCellCenterLeft(cell) + cellWidth * 0.5f
     }
 
     private fun isSelectionRangeContains(cell: Cell): Boolean {
@@ -1721,7 +1802,7 @@ internal class RangeCalendarGridView(
 
     fun getCellByPointOnScreen(x: Float, y: Float): Cell {
         val gridX = ((x - cr.hPadding) / columnWidth).toInt()
-        val gridY = ((y - gridTop()) / (cellSize + cr.yCellMargin)).toInt()
+        val gridY = ((y - gridTop()) / (cellHeight + cr.yCellMargin)).toInt()
 
         return Cell(gridY * 7 + gridX)
     }

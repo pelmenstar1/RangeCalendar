@@ -2,12 +2,19 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 /**
  * Provides a set of functions to determine cell position in the view.
+ *
+ * **API surface of this class is not stable and new members might be added or removed.**
  */
 interface CellMeasureManager {
     /**
-     * Size of a cell, measured in pixels.
+     * Width of cell (in pixels).
      */
-    val cellSize: Float
+    val cellWidth: Float
+
+    /**
+     * Height of cell (in pixels).
+     */
+    val cellHeight: Float
 
     /**
      * Gets x-axis value of the coordinate that specifies left corner of the cell.
@@ -26,8 +33,22 @@ interface CellMeasureManager {
     fun getCellTop(cellIndex: Int): Float
 }
 
+/**
+ * Gets x-axis value of the coordinate that specifies right corner of the cell.
+ *
+ * @param cellIndex index of the cell, should be in range 0..42
+ */
 fun CellMeasureManager.getCellRight(cellIndex: Int): Float {
-    return getCellLeft(cellIndex) + cellSize
+    return getCellLeft(cellIndex) + cellWidth
+}
+
+/**
+ * Gets y-axis value of the coordinate that specifies bottom corner of the cell.
+ *
+ * @param cellIndex index of the cell, should be in range 0..42
+ */
+fun CellMeasureManager.getCellBottom(cellIndex: Int): Float {
+    return getCellTop(cellIndex) + cellHeight
 }
 
 internal fun CellMeasureManager.getCellLeft(cell: Cell) = getCellLeft(cell.index)

@@ -237,7 +237,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 layoutOptions?.verticalAlignment ?: VerticalAlignment.CENTER
             )
 
-            rect.set(0f, top, info.size, top + maxHeight)
+            rect.set(0f, top, info.width, top + maxHeight)
 
             info.narrowRectOnBottom(rect)
             val narrowArea = PackedRectF(rect)

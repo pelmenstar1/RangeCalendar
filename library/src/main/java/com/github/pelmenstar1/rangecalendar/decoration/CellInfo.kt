@@ -8,6 +8,7 @@ import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.PackedRectF
 import com.github.pelmenstar1.rangecalendar.Padding
 import com.github.pelmenstar1.rangecalendar.VerticalAlignment
+import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
@@ -16,8 +17,20 @@ import kotlin.math.sqrt
 class CellInfo internal constructor() {
     /**
      * Size of the cell, in pixels.
+     * If [width] and [height] are different, returns the maximum of these.
      */
-    var size = 0f
+    @get:Deprecated(
+        message = "Use width and height properties that more precisely describe cell bounds",
+        replaceWith = ReplaceWith(""),
+        level = DeprecationLevel.WARNING
+    )
+    val size: Float
+        get() = max(width, height)
+
+    var width = 0f
+        internal set
+
+    var height = 0f
         internal set
 
     /**
@@ -53,20 +66,22 @@ class CellInfo internal constructor() {
         if (radius > 0f) {
             var (left, top, right, bottom) = outRect
 
-            val sizeWithoutRadius = size - radius
+            val width = width
+            val heightWithoutRadius = height - radius
 
             when {
-                bottom > sizeWithoutRadius -> {
-                    val intersectionX = findIntersectionWithCircle(bottom - sizeWithoutRadius)
+                bottom > heightWithoutRadius -> {
+                    val intersectionX = findIntersectionWithCircle(bottom - heightWithoutRadius)
 
                     left = intersectionX
-                    right = size - intersectionX
+                    right = width - intersectionX
                 }
-                top > sizeWithoutRadius -> {
-                    val intersectionX = findIntersectionWithCircle(top - sizeWithoutRadius)
+
+                top > heightWithoutRadius -> {
+                    val intersectionX = findIntersectionWithCircle(top - heightWithoutRadius)
 
                     left = intersectionX
-                    right = size - intersectionX
+                    right = width - intersectionX
                 }
             }
 
@@ -90,35 +105,31 @@ class CellInfo internal constructor() {
     // Final formula:
     // x = R - sqrt((R - y) * (R + y))
     private fun findIntersectionWithCircle(y: Float): Float {
-        if (y > radius) {
-            return radius
+        val r = radius
+
+        if (y > r) {
+            return r
         }
 
-        return radius - sqrt((radius - y) * (radius + y))
+        return r - sqrt((r - y) * (r + y))
     }
 
     /**
      * Finds y-axis coordinate from which to start layout decorations
-     * using [height] of the needed place, padding of the cell and vertical alignment.
+     * using [areaHeight] of the needed place, padding of the cell and vertical alignment.
      */
     fun findTopWithAlignment(
-        height: Float,
+        areaHeight: Float,
         padding: Padding,
         align: VerticalAlignment
     ): Float {
         val areaTop = textBounds.bottom
-        val areaBottom = size
+        val areaBottom = height
 
-        return when(align) {
-            VerticalAlignment.TOP -> {
-                areaTop + padding.top
-            }
-            VerticalAlignment.CENTER -> {
-                (areaTop + areaBottom - height) * 0.5f
-            }
-            VerticalAlignment.BOTTOM -> {
-                areaBottom - padding.bottom - height
-            }
+        return when (align) {
+            VerticalAlignment.TOP -> areaTop + padding.top
+            VerticalAlignment.CENTER -> (areaTop + areaBottom - areaHeight) * 0.5f
+            VerticalAlignment.BOTTOM -> areaBottom - padding.bottom - areaHeight
         }
     }
 }
