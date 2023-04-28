@@ -11,7 +11,6 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.*
-import android.text.format.DateFormat
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -120,7 +119,7 @@ internal class RangeCalendarGridView(
         private val tempRect = Rect()
 
         override fun getVirtualViewAt(x: Float, y: Float): Int {
-            return if (y > grid.gridTop()) {
+            return if (grid.isXInActiveZone(x) && y > grid.gridTop()) {
                 grid.getCellByPointOnScreen(x, y).index
             } else {
                 INVALID_ID
@@ -186,26 +185,24 @@ internal class RangeCalendarGridView(
         }
 
         private fun getDayDescriptionForIndex(index: Int): CharSequence {
-            val currentMonthStart = grid.inMonthRange.start.index
-            val currentMonthEnd = grid.inMonthRange.end.index
+            val provider = grid.cellAccessibilityInfoProvider
+                ?: throw RuntimeException("cellAccessibilityInfoProvider should not be null")
+
+            val (monthStart, monthEnd) = grid.inMonthRange
 
             var ym = grid.ym
-            if (index < currentMonthStart) {
+            if (index < monthStart.index) {
                 ym -= 1
-            } else if (index > currentMonthEnd) {
+            } else if (index > monthEnd.index) {
                 ym += 1
             }
 
             val day = grid.cells[index].toInt()
 
-            PackedDate(ym, day).toCalendar(tempCalendar)
-
-            return DateFormat.format(DATE_FORMAT, tempCalendar)
+            return provider.getContentDescription(ym.year, ym.month, day)
         }
 
         companion object {
-            private const val DATE_FORMAT = "dd MMMM yyyy"
-
             private val INDICES = ArrayList<Int>(42).also {
                 repeat(42, it::add)
             }
@@ -348,6 +345,8 @@ internal class RangeCalendarGridView(
     private var decorTransitiveState: CellDecor.VisualState.Transitive? = null
 
     private val pressTimeoutHandler = PressTimeoutHandler(this)
+
+    private var cellAccessibilityInfoProvider: RangeCalendarCellAccessibilityInfoProvider? = null
 
     init {
         val defTextColor = cr.textColor
@@ -626,6 +625,13 @@ internal class RangeCalendarGridView(
 
         // showAdjacentMonths directly affects on the selection range, so we need to update it.
         updateSelectionRange()
+    }
+
+    fun setCellAccessibilityInfoProvider(value: RangeCalendarCellAccessibilityInfoProvider) {
+        cellAccessibilityInfoProvider = value
+
+        // Some accessibility-related properties might be changed.
+        touchHelper.invalidateRoot()
     }
 
     private fun refreshColumnWidth() = updateUIState {
@@ -1155,7 +1161,6 @@ internal class RangeCalendarGridView(
 
         selectionTransitiveState =
             selectionManager.createTransition(cellMeasureManager, selectionRenderOptions)
-        //Log.i(TAG, "transitiveState: $selectionTransitiveState")
 
         startCalendarAnimation(SELECTION_ANIMATION, handler, onEnd)
     }

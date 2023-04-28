@@ -348,8 +348,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
     private var isFirstDaySunday = false
 
-    private val nextMonthDescription: String
-    private val clearSelectionDescription: String
+    private var nextMonthDescription: CharSequence
+    private var clearSelectionDescription: CharSequence
 
     private val layoutRect = Rect()
     private val layoutOutRect = Rect()
@@ -392,6 +392,11 @@ class RangeCalendarView @JvmOverloads constructor(
 
         adapter = RangeCalendarPagerAdapter(cr, isFirstDaySunday)
         adapter.setToday(today)
+        adapter.setStyleObject(
+            RangeCalendarPagerAdapter.STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER,
+            DefaultRangeCalendarCellAccessibilityInfoProvider(context),
+            notify = false
+        )
         adapter.setSelectionGate(object : SelectionGate {
             override fun cell(year: Int, month: Int, dayOfMonth: Int) =
                 internalGate(SelectionType.CELL) {
@@ -1497,6 +1502,60 @@ class RangeCalendarView @JvmOverloads constructor(
         get() = adapter.getStyleBool(RangeCalendarPagerAdapter.STYLE_SHOW_ADJACENT_MONTHS)
         set(value) {
             adapter.setStyleBool(RangeCalendarPagerAdapter.STYLE_SHOW_ADJACENT_MONTHS, value)
+        }
+
+    /**
+     * Gets or sets content description for the 'previous month' button.
+     */
+    var previousMonthButtonContentDescription: CharSequence
+        get() = prevButton.contentDescription
+        set(value) {
+            prevButton.contentDescription = value
+        }
+
+    /**
+     * Gets or sets content description for the 'next month' button.
+     */
+    var nextMonthButtonContentDescription: CharSequence
+        get() = nextMonthDescription
+        set(value) {
+            nextMonthDescription = value
+
+            // We can only update nextOrClearButton's content description if either we don't have selection view
+            // or clear selection button is not enabled. Because if it's enabled, then nextOrClearButton is in
+            // 'clear selection' state and we'd update content description to the wrong value.
+            if (!isSelectionViewOnScreen || !_hasSvClearButton) {
+                nextOrClearButton.contentDescription = value
+            }
+        }
+
+    /**
+     * Gets or sets content description for the 'clear selection' button.
+     */
+    var clearSelectionButtonContentDescription: CharSequence
+        get() = clearSelectionDescription
+        set(value) {
+            clearSelectionDescription = value
+
+            // We can only update nextOrClearButton's content description to this value if
+            // clear selection button is enabled and selection view is on screen, otherwise
+            // the button is in 'next month' state.
+            if (isSelectionViewOnScreen && _hasSvClearButton) {
+                nextOrClearButton.contentDescription = value
+            }
+        }
+
+    /**
+     * Gets or sets current [RangeCalendarCellAccessibilityInfoProvider] that is
+     * responsible of providing accessibility-related information about cells in the calendar.
+     */
+    var cellAccessibilityInfoProvider: RangeCalendarCellAccessibilityInfoProvider
+        get() = adapter.getStyleObject(RangeCalendarPagerAdapter.STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER)
+        set(value) {
+            adapter.setStyleObject(
+                RangeCalendarPagerAdapter.STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER,
+                value
+            )
         }
 
     /**

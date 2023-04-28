@@ -157,7 +157,7 @@ internal class RangeCalendarPagerAdapter(
     private var today = PackedDate(0)
     private val calendarInfo = CalendarInfo()
     private val styleData = IntArray(20)
-    private val styleObjData = arrayOfNulls<Any>(6)
+    private val styleObjData = arrayOfNulls<Any>(7)
 
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
     private var selectionGate: RangeCalendarView.SelectionGate? = null
@@ -286,10 +286,12 @@ internal class RangeCalendarPagerAdapter(
         setStylePacked(type, PackedInt(value), notify)
     }
 
-    fun setStyleObject(type: Int, data: Any?) {
+    fun setStyleObject(type: Int, data: Any?, notify: Boolean = true) {
         styleObjData[type - STYLE_OBJ_START] = data
 
-        notifyItemRangeChanged(0, count, Payload.updateStyle(type, data))
+        if (notify) {
+            notifyItemRangeChanged(0, count, Payload.updateStyle(type, data))
+        }
     }
 
     fun setCellSize(value: Float) {
@@ -318,35 +320,43 @@ internal class RangeCalendarPagerAdapter(
             // sizes
             STYLE_DAY_NUMBER_TEXT_SIZE ->
                 gridView.setDayNumberTextSize(data.float())
+
             STYLE_WEEKDAY_TEXT_SIZE ->
                 gridView.setWeekdayTextSize(data.float())
+
             STYLE_CELL_RR_RADIUS ->
                 gridView.setCellRoundRadius(data.float())
+
             STYLE_CELL_WIDTH ->
                 gridView.setCellWidth(data.float())
+
             STYLE_CELL_HEIGHT ->
                 gridView.setCellHeight(data.float())
 
             // preferences
             STYLE_WEEKDAY_TYPE ->
                 gridView.setWeekdayType(data.enum(WeekdayType::ofOrdinal))
+
             STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR ->
                 gridView.clickOnCellSelectionBehavior = data.enum(ClickOnCellSelectionBehavior::ofOrdinal)
 
             // animations
             STYLE_COMMON_ANIMATION_DURATION ->
                 gridView.commonAnimationDuration = data.value
+
             STYLE_HOVER_ANIMATION_DURATION ->
                 gridView.hoverAnimationDuration = data.value
 
             STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> gridView.setSelectionFillGradientBoundsType(
                 data.enum(SelectionFillGradientBoundsType::ofOrdinal)
             )
+
             STYLE_CELL_ANIMATION_TYPE -> gridView.setCellAnimationType(data.enum(CellAnimationType::ofOrdinal))
 
             // other stuff
             STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE ->
                 gridView.vibrateOnSelectingCustomRange = data.boolean()
+
             STYLE_SHOW_ADJACENT_MONTHS ->
                 gridView.setShowAdjacentMonths(data.boolean())
         }
@@ -359,14 +369,22 @@ internal class RangeCalendarPagerAdapter(
         when (type) {
             STYLE_COMMON_ANIMATION_INTERPOLATOR ->
                 gridView.commonAnimationInterpolator = data.value()
+
             STYLE_HOVER_ANIMATION_INTERPOLATOR ->
                 gridView.hoverAnimationInterpolator = data.value()
+
             STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS ->
                 gridView.setDecorationDefaultLayoutOptions(data.value())
+
             STYLE_SELECTION_FILL ->
                 gridView.setSelectionFill(data.value())
+
             STYLE_SELECTION_MANAGER -> {
                 gridView.setSelectionManager(data.value())
+            }
+
+            STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER -> {
+                gridView.setCellAccessibilityInfoProvider(data.value())
             }
         }
     }
@@ -478,11 +496,13 @@ internal class RangeCalendarPagerAdapter(
                 val day = TimeUtils.getDaysInMonth(prevYm) - start + index + 1
                 PackedDate(prevYm, day)
             }
+
             index <= monthEnd -> {
                 val day = index - start + 1
 
                 PackedDate(ym, day)
             }
+
             else -> {
                 val day = index - monthEnd
 
@@ -743,6 +763,7 @@ internal class RangeCalendarPagerAdapter(
 
                 enabledRange.contains(cell)
             }
+
             SelectionType.WEEK -> {
                 val weekIndex = data.weekIndex
                 val range = CellRange.week(weekIndex)
@@ -762,6 +783,7 @@ internal class RangeCalendarPagerAdapter(
 
                 enabledRange.hasIntersectionWith(range)
             }
+
             SelectionType.MONTH -> {
                 val (year, month) = ym
 
@@ -774,6 +796,7 @@ internal class RangeCalendarPagerAdapter(
 
                 enabledRange.hasIntersectionWith(inMonthRange)
             }
+
             SelectionType.CUSTOM -> {
                 val range = data.dateRange
                 val (startDate, endDate) = range
@@ -794,6 +817,7 @@ internal class RangeCalendarPagerAdapter(
 
                 enabledRange.hasIntersectionWith(CellRange(startCell, endCell))
             }
+
             else -> false
         }
     }
@@ -823,9 +847,11 @@ internal class RangeCalendarPagerAdapter(
                 SelectionType.MONTH -> {
                     onMonthSelected(selectionYm, ym)
                 }
+
                 SelectionType.CUSTOM -> {
                     verifyCustomRange(data)
                 }
+
                 else -> {}
             }
 
@@ -1247,16 +1273,19 @@ internal class RangeCalendarPagerAdapter(
 
                     updateEnabledRange(gridView)
                 }
+
                 Payload.SELECT -> {
                     val selectionInfo = payload.obj1 as RangeCalendarGridView.SetSelectionInfo
 
                     gridView.select(selectionInfo)
                 }
+
                 Payload.UPDATE_TODAY_INDEX -> {
                     calendarInfo.set(getYearMonthForCalendar(position))
 
                     updateTodayIndex(gridView)
                 }
+
                 Payload.UPDATE_STYLE -> {
                     val type = payload.arg1.toInt()
                     val value = payload.arg2.toInt()
@@ -1267,11 +1296,13 @@ internal class RangeCalendarPagerAdapter(
                         updateStyle(gridView, type, PackedInt(value))
                     }
                 }
+
                 Payload.UPDATE_CELL_SIZE -> {
                     val value = Float.fromBits(payload.arg1.toInt())
 
                     gridView.setCellSize(value)
                 }
+
                 Payload.CLEAR_HOVER -> {
                     gridView.clearHoverCellWithAnimation()
                 }
@@ -1345,6 +1376,7 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS = 34
         const val STYLE_SELECTION_FILL = 35
         const val STYLE_SELECTION_MANAGER = 36
+        const val STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER = 37
 
         // Precomputed value
         private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
