@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.res.Configuration
 import android.content.res.TypedArray
 import android.graphics.Rect
 import android.os.Build
@@ -355,8 +356,6 @@ class RangeCalendarView @JvmOverloads constructor(
     private val hPadding: Int
     private val topContainerMarginBottom: Int
 
-    private val dateFormatter: CompatDateFormatter
-
     private var _selectionView: View? = null
     private var svAnimator: ValueAnimator? = null
 
@@ -373,7 +372,9 @@ class RangeCalendarView @JvmOverloads constructor(
     private val prevIcon: MoveButtonDrawable
     private val nextIcon: MoveButtonDrawable
 
+    private val dateFormatter: CompatDateFormatter
     private var isFirstDaySunday = false
+    private var currentLocale: Locale? = null
 
     private var nextMonthDescription: CharSequence
     private var clearSelectionDescription: CharSequence
@@ -696,8 +697,16 @@ class RangeCalendarView @JvmOverloads constructor(
 
     private fun initLocaleDependentValues() {
         val locale = context.getLocaleCompat()
+        currentLocale = locale
 
         refreshIsFirstDaySunday(locale)
+    }
+
+    private fun refreshLocaleDependentValues(newLocale: Locale) {
+        currentLocale = newLocale
+
+        dateFormatter.onLocaleChanged(newLocale)
+        refreshIsFirstDaySunday(newLocale)
     }
 
     private fun refreshIsFirstDaySunday(locale: Locale) {
@@ -711,6 +720,15 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     fun notifyTodayChanged() {
         adapter.setToday(PackedDate.today(_timeZone))
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        val newLocale = newConfig.getLocaleCompat()
+        if (currentLocale != newLocale) {
+            refreshLocaleDependentValues(newLocale)
+        }
     }
 
     override fun onSaveInstanceState(): Parcelable {
