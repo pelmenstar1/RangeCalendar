@@ -10,13 +10,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.TypedArray
 import android.graphics.Rect
-import android.graphics.drawable.Drawable
 import android.icu.text.DisplayContext
 import android.os.Build
 import android.os.Parcelable
 import android.text.format.DateFormat
 import android.util.AttributeSet
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -29,9 +27,9 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.StyleableRes
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
-import androidx.core.content.res.ResourcesCompat
 import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
+import com.github.pelmenstar1.rangecalendar.RangeCalendarView.SelectionGate
 import com.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import com.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
@@ -40,6 +38,7 @@ import com.github.pelmenstar1.rangecalendar.selection.SelectionManager
 import com.github.pelmenstar1.rangecalendar.selection.WideSelectionData
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
+import com.github.pelmenstar1.rangecalendar.utils.getSelectableItemBackground
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.*
@@ -423,7 +422,7 @@ class RangeCalendarView @JvmOverloads constructor(
             res.getDimensionPixelOffset(R.dimen.rangeCalendar_topContainerMarginBottom)
         initLocaleDependentValues()
 
-        val selectableBg = getSelectableItemBackground(context)
+        val selectableBg = context.getSelectableItemBackground()
         val cr = CalendarResources(context)
 
         hPadding = cr.hPadding.toInt()
@@ -907,19 +906,6 @@ class RangeCalendarView @JvmOverloads constructor(
 
         val pagerTop = buttonSize + topContainerMarginBottom
         pager.layout(0, pagerTop, pager.measuredWidth, pagerTop + pager.measuredHeight)
-    }
-
-    private fun getSelectableItemBackground(context: Context): Drawable? {
-        val theme = context.theme
-
-        val value = TypedValue()
-        theme.resolveAttribute(
-            androidx.appcompat.R.attr.selectableItemBackgroundBorderless,
-            value,
-            true
-        )
-
-        return ResourcesCompat.getDrawable(context.resources, value.resourceId, theme)
     }
 
     private fun setSelectionViewOnScreen(state: Boolean) {

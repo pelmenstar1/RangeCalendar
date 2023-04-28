@@ -5,10 +5,9 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.icu.text.DateFormatSymbols
 import android.os.Build
-import android.util.TypedValue
-import androidx.annotation.AttrRes
-import androidx.core.content.res.ResourcesCompat
 import com.github.pelmenstar1.rangecalendar.utils.darkerColor
+import com.github.pelmenstar1.rangecalendar.utils.getColorFromAttribute
+import com.github.pelmenstar1.rangecalendar.utils.getColorStateListFromAttribute
 import com.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 
@@ -46,10 +45,10 @@ internal class CalendarResources(context: Context) {
     init {
         val res = context.resources
 
-        colorPrimary = getColorPrimary(context)
+        colorPrimary = context.getColorFromAttribute(androidx.appcompat.R.attr.colorPrimary)
         colorPrimaryDark = colorPrimary.darkerColor(0.4f)
         textColor = getTextColor(context)
-        colorControlNormal = getColorStateListFromAttribute(context, androidx.appcompat.R.attr.colorControlNormal)
+        colorControlNormal = context.getColorStateListFromAttribute(androidx.appcompat.R.attr.colorControlNormal)
         outMonthTextColor = colorControlNormal.getColorForState(ENABLED_STATE, 0)
         disabledTextColor = colorControlNormal.getColorForState(EMPTY_STATE, 0)
         hoverColor = getHoverColor(context)
@@ -132,10 +131,6 @@ internal class CalendarResources(context: Context) {
 
         fun getDayText(day: Int) = DAYS[day - 1]
 
-        private fun getColorPrimary(context: Context): Int {
-            return getColorFromAttribute(context, androidx.appcompat.R.attr.colorPrimary)
-        }
-
         @SuppressLint("PrivateResource")
         private fun getTextColor(context: Context): Int {
             val theme = context.theme
@@ -144,43 +139,19 @@ internal class CalendarResources(context: Context) {
                 androidx.appcompat.R.styleable.TextAppearance
             )
 
-            val colorList = array.getColorStateList(androidx.appcompat.R.styleable.TextAppearance_android_textColor)
-            array.recycle()
+            try {
+                val colorList = array.getColorStateList(androidx.appcompat.R.styleable.TextAppearance_android_textColor)
 
-            return colorList!!.getColorForState(ENABLED_STATE, 0)
+                return colorList!!.getColorForState(ENABLED_STATE, 0)
+            } finally {
+                array.recycle()
+            }
         }
 
         private fun getHoverColor(context: Context): Int {
-            val hoverList = getColorStateListFromAttribute(context, androidx.appcompat.R.attr.colorControlHighlight)
+            val hoverList = context.getColorStateListFromAttribute(androidx.appcompat.R.attr.colorControlHighlight)
 
             return hoverList.getColorForState(HOVER_STATE, 0)
-        }
-
-        private fun getColorFromAttribute(context: Context, @AttrRes resId: Int): Int {
-            val typedValue = TypedValue()
-
-            val theme = context.theme
-            if (theme.resolveAttribute(resId, typedValue, true)) {
-                val type = typedValue.type
-
-                return if (type in TypedValue.TYPE_FIRST_COLOR_INT..TypedValue.TYPE_LAST_COLOR_INT) {
-                    typedValue.data
-                } else {
-                    ResourcesCompat.getColor(context.resources, typedValue.resourceId, theme)
-                }
-            }
-
-            throw IllegalArgumentException("Attribute $resId isn't defined")
-        }
-
-        private fun getColorStateListFromAttribute(context: Context, @AttrRes resId: Int): ColorStateList {
-            SINGLE_INT_ARRAY[0] = resId
-
-            val array = context.obtainStyledAttributes(SINGLE_INT_ARRAY)
-            val list = array.getColorStateList(0)
-            array.recycle()
-
-            return list!!
         }
     }
 }
