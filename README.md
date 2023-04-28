@@ -302,8 +302,12 @@ cannot use your implementation in a calendar view. It's implemented inside the l
         <td>Size of cell</td>
     </tr>
     <tr>
-        <td>rangeCalendar_cellSize</td>
-        <td>Size of cell</td>
+        <td>rangeCalendar_cellWidth</td>
+        <td>Width of cell. This value takes precedence over rangeCalendar_cellSize</td>
+    </tr>
+    <tr>
+        <td>rangeCalendar_cellHeight</td>
+        <td>Height of cell. This value takes precedence over rangeCalendar_cellSize</td>
     </tr>
     <tr>
         <td>rangeCalendar_weekdayType</td>
@@ -317,13 +321,13 @@ cannot use your implementation in a calendar view. It's implemented inside the l
         </td>
     </tr>
     <tr>
-        <td>rangeCalendar_cellSize</td>
+        <td>rangeCalendar_cellRoundRadius</td>
         <td>Round radius of the cell. By default it's positive infinity which means the shape is circle regardless the size of it.</td>
     </tr>
     <tr>
       <td>rangeCalendar_selectionFillGradientBoundsType</td>
       <td>
-        Gets or sets the way of determining bounds of selection. 
+        Specifies the way of determining bounds of selection. 
         It only matters when selection fill is gradient-like.
         It can be one of these values:
         <ul>
@@ -331,6 +335,21 @@ cannot use your implementation in a calendar view. It's implemented inside the l
           <li>shape - gradient distribution is limited to selection shape.</li>
         </ul>
       </td>
+    </tr>
+    <tr>
+      <td>rangeCalendar_cellAnimationType</td>
+      <td>
+           Specifies type of animation for cell.
+           It can be one of these values:
+           <ul>
+               <li>alpha - the cell gradually appears using color alpha animation</li>
+               <li>bubble - the cell rises from the center as circle (or oval if width and height are different). Looks better when the cell is a circle. </li>
+           </ul>
+      </td>
+    </tr>
+    <tr>
+       <td>rangeCalendar_showAdjacentMonths</td>
+       <td>Specifies whether to show adjacent months on the calendar page. By default, it's true</td>
     </tr>
 </table>
 
