@@ -10,10 +10,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.TypedArray
 import android.graphics.Rect
-import android.icu.text.DisplayContext
 import android.os.Build
 import android.os.Parcelable
-import android.text.format.DateFormat
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -23,7 +21,6 @@ import android.widget.ImageButton
 import android.widget.TextView
 import androidx.annotation.AttrRes
 import androidx.annotation.ColorInt
-import androidx.annotation.RequiresApi
 import androidx.annotation.StyleableRes
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
@@ -39,9 +36,10 @@ import com.github.pelmenstar1.rangecalendar.selection.WideSelectionData
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import com.github.pelmenstar1.rangecalendar.utils.getSelectableItemBackground
-import java.text.SimpleDateFormat
 import java.time.LocalDate
-import java.util.*
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -360,13 +358,8 @@ class RangeCalendarView @JvmOverloads constructor(
     private val buttonSize: Int
     private val hPadding: Int
     private val topContainerMarginBottom: Int
-    private var dateFormatter: SimpleDateFormat? = null
 
-    // formatter for API >= 24
-    @RequiresApi(24)
-    private var dateFormatter24: android.icu.text.SimpleDateFormat? = null
-
-    private val cachedDate = Date()
+    private val dateFormatter: CompatDateFormatter
 
     private var _selectionView: View? = null
     private var svAnimator: ValueAnimator? = null
@@ -420,6 +413,8 @@ class RangeCalendarView @JvmOverloads constructor(
         buttonSize = res.getDimensionPixelSize(R.dimen.rangeCalendar_actionButtonSize)
         topContainerMarginBottom =
             res.getDimensionPixelOffset(R.dimen.rangeCalendar_topContainerMarginBottom)
+        dateFormatter = CompatDateFormatter(context, DATE_FORMAT)
+
         initLocaleDependentValues()
 
         val selectableBg = context.getSelectableItemBackground()
@@ -732,21 +727,10 @@ class RangeCalendarView @JvmOverloads constructor(
     private fun initLocaleDependentValues() {
         val locale = context.getLocaleCompat()
 
-        // Find best format and create formatter
-        val dateFormat = if (Build.VERSION.SDK_INT >= 18) {
-            DateFormat.getBestDateTimePattern(locale, DATE_FORMAT)
-        } else {
-            DATE_FORMAT
-        }
+        refreshIsFirstDaySunday(locale)
+    }
 
-        if (Build.VERSION.SDK_INT >= 24) {
-            dateFormatter24 = android.icu.text.SimpleDateFormat(dateFormat, locale).apply {
-                setContext(DisplayContext.CAPITALIZATION_FOR_STANDALONE)
-            }
-        } else {
-            dateFormatter = SimpleDateFormat(dateFormat, locale)
-        }
-
+    private fun refreshIsFirstDaySunday(locale: Locale) {
         isFirstDaySunday = Calendar
             .getInstance(locale)
             .firstDayOfWeek == Calendar.SUNDAY
@@ -1871,13 +1855,7 @@ class RangeCalendarView @JvmOverloads constructor(
         if (infoViewYm != ym) {
             infoViewYm = ym
 
-            cachedDate.time = PackedDate(ym, 1).toEpochDay() * PackedDate.MILLIS_IN_DAY
-
-            infoView.text = if (Build.VERSION.SDK_INT >= 24) {
-                dateFormatter24!!.format(cachedDate)
-            } else {
-                dateFormatter!!.format(cachedDate)
-            }
+            infoView.text = dateFormatter.format(PackedDate(ym, 1))
         }
     }
 
