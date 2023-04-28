@@ -427,7 +427,11 @@ class RangeCalendarView @JvmOverloads constructor(
         val cr = CalendarResources(context)
 
         hPadding = cr.hPadding.toInt()
-        val today = PackedDate.today()
+
+        val currentTimeZone = TimeZone.getDefault()
+        _timeZone = currentTimeZone
+
+        val today = PackedDate.today(currentTimeZone)
 
         adapter = RangeCalendarPagerAdapter(cr, isFirstDaySunday)
         adapter.setToday(today)
@@ -644,8 +648,6 @@ class RangeCalendarView @JvmOverloads constructor(
         addView(infoView)
 
         setYearAndMonthInternal(YearMonth.forDate(today), false)
-
-        _timeZone = TimeZone.getDefault()
 
         attrs?.let { initFromAttributes(context, it, defStyleAttr) }
     }
