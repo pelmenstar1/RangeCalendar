@@ -252,13 +252,18 @@ internal class RangeCalendarPagerAdapter(
     fun getStyleBool(type: Int) = getStylePacked(type).boolean()
     fun getStyleFloat(type: Int) = getStylePacked(type).float()
 
-    inline fun <T : Enum<T>> getStyleEnum(type: Int, fromInt: (Int) -> T) =
-        getStylePacked(type).enum(fromInt)
-
     @Suppress("UNCHECKED_CAST")
     fun <T> getStyleObject(type: Int): T {
         return styleObjData[type - STYLE_OBJ_START] as T
     }
+
+    inline fun <T : Enum<T>> getStyleEnum(getType: Companion.() -> Int, fromInt: (Int) -> T) =
+        getStylePacked(Companion.getType()).enum(fromInt)
+
+    inline fun getStyleInt(getType: Companion.() -> Int) = getStyleInt(Companion.getType())
+    inline fun getStyleBool(getType: Companion.() -> Int) = getStyleBool(Companion.getType())
+    inline fun getStyleFloat(getType: Companion.() -> Int) = getStyleFloat(Companion.getType())
+    inline fun <T> getStyleObject(getType: Companion.() -> Int): T = getStyleObject(Companion.getType())
 
     private fun setStylePacked(type: Int, packed: PackedInt, notify: Boolean) {
         if (styleData[type] != packed.value) {
@@ -292,6 +297,26 @@ internal class RangeCalendarPagerAdapter(
         if (notify) {
             notifyItemRangeChanged(0, count, Payload.updateStyle(type, data))
         }
+    }
+
+    inline fun setStyleInt(getType: Companion.() -> Int, value: Int, notify: Boolean = true) {
+        setStyleInt(Companion.getType(), value, notify)
+    }
+
+    inline fun setStyleFloat(getType: Companion.() -> Int, value: Float, notify: Boolean = true) {
+        setStyleFloat(Companion.getType(), value, notify)
+    }
+
+    inline fun setStyleBool(getType: Companion.() -> Int, value: Boolean, notify: Boolean = true) {
+        setStyleBool(Companion.getType(), value, notify)
+    }
+
+    fun <T : Enum<T>> setStyleEnum(getType: Companion.() -> Int, value: T, notify: Boolean = true) {
+        setStylePacked(Companion.getType(), PackedInt(value), notify)
+    }
+
+    inline fun setStyleObject(getType: Companion.() -> Int, data: Any?, notify: Boolean = true) {
+        setStyleObject(Companion.getType(), data, notify)
     }
 
     fun setCellSize(value: Float) {
