@@ -392,6 +392,11 @@ class RangeCalendarView @JvmOverloads constructor(
 
         adapter = RangeCalendarPagerAdapter(cr, isFirstDaySunday)
         adapter.setToday(today)
+        adapter.setStyleObject(
+            RangeCalendarPagerAdapter.STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER,
+            DefaultRangeCalendarCellAccessibilityInfoProvider(context),
+            notify = false
+        )
         adapter.setSelectionGate(object : SelectionGate {
             override fun cell(year: Int, month: Int, dayOfMonth: Int) =
                 internalGate(SelectionType.CELL) {
@@ -1540,6 +1545,18 @@ class RangeCalendarView @JvmOverloads constructor(
             }
         }
 
+    /**
+     * Gets or sets current [RangeCalendarCellAccessibilityInfoProvider] that is
+     * responsible of providing accessibility-related information about cells in the calendar.
+     */
+    var cellAccessibilityInfoProvider: RangeCalendarCellAccessibilityInfoProvider
+        get() = adapter.getStyleObject(RangeCalendarPagerAdapter.STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER)
+        set(value) {
+            adapter.setStyleObject(
+                RangeCalendarPagerAdapter.STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER,
+                value
+            )
+        }
 
     /**
      * Changes calendar page to the previous one. If it's not possible, nothing will happen.
