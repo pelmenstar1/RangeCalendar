@@ -4,10 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.res.TypedArray
 import android.graphics.Rect
 import android.os.Build
@@ -346,7 +343,6 @@ class RangeCalendarView @JvmOverloads constructor(
     private var _maxDateEpoch = PackedDate.MAX_DATE_EPOCH
 
     private var infoViewYm = YearMonth(0)
-    private var isReceiverRegistered = false
     private var currentCalendarYm = YearMonth(0)
     private val adapter: RangeCalendarPagerAdapter
 
@@ -384,28 +380,6 @@ class RangeCalendarView @JvmOverloads constructor(
 
     private val layoutRect = Rect()
     private val layoutOutRect = Rect()
-
-    private val onDateChangedReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                Intent.ACTION_DATE_CHANGED -> {
-                    refreshToday()
-                }
-
-                Intent.ACTION_TIMEZONE_CHANGED -> {
-                    if (observeTimeZoneChanges) {
-                        _timeZone = if (Build.VERSION.SDK_INT >= 30) {
-                            TimeZone.getTimeZone(intent.getStringExtra(Intent.EXTRA_TIMEZONE))
-                        } else {
-                            TimeZone.getDefault()
-                        }
-
-                        refreshToday()
-                    }
-                }
-            }
-        }
-    }
 
     init {
         val res = context.resources
@@ -720,10 +694,6 @@ class RangeCalendarView @JvmOverloads constructor(
         block(ExtractAttributesScope(this, attrs))
     }
 
-    private fun refreshToday() {
-        adapter.setToday(PackedDate.today(_timeZone))
-    }
-
     private fun initLocaleDependentValues() {
         val locale = context.getLocaleCompat()
 
@@ -734,6 +704,13 @@ class RangeCalendarView @JvmOverloads constructor(
         isFirstDaySunday = Calendar
             .getInstance(locale)
             .firstDayOfWeek == Calendar.SUNDAY
+    }
+
+    /**
+     * Notifies that today's date in specified [timeZone] is changed.
+     */
+    fun notifyTodayChanged() {
+        adapter.setToday(PackedDate.today(_timeZone))
     }
 
     override fun onSaveInstanceState(): Parcelable {
@@ -765,36 +742,6 @@ class RangeCalendarView @JvmOverloads constructor(
             }
         } else {
             super.onRestoreInstanceState(state)
-        }
-    }
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-
-        registerReceiver()
-    }
-
-    override fun onDetachedFromWindow() {
-        super.onDetachedFromWindow()
-
-        unregisterReceiver()
-    }
-
-    private fun registerReceiver() {
-        if (!isReceiverRegistered) {
-            isReceiverRegistered = true
-
-            context.registerReceiver(onDateChangedReceiver, IntentFilter().apply {
-                addAction(Intent.ACTION_DATE_CHANGED)
-            })
-        }
-    }
-
-    private fun unregisterReceiver() {
-        if (isReceiverRegistered) {
-            isReceiverRegistered = false
-
-            context.unregisterReceiver(onDateChangedReceiver)
         }
     }
 
@@ -1114,35 +1061,17 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Gets or sets whether system time zone changes should be observed.
-     *
-     * If `true`, then when system time zone is changed, [timeZone] is updated to the new one
-     * and "today" cell is updated as well.
-     * If 'false', then system time zone changes are unobserved.
-     */
-    var observeTimeZoneChanges: Boolean = true
-
-    /**
-     * Gets or sets calendar's time zone.
-     * By default, it's default system time zone ([TimeZone.getDefault]).
+     * Gets or sets calendar's time zone. By default, it's default system time zone ([TimeZone.getDefault]).
      *
      * Calendar's time zone affects to "today" cell recognition.
      * When new time zone is set, "today" cell is updated.
-     *
-     * **NOTE:** when new value is set, [observeTimeZoneChanges] is set to `false`.
-     * This is due to the assumption that when custom time zone (not default system one) is set,
-     * it's expected that the calendar's time zone wouldn't be overwritten when system one is changed.
-     * In spite of the assumption, it's not forbidden to set [observeTimeZoneChanges] to `true`.
      */
     var timeZone: TimeZone
         get() = _timeZone
         set(value) {
-            if (!_timeZone.hasSameRules(value)) {
-                _timeZone = value
-                observeTimeZoneChanges = false
+            _timeZone = value
 
-                refreshToday()
-            }
+            notifyTodayChanged()
         }
 
     /**
@@ -1177,7 +1106,7 @@ class RangeCalendarView @JvmOverloads constructor(
      * by default it's solid color which color is extracted from [androidx.appcompat.R.attr.colorPrimary]
      */
     var selectionFill: Fill
-        get() = adapter.getStyleObject({ STYLE_SELECTION_FILL })
+        get() = adapter.getStyleObject { STYLE_SELECTION_FILL }
         set(value) {
             adapter.setStyleObject({ STYLE_SELECTION_FILL }, value)
         }
