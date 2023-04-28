@@ -22,7 +22,7 @@ import java.util.TimeZone
  * To partially disable some notifications about changes to [calendarView], [observeDateChanges] and [observeTimeZoneChanges] can be used.
  * Note that, setting them all to true won't register the observer. Alike to setting them all to false, it won't unregister the observer.
  */
-class RangeCalendarConfigObserver(private val context: Context, private val calendarView: RangeCalendarView) {
+class RangeCalendarConfigObserver(private val calendarView: RangeCalendarView) {
     private var lifecycle: Lifecycle? = null
     private var lifecycleObserver: LifecycleObserver? = null
 
@@ -70,7 +70,7 @@ class RangeCalendarConfigObserver(private val context: Context, private val cale
         }
 
         val receiver = createBroadcastReceiver()
-        context.registerReceiver(receiver, IntentFilter().apply {
+        calendarView.context.registerReceiver(receiver, IntentFilter().apply {
             addAction(Intent.ACTION_DATE_CHANGED)
             addAction(Intent.ACTION_TIMEZONE_CHANGED)
         })
@@ -84,7 +84,7 @@ class RangeCalendarConfigObserver(private val context: Context, private val cale
      */
     fun unregister() {
         broadcastReceiver?.let {
-            context.unregisterReceiver(it)
+            calendarView.context.unregisterReceiver(it)
 
             broadcastReceiver = null
         }
