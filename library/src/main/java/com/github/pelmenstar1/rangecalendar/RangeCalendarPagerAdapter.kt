@@ -154,7 +154,9 @@ internal class RangeCalendarPagerAdapter(
     // and this can lead to bugs when we mutate the wrong page.
     var selectionYm = YearMonth(0)
 
-    private var today = PackedDate(0)
+    // used in tests
+    internal var today = PackedDate(0)
+
     private val calendarInfo = CalendarInfo()
     private val styleData = IntArray(20)
     private val styleObjData = arrayOfNulls<Any>(7)

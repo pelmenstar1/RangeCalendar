@@ -345,7 +345,9 @@ class RangeCalendarView @JvmOverloads constructor(
 
     private var infoViewYm = YearMonth(0)
     private var currentCalendarYm = YearMonth(0)
-    private val adapter: RangeCalendarPagerAdapter
+
+    @JvmField // used in tests
+    internal val adapter: RangeCalendarPagerAdapter
 
     private var allowedSelectionTypesObj: AllowedSelectionTypes? = null
 

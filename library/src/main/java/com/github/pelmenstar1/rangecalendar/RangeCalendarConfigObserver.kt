@@ -113,25 +113,29 @@ class RangeCalendarConfigObserver(private val calendarView: RangeCalendarView) {
         }
     }
 
+    internal fun onBroadcastReceived(intent: Intent) {
+        when(intent.action) {
+            Intent.ACTION_TIMEZONE_CHANGED -> {
+                if (observeTimeZoneChanges) {
+                    val tzId = if (Build.VERSION.SDK_INT >= 30) {
+                        intent.getStringExtra(Intent.EXTRA_TIMEZONE)
+                    } else null
+
+                    calendarView.timeZone = tzId?.let(TimeZone::getTimeZone) ?: TimeZone.getDefault()
+                }
+            }
+            Intent.ACTION_DATE_CHANGED -> {
+                if (observeDateChanges) {
+                    calendarView.notifyTodayChanged()
+                }
+            }
+        }
+    }
+
     private fun createBroadcastReceiver(): BroadcastReceiver {
         return object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                when(intent.action) {
-                    Intent.ACTION_TIMEZONE_CHANGED -> {
-                        if (observeTimeZoneChanges) {
-                            val tzId = if (Build.VERSION.SDK_INT >= 30) {
-                                intent.getStringExtra(Intent.EXTRA_TIMEZONE)
-                            } else null
-
-                            calendarView.timeZone = tzId?.let(TimeZone::getTimeZone) ?: TimeZone.getDefault()
-                        }
-                    }
-                    Intent.ACTION_DATE_CHANGED -> {
-                        if (observeDateChanges) {
-                            calendarView.notifyTodayChanged()
-                        }
-                    }
-                }
+                onBroadcastReceived(intent)
             }
         }
     }
