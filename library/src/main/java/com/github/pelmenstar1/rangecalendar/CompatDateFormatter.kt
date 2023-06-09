@@ -8,7 +8,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-internal class CompatDateFormatter(private val context: Context, private val pattern: String) {
+internal class CompatDateFormatter(context: Context, private val pattern: String) {
     // If API >= 24, the type should be android.icu.text.SimpleDateFormat,
     // otherwise java.text.SimpleDateFormat.
     private var dateFormatter: Any? = null
@@ -50,21 +50,24 @@ internal class CompatDateFormatter(private val context: Context, private val pat
         val buffer = stringBuffer
         buffer.setLength(0)
 
-        return if (Build.VERSION.SDK_INT >= 24) {
+        // Use the appropriate formatter
+        if (Build.VERSION.SDK_INT >= 24) {
             val formatter = dateFormatter as android.icu.text.SimpleDateFormat
             val calendar = calendarOrDate as android.icu.util.Calendar
 
             calendar.timeInMillis = millis
 
-            formatter.format(calendar, buffer, FIELD_POS).toString()
+            formatter.format(calendar, buffer, FIELD_POS)
         } else {
             val formatter = dateFormatter as SimpleDateFormat
             val javaUtilDate = calendarOrDate as Date
 
             javaUtilDate.time = millis
 
-            formatter.format(javaUtilDate, buffer, FIELD_POS).toString()
+            formatter.format(javaUtilDate, buffer, FIELD_POS)
         }
+
+        return buffer.toString()
     }
 
     companion object {
