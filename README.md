@@ -219,11 +219,21 @@ cannot use your implementation in a calendar view. It's implemented inside the l
 
 - `getTimeZone()/setTimeZone()` to get or set calendar's time zone. By default, it's default system time
   zone (`TimeZone.getDefault()`). Calendar's time zone affects to "today" cell recognition. When new time zone is set, "
-  today" cell is updated. If new value (not system default one) is set, system time zone changes become unobserved due
-  to the assumption that when custom time zone is set, it's expected that calendar's time zone wouldn't be overwritten
-  when system time zone is changed.
-- `getObserveTimeZoneChanges()/setObserveTimeZoneChanges()` to get or set whether system time zone changes should be
-  observed.
+  today" cell is updated.
+
+## Observing date and time-zone changes
+
+This can be done manually by registering an `BroadcastReceiver` and updating time zone via `setTimeZone()` or notifying about today's date change via `notifyTodayChanged()`.
+Or `RangeCalendarConfigObserver` can be used that, basically, does the same thing. The class is also lifecycle-aware.
+Example:
+```kotlin
+val observer = RangeCalendarConfigObserver(rangeCalendar).apply { 
+    observeDateChanges = false // if we don't want rangeCalendar to be notified about these changes.
+    observeTimeZoneChanges = true // by default, it's true. But can also be disabled.
+}
+observer.setLifecycle(lifecycle) // If we want to unregister the observer on destroy.
+observer.register() // The observer should be registered manually.
+```
 
 ## Other
 
