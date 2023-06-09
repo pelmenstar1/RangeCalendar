@@ -286,6 +286,7 @@ internal class RangeCalendarGridView(
     private var selectionTransitiveState: SelectionState.Transitive? = null
 
     private var selectionManager: SelectionManager = DefaultSelectionManager()
+    private var selectionRenderer = selectionManager.createRenderer()
     private var selectionRenderOptions: SelectionRenderOptions
 
     private var selectionFill: Fill
@@ -462,6 +463,7 @@ internal class RangeCalendarGridView(
         resolvedManager.setStateOrNone(selState)
 
         selectionManager = resolvedManager
+        selectionRenderer = resolvedManager.createRenderer()
     }
 
     private fun SelectionManager.setStateOrNone(state: SelectionState) {
@@ -1511,15 +1513,15 @@ internal class RangeCalendarGridView(
     }
 
     private fun drawSelection(c: Canvas) {
-        val manager = selectionManager
+        val renderer = selectionRenderer
         val options = selectionRenderOptions
 
         if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
             selectionTransitiveState?.let {
-                manager.drawTransition(c, it, options)
+                renderer.drawTransition(c, it, options)
             }
         } else {
-            manager.draw(c, options)
+            renderer.draw(c, selectionManager.currentState, options)
         }
     }
 
