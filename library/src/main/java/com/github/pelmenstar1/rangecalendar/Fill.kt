@@ -86,6 +86,7 @@ sealed class Fill(val type: Int) {
     internal class Gradient(
         type: Int,
 
+        // Stores whether the total number of colors is 2 and gradientPositions equals to null or [0, 1]
         @JvmField
         internal val isTwoColors: Boolean,
         private val gradientColors: IntArray,
@@ -123,6 +124,10 @@ sealed class Fill(val type: Int) {
                     shape.narrowBox(tempBox)
 
                     createLinearShader(orientation, tempBox) { x0, y0, x1, y1 ->
+                        // Prior to API 29 there was an optimization around creating a shader
+                        // that allows to create the shader with two colors, that are distributed along
+                        // the gradient line, more efficiently
+                        // by using LinearGradient(x0, y0, x1, y1, color0, color1, Shader.TileMode) constructor
                         if (Build.VERSION.SDK_INT < 29 && isTwoColors) {
                             LinearGradient(
                                 x0, y0, x1, y1,
@@ -144,6 +149,7 @@ sealed class Fill(val type: Int) {
                     val radius = shape.computeCircumcircle(tempBox, tempPoint)
                     val (cx, cy) = tempPoint
 
+                    // Same motivation as in linear gradients.
                     if (Build.VERSION.SDK_INT < 29 && isTwoColors) {
                         RadialGradient(
                             cx, cy, radius,
@@ -297,6 +303,9 @@ sealed class Fill(val type: Int) {
         shape: Shape
     )
 
+    /**
+     * Sets bounds in which the fill is applied.
+     */
     @JvmOverloads
     fun setBounds(
         left: Float,
@@ -335,7 +344,7 @@ sealed class Fill(val type: Int) {
      * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
      *
      * It should be used to draw something on [canvas] using a [Fill] instance which might be gradient-like.
-     * If Kotlin is used, there's `inline` version of the method which makes it more performant.
+     * For Kotlin, there's `inline` version of the method which makes it more performant.
      *
      * Implementation notes: internally it uses [Canvas.saveLayerAlpha] to override alpha of the layer.
      * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
@@ -408,6 +417,8 @@ sealed class Fill(val type: Int) {
             a: IntArray, aAlphas: ByteArray?,
             b: IntArray, bAlphas: ByteArray?
         ): Boolean {
+            // Use optimized Arrays.equals() if both aAlphas and bAlphas are null which
+            // means that alphas weren't changed.
             if (aAlphas == null && bAlphas == null) {
                 return a.contentEquals(b)
             }
@@ -435,6 +446,8 @@ sealed class Fill(val type: Int) {
         }
 
         private fun colorsHashCode(colors: IntArray, originAlphas: ByteArray?): Int {
+            // Use optimized Arrays.hashCode() if originAlphas is null which means
+            // that alphas of colors weren't changed.
             if (originAlphas == null) {
                 return colors.contentHashCode()
             }
@@ -472,6 +485,7 @@ sealed class Fill(val type: Int) {
         @JvmStatic
         fun solid(@ColorInt color: Int): Fill = Solid(color)
 
+        // Places bounds' components in appropriate order to achieve the desired effect of using Orientation.
         private inline fun <T : Shader> createLinearShader(
             orientation: Orientation,
             bounds: RectF,
@@ -532,6 +546,8 @@ sealed class Fill(val type: Int) {
         ): Fill {
             checkColorsAndPositions(colors, positions)
 
+            // positions' length is also 2, because colors.size == positions.size
+            // that was checked by checkColorsAndPositions
             val isTwoColors =
                 colors.size == 2 && (positions == null || (positions[0] == 0f && positions[1] == 1f))
 
