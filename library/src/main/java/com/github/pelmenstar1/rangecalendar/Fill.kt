@@ -79,13 +79,15 @@ sealed class Fill(val type: Int) {
         override fun hashCode(): Int = color
 
         override fun toString(): String {
-            return String.format("Fill(type=SOLID, color=%08X)", color)
+            return String.format("Fill(type=SOLID, color=#%08X)", color)
         }
     }
 
-    private class Gradient(
+    internal class Gradient(
         type: Int,
-        private val isTwoColors: Boolean,
+
+        @JvmField
+        internal val isTwoColors: Boolean,
         private val gradientColors: IntArray,
         private val gradientPositions: FloatArray?,
         private val orientation: Orientation
@@ -98,7 +100,7 @@ sealed class Fill(val type: Int) {
         private var shader: Shader? = null
 
         fun createShader(alpha: Float): Shader {
-            val shape = boundsShape!!
+            val shape = boundsShape ?: throw IllegalStateException("setBounds() must be called before calling applyToPaint()")
 
             val tempBox = getTempBox()
             getBounds(tempBox)
@@ -226,6 +228,7 @@ sealed class Fill(val type: Int) {
             ) return false
 
             if (!gradientPositions.contentEquals(other.gradientPositions)) return false
+            if (orientation != other.orientation) return false
 
             return true
         }
@@ -239,6 +242,8 @@ sealed class Fill(val type: Int) {
         }
 
         override fun toString(): String {
+            val type = type
+
             return buildString(64) {
                 append("Fill(type=")
 
@@ -248,12 +253,17 @@ sealed class Fill(val type: Int) {
                     append("RADIAL_GRADIENT")
                 }
 
-                append("colors=")
+                append(", colors=")
                 appendColors(gradientColors, originGradientColorsAlphas)
 
                 gradientPositions?.also {
                     append(", positions=")
                     append(it.contentToString())
+                }
+
+                if (type == TYPE_LINEAR_GRADIENT) {
+                    append(", orientation=")
+                    append(orientation.name)
                 }
 
                 append(')')
