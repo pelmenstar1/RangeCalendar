@@ -1,14 +1,13 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
-import android.graphics.*
-import androidx.core.graphics.*
-import com.github.pelmenstar1.rangecalendar.*
-import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
-import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
+import android.graphics.PointF
+import com.github.pelmenstar1.rangecalendar.SelectionType
+import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 internal class DefaultSelectionManager : SelectionManager {
     private var _prevState: DefaultSelectionState = DefaultSelectionState.None
     private var _currentState: DefaultSelectionState = DefaultSelectionState.None
+    private var _renderer: DefaultSelectionRenderer? = null
 
     override val previousState: SelectionState
         get() = _prevState
@@ -16,11 +15,12 @@ internal class DefaultSelectionManager : SelectionManager {
     override val currentState: SelectionState
         get() = _currentState
 
+    override val renderer: SelectionRenderer
+        get() = getLazyValue(_renderer, ::DefaultSelectionRenderer) { _renderer = it }
+
     override fun setNoneState() {
         setStateInternal(DefaultSelectionState.None)
     }
-
-    override fun createRenderer(): SelectionRenderer = DefaultSelectionRenderer()
 
     override fun setState(
         type: SelectionType,

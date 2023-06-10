@@ -18,10 +18,12 @@ interface SelectionManager {
     val currentState: SelectionState
 
     /**
-     * Creates a selection renderer that is connected to the current [SelectionManager] in the way that the renderer
+     * Gets a selection renderer that is connected to the current [SelectionManager] in the way that the renderer
      * recognizes the types of selection states that are created by the selection manager.
+     *
+     * It's expected that the same [SelectionRenderer] instance is returned each time the property is accessed.
      */
-    fun createRenderer(): SelectionRenderer
+    val renderer: SelectionRenderer
 
     /**
      * Sets state whose type is [SelectionType.NONE].

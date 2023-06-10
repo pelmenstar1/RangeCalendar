@@ -286,7 +286,7 @@ internal class RangeCalendarGridView(
     private var selectionTransitiveState: SelectionState.Transitive? = null
 
     private var selectionManager: SelectionManager = DefaultSelectionManager()
-    private var selectionRenderer = selectionManager.createRenderer()
+    private var selectionRenderer = selectionManager.renderer
     private var selectionRenderOptions: SelectionRenderOptions
 
     private var selectionFill: Fill
@@ -463,7 +463,7 @@ internal class RangeCalendarGridView(
         resolvedManager.setStateOrNone(selState)
 
         selectionManager = resolvedManager
-        selectionRenderer = resolvedManager.createRenderer()
+        selectionRenderer = resolvedManager.renderer
     }
 
     private fun SelectionManager.setStateOrNone(state: SelectionState) {

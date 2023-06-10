@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.os.Build
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
@@ -13,6 +14,7 @@ import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
 import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
+import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 internal class DefaultSelectionRenderer : SelectionRenderer {
     private object Radii {
@@ -99,29 +101,70 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private var path: Path? = null
     private val pathBounds = RectF()
 
+    private var primaryCellNode: CellRenderNode? = null
+    private var secondaryCellNode: CellRenderNode? = null
+
+    private fun getOrCreatePrimaryCellNode(): CellRenderNode {
+        return getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
+    }
+
+    private fun getOrCreateSecondaryCellNode(): CellRenderNode {
+        return getLazyValue(secondaryCellNode, ::CellRenderNode) { secondaryCellNode = it }
+    }
+
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
         when (state) {
-            is DefaultSelectionState.CellState -> drawCell(canvas, state, options)
+            is DefaultSelectionState.CellState -> drawCell(
+                canvas, state, options,
+                alpha = 1f,
+                usePrimaryNode = true
+            )
+
             is DefaultSelectionState.WeekState -> drawWeekSelection(canvas, state, options)
             is DefaultSelectionState.CustomRangeStateBase -> drawCustomRange(canvas, state, options)
             else -> {}
         }
     }
 
-    override fun drawTransition(canvas: Canvas, state: SelectionState.Transitive, options: SelectionRenderOptions) {
-        val isHandled = drawCellAppearTransition(canvas, state, options)
-        if (isHandled) {
-            return
-        }
-
+    override fun drawTransition(
+        canvas: Canvas,
+        state: SelectionState.Transitive,
+        options: SelectionRenderOptions
+    ) {
         when (state) {
-            is DefaultSelectionState.CellState.DualAlpha -> {
-                drawCell(canvas, state.start, options, state.startAlpha)
-                drawCell(canvas, state.end, options, state.endAlpha)
+            is DefaultSelectionState.CellState.AppearAlpha -> {
+                drawCell(canvas, state.baseState, options, state.alpha, usePrimaryNode = true)
             }
+
+            is DefaultSelectionState.CellState.AppearBubble -> {
+                drawRectOnRow(canvas, state.bounds, options)
+            }
+
+            is DefaultSelectionState.CellState.DualAlpha -> {
+                drawCell(canvas, state.start, options, state.startAlpha, usePrimaryNode = true)
+                drawCell(canvas, state.end, options, state.endAlpha, usePrimaryNode = false)
+            }
+
             is DefaultSelectionState.CellState.DualBubble -> {
                 drawRectOnRow(canvas, state.startBounds, options)
                 drawRectOnRow(canvas, state.endBounds, options)
+            }
+
+            is DefaultSelectionState.CellState.MoveToCell -> {
+                val bounds = state.bounds
+                val left = bounds.left
+                val top = bounds.top
+                val width = bounds.right - left
+                val height = bounds.bottom - top
+
+                drawCell(
+                    canvas,
+                    left, top,
+                    width, height,
+                    options,
+                    alpha = 1f,
+                    usePrimaryNode = true
+                )
             }
 
             is DefaultSelectionState.BoundsTransitionBase -> {
@@ -130,7 +173,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
             is DefaultSelectionState.CellToWeek -> {
                 drawRectOnRow(canvas, state.weekTransition.bounds, options)
-                drawCell(canvas, state.start, options, state.cellAlpha)
+                drawCell(canvas, state.start, options, state.cellAlpha, usePrimaryNode = true)
             }
 
             is DefaultSelectionState.CellToMonth -> {
@@ -155,24 +198,27 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         }
     }
 
-    private fun drawCellAppearTransition(
+    private fun drawCell(
         canvas: Canvas,
-        state: SelectionState.Transitive,
-        options: SelectionRenderOptions
-    ): Boolean {
-        return when (state) {
-            is DefaultSelectionState.CellState.AppearAlpha -> {
-                drawCell(canvas, state.baseState, options, state.alpha)
-
-                true
-            }
-            is DefaultSelectionState.CellState.AppearBubble -> {
-                drawRectOnRow(canvas, state.bounds, options)
-
-                true
+        left: Float, top: Float,
+        cellWidth: Float, cellHeight: Float,
+        options: SelectionRenderOptions,
+        alpha: Float,
+        usePrimaryNode: Boolean
+    ) {
+        if (Build.VERSION.SDK_INT >= 29 && canvas.isHardwareAccelerated) {
+            val node = if (usePrimaryNode) {
+                getOrCreatePrimaryCellNode()
+            } else {
+                getOrCreateSecondaryCellNode()
             }
 
-            else -> false
+            node.setSize(cellWidth, cellHeight)
+            node.setRenderOptions(options)
+
+            node.draw(canvas, left, top, alpha)
+        } else {
+            drawRectOnRow(canvas, left, top, left + cellWidth, top + cellHeight, options, alpha)
         }
     }
 
@@ -180,15 +226,16 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         canvas: Canvas,
         state: DefaultSelectionState.CellState,
         options: SelectionRenderOptions,
-        alpha: Float = 1f
+        alpha: Float,
+        usePrimaryNode: Boolean
     ) {
-        val left = state.left
-        val top = state.top
-
-        drawRectOnRow(
+        drawCell(
             canvas,
-            left, top, right = left + state.cellWidth, bottom = top + state.cellHeight,
-            options, alpha
+            state.left, state.top,
+            state.cellWidth, state.cellHeight,
+            options,
+            alpha,
+            usePrimaryNode
         )
     }
 
