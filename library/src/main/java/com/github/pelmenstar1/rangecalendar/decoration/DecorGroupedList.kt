@@ -11,7 +11,6 @@ import com.github.pelmenstar1.rangecalendar.selection.Cell
  * - Region is range of items with the same year-month
  * - Subregion is subrange within some region of items with the same cell.
  */
-@Suppress("LeakingThis", "UNCHECKED_CAST")
 internal class DecorGroupedList {
     internal var elements: Array<CellDecor>
 
@@ -259,6 +258,7 @@ internal class DecorGroupedList {
          * The array is returned with assumption it will be filled with actually not-null elements later.
          * It's unsafe because it breaks Kotlin in some way.
          */
+        @Suppress("UNCHECKED_CAST")
         private fun unsafeNewArray(size: Int): Array<CellDecor> {
             return arrayOfNulls<CellDecor>(size) as Array<CellDecor>
         }
