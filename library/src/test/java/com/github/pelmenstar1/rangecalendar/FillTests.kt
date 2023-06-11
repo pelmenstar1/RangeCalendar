@@ -37,40 +37,6 @@ class FillTests {
     }
 
     @Test
-    fun createLinearGradientIsTwoColorsThroughTwoColorConstructorTest() {
-        val fill = Fill.linearGradient(0, 1, Fill.Orientation.LEFT_RIGHT)
-
-        assertTrue((fill as Fill.Gradient).isTwoColors)
-    }
-
-    @Test
-    fun createLinearGradientIsTwoColorsThroughArrayConstructorTest() {
-        fun testCase(colors: IntArray, positions: FloatArray?, expectedValue: Boolean) {
-            val fill = Fill.linearGradient(colors, positions, Fill.Orientation.LEFT_RIGHT)
-            val actualValue = (fill as Fill.Gradient).isTwoColors
-
-            assertEquals(
-                expectedValue,
-                actualValue,
-                "colors.size=${colors.size}, positions=${positions.contentToString()}"
-            )
-        }
-
-        testCase(colors = intArrayOf(0, 1), positions = null, expectedValue = true)
-        testCase(colors = intArrayOf(0, 1), positions = floatArrayOf(0f, 1f), expectedValue = true)
-        testCase(
-            colors = intArrayOf(0, 1, 2),
-            positions = floatArrayOf(0f, 1f, 2f),
-            expectedValue = false
-        )
-        testCase(
-            colors = intArrayOf(0, 1, 2, 3),
-            positions = floatArrayOf(0f, 3f, 2f, 4f),
-            expectedValue = false
-        )
-    }
-
-    @Test
     fun equalsLinearGradientTest() {
         fun testCase(
             thisColors: IntArray, thisPositions: FloatArray?, thisOrientation: Fill.Orientation,
@@ -134,6 +100,17 @@ class FillTests {
             otherOrientation = Fill.Orientation.RIGHT_LEFT,
             expectedResult = false
         )
+
+        // null positions should be equal to [0, 1] positions
+        testCase(
+            thisColors = intArrayOf(0, 1),
+            thisPositions = null,
+            thisOrientation = Fill.Orientation.LEFT_RIGHT,
+            otherColors = intArrayOf(0, 1),
+            otherPositions = floatArrayOf(0f, 1f),
+            otherOrientation = Fill.Orientation.LEFT_RIGHT,
+            expectedResult = true
+        )
     }
 
     @Test
@@ -143,6 +120,20 @@ class FillTests {
         val result = thisFill == otherFill
 
         assertFalse(result)
+    }
+
+    @Test
+    fun hashCodeLinearGradientTest() {
+        val colors = intArrayOf(0, 1)
+
+        val fill1 = Fill.linearGradient(colors, positions = floatArrayOf(0f, 1f), Fill.Orientation.LEFT_RIGHT)
+        val fill2 = Fill.linearGradient(colors, positions = null, Fill.Orientation.LEFT_RIGHT)
+
+        val hc1 = fill1.hashCode()
+        val hc2 = fill2.hashCode()
+        val isEqual = hc1 == hc2
+
+        assertTrue(isEqual, "hashcodes should be equal")
     }
 
     @Test
@@ -163,7 +154,14 @@ class FillTests {
             colors = intArrayOf(Color.RED, Color.GREEN),
             positions = null,
             orientation = Fill.Orientation.LEFT_RIGHT,
-            expectedResult = "Fill(type=LINEAR_GRADIENT, colors=[#FFFF0000, #FF00FF00], orientation=LEFT_RIGHT)"
+            expectedResult = "Fill(type=LINEAR_GRADIENT, colors=[#FFFF0000, #FF00FF00], positions=[0.0, 1.0], orientation=LEFT_RIGHT)"
+        )
+
+        testCase(
+            colors = intArrayOf(Color.RED, Color.GREEN),
+            positions = floatArrayOf(0f, 1f),
+            orientation = Fill.Orientation.LEFT_RIGHT,
+            expectedResult = "Fill(type=LINEAR_GRADIENT, colors=[#FFFF0000, #FF00FF00], positions=[0.0, 1.0], orientation=LEFT_RIGHT)"
         )
 
         testCase(
@@ -190,7 +188,13 @@ class FillTests {
         testCase(
             colors = intArrayOf(Color.RED, Color.GREEN),
             positions = null,
-            expectedResult = "Fill(type=RADIAL_GRADIENT, colors=[#FFFF0000, #FF00FF00])"
+            expectedResult = "Fill(type=RADIAL_GRADIENT, colors=[#FFFF0000, #FF00FF00], positions=[0.0, 1.0])"
+        )
+
+        testCase(
+            colors = intArrayOf(Color.RED, Color.GREEN),
+            positions = floatArrayOf(0f, 1f),
+            expectedResult = "Fill(type=RADIAL_GRADIENT, colors=[#FFFF0000, #FF00FF00], positions=[0.0, 1.0])"
         )
 
         testCase(

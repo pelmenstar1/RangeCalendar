@@ -14,19 +14,40 @@ import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
+import com.github.pelmenstar1.rangecalendar.utils.appendColor
 import com.github.pelmenstar1.rangecalendar.utils.appendColors
-import com.github.pelmenstar1.rangecalendar.utils.equalsWithPrecision
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.withAlpha
 import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
+import kotlin.math.abs
 
 /**
  * Represents either a solid fill or gradient fill.
  *
  * This class is declared as `sealed` which means classes outside the library module cannot extend [Fill].
  * To create an instance of [Fill], use [Fill.solid], [Fill.linearGradient], [Fill.radialGradient] methods.
+ *
+ * **Comparison and representation**
+ *
+ * Gradient positions `null` and `[0, 1]` are visually the same and Fill's logic makes it same too.
+ * It impacts [equals], [hashCode], [toString] that return the same results on [Fill] instances with same properties, except gradient positions.
+ *
+ * Example:
+ * ```
+ * val f1 = Fill.radialGradient(intArrayOf(1, 2), floatArrayOf(1, 0))
+ * val f2 = Fill.radialGradient(intArrayOf(1, 2), null)
+ *
+ * val isEqual = f1 == f2 // true
+ * ```
  */
-sealed class Fill(val type: Int) {
+class Fill private constructor(
+    val type: Int,
+
+    private val solidColor: Int,
+    private val gradientColors: IntArray?,
+    private val gradientPositions: FloatArray?,
+    private val orientation: Orientation
+) {
     /**
      * Represents orientations for gradients.
      */
@@ -52,239 +73,90 @@ sealed class Fill(val type: Int) {
         RIGHT_LEFT
     }
 
-    private class Solid(private val color: Int) : Fill(TYPE_SOLID) {
-        override fun applyToPaint(paint: Paint, alpha: Float) {
-            paint.style = Paint.Style.FILL
-            paint.color = color.withCombinedAlpha(alpha)
-            paint.shader = null
-        }
-
-        override fun onBoundsChanged(
-            oldLeft: Float, oldTop: Float, oldRight: Float, oldBottom: Float,
-            newLeft: Float, newTop: Float, newRight: Float, newBottom: Float,
-            shape: Shape
-        ) {
-            // No-op
-        }
-
-        override fun equals(other: Any?): Boolean {
-            if (other === this) return true
-            if (other == null || javaClass != other.javaClass) return false
-
-            other as Solid
-
-            return color == other.color
-        }
-
-        override fun hashCode(): Int = color
-
-        override fun toString(): String {
-            return String.format("Fill(type=SOLID, color=#%08X)", color)
-        }
-    }
-
-    internal class Gradient(
-        type: Int,
-
-        // Stores whether the total number of colors is 2 and gradientPositions equals to null or [0, 1]
-        @JvmField
-        internal val isTwoColors: Boolean,
-        private val gradientColors: IntArray,
-        private val gradientPositions: FloatArray?,
-        private val orientation: Orientation
-    ) : Fill(type) {
-        private var shaderAlpha = 1f
-
-        // Initialized when needed.
-        private var originGradientColorsAlphas: ByteArray? = null
-
-        private var shader: Shader? = null
-
-        fun createShader(alpha: Float): Shader {
-            val shape = boundsShape
-                ?: throw IllegalStateException("setBounds() must be called before calling applyToPaint()")
-
-            val tempBox = getTempBox()
-            getBounds(tempBox)
-
-            val gradColors = gradientColors
-
-            if (shaderAlpha != alpha) {
-                shaderAlpha = alpha
-
-                val originAlphas = getLazyValue(
-                    originGradientColorsAlphas,
-                    { extractAlphas(gradColors) }
-                ) { originGradientColorsAlphas = it }
-
-                combineAlphas(alpha, originAlphas, gradColors)
-            }
-
-            return when (type) {
-                TYPE_LINEAR_GRADIENT -> {
-                    shape.narrowBox(tempBox)
-
-                    createLinearShader(orientation, tempBox) { x0, y0, x1, y1 ->
-                        // Prior to API 29 there was an optimization around creating a shader
-                        // that allows to create the shader with two colors, that are distributed along
-                        // the gradient line, more efficiently
-                        // by using LinearGradient(x0, y0, x1, y1, color0, color1, Shader.TileMode) constructor
-                        if (Build.VERSION.SDK_INT < 29 && isTwoColors) {
-                            LinearGradient(
-                                x0, y0, x1, y1,
-                                gradColors[0], gradColors[1],
-                                Shader.TileMode.MIRROR
-                            )
-                        } else {
-                            LinearGradient(
-                                x0, y0, x1, y1,
-                                gradColors, gradientPositions,
-                                Shader.TileMode.MIRROR
-                            )
-                        }
-                    }
-                }
-
-                TYPE_RADIAL_GRADIENT -> {
-                    val tempPoint = getTempPoint()
-                    val radius = shape.computeCircumcircle(tempBox, tempPoint)
-                    val (cx, cy) = tempPoint
-
-                    // Same motivation as in linear gradients.
-                    if (Build.VERSION.SDK_INT < 29 && isTwoColors) {
-                        RadialGradient(
-                            cx, cy, radius,
-                            gradColors[0], gradColors[1],
-                            Shader.TileMode.MIRROR
-                        )
-                    } else {
-                        RadialGradient(
-                            cx, cy, radius,
-                            gradColors, gradientPositions,
-                            Shader.TileMode.MIRROR
-                        )
-                    }
-                }
-
-                else -> throw RuntimeException("Invalid type of Fill")
-            }
-        }
-
-        override fun applyToPaint(paint: Paint, alpha: Float) {
-            paint.style = Paint.Style.FILL
-
-            if (shaderAlpha != alpha) {
-                shader = createShader(alpha)
-            }
-
-            paint.shader = shader
-        }
-
-        override fun onBoundsChanged(
-            oldLeft: Float, oldTop: Float, oldRight: Float, oldBottom: Float,
-            newLeft: Float, newTop: Float, newRight: Float, newBottom: Float,
-            shape: Shape
-        ) {
-            val shouldUpdateShader = shouldUpdateShaderOnBoundsChange(
-                oldLeft, oldTop, oldRight, oldBottom,
-                newLeft, newTop, newRight, newBottom
-            )
-
-            if (shouldUpdateShader) {
-                shader = createShader(alpha = 1f)
-            }
-        }
-
-        private fun shouldUpdateShaderOnBoundsChange(
-            oldLeft: Float, oldTop: Float, oldRight: Float, oldBottom: Float,
-            newLeft: Float, newTop: Float, newRight: Float, newBottom: Float
-        ): Boolean {
-            val oldComp1: Float
-            val newComp1: Float
-            val oldComp2: Float
-            val newComp2: Float
-
-            when (orientation) {
-                Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT -> {
-                    oldComp1 = oldLeft; newComp1 = newLeft
-                    oldComp2 = oldRight; newComp2 = newRight
-                }
-
-                Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP -> {
-                    oldComp1 = oldTop; newComp1 = newTop
-                    oldComp2 = oldBottom; newComp2 = newBottom
-                }
-            }
-
-            return !oldComp1.equalsWithPrecision(newComp1, EPSILON) ||
-                    !oldComp2.equalsWithPrecision(newComp2, EPSILON)
-        }
-
-        override fun equals(other: Any?): Boolean {
-            if (other === this) return true
-            if (other == null || javaClass != other.javaClass) return false
-
-            other as Gradient
-
-            if (type != other.type) return false
-
-            if (!colorsEquals(
-                    gradientColors, originGradientColorsAlphas,
-                    other.gradientColors, other.originGradientColorsAlphas
-                )
-            ) return false
-
-            if (!gradientPositions.contentEquals(other.gradientPositions)) return false
-            if (orientation != other.orientation) return false
-
-            return true
-        }
-
-        override fun hashCode(): Int {
-            var result = type
-            result = 31 * result + colorsHashCode(gradientColors, originGradientColorsAlphas)
-            result = 31 * result + gradientPositions.contentHashCode()
-
-            return result
-        }
-
-        override fun toString(): String {
-            val type = type
-
-            return buildString(64) {
-                append("Fill(type=")
-
-                if (type == TYPE_LINEAR_GRADIENT) {
-                    append("LINEAR_GRADIENT")
-                } else {
-                    append("RADIAL_GRADIENT")
-                }
-
-                append(", colors=")
-                appendColors(gradientColors, originGradientColorsAlphas)
-
-                gradientPositions?.also {
-                    append(", positions=")
-                    append(it.contentToString())
-                }
-
-                if (type == TYPE_LINEAR_GRADIENT) {
-                    append(", orientation=")
-                    append(orientation.name)
-                }
-
-                append(')')
-            }
-        }
-    }
-
     private var boundsLeft = 0f
     private var boundsTop = 0f
     private var boundsRight = 0f
     private var boundsBottom = 0f
 
-    @JvmField
-    protected var boundsShape: Shape? = null
+    private var boundsShape: Shape? = null
+
+    private var shader: Shader? = null
+    private var shaderAlpha = 1f
+
+    // Initialized when needed.
+    private var originGradientColorsAlphas: ByteArray? = null
+
+    private val isZeroOnePositions = isZeroOneArray(gradientPositions)
+
+    private fun createShader(alpha: Float): Shader {
+        val shape = boundsShape
+            ?: throw IllegalStateException("setBounds() must be called before calling applyToPaint()")
+
+        val tempBox = getTempBox()
+        getBounds(tempBox)
+
+        val gradColors = gradientColors!!
+
+        if (shaderAlpha != alpha) {
+            shaderAlpha = alpha
+
+            val originAlphas = getLazyValue(
+                originGradientColorsAlphas,
+                { extractAlphas(gradColors) }
+            ) { originGradientColorsAlphas = it }
+
+            combineAlphas(alpha, originAlphas, gradColors)
+        }
+
+        return when (type) {
+            TYPE_LINEAR_GRADIENT -> {
+                shape.narrowBox(tempBox)
+
+                createLinearShader(orientation, tempBox) { x0, y0, x1, y1 ->
+                    // Prior to API 29 there was an optimization around creating a shader
+                    // that allows to create the shader with two colors, that are distributed along
+                    // the gradient line, more efficiently
+                    // by using LinearGradient(x0, y0, x1, y1, color0, color1, Shader.TileMode) constructor
+                    if (Build.VERSION.SDK_INT < 29 && isZeroOnePositions) {
+                        LinearGradient(
+                            x0, y0, x1, y1,
+                            gradColors[0], gradColors[1],
+                            Shader.TileMode.MIRROR
+                        )
+                    } else {
+                        LinearGradient(
+                            x0, y0, x1, y1,
+                            gradColors, gradientPositions,
+                            Shader.TileMode.MIRROR
+                        )
+                    }
+                }
+            }
+
+            TYPE_RADIAL_GRADIENT -> {
+                val tempPoint = getTempPoint()
+                val radius = shape.computeCircumcircle(tempBox, tempPoint)
+                val (cx, cy) = tempPoint
+
+                // Same motivation as in linear gradients.
+                if (Build.VERSION.SDK_INT < 29 && isZeroOnePositions) {
+                    RadialGradient(
+                        cx, cy, radius,
+                        gradColors[0], gradColors[1],
+                        Shader.TileMode.MIRROR
+                    )
+                } else {
+                    RadialGradient(
+                        cx, cy, radius,
+                        gradColors, gradientPositions,
+                        Shader.TileMode.MIRROR
+                    )
+                }
+            }
+
+            else -> throw RuntimeException("Invalid type of Fill")
+        }
+    }
 
     fun getBounds(outRect: RectF) {
         outRect.set(boundsLeft, boundsTop, boundsRight, boundsBottom)
@@ -297,12 +169,6 @@ sealed class Fill(val type: Int) {
     fun setBounds(bounds: RectF, shape: Shape = RectangleShape) {
         setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom, shape)
     }
-
-    protected abstract fun onBoundsChanged(
-        oldLeft: Float, oldTop: Float, oldRight: Float, oldBottom: Float,
-        newLeft: Float, newTop: Float, newRight: Float, newBottom: Float,
-        shape: Shape
-    )
 
     /**
      * Sets bounds in which the fill is applied.
@@ -319,15 +185,28 @@ sealed class Fill(val type: Int) {
         val oldTop = boundsTop
         val oldRight = boundsRight
         val oldBottom = boundsBottom
+        val oldShape = boundsShape
 
-        if (oldLeft != left || oldTop != top || oldRight != right || oldBottom != bottom || boundsShape != shape) {
-            boundsLeft = left
-            boundsTop = top
-            boundsRight = right
-            boundsBottom = bottom
-            boundsShape = shape
+        boundsLeft = left
+        boundsTop = top
+        boundsRight = right
+        boundsBottom = bottom
+        boundsShape = shape
 
-            onBoundsChanged(oldLeft, oldTop, oldRight, oldBottom, left, top, right, bottom, shape)
+        if (type != TYPE_SOLID && (oldLeft != left || oldTop != top || oldRight != right || oldBottom != bottom || oldShape != shape)) {
+            val updateShader = when (orientation) {
+                Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT -> {
+                    abs(oldLeft - left) >= EPSILON || abs(oldRight - right) >= EPSILON
+                }
+
+                Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP -> {
+                    abs(oldTop - top) >= EPSILON || abs(oldBottom - bottom) >= EPSILON
+                }
+            }
+
+            if (updateShader) {
+                shader = createShader(alpha = 1f)
+            }
         }
     }
 
@@ -339,7 +218,23 @@ sealed class Fill(val type: Int) {
      * For this purpose, there's [drawWith] method. In Kotlin, `inline` version of the method can be used, which
      * makes it more performant than version with [Runnable] lambda.
      */
-    abstract fun applyToPaint(paint: Paint, alpha: Float = 1f)
+    @JvmOverloads
+    fun applyToPaint(paint: Paint, alpha: Float = 1f) {
+        paint.style = Paint.Style.FILL
+
+        if (type == TYPE_SOLID) {
+            paint.color = solidColor.withCombinedAlpha(alpha)
+            paint.shader = null
+        } else {
+            var sh = shader
+            if (shaderAlpha != alpha) {
+                sh = createShader(alpha)
+                shader = sh
+            }
+
+            paint.shader = sh
+        }
+    }
 
     /**
      * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
@@ -387,6 +282,85 @@ sealed class Fill(val type: Int) {
             } finally {
                 canvas.restoreToCount(count)
             }
+        }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other === this) return true
+        if (other == null || javaClass != other.javaClass) return false
+
+        other as Fill
+
+        if (type != other.type) return false
+
+        val gradColors = gradientColors
+
+        // gradColors == null means that the fill is solid
+        return if (gradColors == null) {
+            solidColor == other.solidColor
+        } else {
+            orientation == other.orientation &&
+                    positionsEquals(gradientPositions, other.gradientPositions) &&
+                    colorsEquals(
+                        gradColors, originGradientColorsAlphas,
+                        other.gradientColors!!, other.originGradientColorsAlphas
+                    )
+
+        }
+    }
+
+    override fun hashCode(): Int {
+        var result = type
+
+        val gradColors = gradientColors
+
+        // gradColors == null means that the fill is solid.
+        if (gradColors == null) {
+            result = result * 31 + solidColor
+        } else {
+            result = result * 31 + colorsHashCode(gradColors, originGradientColorsAlphas)
+            result = result * 31 + positionsHashCode(gradientPositions)
+            result = result * 31 + orientation.ordinal
+        }
+
+        return result
+    }
+
+    override fun toString(): String {
+        val type = type
+
+        return buildString(64) {
+            append("Fill(type=")
+
+            val typeStr = when (type) {
+                TYPE_SOLID -> "SOLID"
+                TYPE_LINEAR_GRADIENT -> "LINEAR_GRADIENT"
+                TYPE_RADIAL_GRADIENT -> "RADIAL_GRADIENT"
+                else -> throw RuntimeException("Invalid type of Fill")
+            }
+
+            append(typeStr)
+
+            val gradColors = gradientColors
+
+            // gradColors == null means that the fill is solid
+            if (gradColors == null) {
+                append(", color=")
+                appendColor(solidColor)
+            } else {
+                append(", colors=")
+                appendColors(gradColors, originGradientColorsAlphas)
+
+                append(", positions=")
+                append(gradientPositions?.contentToString() ?: "[0.0, 1.0]")
+
+                if (type == TYPE_LINEAR_GRADIENT) {
+                    append(", orientation=")
+                    append(orientation.name)
+                }
+            }
+
+            append(')')
         }
     }
 
@@ -466,18 +440,22 @@ sealed class Fill(val type: Int) {
             return result
         }
 
-        private fun extractAlphas(colors: IntArray): ByteArray {
-            return ByteArray(colors.size) { i -> colors[i].alpha.toByte() }
+        private fun isZeroOneArray(arr: FloatArray?) =
+            arr == null || (arr.size == 2 && arr[0] == 0f && arr[1] == 1f)
+
+        private fun positionsEquals(a: FloatArray?, b: FloatArray?): Boolean {
+            if (a == null) return isZeroOneArray(b)
+            if (b == null) return isZeroOneArray(a)
+
+            return a.contentEquals(b)
         }
 
-        private fun checkColorsAndPositions(colors: IntArray, positions: FloatArray?) {
-            if (positions != null && colors.size != positions.size) {
-                throw IllegalArgumentException("colors and positions must have equal length")
-            }
+        private fun positionsHashCode(arr: FloatArray?): Int {
+            return if (arr == null || isZeroOneArray(arr)) 0 else arr.contentHashCode()
+        }
 
-            if (colors.size < 2) {
-                throw IllegalArgumentException("colors length <= 2")
-            }
+        private fun extractAlphas(colors: IntArray): ByteArray {
+            return ByteArray(colors.size) { i -> colors[i].alpha.toByte() }
         }
 
         /**
@@ -486,7 +464,13 @@ sealed class Fill(val type: Int) {
          * @param color color of fill.
          */
         @JvmStatic
-        fun solid(@ColorInt color: Int): Fill = Solid(color)
+        fun solid(@ColorInt color: Int) = Fill(
+            type = TYPE_SOLID,
+            solidColor = color,
+            gradientColors = null,
+            gradientPositions = null,
+            orientation = Orientation.LEFT_RIGHT
+        )
 
         // Places bounds' components in appropriate order to achieve the desired effect of using Orientation.
         private inline fun <T : Shader> createLinearShader(
@@ -532,9 +516,9 @@ sealed class Fill(val type: Int) {
             @ColorInt endColor: Int,
             orientation: Orientation,
         ): Fill {
-            return Gradient(
+            return Fill(
                 type,
-                isTwoColors = true,
+                solidColor = 0,
                 gradientColors = intArrayOf(startColor, endColor),
                 gradientPositions = null,
                 orientation = orientation
@@ -547,16 +531,17 @@ sealed class Fill(val type: Int) {
             positions: FloatArray?,
             orientation: Orientation
         ): Fill {
-            checkColorsAndPositions(colors, positions)
+            if (positions != null && colors.size != positions.size) {
+                throw IllegalArgumentException("colors and positions must have equal length")
+            }
 
-            // positions' length is also 2, because colors.size == positions.size
-            // that was checked by checkColorsAndPositions
-            val isTwoColors =
-                colors.size == 2 && (positions == null || (positions[0] == 0f && positions[1] == 1f))
+            if (colors.size < 2) {
+                throw IllegalArgumentException("colors length < 2")
+            }
 
-            return Gradient(
+            return Fill(
                 type,
-                isTwoColors = isTwoColors,
+                solidColor = 0,
                 gradientColors = colors.copyOf(),
                 gradientPositions = positions,
                 orientation = orientation

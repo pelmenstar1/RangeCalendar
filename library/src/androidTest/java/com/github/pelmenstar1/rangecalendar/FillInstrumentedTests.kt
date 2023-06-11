@@ -54,7 +54,7 @@ class FillInstrumentedTests {
         val thisToString = thisFill.toString()
         val otherToString = otherFill.toString()
 
-        assertEquals("Fill(type=LINEAR_GRADIENT, colors=[#FFFF0000, #FF000000], orientation=LEFT_RIGHT)", thisToString)
+        assertEquals("Fill(type=LINEAR_GRADIENT, colors=[#FFFF0000, #FF000000], positions=[0.0, 1.0], orientation=LEFT_RIGHT)", thisToString)
         assertEquals(thisToString, otherToString)
     }
 
