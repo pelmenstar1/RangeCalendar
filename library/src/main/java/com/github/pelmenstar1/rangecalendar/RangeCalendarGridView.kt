@@ -1575,13 +1575,12 @@ internal class RangeCalendarGridView(
             weekdayWidths = FloatArray(7)
         }
 
-        weekdayPaint.getTextBoundsArray(cr.weekdays, offset, offset + 7) { i, size ->
-            val height = size.height
+        weekdayPaint.getTextBoundsArray(cr.weekdays, offset, offset + 7) { i, width, height ->
             if (height > maxHeight) {
                 maxHeight = height
             }
 
-            weekdayWidths[i] = size.width.toFloat()
+            weekdayWidths[i] = width.toFloat()
         }
 
         maxWeekdayHeight = maxHeight.toFloat()
@@ -1710,8 +1709,8 @@ internal class RangeCalendarGridView(
                 dayNumberSizes = sizes
             }
 
-            dayNumberPaint.getTextBoundsArray(CalendarResources.DAYS, 0, 31) { i, size ->
-                sizes[i] = size
+            dayNumberPaint.getTextBoundsArray(CalendarResources.DAYS, 0, 31) { i, width, height ->
+                sizes[i] = PackedSize(width, height)
             }
         }
     }
