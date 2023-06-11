@@ -5,7 +5,6 @@ import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
-import com.github.pelmenstar1.rangecalendar.PackedRectF
 import com.github.pelmenstar1.rangecalendar.Padding
 import com.github.pelmenstar1.rangecalendar.VerticalAlignment
 import kotlin.math.max
@@ -45,18 +44,25 @@ class CellInfo internal constructor() {
     var layoutOptions: DecorLayoutOptions? = null
         internal set
 
-    internal var textBounds = PackedRectF(0)
-        private set
+    private var textLeft = 0f
+    private var textTop = 0f
+    private var textRight = 0f
+
+    @JvmField
+    internal var textBottom = 0f
 
     internal fun setTextBounds(left: Float, top: Float, right: Float, bottom: Float) {
-        textBounds = PackedRectF(left, top, right, bottom)
+        textLeft = left
+        textTop = top
+        textRight = right
+        textBottom = bottom
     }
 
     /**
      * Sets bounds of text in the cell to [outRect]
      */
     fun getTextBounds(outRect: RectF) {
-        textBounds.setTo(outRect)
+        outRect.set(textLeft, textTop, textRight, textBottom)
     }
 
     /**
@@ -123,7 +129,7 @@ class CellInfo internal constructor() {
         padding: Padding,
         align: VerticalAlignment
     ): Float {
-        val areaTop = textBounds.bottom
+        val areaTop = textBottom
         val areaBottom = height
 
         return when (align) {

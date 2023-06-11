@@ -1229,8 +1229,8 @@ internal class RangeCalendarGridView(
         val halfCellTextHeight = cellTextSize.height * 0.5f
 
         cellInfo.apply {
-            cellWidth = cw
-            cellHeight = ch
+            width = cw
+            height = ch
             radius = cellRoundRadius()
             layoutOptions = decorLayoutOptionsArray[cell] ?: decorDefaultLayoutOptions
 

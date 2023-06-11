@@ -4,12 +4,12 @@ import android.graphics.Paint
 import android.graphics.RectF
 import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.BorderAnimationType
-import com.github.pelmenstar1.rangecalendar.PackedRectF
 import com.github.pelmenstar1.rangecalendar.adjustForBorder
+import com.github.pelmenstar1.rangecalendar.utils.arrayRectToObject
 
 internal fun Border.doDrawPreparation(
-    animatedBounds: PackedRectF,
-    endBounds: PackedRectF,
+    animatedBoundsArray: FloatArray, endBoundsArray: FloatArray,
+    arrayAbsIndex: Int,
     animationFraction: Float,
     borderAnimationType: BorderAnimationType,
     paint: Paint,
@@ -18,26 +18,28 @@ internal fun Border.doDrawPreparation(
     applyToPaint(paint)
 
     val animatedBorderWidth: Float
+    val outRectArray: FloatArray
 
     when(borderAnimationType) {
         BorderAnimationType.ONLY_SHAPE -> {
             animatedBorderWidth = width
 
-            animatedBounds.setTo(outRect)
+            outRectArray = animatedBoundsArray
         }
         BorderAnimationType.ONLY_WIDTH -> {
             animatedBorderWidth = width * animationFraction
             paint.strokeWidth = animatedBorderWidth
 
-            endBounds.setTo(outRect)
+            outRectArray = endBoundsArray
         }
         BorderAnimationType.SHAPE_AND_WIDTH -> {
             animatedBorderWidth = width * animationFraction
             paint.strokeWidth = animatedBorderWidth
 
-            animatedBounds.setTo(outRect)
+            outRectArray = animatedBoundsArray
         }
     }
 
+    arrayRectToObject(outRectArray, arrayAbsIndex, outRect)
     outRect.adjustForBorder(animatedBorderWidth)
 }

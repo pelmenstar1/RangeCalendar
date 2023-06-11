@@ -1,11 +1,29 @@
 package com.github.pelmenstar1.rangecalendar.decoration
 
 import android.content.Context
-import android.graphics.*
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Typeface
 import androidx.annotation.ColorInt
-import com.github.pelmenstar1.rangecalendar.*
+import com.github.pelmenstar1.rangecalendar.Border
+import com.github.pelmenstar1.rangecalendar.BorderAnimationType
+import com.github.pelmenstar1.rangecalendar.Fill
+import com.github.pelmenstar1.rangecalendar.HorizontalAlignment
+import com.github.pelmenstar1.rangecalendar.Padding
+import com.github.pelmenstar1.rangecalendar.R
+import com.github.pelmenstar1.rangecalendar.VerticalAlignment
+import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_BOTTOM
+import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_LEFT
+import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_RIGHT
+import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_TOP
+import com.github.pelmenstar1.rangecalendar.utils.arrayRectToObject
 import com.github.pelmenstar1.rangecalendar.utils.getTextBounds
 import com.github.pelmenstar1.rangecalendar.utils.lerp
+import com.github.pelmenstar1.rangecalendar.utils.lerpFloatArray
+import com.github.pelmenstar1.rangecalendar.utils.setRectFromObject
+import com.github.pelmenstar1.rangecalendar.utils.setRectFromValues
 import kotlin.math.max
 
 /**
@@ -16,12 +34,11 @@ class LineDecor(val style: Style) : CellDecor() {
     override fun visual(): Visual = LineVisual
 
     private open class LineVisualState(
-        val linesBoundsArray: PackedRectFArray,
-        val textBoundsArray: PackedRectFArray,
+        val linesAndTextBoundsArray: FloatArray,
         val styles: Array<Style>
     ) : VisualState {
         override val isEmpty: Boolean
-            get() = linesBoundsArray.isEmpty
+            get() = linesAndTextBoundsArray.isEmpty()
 
         override fun visual(): Visual = LineVisual
     }
@@ -31,7 +48,7 @@ class LineDecor(val style: Style) : CellDecor() {
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
-    ): LineVisualState(PackedRectFArray(end.linesBoundsArray.size), end.textBoundsArray, end.styles), VisualState.Transitive {
+    ) : LineVisualState(end.linesAndTextBoundsArray.copyOf(), end.styles), VisualState.Transitive {
         override var animationFraction: Float = 0f
 
         override fun handleAnimation(
@@ -40,35 +57,43 @@ class LineDecor(val style: Style) : CellDecor() {
         ) {
             this.animationFraction = animationFraction
 
-            val startBoundsArray = start.linesBoundsArray
-            val endBoundsArray = end.linesBoundsArray
-            val affectedRangeLength = affectedRangeEnd - affectedRangeStart + 1
+            val startBoundsArray = start.linesAndTextBoundsArray
+            val endBoundsArray = end.linesAndTextBoundsArray
+            val thisBoundsArray = linesAndTextBoundsArray
 
-            lerpRectArray(
-                startBoundsArray, endBoundsArray, linesBoundsArray,
-                0, affectedRangeStart - 1,
+            val endStyles = end.styles
+
+            val rangeStart = affectedRangeStart
+            val rangeEnd = affectedRangeEnd
+            val rangeLength = rangeEnd - rangeStart + 1
+
+            lerpFloatArray(
+                startBoundsArray, endBoundsArray, thisBoundsArray,
+                startIndex = 0, endIndexExclusive = rangeStart * 4,
                 animationFraction
             )
 
-            for (i in affectedRangeStart..affectedRangeEnd) {
+            for (i in rangeStart..rangeEnd) {
                 val animFraction = fractionInterpolator.getItemFraction(
-                    i - affectedRangeStart, affectedRangeLength, animationFraction
+                    i - rangeStart, rangeLength, animationFraction
                 )
 
-                val bounds = endBoundsArray[i]
-                val style = end.styles[i]
+                val style = endStyles[i]
 
-                linesBoundsArray[i] = lerpRectHorizontal(
-                    bounds, animFraction,
+                lerpRectHorizontal(
+                    sourceArray = endBoundsArray,
+                    destArray = thisBoundsArray,
+                    absIndex = i * 4,
+                    animFraction,
                     style.animationStartPosition
                 )
             }
 
-            lerpRectArray(
-                startBoundsArray, endBoundsArray, linesBoundsArray,
-                affectedRangeEnd + 1, endBoundsArray.size - 1,
+            lerpFloatArray(
+                startBoundsArray, endBoundsArray, thisBoundsArray,
+                startIndex = (rangeEnd + 1) * 4, endIndexExclusive = endStyles.size * 4,
                 animationFraction,
-                startOffset = affectedRangeLength
+                startOffset = rangeLength * 4
             )
         }
     }
@@ -78,7 +103,8 @@ class LineDecor(val style: Style) : CellDecor() {
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
-    ): LineVisualState(PackedRectFArray(start.linesBoundsArray.size), start.textBoundsArray, start.styles), VisualState.Transitive {
+    ) : LineVisualState(start.linesAndTextBoundsArray.copyOf(), start.styles),
+        VisualState.Transitive {
         override var animationFraction: Float = 0f
 
         override fun handleAnimation(
@@ -89,36 +115,41 @@ class LineDecor(val style: Style) : CellDecor() {
 
             this.animationFraction = revAnimationFraction
 
-            val startBoundsArray = start.linesBoundsArray
-            val endBoundsArray = end.linesBoundsArray
+            val startBoundsArray = start.linesAndTextBoundsArray
+            val endBoundsArray = end.linesAndTextBoundsArray
+            val thisBoundsArray = linesAndTextBoundsArray
 
-            lerpRectArray(
-                startBoundsArray, endBoundsArray, linesBoundsArray,
-                0, affectedRangeStart - 1,
+            val rangeStart = affectedRangeStart
+            val rangeEnd = affectedRangeEnd
+            val rangeLength = rangeEnd - rangeStart + 1
+
+            lerpFloatArray(
+                startBoundsArray, endBoundsArray, thisBoundsArray,
+                startIndex = 0, endIndexExclusive = rangeStart * 4,
                 animationFraction
             )
 
-            val affectedRangeLength = affectedRangeEnd - affectedRangeStart + 1
-
-            for (i in affectedRangeStart..affectedRangeEnd) {
+            for (i in rangeStart..rangeEnd) {
                 val itemFraction = fractionInterpolator.getItemFraction(
-                    i - affectedRangeStart, affectedRangeLength, revAnimationFraction
+                    i - rangeStart, rangeLength, revAnimationFraction
                 )
 
-                val bounds = startBoundsArray[i]
                 val style = styles[i]
 
-                linesBoundsArray[i] = lerpRectHorizontal(
-                    bounds, itemFraction,
+                lerpRectHorizontal(
+                    sourceArray = startBoundsArray,
+                    destArray = thisBoundsArray,
+                    absIndex = i * 4,
+                    fraction = itemFraction,
                     style.animationStartPosition
                 )
             }
 
-            lerpRectArray(
-                startBoundsArray, endBoundsArray, linesBoundsArray,
-                affectedRangeEnd + 1, startBoundsArray.size - 1,
-                animationFraction,
-                endOffset = affectedRangeLength
+            lerpFloatArray(
+                startBoundsArray, endBoundsArray, thisBoundsArray,
+                startIndex = (rangeEnd + 1) * 4, endIndexExclusive = start.styles.size * 4,
+                fraction = animationFraction,
+                endOffset = rangeLength * 4
             )
         }
     }
@@ -128,7 +159,8 @@ class LineDecor(val style: Style) : CellDecor() {
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
-    ): LineVisualState(PackedRectFArray(start.linesBoundsArray.size), start.textBoundsArray, start.styles), VisualState.Transitive {
+    ) : LineVisualState(start.linesAndTextBoundsArray.copyOf(), start.styles),
+        VisualState.Transitive {
         override var animationFraction: Float = 0f
 
         override fun handleAnimation(
@@ -137,9 +169,9 @@ class LineDecor(val style: Style) : CellDecor() {
         ) {
             this.animationFraction = animationFraction
 
-            lerpRectArray(
-                start.linesBoundsArray, end.linesBoundsArray, linesBoundsArray,
-                affectedRangeStart, affectedRangeEnd,
+            lerpFloatArray(
+                start.linesAndTextBoundsArray, end.linesAndTextBoundsArray, linesAndTextBoundsArray,
+                startIndex = affectedRangeStart * 4, endIndexExclusive = (affectedRangeEnd + 1) * 4,
                 animationFraction
             )
         }
@@ -151,11 +183,7 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     private object LineStateHandler : VisualStateHandler {
-        private val emptyLineState = LineVisualState(
-            PackedRectFArray(0),
-            PackedRectFArray(0),
-            emptyArray()
-        )
+        private val emptyLineState = LineVisualState(FloatArray(0), emptyArray())
 
         private val rect = RectF()
 
@@ -209,26 +237,24 @@ class LineDecor(val style: Style) : CellDecor() {
             endInclusive: Int,
             info: CellInfo
         ): VisualState {
+            val rect = rect
             val layoutOptions = info.layoutOptions
             val decorBlockPadding = getDecorBlockPadding(context, layoutOptions?.padding)
             val textHorizontalMargin =
                 context.resources.getDimension(R.dimen.rangeCalendar_lineTextHorizontalMargin)
 
-            val length = endInclusive - start + 1
+            val decorCount = endInclusive - start + 1
 
-            val linesBounds = PackedRectFArray(length)
-
-            val styles = Array(length) { i ->
+            val styles = Array(decorCount) { i ->
                 (decorations[start + i] as LineDecor).style
             }
 
-            val textBounds = info.textBounds
-            val freeAreaHeight = info.height - textBounds.bottom
+            val freeAreaHeight = info.height - info.textBottom
 
             // The coefficient is hand-picked for line not to be very thin or thick
-            val defaultLineHeight = max(1f, freeAreaHeight / (2.5f * length))
+            val defaultLineHeight = max(1f, freeAreaHeight / (2.5f * decorCount))
 
-            var lengthOfDecorsWithText = 0
+            var decorCountWithText = 0
             var totalHeight = 0f
 
             for (i in start..endInclusive) {
@@ -241,11 +267,11 @@ class LineDecor(val style: Style) : CellDecor() {
                 totalHeight += height.resolveHeight(defaultLineHeight) + padding.top + padding.bottom
 
                 if (style.text != null) {
-                    lengthOfDecorsWithText++
+                    decorCountWithText++
                 }
             }
 
-            val textBoundsArray = PackedRectFArray(lengthOfDecorsWithText)
+            val linesAndTextBoundsArray = FloatArray((decorCount + decorCountWithText) * 4)
             var textIndex = 0
 
             // Find y of position where to start drawing lines
@@ -254,7 +280,7 @@ class LineDecor(val style: Style) : CellDecor() {
                 layoutOptions?.verticalAlignment ?: VerticalAlignment.CENTER
             )
 
-            for (i in 0 until length) {
+            for (i in 0 until decorCount) {
                 val decor = decorations[start + i] as LineDecor
 
                 val style = decor.style
@@ -289,6 +315,7 @@ class LineDecor(val style: Style) : CellDecor() {
                         HorizontalAlignment.LEFT -> {
                             right = left + resolvedWidth
                         }
+
                         HorizontalAlignment.CENTER -> {
                             val centerX = (left + right) * 0.5f
                             val halfWidth = resolvedWidth * 0.5f
@@ -296,6 +323,7 @@ class LineDecor(val style: Style) : CellDecor() {
                             left = centerX - halfWidth
                             right = centerX + halfWidth
                         }
+
                         HorizontalAlignment.RIGHT -> {
                             left = right - resolvedWidth
                         }
@@ -305,7 +333,7 @@ class LineDecor(val style: Style) : CellDecor() {
                 rect.left = left
                 rect.right = right
 
-                linesBounds[i] = PackedRectF(rect)
+                setRectFromObject(linesAndTextBoundsArray, i * 4, rect)
                 style.fill.setBounds(rect)
 
                 if (style.text != null) {
@@ -316,24 +344,34 @@ class LineDecor(val style: Style) : CellDecor() {
                         HorizontalAlignment.LEFT -> {
                             left + textHorizontalMargin
                         }
+
                         HorizontalAlignment.CENTER -> {
                             (left + right - textWidth) * 0.5f
                         }
+
                         HorizontalAlignment.RIGHT -> {
                             right - textWidth - textHorizontalMargin
                         }
                     }
+
                     val textY = (top + bottom - textHeight) * 0.5f
 
-                    textBoundsArray[textIndex++] = PackedRectF(
-                        textX, textY, textX + textWidth, textY + textHeight
+                    setRectFromValues(
+                        linesAndTextBoundsArray,
+                        absIndex = (textIndex + decorCount) * 4,
+                        left = textX,
+                        top = textY,
+                        right = textX + textWidth,
+                        bottom = textY + textHeight
                     )
+
+                    textIndex++
                 }
 
                 top += resolvedHeight + decorPadding.bottom
             }
 
-            return LineVisualState(linesBounds, textBoundsArray, styles)
+            return LineVisualState(linesAndTextBoundsArray, styles)
         }
 
         override fun createTransitiveState(
@@ -353,12 +391,14 @@ class LineDecor(val style: Style) : CellDecor() {
                         affectedRangeStart, affectedRangeEnd
                     )
                 }
+
                 VisualStateChange.REMOVE -> {
                     TransitiveRemovalLineVisualState(
                         start, end,
                         affectedRangeStart, affectedRangeEnd
                     )
                 }
+
                 VisualStateChange.CELL_INFO -> {
                     TransitiveCellInfoLineVisualState(
                         start, end,
@@ -387,35 +427,38 @@ class LineDecor(val style: Style) : CellDecor() {
             state: VisualState
         ) {
             val lineState = state as LineVisualState
-            val linesBounds = lineState.linesBoundsArray
+            val linesAndTextBoundsArray = lineState.linesAndTextBoundsArray
+            val rect = rect
+            val paint = paint
 
             val styles = lineState.styles
-            val textBoundsArray = lineState.textBoundsArray
+            val decorCount = styles.size
             var textIndex = 0
 
-            for (i in 0 until linesBounds.size) {
-                val bounds = linesBounds[i]
+            for (i in 0 until decorCount) {
                 val style = styles[i]
+                val absIndex = i * 4
 
                 style.fill.applyToPaint(paint)
 
-                bounds.setTo(rect)
+                arrayRectToObject(linesAndTextBoundsArray, absIndex, rect)
 
                 drawRect(canvas, style)
 
                 val border = style.border
-
                 if (border != null) {
-                    val endBounds = when (state) {
-                        is TransitiveAdditionLineVisualState -> state.end.linesBoundsArray[i]
-                        is TransitiveCellInfoLineVisualState -> state.end.linesBoundsArray[i]
-                        is TransitiveRemovalLineVisualState -> state.start.linesBoundsArray[i]
+                    val endBoundsArray = when (state) {
+                        is TransitiveAdditionLineVisualState -> state.end.linesAndTextBoundsArray
+                        is TransitiveCellInfoLineVisualState -> state.end.linesAndTextBoundsArray
+                        is TransitiveRemovalLineVisualState -> state.start.linesAndTextBoundsArray
 
-                        else -> bounds
+                        else -> linesAndTextBoundsArray
                     }
 
                     border.doDrawPreparation(
-                        bounds, endBounds,
+                        animatedBoundsArray = linesAndTextBoundsArray,
+                        endBoundsArray,
+                        absIndex,
                         state.animationFraction, style.borderAnimationType,
                         paint, rect
                     )
@@ -434,8 +477,13 @@ class LineDecor(val style: Style) : CellDecor() {
                         pathEffect = null
                     }
 
-                    val textBounds = textBoundsArray[textIndex++]
-                    val (textLeft, textTop, textRight, textBottom) = textBounds
+                    val offset = (textIndex + decorCount) * 4
+                    val textLeft = linesAndTextBoundsArray[offset + RECT_ARRAY_LEFT]
+                    val textTop = linesAndTextBoundsArray[offset + RECT_ARRAY_TOP]
+                    val textRight = linesAndTextBoundsArray[offset + RECT_ARRAY_RIGHT]
+                    val textBottom = linesAndTextBoundsArray[offset + RECT_ARRAY_BOTTOM]
+
+                    textIndex++
 
                     if (style.clipTextToBounds) {
                         canvas.save()
@@ -451,8 +499,9 @@ class LineDecor(val style: Style) : CellDecor() {
 
         private fun drawRect(canvas: Canvas, style: Style) {
             val lineHeight = rect.height()
+            val radii = style.roundRadii
 
-            if (style.roundRadii != null) {
+            if (radii != null) {
                 var path = cachedPath
                 if (path == null) {
                     path = Path()
@@ -461,12 +510,12 @@ class LineDecor(val style: Style) : CellDecor() {
                     path.rewind()
                 }
 
-                val radii = style.roundRadii
-                for (j in radii.indices) {
-                    tempRadii[j] = radii[j].resolveRoundRadius(lineHeight)
+                val tempRadii = tempRadii
+                for (i in radii.indices) {
+                    tempRadii[i] = radii[i].resolveRoundRadius(lineHeight)
                 }
 
-                path.addRoundRect(rect, radii, Path.Direction.CW)
+                path.addRoundRect(rect, tempRadii, Path.Direction.CW)
 
                 canvas.drawPath(path, paint)
             } else {
@@ -820,16 +869,14 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     companion object {
-        /**
-         * Linearly interpolates rectangle from one with zero width to specified bounds
-         */
         private fun lerpRectHorizontal(
-            bounds: PackedRectF,
+            sourceArray: FloatArray, destArray: FloatArray,
+            absIndex: Int,
             fraction: Float,
             startPosition: AnimationStartPosition
-        ): PackedRectF {
-            val boundsLeft = bounds.left
-            val boundsRight = bounds.right
+        ) {
+            val boundsLeft = sourceArray[absIndex + RECT_ARRAY_LEFT]
+            val boundsRight = sourceArray[absIndex + RECT_ARRAY_RIGHT]
 
             val left: Float
             val right: Float
@@ -839,6 +886,7 @@ class LineDecor(val style: Style) : CellDecor() {
                     left = boundsLeft
                     right = lerp(left, boundsRight, fraction)
                 }
+
                 AnimationStartPosition.Center -> {
                     val animatedHalfWidth = (boundsRight - boundsLeft) * fraction * 0.5f
                     val centerX = (boundsLeft + boundsRight) * 0.5f
@@ -846,13 +894,15 @@ class LineDecor(val style: Style) : CellDecor() {
                     left = centerX - animatedHalfWidth
                     right = centerX + animatedHalfWidth
                 }
+
                 AnimationStartPosition.Right -> {
                     left = lerp(boundsRight, boundsLeft, fraction)
                     right = boundsRight
                 }
             }
 
-            return bounds.withLeftAndRight(left, right)
+            destArray[absIndex + RECT_ARRAY_LEFT] = left
+            destArray[absIndex + RECT_ARRAY_RIGHT] = right
         }
     }
 }

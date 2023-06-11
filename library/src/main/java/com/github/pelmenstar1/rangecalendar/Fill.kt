@@ -374,6 +374,8 @@ sealed class Fill(val type: Int) {
                 getBounds(box)
 
                 val alpha255 = (alpha * 255f + 0.5f).toInt()
+
+                // TODO: Use saveLayer() on API < 21
                 val count = canvas.saveLayerAlpha(box, alpha255)
 
                 try {

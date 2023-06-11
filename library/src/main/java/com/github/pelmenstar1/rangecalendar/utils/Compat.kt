@@ -5,7 +5,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.os.Build
-import com.github.pelmenstar1.rangecalendar.PackedRectF
 
 private val tempRect: RectF? = if(Build.VERSION.SDK_INT < 21) RectF() else null
 
@@ -23,14 +22,6 @@ internal fun Canvas.drawRoundRectCompat(
 
         drawRoundRect(rect, radius, radius, paint)
     }
-}
-
-internal fun Canvas.drawRoundRectCompat(
-    rect: PackedRectF,
-    radius: Float,
-    paint: Paint
-) {
-    drawRoundRectCompat(rect.left, rect.top, rect.right, rect.bottom, radius, paint)
 }
 
 internal fun Canvas.drawOvalCompat(left: Float, top: Float, right: Float, bottom: Float, paint: Paint) {
@@ -82,11 +73,4 @@ internal fun Path.addRectCompat(
         rect.set(left, top, right, bottom)
         addRect(rect, Path.Direction.CW)
     }
-}
-
-internal fun Path.addRoundRectCompat(
-    rect: PackedRectF,
-    radii: FloatArray
-) {
-    addRoundRectCompat(rect.left, rect.top, rect.right, rect.bottom, radii)
 }
