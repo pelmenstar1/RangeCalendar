@@ -101,7 +101,8 @@ sealed class Fill(val type: Int) {
         private var shader: Shader? = null
 
         fun createShader(alpha: Float): Shader {
-            val shape = boundsShape ?: throw IllegalStateException("setBounds() must be called before calling applyToPaint()")
+            val shape = boundsShape
+                ?: throw IllegalStateException("setBounds() must be called before calling applyToPaint()")
 
             val tempBox = getTempBox()
             getBounds(tempBox)
@@ -362,29 +363,29 @@ sealed class Fill(val type: Int) {
      * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
      */
     inline fun drawWith(canvas: Canvas, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
-        if (Build.VERSION.SDK_INT < 21 || type == TYPE_SOLID) {
+        if (type == TYPE_SOLID || alpha == 1f) {
             applyToPaint(paint, alpha)
 
             canvas.block()
         } else {
-            applyToPaint(paint, alpha = 1f)
+            val box = getTempBox()
+            getBounds(box)
 
-            if (alpha < 1f) {
-                val box = getTempBox()
-                getBounds(box)
+            val alpha255 = (alpha * 255f + 0.5f).toInt()
 
-                val alpha255 = (alpha * 255f + 0.5f).toInt()
-
-                // TODO: Use saveLayer() on API < 21
-                val count = canvas.saveLayerAlpha(box, alpha255)
-
-                try {
-                    canvas.block()
-                } finally {
-                    canvas.restoreToCount(count)
-                }
+            val count = if (Build.VERSION.SDK_INT >= 21) {
+                canvas.saveLayerAlpha(box, alpha255)
             } else {
+                paint.alpha = alpha255
+
+                @Suppress("DEPRECATION")
+                canvas.saveLayer(box, paint, Canvas.ALL_SAVE_FLAG)
+            }
+
+            try {
                 canvas.block()
+            } finally {
+                canvas.restoreToCount(count)
             }
         }
     }
