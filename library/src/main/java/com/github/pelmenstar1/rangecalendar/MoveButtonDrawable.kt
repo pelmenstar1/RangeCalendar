@@ -5,10 +5,8 @@ import android.content.res.ColorStateList
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.view.Choreographer
-import android.view.Choreographer.FrameCallback
 import androidx.annotation.RestrictTo
 import androidx.core.graphics.alpha
-import com.github.pelmenstar1.rangecalendar.utils.colorLerp
 import com.github.pelmenstar1.rangecalendar.utils.lerp
 import com.github.pelmenstar1.rangecalendar.utils.withAlpha
 
@@ -34,22 +32,10 @@ class MoveButtonDrawable(
     private val arrowLinePoints = FloatArray(4)
 
     private var arrowAnimFraction = 0f
-
-    private var colorAnimDurationNanos = 0L
-    private var colorAnimStartTime = 0L
-
-    private var colorAnimStartColor = 0
-    private var colorAnimEndColor = 0
-    private var colorAnimIsRunning = false
-    private var colorAnimIsInterrupted = false
-
-    private val colorAnimTickCallback = FrameCallback { nanos -> onStateChangeAnimTick(nanos) }
-    private val startColorAnimCallback = FrameCallback { time ->
-        colorAnimStartTime = time
-
-        setPaintColor(colorAnimStartColor)
-        choreographer.postFrameCallback(colorAnimTickCallback)
-    }
+    private val colorAnimator = MoveButtonDrawableColorAnimator(
+        choreographer = Choreographer.getInstance(),
+        colorCallback = ::setPaintColor
+    )
 
     init {
         val res = context.resources
@@ -74,7 +60,7 @@ class MoveButtonDrawable(
     }
 
     fun setStateChangeDuration(millis: Long) {
-        colorAnimDurationNanos = millis * 1_000_000
+        colorAnimator.duration = millis
     }
 
     fun setArrowSize(value: Float) {
@@ -82,43 +68,6 @@ class MoveButtonDrawable(
 
         computeLinePoints()
         invalidateSelf()
-    }
-
-    private fun onStateChangeAnimTick(nanos: Long) {
-        if (colorAnimIsInterrupted) {
-            colorAnimIsInterrupted = false
-            colorAnimStartTime = nanos
-        }
-
-        val fraction = (nanos - colorAnimStartTime).toFloat() / colorAnimDurationNanos
-
-        if (fraction >= 1f) {
-            colorAnimIsRunning = false
-
-            onStateChangeAnimTickFraction(1f)
-        } else {
-            onStateChangeAnimTickFraction(fraction)
-
-            choreographer.postFrameCallback(colorAnimTickCallback)
-        }
-    }
-
-    private fun onStateChangeAnimTickFraction(fraction: Float) {
-        val c = colorLerp(colorAnimStartColor, colorAnimEndColor, fraction)
-
-        setPaintColor(c)
-    }
-
-    private fun startStateChangeAnimation(startColor: Int, endColor: Int) {
-        colorAnimStartColor = startColor
-        colorAnimEndColor = endColor
-
-        if (colorAnimIsRunning) {
-            colorAnimIsInterrupted = true
-        } else {
-            colorAnimIsRunning = true
-            choreographer.postFrameCallback(startColorAnimCallback)
-        }
     }
 
     private fun setPaintColor(color: Int) {
@@ -226,7 +175,7 @@ class MoveButtonDrawable(
 
         return if (oldColor != newColor) {
             arrowColor = newColor
-            startStateChangeAnimation(oldColor, newColor)
+            colorAnimator.start(oldColor, newColor)
 
             true
         } else false
@@ -272,9 +221,6 @@ class MoveButtonDrawable(
         const val ANIM_TYPE_ARROW_TO_CLOSE = 0
         const val ANIM_TYPE_VOID_TO_ARROW = 1
 
-        private const val MIN_VISIBLE_ALPHA = 40
-
         private val ENABLED_STATE = intArrayOf(android.R.attr.state_enabled)
-        private val choreographer = Choreographer.getInstance()
     }
 }
