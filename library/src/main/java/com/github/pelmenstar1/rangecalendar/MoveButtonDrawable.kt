@@ -7,6 +7,7 @@ import android.graphics.drawable.Drawable
 import android.view.Choreographer
 import android.view.Choreographer.FrameCallback
 import androidx.annotation.RestrictTo
+import androidx.core.graphics.alpha
 import com.github.pelmenstar1.rangecalendar.utils.colorLerp
 import com.github.pelmenstar1.rangecalendar.utils.lerp
 import com.github.pelmenstar1.rangecalendar.utils.withAlpha
@@ -30,12 +31,11 @@ class MoveButtonDrawable(
 
     private var arrowUsePath = false
     private val arrowPath = Path()
-    private val arrowLinePoints = FloatArray(8)
-    private var arrowLinePointsLength = 8
+    private val arrowLinePoints = FloatArray(4)
 
     private var arrowAnimFraction = 0f
 
-    private var colorAnimDuration = 0L
+    private var colorAnimDurationNanos = 0L
     private var colorAnimStartTime = 0L
 
     private var colorAnimStartColor = 0
@@ -43,7 +43,7 @@ class MoveButtonDrawable(
     private var colorAnimIsRunning = false
     private var colorAnimIsInterrupted = false
 
-    private val colorAnimTickCallback = FrameCallback { time -> onStateChangeAnimTick(time) }
+    private val colorAnimTickCallback = FrameCallback { nanos -> onStateChangeAnimTick(nanos) }
     private val startColorAnimCallback = FrameCallback { time ->
         colorAnimStartTime = time
 
@@ -74,7 +74,7 @@ class MoveButtonDrawable(
     }
 
     fun setStateChangeDuration(millis: Long) {
-        colorAnimDuration = millis
+        colorAnimDurationNanos = millis * 1_000_000
     }
 
     fun setArrowSize(value: Float) {
@@ -84,20 +84,19 @@ class MoveButtonDrawable(
         invalidateSelf()
     }
 
-    private fun onStateChangeAnimTick(time: Long) {
+    private fun onStateChangeAnimTick(nanos: Long) {
         if (colorAnimIsInterrupted) {
             colorAnimIsInterrupted = false
-            colorAnimStartTime = time
+            colorAnimStartTime = nanos
         }
 
-        val fraction = (time - colorAnimStartTime).toFloat() / colorAnimDuration
+        val fraction = (nanos - colorAnimStartTime).toFloat() / colorAnimDurationNanos
 
         if (fraction >= 1f) {
             colorAnimIsRunning = false
 
             onStateChangeAnimTickFraction(1f)
         } else {
-            arrowAnimFraction = fraction
             onStateChangeAnimTickFraction(fraction)
 
             choreographer.postFrameCallback(colorAnimTickCallback)
@@ -117,6 +116,7 @@ class MoveButtonDrawable(
         if (colorAnimIsRunning) {
             colorAnimIsInterrupted = true
         } else {
+            colorAnimIsRunning = true
             choreographer.postFrameCallback(startColorAnimCallback)
         }
     }
@@ -135,15 +135,24 @@ class MoveButtonDrawable(
 
         val halfArrowSize = arrowSize * 0.5f
 
-        val midX = bounds.left + bounds.width() * 0.5f
-        val midY = bounds.top + bounds.height() * 0.5f
+        val midX = (bounds.left + bounds.right) * 0.5f
+        val midY = (bounds.top + bounds.bottom) * 0.5f
 
         val actualLeft = midX - halfArrowSize
         val actualTop = midY - halfArrowSize
         val actualRight = midX + halfArrowSize
         val actualBottom = midY + halfArrowSize
 
-        val anchorX = if (direction == DIRECTION_LEFT) actualRight else actualLeft
+        val anchorX: Float
+        val invAnchorX: Float
+
+        if (direction == DIRECTION_LEFT)  {
+            anchorX = actualRight
+            invAnchorX = actualLeft
+        }  else {
+            anchorX = actualLeft
+            invAnchorX = actualRight
+        }
 
         if (animationType == ANIM_TYPE_ARROW_TO_CLOSE) {
             if (fraction == 0f) {
@@ -161,24 +170,20 @@ class MoveButtonDrawable(
                 val line1EndY = midY + delta
                 val line2EndY = midY - delta
 
-                val lineEndX = lerp(midX, anchorX, fraction)
+                val lineEndX = lerp(midX, invAnchorX, fraction)
 
-                arrowUsePath = false
-                arrowLinePointsLength = 8
+                arrowUsePath = true
 
-                // First line
-                linePoints[0] = anchorX
-                linePoints[1] = actualTop
-                linePoints[2] = lineEndX
-                linePoints[3] = line1EndY
+                path.apply {
+                    rewind()
 
-                // Second line
-                linePoints[4] = anchorX
-                linePoints[5] = actualBottom
-                linePoints[6] = lineEndX
-                linePoints[7] = line2EndY
+                    moveTo(anchorX, actualTop)
+                    lineTo(lineEndX, line1EndY)
+
+                    moveTo(anchorX, actualBottom)
+                    lineTo(lineEndX, line2EndY)
+                }
             }
-
         } else {
             if (fraction <= 0.5f) {
                 val scaledFraction = fraction * 2f
@@ -187,7 +192,6 @@ class MoveButtonDrawable(
                 val lineEndY = lerp(actualBottom, midY, scaledFraction)
 
                 arrowUsePath = false
-                arrowLinePointsLength = 4
 
                 linePoints[0] = anchorX
                 linePoints[1] = actualBottom
@@ -236,14 +240,9 @@ class MoveButtonDrawable(
         if (arrowUsePath) {
             c.drawPath(arrowPath, paint)
         } else {
-            val pointsLength = arrowLinePointsLength
             val points = arrowLinePoints
 
-            if (pointsLength == 4) {
-                c.drawLine(points[0], points[1], points[2], points[3], paint)
-            } else {
-                c.drawLines(points, 0, pointsLength, paint)
-            }
+            c.drawLine(points[0], points[1], points[2], points[3], paint)
         }
     }
 
@@ -259,7 +258,7 @@ class MoveButtonDrawable(
 
     @Deprecated("Deprecated in Java")
     override fun getOpacity(): Int {
-        return when (Color.alpha(arrowColor)) {
+        return when (arrowColor.alpha) {
             0 -> PixelFormat.TRANSPARENT
             255 -> PixelFormat.OPAQUE
             else -> PixelFormat.TRANSLUCENT
