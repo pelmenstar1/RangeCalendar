@@ -11,7 +11,7 @@ import com.github.pelmenstar1.rangecalendar.utils.lerp
 import com.github.pelmenstar1.rangecalendar.utils.withAlpha
 
 /**
- * A [Drawable] object that draws an arrow. The arrow can also be transitioned to the 'close' icon.
+ * A [Drawable] object that draws an arrow. The arrow can also be transitioned to a cross.
  *
  * The class is not expected to be used outside the library.
  */
@@ -103,7 +103,11 @@ class MoveButtonDrawable(
             invAnchorX = actualRight
         }
 
-        if (animationType == ANIM_TYPE_ARROW_TO_CLOSE) {
+        // The drawable is animated from the arrow to the cross.
+        if (animationType == ANIM_TYPE_ARROW_TO_CROSS) {
+            // If fraction is 0, it means that we're drawing simple arrow. We should render the arrow as
+            // a polygonal chain. Rendering it as two discrete lines is not perfect as there will be an artefact
+            // where the lines connect.
             if (fraction == 0f) {
                 arrowUsePath = true
                 path.apply {
@@ -114,6 +118,7 @@ class MoveButtonDrawable(
                     lineTo(anchorX, actualBottom)
                 }
             } else {
+                // Gradually animate the arrow to the cross.
                 val delta = halfArrowSize * fraction
 
                 val line1EndY = midY + delta
@@ -134,12 +139,19 @@ class MoveButtonDrawable(
                 }
             }
         } else {
+            // The drawable is animated from void (nothing) to the arrow.
             if (fraction <= 0.5f) {
+                // If fraction <= 0.5, it means that we have a line that starts from the bottom (left/right depending on direction)
+                // and the end of the line is animated to the center.
+
+                // When fraction = 0.5, the end of the line should be at the center.
+                // So we need to scale the fraction from [0; 0.5] to [0; 1]
                 val scaledFraction = fraction * 2f
 
                 val lineEndX = lerp(anchorX, midX, scaledFraction)
                 val lineEndY = lerp(actualBottom, midY, scaledFraction)
 
+                // We can simply draw a line instead of using Path.
                 arrowUsePath = false
 
                 linePoints[0] = anchorX
@@ -147,6 +159,10 @@ class MoveButtonDrawable(
                 linePoints[2] = lineEndX
                 linePoints[3] = lineEndY
             } else {
+                // Now we have a line that starts from the bottom (left/right depending on the direction) and ends in the center
+                // and a line that starts from the center and the end of that line is animated to the top (left/right depending on the direction)
+
+                // Scale the fraction from [0.5; 1] to [0; 1]
                 val scaledFraction = fraction * 2f - 1f
 
                 val lineEndX = lerp(midX, anchorX, scaledFraction)
@@ -218,7 +234,7 @@ class MoveButtonDrawable(
         const val DIRECTION_LEFT = 0
         const val DIRECTION_RIGHT = 1
 
-        const val ANIM_TYPE_ARROW_TO_CLOSE = 0
+        const val ANIM_TYPE_ARROW_TO_CROSS = 0
         const val ANIM_TYPE_VOID_TO_ARROW = 1
 
         private val ENABLED_STATE = intArrayOf(android.R.attr.state_enabled)
