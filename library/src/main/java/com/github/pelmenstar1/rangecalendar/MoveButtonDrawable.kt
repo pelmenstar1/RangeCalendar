@@ -6,131 +6,120 @@ import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.view.Choreographer
 import android.view.Choreographer.FrameCallback
+import androidx.annotation.RestrictTo
 import com.github.pelmenstar1.rangecalendar.utils.colorLerp
 import com.github.pelmenstar1.rangecalendar.utils.lerp
 import com.github.pelmenstar1.rangecalendar.utils.withAlpha
 
-internal class MoveButtonDrawable(
+/**
+ * A [Drawable] object that draws an arrow. The arrow can also be transitioned to the 'close' icon.
+ *
+ * The class is not expected to be used outside the library.
+ */
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP_PREFIX)
+class MoveButtonDrawable(
     context: Context,
     private val colorList: ColorStateList,
     private val direction: Int,
     private val animationType: Int
 ) : Drawable() {
-    private class AnimationState {
-        var startColor = 0
-        var endColor = 0
-        var isRunning = false
-        var isCancelledBecauseOfQueue = false
-
-        fun set(other: AnimationState) {
-            set(other.startColor, other.endColor)
-        }
-
-        fun set(startColor: Int, endColor: Int) {
-            this.startColor = startColor
-            this.endColor = endColor
-        }
-    }
-
-    private val paint: Paint
-    private var color: Int
-    private val size: Int
-    private val strokeWidth: Float
-
-    private var animationFraction = 0f
+    private val arrowPaint: Paint
+    private var arrowColor: Int
+    private var arrowSize: Int = 0
+    private val arrowStrokeWidth: Float
 
     private val linePoints = FloatArray(8)
     private var linePointsLength = 8
 
-    private var stateChangeDuration = 0L
-    private var stateChangeStartTime = 0L
+    private var arrowAnimFraction = 0f
 
-    private var currentAnimationState: AnimationState? = null
+    private var colorAnimDuration = 0L
+    private var colorAnimStartTime = 0L
 
-    private val stateChangeAnimTickCb = FrameCallback { time -> onStateChangeAnimTick(time) }
-    private val startStateChangeAnimCb = FrameCallback { time ->
-        stateChangeStartTime = time
+    private var colorAnimStartColor = 0
+    private var colorAnimEndColor = 0
+    private var colorAnimIsRunning = false
+    private var colorAnimIsInterrupted = false
 
-        setPaintColor(currentAnimationState!!.startColor)
-        choreographer.postFrameCallback(stateChangeAnimTickCb)
+    private val colorAnimTickCallback = FrameCallback { time -> onStateChangeAnimTick(time) }
+    private val startColorAnimCallback = FrameCallback { time ->
+        colorAnimStartTime = time
+
+        setPaintColor(colorAnimStartColor)
+        choreographer.postFrameCallback(colorAnimTickCallback)
     }
 
     init {
         val res = context.resources
 
-        strokeWidth = res.getDimension(R.dimen.rangeCalendar_arrowStrokeWidth)
-        size = res.getDimensionPixelSize(R.dimen.rangeCalendar_arrowSize)
+        arrowStrokeWidth = res.getDimension(R.dimen.rangeCalendar_arrowStrokeWidth)
+        arrowSize = res.getDimensionPixelSize(R.dimen.rangeCalendar_arrowSize)
 
-        color = colorList.getColorForState(ENABLED_STATE, 0)
+        arrowColor = colorList.getColorForState(ENABLED_STATE, 0)
 
-        paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        paint.color = color
-        paint.strokeWidth = strokeWidth
+        arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = arrowColor
+            strokeWidth = arrowStrokeWidth
+        }
     }
 
     fun setAnimationFraction(fraction: Float) {
-        animationFraction = fraction
+        arrowAnimFraction = fraction
 
         computeLinePoints()
         invalidateSelf()
     }
 
     fun setStateChangeDuration(millis: Long) {
-        stateChangeDuration = millis
+        colorAnimDuration = millis
+    }
+
+    fun setArrowSize(value: Int) {
+        arrowSize = value
+
+        computeLinePoints()
+        invalidateSelf()
     }
 
     private fun onStateChangeAnimTick(time: Long) {
-        val animState = currentAnimationState!!
-
-        // currentAnimationState can't be null, because the animation has started
-        if (!animState.isRunning && animState.isCancelledBecauseOfQueue) {
-            animState.isRunning = true
-            animState.isCancelledBecauseOfQueue = false
-
-            stateChangeStartTime = time
-            setPaintColor(animState.startColor)
-            choreographer.postFrameCallback(stateChangeAnimTickCb)
-        } else {
-            val fraction = (time - stateChangeStartTime).toFloat() / stateChangeDuration
-
-            if (fraction >= 1f) {
-                onStateChangeAnimTickFraction(1f)
-                animState.isRunning = false
-            } else {
-                onStateChangeAnimTickFraction(fraction)
-                choreographer.postFrameCallback(stateChangeAnimTickCb)
-            }
+        if (colorAnimIsInterrupted) {
+            colorAnimIsInterrupted = false
+            colorAnimStartTime = time
         }
-    }
 
-    private fun startStateChangeAnimation(startColor: Int, endColor: Int) {
-        var animState = currentAnimationState
+        val fraction = (time - colorAnimStartTime).toFloat() / colorAnimDuration
 
-        if (animState != null && animState.isRunning) {
-            animState.isRunning = false
-            animState.isCancelledBecauseOfQueue = true
+        if (fraction >= 1f) {
+            colorAnimIsRunning = false
 
-            animState.set(startColor, endColor)
+            onStateChangeAnimTickFraction(1f)
         } else {
-            if (animState == null) {
-                animState = AnimationState()
-                currentAnimationState = animState
-            }
+            arrowAnimFraction = fraction
+            onStateChangeAnimTickFraction(fraction)
 
-            animState.set(startColor, endColor)
-            choreographer.postFrameCallback(startStateChangeAnimCb)
+            choreographer.postFrameCallback(colorAnimTickCallback)
         }
     }
 
     private fun onStateChangeAnimTickFraction(fraction: Float) {
-        val animState = currentAnimationState!!
-        val c = colorLerp(animState.startColor, animState.endColor, fraction)
+        val c = colorLerp(colorAnimStartColor, colorAnimEndColor, fraction)
 
         setPaintColor(c)
     }
 
+    private fun startStateChangeAnimation(startColor: Int, endColor: Int) {
+        colorAnimStartColor = startColor
+        colorAnimEndColor = endColor
+
+        if (colorAnimIsRunning) {
+            colorAnimIsInterrupted = true
+        } else {
+            choreographer.postFrameCallback(startColorAnimCallback)
+        }
+    }
+
     private fun setPaintColor(color: Int) {
-        paint.color = color
+        arrowPaint.color = color
 
         invalidateSelf()
     }
@@ -143,16 +132,16 @@ internal class MoveButtonDrawable(
         val boundsWidth = bounds.width()
         val boundsHeight = bounds.height()
 
-        val actualLeft = (boundsLeft + (boundsWidth - size) / 2).toFloat()
-        val actualTop = (boundsTop + (boundsHeight - size) / 2).toFloat()
-        val actualRight = actualLeft + size
-        val actualBottom = actualTop + size
+        val actualLeft = (boundsLeft + (boundsWidth - arrowSize) / 2).toFloat()
+        val actualTop = (boundsTop + (boundsHeight - arrowSize) / 2).toFloat()
+        val actualRight = actualLeft + arrowSize
+        val actualBottom = actualTop + arrowSize
 
         val midX = (boundsLeft + boundsWidth / 2).toFloat()
         val midY = (boundsTop + boundsHeight / 2).toFloat()
 
-        val fraction = animationFraction
-        val halfStrokeWidth = strokeWidth * 0.5f
+        val fraction = arrowAnimFraction
+        val halfStrokeWidth = arrowStrokeWidth * 0.5f
 
         val points = linePoints
         if (animationType == ANIM_TYPE_ARROW_TO_CLOSE) {
@@ -214,11 +203,11 @@ internal class MoveButtonDrawable(
     }
 
     override fun onStateChange(state: IntArray): Boolean {
-        val oldColor = color
+        val oldColor = arrowColor
         val newColor = colorList.getColorForState(state, colorList.defaultColor)
 
         return if (oldColor != newColor) {
-            color = newColor
+            arrowColor = newColor
             startStateChangeAnimation(oldColor, newColor)
 
             true
@@ -231,25 +220,25 @@ internal class MoveButtonDrawable(
         val points = linePoints
 
         if (linePointsLength == 4) {
-            c.drawLine(points[0], points[1], points[2], points[3], paint)
+            c.drawLine(points[0], points[1], points[2], points[3], arrowPaint)
         } else {
-            c.drawLines(points, 0, linePointsLength, paint)
+            c.drawLines(points, 0, linePointsLength, arrowPaint)
         }
     }
 
     override fun setAlpha(alpha: Int) {
-        setPaintColor(color.withAlpha(alpha))
+        setPaintColor(arrowColor.withAlpha(alpha))
     }
 
-    override fun getColorFilter(): ColorFilter? = paint.colorFilter
+    override fun getColorFilter(): ColorFilter? = arrowPaint.colorFilter
 
     override fun setColorFilter(colorFilter: ColorFilter?) {
-        paint.colorFilter = colorFilter
+        arrowPaint.colorFilter = colorFilter
     }
 
     @Deprecated("Deprecated in Java")
     override fun getOpacity(): Int {
-        return when (Color.alpha(color)) {
+        return when (Color.alpha(arrowColor)) {
             0 -> PixelFormat.TRANSPARENT
             255 -> PixelFormat.OPAQUE
             else -> PixelFormat.TRANSLUCENT
