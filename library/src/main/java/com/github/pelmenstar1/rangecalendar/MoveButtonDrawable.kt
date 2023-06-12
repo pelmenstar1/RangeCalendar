@@ -25,11 +25,13 @@ class MoveButtonDrawable(
 ) : Drawable() {
     private val arrowPaint: Paint
     private var arrowColor: Int
-    private var arrowSize: Int = 0
+    private var arrowSize = 0f
     private val arrowStrokeWidth: Float
 
-    private val linePoints = FloatArray(8)
-    private var linePointsLength = 8
+    private var arrowUsePath = false
+    private val arrowPath = Path()
+    private val arrowLinePoints = FloatArray(8)
+    private var arrowLinePointsLength = 8
 
     private var arrowAnimFraction = 0f
 
@@ -53,11 +55,12 @@ class MoveButtonDrawable(
         val res = context.resources
 
         arrowStrokeWidth = res.getDimension(R.dimen.rangeCalendar_arrowStrokeWidth)
-        arrowSize = res.getDimensionPixelSize(R.dimen.rangeCalendar_arrowSize)
+        arrowSize = res.getDimension(R.dimen.rangeCalendar_arrowSize)
 
         arrowColor = colorList.getColorForState(ENABLED_STATE, 0)
 
         arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
             color = arrowColor
             strokeWidth = arrowStrokeWidth
         }
@@ -74,7 +77,7 @@ class MoveButtonDrawable(
         colorAnimDuration = millis
     }
 
-    fun setArrowSize(value: Int) {
+    fun setArrowSize(value: Float) {
         arrowSize = value
 
         computeLinePoints()
@@ -126,74 +129,85 @@ class MoveButtonDrawable(
 
     private fun computeLinePoints() {
         val bounds = bounds
-
-        val boundsLeft = bounds.left
-        val boundsTop = bounds.top
-        val boundsWidth = bounds.width()
-        val boundsHeight = bounds.height()
-
-        val actualLeft = (boundsLeft + (boundsWidth - arrowSize) / 2).toFloat()
-        val actualTop = (boundsTop + (boundsHeight - arrowSize) / 2).toFloat()
-        val actualRight = actualLeft + arrowSize
-        val actualBottom = actualTop + arrowSize
-
-        val midX = (boundsLeft + boundsWidth / 2).toFloat()
-        val midY = (boundsTop + boundsHeight / 2).toFloat()
-
         val fraction = arrowAnimFraction
-        val halfStrokeWidth = arrowStrokeWidth * 0.5f
+        val path = arrowPath
+        val linePoints = arrowLinePoints
 
-        val points = linePoints
+        val halfArrowSize = arrowSize * 0.5f
+
+        val midX = bounds.left + bounds.width() * 0.5f
+        val midY = bounds.top + bounds.height() * 0.5f
+
+        val actualLeft = midX - halfArrowSize
+        val actualTop = midY - halfArrowSize
+        val actualRight = midX + halfArrowSize
+        val actualBottom = midY + halfArrowSize
+
+        val anchorX = if (direction == DIRECTION_LEFT) actualRight else actualLeft
+
         if (animationType == ANIM_TYPE_ARROW_TO_CLOSE) {
-            val line1EndY = lerp(midY - halfStrokeWidth + 0.5f, actualBottom, fraction)
-            val line2EndY = lerp(midY - halfStrokeWidth, actualTop, fraction)
+            if (fraction == 0f) {
+                arrowUsePath = true
+                path.apply {
+                    rewind()
 
-            val line1EndX: Float
-            val line2EndX: Float
-            val anchorX: Float
-
-            if (direction == DIRECTION_RIGHT) {
-                line1EndX = lerp(midX - halfStrokeWidth + 1, actualRight, fraction)
-                line2EndX = lerp(midX + halfStrokeWidth, actualRight, fraction)
-                anchorX = actualLeft
+                    moveTo(anchorX, actualTop)
+                    lineTo(midX, midY)
+                    lineTo(anchorX, actualBottom)
+                }
             } else {
-                line1EndX = lerp(midX - halfStrokeWidth, actualLeft, fraction)
-                line2EndX = lerp(midX - halfStrokeWidth, actualLeft, fraction)
-                anchorX = actualRight
+                val delta = halfArrowSize * fraction
+
+                val line1EndY = midY + delta
+                val line2EndY = midY - delta
+
+                val lineEndX = lerp(midX, anchorX, fraction)
+
+                arrowUsePath = false
+                arrowLinePointsLength = 8
+
+                // First line
+                linePoints[0] = anchorX
+                linePoints[1] = actualTop
+                linePoints[2] = lineEndX
+                linePoints[3] = line1EndY
+
+                // Second line
+                linePoints[4] = anchorX
+                linePoints[5] = actualBottom
+                linePoints[6] = lineEndX
+                linePoints[7] = line2EndY
             }
 
-            points[0] = anchorX
-            points[1] = actualTop
-            points[2] = line1EndX
-            points[3] = line1EndY
-            points[4] = anchorX
-            points[5] = actualBottom
-            points[6] = line2EndX
-            points[7] = line2EndY
         } else {
-            val anchorX = if (direction == DIRECTION_LEFT) actualRight else actualLeft
-
             if (fraction <= 0.5f) {
-                val sFr = fraction * 2f
+                val scaledFraction = fraction * 2f
 
-                points[0] = anchorX
-                points[1] = actualBottom
-                points[2] = lerp(anchorX, midX, sFr)
-                points[3] = lerp(actualBottom, midY, sFr)
+                val lineEndX = lerp(anchorX, midX, scaledFraction)
+                val lineEndY = lerp(actualBottom, midY, scaledFraction)
 
-                linePointsLength = 4
+                arrowUsePath = false
+                arrowLinePointsLength = 4
+
+                linePoints[0] = anchorX
+                linePoints[1] = actualBottom
+                linePoints[2] = lineEndX
+                linePoints[3] = lineEndY
             } else {
-                val sFr = fraction * 2f - 1f
-                points[0] = anchorX
-                points[1] = actualBottom
-                points[2] = midX - halfStrokeWidth
-                points[3] = midY - halfStrokeWidth
-                points[4] = midX + halfStrokeWidth - 2.5f
-                points[5] = midY - halfStrokeWidth - 0.5f
-                points[6] = lerp(points[4], anchorX, sFr)
-                points[7] = lerp(points[5], actualTop, sFr)
+                val scaledFraction = fraction * 2f - 1f
 
-                linePointsLength = 8
+                val lineEndX = lerp(midX, anchorX, scaledFraction)
+                val lineEndY = lerp(midY, actualTop, scaledFraction)
+
+                arrowUsePath = true
+
+                path.apply {
+                    rewind()
+
+                    moveTo(anchorX, actualBottom)
+                    lineTo(midX, midY)
+                    lineTo(lineEndX, lineEndY)
+                }
             }
         }
     }
@@ -217,12 +231,19 @@ class MoveButtonDrawable(
     override fun isStateful() = true
 
     override fun draw(c: Canvas) {
-        val points = linePoints
+        val paint = arrowPaint
 
-        if (linePointsLength == 4) {
-            c.drawLine(points[0], points[1], points[2], points[3], arrowPaint)
+        if (arrowUsePath) {
+            c.drawPath(arrowPath, paint)
         } else {
-            c.drawLines(points, 0, linePointsLength, arrowPaint)
+            val pointsLength = arrowLinePointsLength
+            val points = arrowLinePoints
+
+            if (pointsLength == 4) {
+                c.drawLine(points[0], points[1], points[2], points[3], paint)
+            } else {
+                c.drawLines(points, 0, pointsLength, paint)
+            }
         }
     }
 
