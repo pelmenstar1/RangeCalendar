@@ -787,10 +787,14 @@ class RangeCalendarView @JvmOverloads constructor(
             val svWidth = sv.measuredWidth
             val svHeight = sv.measuredHeight
 
-            // If selection view is wanted to be in center on x-axis,
-            // let it be actual center of the whole view.
+            // Detection of whether the gravity is center_horizontal is a little bit complicated.
+            // Basically we need to check whether bits AXIS_PULL_BEFORE and AXIS_PULL_AFTER bits are 0.
+            val isCenterHorizontal =
+                gravity and ((Gravity.AXIS_PULL_BEFORE or Gravity.AXIS_PULL_AFTER) shl Gravity.AXIS_X_SHIFT) == 0
 
-            if ((gravity and Gravity.CENTER_HORIZONTAL) != 0) {
+            // If the gravity on x-axis is center, let the view be centered along the whole
+            // calendar view (except padding).
+            if (isCenterHorizontal) {
                 layoutRect.set(hPadding, 0, width - hPadding, buttonSize)
             } else {
                 layoutRect.set(
@@ -804,7 +808,8 @@ class RangeCalendarView @JvmOverloads constructor(
             val absGravity = if (Build.VERSION.SDK_INT >= 17) {
                 Gravity.getAbsoluteGravity(gravity, layoutDirection)
             } else {
-                gravity
+                // Strip off relative bits to get left/right in case we have no layoutDirection data.
+                gravity and Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK.inv()
             }
 
             Gravity.apply(absGravity, svWidth, svHeight, layoutRect, layoutOutRect)

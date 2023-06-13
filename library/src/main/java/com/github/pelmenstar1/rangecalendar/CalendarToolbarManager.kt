@@ -26,8 +26,7 @@ internal class CalendarToolbarManager(
 
     private var svAnimator: ValueAnimator? = null
 
-    // valid while svAnimator is running
-    private var isTransitionForward = false
+    private var isSvTransitionForward = false
 
     private var isSvOnScreen = false
 
@@ -69,6 +68,26 @@ internal class CalendarToolbarManager(
     var selectionViewTransitionInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
     var selectionViewLayoutParams = CalendarSelectionViewLayoutParams.DEFAULT
     var hasSelectionViewClearButton = true
+        set(value) {
+            field = value
+
+            // If the selection view is already on screen, then update values to match
+            // the contract of hasSelectionViewClearButton. There's no animation because
+            // it's very unlikely scenario.
+            if (isSvOnScreen) {
+                if (value) {
+                    prevIcon.setAnimationFraction(0f)
+                    nextIcon.setAnimationFraction(1f)
+
+                    prevButton.visibility = View.GONE
+                } else {
+                    prevIcon.setAnimationFraction(1f)
+                    nextIcon.setAnimationFraction(0f)
+
+                    prevButton.visibility = View.VISIBLE
+                }
+            }
+        }
 
     var selectedViewOnScreenChanged: OnScreenChangedListener? = null
 
@@ -131,11 +150,11 @@ internal class CalendarToolbarManager(
     }
 
     fun onSelection() {
-        startTransition(forward = true)
+        startSelectionViewTransition(forward = true)
     }
 
     fun onSelectionCleared() {
-        startTransition(forward = false)
+        startSelectionViewTransition(forward = false)
     }
 
     fun hideSelectionView() {
@@ -148,7 +167,7 @@ internal class CalendarToolbarManager(
         setSelectionViewOnScreen(false)
     }
 
-    private fun startTransition(forward: Boolean) {
+    private fun startSelectionViewTransition(forward: Boolean) {
         if (selectionView == null) {
             return
         }
@@ -158,31 +177,17 @@ internal class CalendarToolbarManager(
         // Don't continue if we want to show selection view and it's already shown and vise versa,
         // but continue if animation is currently running and direction of current animation is not equals to new one.
         if (animator != null &&
-            (!animator.isRunning || isTransitionForward == forward) &&
+            (!animator.isRunning || isSvTransitionForward == forward) &&
             forward == isSvOnScreen
         ) {
             return
         }
 
         if (animator == null) {
-            animator = AnimationHelper.createFractionAnimator(::onSVTransitionTick)
-
-            animator.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationStart(animation: Animator) {
-                    if (!isTransitionForward) {
-                        prevButton.visibility = ViewGroup.VISIBLE
-                    }
-                }
-
-                override fun onAnimationEnd(animation: Animator) {
-                    if (isTransitionForward) {
-                        prevButton.visibility = ViewGroup.GONE
-                    }
-                }
-            })
+            animator = createSvAnimator()
         }
 
-        isTransitionForward = forward
+        isSvTransitionForward = forward
 
         var startPlaytime = 0L
         if (animator.isRunning) {
@@ -203,9 +208,25 @@ internal class CalendarToolbarManager(
         }
     }
 
-    private fun onSVTransitionTick(fraction: Float) {
-        val sv = selectionView!!
+    private fun createSvAnimator(): ValueAnimator {
+        return AnimationHelper.createFractionAnimator(::onSvTransitionTick).apply {
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationStart(animation: Animator) {
+                    if (!isSvTransitionForward) {
+                        prevButton.visibility = ViewGroup.VISIBLE
+                    }
+                }
 
+                override fun onAnimationEnd(animation: Animator) {
+                    if (isSvTransitionForward) {
+                        prevButton.visibility = ViewGroup.GONE
+                    }
+                }
+            })
+        }
+    }
+
+    private fun onSvTransitionTick(fraction: Float) {
         if (hasSelectionViewClearButton) {
             prevIcon.setAnimationFraction(1f - fraction)
             nextIcon.setAnimationFraction(fraction)
@@ -217,6 +238,8 @@ internal class CalendarToolbarManager(
 
             setSelectionViewOnScreen(false)
         } else {
+            val sv = selectionView!!
+
             val f = 2f * fraction - 2f
             sv.translationY = f * sv.bottom
 
