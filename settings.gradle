@@ -18,3 +18,4 @@ rootProject.name = "Range Calendar"
 include ':library'
 include ':demo'
 include ':decortest'
+include ':movebuttontest'

@@ -524,7 +524,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
         nextIcon = MoveButtonDrawable(
             context, cr.colorControlNormal,
-            MoveButtonDrawable.DIRECTION_RIGHT, MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CLOSE
+            MoveButtonDrawable.DIRECTION_RIGHT, MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
         ).apply {
             setStateChangeDuration(stateChangeDuration)
         }
