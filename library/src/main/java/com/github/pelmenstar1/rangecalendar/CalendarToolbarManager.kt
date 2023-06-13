@@ -63,10 +63,9 @@ internal class CalendarToolbarManager(
         set(value) {
             field = value
 
-            val stateChangeDuration = SV_TRANSITION_DURATION / 2
-            prevIcon.setStateChangeDuration(stateChangeDuration)
-            nextIcon.setStateChangeDuration(stateChangeDuration)
+            updateStateChangeDurationOnButtons()
         }
+
     var selectionViewTransitionInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
     var selectionViewLayoutParams = CalendarSelectionViewLayoutParams.DEFAULT
     var hasSelectionViewClearButton = true
@@ -77,28 +76,36 @@ internal class CalendarToolbarManager(
         get() = isSvOnScreen && hasSelectionViewClearButton
 
     init {
-        val stateChangeDuration = SV_TRANSITION_DURATION / 2
-
         prevIcon = MoveButtonDrawable(
-            context, iconColor,
-            MoveButtonDrawable.DIRECTION_LEFT, MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
+            context,
+            iconColor,
+            MoveButtonDrawable.DIRECTION_LEFT,
+            MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
         ).apply {
             setAnimationFraction(1f)
-            setStateChangeDuration(stateChangeDuration)
         }
 
         nextIcon = MoveButtonDrawable(
-            context, iconColor,
-            MoveButtonDrawable.DIRECTION_RIGHT, MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
-        ).apply {
-            setStateChangeDuration(stateChangeDuration)
-        }
+            context,
+            iconColor,
+            MoveButtonDrawable.DIRECTION_RIGHT,
+            MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
+        )
 
         prevButton.setImageDrawable(prevIcon)
         nextButton.setImageDrawable(nextIcon)
 
+        updateStateChangeDurationOnButtons()
+
         // To update content descriptions of buttons
         onLocaleChanged()
+    }
+
+    private fun updateStateChangeDurationOnButtons() {
+        val stateChangeDuration = selectionViewTransitionDuration / 2
+
+        prevIcon.setStateChangeDuration(stateChangeDuration)
+        nextIcon.setStateChangeDuration(stateChangeDuration)
     }
 
     fun onPageScrolled(fraction: Float) {
