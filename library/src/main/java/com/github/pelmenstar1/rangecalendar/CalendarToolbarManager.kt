@@ -87,6 +87,8 @@ internal class CalendarToolbarManager(
             MoveButtonDrawable.DIRECTION_LEFT,
             MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
         ).apply {
+            // The end state of MoveButtonDrawable when animation type is ANIM_TYPE_VOID_TO_ARROW is the arrow.
+            // That's what we need.
             setAnimationFraction(1f)
             setStateChangeDuration(STATE_CHANGE_DURATION)
         }
@@ -108,7 +110,11 @@ internal class CalendarToolbarManager(
     }
 
     fun onPageScrolled(fraction: Float) {
-        val alpha = (510f * abs(0.5f - fraction)).toInt()
+        // 2 * |0.5 - x| is a function that increases from 0 to 1 on [0; 0.5) and
+        // decreases from 1 to 0 on (0.5; 1].
+        // Alpha of drawable is an integer from 0 to 255, so the value should be also multiplied by 255
+        // and converted to int.
+        val alpha = (255f * 2f * abs(0.5f - fraction)).toInt()
         setButtonAlphaIfEnabled(prevButton, alpha)
 
         if (!isNextButtonActClear) {
@@ -137,6 +143,9 @@ internal class CalendarToolbarManager(
         startSelectionViewTransition(forward = false)
     }
 
+    /**
+     * Hides selection view from the RangeCalendarView. The method expects that [selectionView] is not null.
+     */
     fun hideSelectionView() {
         if (hasSelectionViewClearButton) {
             prevIcon.setAnimationFraction(1f)
@@ -189,12 +198,16 @@ internal class CalendarToolbarManager(
     }
 
     private fun onSvTransitionTick(fraction: Float) {
+        // The buttons are only animated when next button acts like 'clear selection' button on selection.
         if (hasSelectionViewClearButton) {
             prevIcon.setAnimationFraction(1f - fraction)
             nextIcon.setAnimationFraction(fraction)
         }
 
         if (fraction < 0.5f) {
+            // When fraction < 0.5, the info textview should be moved from the initial position
+            // to the top until it's completely invisible. So the fraction is scaled from [0; 0.5] to [0; 1]
+            // and than negated in order to make translationY negative as well.
             val f = fraction * -2f
             infoView.translationY = infoView.bottom * f
 
@@ -202,6 +215,12 @@ internal class CalendarToolbarManager(
         } else {
             val sv = selectionView!!
 
+            // Now that the info textview is invisible, the selection view should be moved from the top where
+            // it's completely invisible to the final position.
+            //
+            // 2 - 2x is a function that decreases from 1 to 0 on [0.5; 1]
+            // It should also be negated in order to achieve the animation from the top to the final position.
+            // In result: 2x - 2 that multiplied by sv.bottom
             val f = 2f * fraction - 2f
             sv.translationY = f * sv.bottom
 
