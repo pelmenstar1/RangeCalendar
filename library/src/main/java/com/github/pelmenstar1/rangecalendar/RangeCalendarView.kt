@@ -665,7 +665,10 @@ class RangeCalendarView @JvmOverloads constructor(
 
     private fun initLocaleDependentValues() {
         // dateFormatter is initialized on creation. No need in double creating the underlying models.
-        refreshLocaleDependentValues(newLocale = context.getLocaleCompat(), updateDateFormatter = false)
+        refreshLocaleDependentValues(
+            newLocale = context.getLocaleCompat(),
+            updateDateFormatter = false
+        )
     }
 
     private fun refreshLocaleDependentValues(newLocale: Locale, updateDateFormatter: Boolean) {
@@ -741,8 +744,16 @@ class RangeCalendarView @JvmOverloads constructor(
         val buttonSize = buttonSize
 
         val buttonSpec = MeasureSpec.makeMeasureSpec(buttonSize, MeasureSpec.EXACTLY)
-        val infoWidthSpec = MeasureSpec.makeMeasureSpec(pager.measuredWidth, MeasureSpec.AT_MOST)
-        val infoHeightSpec = MeasureSpec.makeMeasureSpec(buttonSize, MeasureSpec.AT_MOST)
+
+        val maxInfoWidth = pagerWidth - 2 * (hPadding + buttonSize)
+        val infoWidthSpec = MeasureSpec.makeMeasureSpec(maxInfoWidth, MeasureSpec.AT_MOST)
+        val infoHeightSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+
+        infoView.measure(infoWidthSpec, infoHeightSpec)
+        prevButton.measure(buttonSpec, buttonSpec)
+        nextOrClearButton.measure(buttonSpec, buttonSpec)
+
+        val toolbarHeight = max(infoView.measuredHeight, buttonSize)
 
         toolbarManager.selectionView?.also { sv ->
             var maxWidth = pagerWidth - 2 * hPadding - buttonSize
@@ -753,18 +764,14 @@ class RangeCalendarView @JvmOverloads constructor(
             measureChild(
                 sv,
                 MeasureSpec.makeMeasureSpec(maxWidth, MeasureSpec.AT_MOST),
-                MeasureSpec.makeMeasureSpec(buttonSize, MeasureSpec.AT_MOST)
+                MeasureSpec.makeMeasureSpec(toolbarHeight, MeasureSpec.AT_MOST)
             )
         }
-
-        infoView.measure(infoWidthSpec, infoHeightSpec)
-        prevButton.measure(buttonSpec, buttonSpec)
-        nextOrClearButton.measure(buttonSpec, buttonSpec)
 
         setMeasuredDimension(
             pager.measuredWidthAndState,
             resolveSize(
-                pager.measuredHeight + buttonSize + topContainerMarginBottom,
+                pager.measuredHeight + toolbarHeight + topContainerMarginBottom,
                 heightMeasureSpec
             )
         )
@@ -775,17 +782,38 @@ class RangeCalendarView @JvmOverloads constructor(
 
         val hPadding = hPadding
         val buttonSize = buttonSize
-        val layoutRect = layoutRect
-        val layoutOutRect = layoutOutRect
+
         val toolbarManager = toolbarManager
         val prevRight = hPadding + buttonSize
         val nextLeft = width - prevRight
 
+        val infoWidth = infoView.measuredWidth
+        val infoHeight = infoView.measuredHeight
+
+        val toolbarHeight = max(buttonSize, infoHeight)
+
+        val infoLeft = (width - infoWidth) / 2
+        val infoTop = (toolbarHeight - infoHeight) / 2
+        val buttonTop = (toolbarHeight - buttonSize) / 2
+        val buttonBottom = buttonTop + buttonSize
+        val pagerTop = toolbarHeight + topContainerMarginBottom
+
+        prevButton.layout(hPadding, buttonTop, prevRight, buttonBottom)
+        nextOrClearButton.layout(nextLeft, buttonTop, nextLeft + buttonSize, buttonBottom)
+        infoView.layout(infoLeft, infoTop, infoLeft + infoWidth, infoTop + infoHeight)
+
+        pager.layout(0, pagerTop, pager.measuredWidth, pagerTop + pager.measuredHeight)
+
         toolbarManager.selectionView?.also { sv ->
+            val lr = layoutRect
+            val lrOut = layoutOutRect
+
             val svLayoutParams = toolbarManager.selectionViewLayoutParams
             val gravity = svLayoutParams.gravity
-            val svWidth = sv.measuredWidth
-            val svHeight = sv.measuredHeight
+
+            // lr's top is always 0
+            // lr.top = 0
+            lr.bottom = toolbarHeight
 
             // Detection of whether the gravity is center_horizontal is a little bit complicated.
             // Basically we need to check whether bits AXIS_PULL_BEFORE and AXIS_PULL_AFTER bits are 0.
@@ -795,14 +823,11 @@ class RangeCalendarView @JvmOverloads constructor(
             // If the gravity on x-axis is center, let the view be centered along the whole
             // calendar view (except padding).
             if (isCenterHorizontal) {
-                layoutRect.set(hPadding, 0, width - hPadding, buttonSize)
+                lr.left = hPadding
+                lr.right = width - hPadding
             } else {
-                layoutRect.set(
-                    if (toolbarManager.hasSelectionViewClearButton) hPadding else prevRight,
-                    0,
-                    nextLeft,
-                    buttonSize
-                )
+                lr.left = if (toolbarManager.hasSelectionViewClearButton) hPadding else prevRight
+                lr.right = nextLeft
             }
 
             val absGravity = if (Build.VERSION.SDK_INT >= 17) {
@@ -812,25 +837,13 @@ class RangeCalendarView @JvmOverloads constructor(
                 gravity and Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK.inv()
             }
 
-            Gravity.apply(absGravity, svWidth, svHeight, layoutRect, layoutOutRect)
+            Gravity.apply(absGravity, sv.measuredWidth,  sv.measuredHeight, lr, lrOut)
 
             sv.layout(
-                layoutOutRect.left, layoutOutRect.top,
-                layoutOutRect.right, layoutOutRect.bottom
+                lrOut.left, lrOut.top,
+                lrOut.right, lrOut.bottom
             )
         }
-
-        val infoWidth = infoView.measuredWidth
-        val infoHeight = infoView.measuredHeight
-        val infoLeft = (width - infoWidth) / 2
-        val infoTop = (buttonSize - infoHeight) / 2
-
-        prevButton.layout(hPadding, 0, prevRight, buttonSize)
-        nextOrClearButton.layout(nextLeft, 0, nextLeft + buttonSize, buttonSize)
-        infoView.layout(infoLeft, infoTop, infoLeft + infoWidth, infoTop + infoHeight)
-
-        val pagerTop = buttonSize + topContainerMarginBottom
-        pager.layout(0, pagerTop, pager.measuredWidth, pagerTop + pager.measuredHeight)
     }
 
 
