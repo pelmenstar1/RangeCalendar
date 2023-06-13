@@ -51,12 +51,7 @@ internal class CalendarToolbarManager(
         }
 
     var selectionView: View? = null
-    var selectionViewTransitionDuration = SV_TRANSITION_DURATION
-        set(value) {
-            field = value
-
-            updateStateChangeDurationOnButtons()
-        }
+    var selectionViewTransitionDuration = DEFAULT_SV_TRANSITION_DURATION
 
     var selectionViewTransitionInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
     var selectionViewLayoutParams = CalendarSelectionViewLayoutParams.DEFAULT
@@ -93,6 +88,7 @@ internal class CalendarToolbarManager(
             MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
         ).apply {
             setAnimationFraction(1f)
+            setStateChangeDuration(STATE_CHANGE_DURATION)
         }
 
         nextIcon = MoveButtonDrawable(
@@ -100,22 +96,15 @@ internal class CalendarToolbarManager(
             iconColor,
             MoveButtonDrawable.DIRECTION_RIGHT,
             MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
-        )
+        ).apply {
+            setStateChangeDuration(STATE_CHANGE_DURATION)
+        }
 
         prevButton.setImageDrawable(prevIcon)
         nextButton.setImageDrawable(nextIcon)
 
-        updateStateChangeDurationOnButtons()
-
         // To update content descriptions of buttons
         onLocaleChanged()
-    }
-
-    private fun updateStateChangeDurationOnButtons() {
-        val stateChangeDuration = selectionViewTransitionDuration / 2
-
-        prevIcon.setStateChangeDuration(stateChangeDuration)
-        nextIcon.setStateChangeDuration(stateChangeDuration)
     }
 
     fun onPageScrolled(fraction: Float) {
@@ -252,7 +241,8 @@ internal class CalendarToolbarManager(
     }
 
     companion object {
-        const val SV_TRANSITION_DURATION = 300L
+        private const val DEFAULT_SV_TRANSITION_DURATION = 300L
+        private const val STATE_CHANGE_DURATION = 300L
 
         private fun setButtonAlphaIfEnabled(button: ImageButton, alpha: Int) {
             if (button.isEnabled) {
