@@ -1,0 +1,30 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="app_name">selectionviewtest</string>
+
+    <string name="hasClearButton">Has clear button</string>
+    <string name="action">Action</string>
+    <string name="transitionDuration">Transition duration</string>
+    <string name="isSelectionViewNull">Is selection view null</string>
+
+    <string name="horizontalGravity">Horizontal gravity:</string>
+    <string name="verticalGravity">Vertical gravity:</string>
+    <string name="selectionViewWidth">Selection view width:</string>
+    <string name="selectionViewHeight">Selection view height:</string>
+
+    <string-array name="horizontalGravityValues">
+        <item>Start</item>
+        <item>Center-horizontal</item>
+        <item>End</item>
+    </string-array>
+
+    <string-array name="verticalGravityValues">
+        <item>Top</item>
+        <item>Center-vertical</item>
+        <item>Bottom</item>
+    </string-array>
+
+    <string-array name="sizeValues">
+        <item>Wrap content</item>
+        <item>Match parent</item>
+    </string-array>
+</resources>

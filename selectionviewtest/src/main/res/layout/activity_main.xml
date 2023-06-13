@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView  xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="5dp"
+        android:orientation="vertical"
+        tools:context=".MainActivity">
+
+        <com.github.pelmenstar1.rangecalendar.RangeCalendarView
+            android:id="@+id/rangeCalendar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <CheckBox
+            android:id="@+id/hasClearCheckBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/hasClearButton"
+            android:checked="true"/>
+
+        <CheckBox
+            android:id="@+id/isSelectionViewNullCheckBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/isSelectionViewNull" />
+
+        <TextView
+            android:id="@+id/transitionDurationTextView"
+            style="@style/TextAppearance.Material3.BodyLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            tools:text="@string/transitionDuration" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/transitionDurationSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:value="1000"
+            android:valueFrom="1000"
+            android:valueTo="10000"
+            android:stepSize="1000"/>
+
+        <TextView
+            style="@style/TextAppearance.Material3.BodyLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/horizontalGravity"/>
+
+        <Spinner
+            android:id="@+id/horizontalGravitySpinner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:entries="@array/horizontalGravityValues"/>
+
+        <TextView
+            style="@style/TextAppearance.Material3.BodyLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/verticalGravity"/>
+
+        <Spinner
+            android:id="@+id/verticalGravitySpinner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:entries="@array/verticalGravityValues" />
+
+        <TextView
+            style="@style/TextAppearance.Material3.BodyLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/selectionViewWidth"/>
+
+        <Spinner
+            android:id="@+id/selectionViewWidthSpinner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:entries="@array/sizeValues"/>
+
+        <TextView
+            style="@style/TextAppearance.Material3.BodyLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/selectionViewHeight"/>
+
+        <Spinner
+            android:id="@+id/selectionViewHeightSpinner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:entries="@array/sizeValues" />
+
+    </LinearLayout>
+
+</ScrollView>

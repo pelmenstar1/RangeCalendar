@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/demo" />
             <option value="$PROJECT_DIR$/library" />
             <option value="$PROJECT_DIR$/movebuttontest" />
+            <option value="$PROJECT_DIR$/selectionviewtest" />
           </set>
         </option>
       </GradleProjectSettings>
