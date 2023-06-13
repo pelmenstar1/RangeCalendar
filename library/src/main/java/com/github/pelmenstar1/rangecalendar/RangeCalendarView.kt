@@ -861,7 +861,6 @@ class RangeCalendarView @JvmOverloads constructor(
         get() = toolbarManager.selectionView
         set(value) {
             val oldSelectionView = toolbarManager.selectionView
-            toolbarManager.selectionView = value
 
             if (oldSelectionView != null) {
                 toolbarManager.hideSelectionView()
@@ -869,6 +868,8 @@ class RangeCalendarView @JvmOverloads constructor(
                 // selection view is always the last one.
                 removeViewAt(childCount - 1)
             }
+
+            toolbarManager.selectionView = value
 
             if (value != null) {
                 value.visibility = INVISIBLE

@@ -1,13 +1,10 @@
 package com.github.pelmenstar1.rangecalendar
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
 import android.view.View
-import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatImageButton
@@ -20,10 +17,6 @@ internal class CalendarToolbarManager(
     private val nextButton: AppCompatImageButton,
     private val infoView: TextView
 ) {
-    fun interface OnScreenChangedListener {
-        fun onChanged(newValue: Boolean)
-    }
-
     private var svAnimator: ValueAnimator? = null
 
     private var isSvTransitionForward = false
@@ -88,8 +81,6 @@ internal class CalendarToolbarManager(
                 }
             }
         }
-
-    var selectedViewOnScreenChanged: OnScreenChangedListener? = null
 
     val isNextButtonActClear: Boolean
         get() = isSvOnScreen && hasSelectionViewClearButton
@@ -164,7 +155,7 @@ internal class CalendarToolbarManager(
         }
 
         infoView.translationY = 0f
-        setSelectionViewOnScreen(false)
+        setSelectionViewOnScreen(state = false, duringAnimation = false)
     }
 
     private fun startSelectionViewTransition(forward: Boolean) {
@@ -184,7 +175,7 @@ internal class CalendarToolbarManager(
         }
 
         if (animator == null) {
-            animator = createSvAnimator()
+            animator = AnimationHelper.createFractionAnimator(::onSvTransitionTick)
         }
 
         isSvTransitionForward = forward
@@ -208,24 +199,6 @@ internal class CalendarToolbarManager(
         }
     }
 
-    private fun createSvAnimator(): ValueAnimator {
-        return AnimationHelper.createFractionAnimator(::onSvTransitionTick).apply {
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationStart(animation: Animator) {
-                    if (!isSvTransitionForward) {
-                        prevButton.visibility = ViewGroup.VISIBLE
-                    }
-                }
-
-                override fun onAnimationEnd(animation: Animator) {
-                    if (isSvTransitionForward) {
-                        prevButton.visibility = ViewGroup.GONE
-                    }
-                }
-            })
-        }
-    }
-
     private fun onSvTransitionTick(fraction: Float) {
         if (hasSelectionViewClearButton) {
             prevIcon.setAnimationFraction(1f - fraction)
@@ -236,18 +209,18 @@ internal class CalendarToolbarManager(
             val f = fraction * -2f
             infoView.translationY = infoView.bottom * f
 
-            setSelectionViewOnScreen(false)
+            setSelectionViewOnScreen(state = false, duringAnimation = true)
         } else {
             val sv = selectionView!!
 
             val f = 2f * fraction - 2f
             sv.translationY = f * sv.bottom
 
-            setSelectionViewOnScreen(true)
+            setSelectionViewOnScreen(state = true, duringAnimation = true)
         }
     }
 
-    private fun setSelectionViewOnScreen(state: Boolean) {
+    private fun setSelectionViewOnScreen(state: Boolean, duringAnimation: Boolean) {
         if (isSvOnScreen == state) {
             return
         }
@@ -261,6 +234,10 @@ internal class CalendarToolbarManager(
             infoView.visibility = View.INVISIBLE
 
             if (hasClearButton) {
+                if (!duringAnimation) {
+                    prevButton.visibility = View.GONE
+                }
+
                 nextButton.contentDescription = clearSelectionDescription
             }
         } else {
@@ -268,11 +245,10 @@ internal class CalendarToolbarManager(
             infoView.visibility = View.VISIBLE
 
             if (hasClearButton) {
+                prevButton.visibility = View.VISIBLE
                 nextButton.contentDescription = nextMonthDescription
             }
         }
-
-        selectedViewOnScreenChanged?.onChanged(state)
     }
 
     companion object {
