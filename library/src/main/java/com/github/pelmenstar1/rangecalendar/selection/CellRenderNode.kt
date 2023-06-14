@@ -5,6 +5,7 @@ import android.graphics.Paint
 import android.graphics.RenderNode
 import androidx.annotation.RequiresApi
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
+import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 
 /**
@@ -36,10 +37,10 @@ internal class CellRenderNode {
 
         // As we're specifying the size, the components should be "ceiled" not to cut a pixel due to
         // antialiasing.
-        val ceilNewW = (w + 1f).toInt()
-        val ceilNewH = (h + 1f).toInt()
+        val ceilNewW = ceilToInt(w)
+        val ceilNewH = ceilToInt(h)
 
-        if ((oldWidth + 1f).toInt() != ceilNewW || (oldHeight + 1f).toInt() != ceilNewH) {
+        if (ceilToInt(oldWidth) != ceilNewW || ceilToInt(oldHeight) != ceilNewH) {
             renderNode.setPosition(0, 0, ceilNewW, ceilNewH)
 
             isDirty = true
@@ -94,7 +95,8 @@ internal class CellRenderNode {
         newOptions: SelectionRenderOptions
     ): Boolean {
         return oldOptions.fill != newOptions.fill ||
-                oldOptions.fillGradientBoundsType != newOptions.fillGradientBoundsType
+                oldOptions.fillGradientBoundsType != newOptions.fillGradientBoundsType ||
+                oldOptions.roundRadius != newOptions.roundRadius
     }
 
     private fun updateNode() {
@@ -106,7 +108,7 @@ internal class CellRenderNode {
         val w = width
         val h = height
 
-        val canvas = node.beginRecording((w + 1f).toInt(), (h + 1f).toInt())
+        val canvas = node.beginRecording(ceilToInt(w), ceilToInt(h))
 
         try {
             if (options.fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {

@@ -1,9 +1,16 @@
 package com.github.pelmenstar1.rangecalendar.utils
 
+import kotlin.math.ceil
+
 /**
  * sqrt(2)
  */
 internal const val SQRT_2 = 1.41421356237f
+
+@Suppress("NOTHING_TO_INLINE")
+internal inline fun ceilToInt(value: Float): Int {
+    return ceil(value.toDouble()).toInt()
+}
 
 internal fun floorMod(x: Long, y: Long): Long {
     val r = x / y

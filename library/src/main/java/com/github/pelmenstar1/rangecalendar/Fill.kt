@@ -266,6 +266,11 @@ class Fill private constructor(
             val box = getTempBox()
             getBounds(box)
 
+            // Create shader with normal colors (alpha=1)
+            // Then change alpha using saveLayerAlpha/saveLayer instead of
+            // recreating the shader every time.
+            applyToPaint(paint, alpha = 1f)
+
             val alpha255 = (alpha * 255f + 0.5f).toInt()
 
             val count = if (Build.VERSION.SDK_INT >= 21) {
@@ -273,6 +278,7 @@ class Fill private constructor(
             } else {
                 paint.alpha = alpha255
 
+                // Use deprecated method because it's the only method available when API < 21
                 @Suppress("DEPRECATION")
                 canvas.saveLayer(box, paint, Canvas.ALL_SAVE_FLAG)
             }
