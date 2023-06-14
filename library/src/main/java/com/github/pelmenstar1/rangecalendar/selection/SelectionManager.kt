@@ -1,6 +1,5 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
-import android.graphics.Canvas
 import com.github.pelmenstar1.rangecalendar.SelectionType
 
 /**
@@ -17,6 +16,14 @@ interface SelectionManager {
      * Current state.
      */
     val currentState: SelectionState
+
+    /**
+     * Gets a selection renderer that is connected to the current [SelectionManager] in the way that the renderer
+     * recognizes the types of selection states that are created by the selection manager.
+     *
+     * It's expected that the same [SelectionRenderer] instance is returned each time the property is accessed.
+     */
+    val renderer: SelectionRenderer
 
     /**
      * Sets state whose type is [SelectionType.NONE].
@@ -50,27 +57,6 @@ interface SelectionManager {
      * It should only be called if [hasTransition] returns true.
      */
     fun createTransition(measureManager: CellMeasureManager, options: SelectionRenderOptions): SelectionState.Transitive
-
-    /**
-     * Draws current state on canvas using specified options.
-     *
-     * @param canvas canvas to draw current state on.
-     * @param options contains essential for drawing values.
-     */
-    fun draw(canvas: Canvas, options: SelectionRenderOptions)
-
-    /**
-     * Draws specified transitive state on canvas using specified options.
-     *
-     * @param canvas a [Canvas] instance to draw transition on.
-     * @param state a [SelectionState.Transitive] instance to draw on [canvas].
-     * @param options contains essential for drawing values.
-     */
-    fun drawTransition(
-        canvas: Canvas,
-        state: SelectionState.Transitive,
-        options: SelectionRenderOptions,
-    )
 }
 
 internal fun SelectionManager.setState(
