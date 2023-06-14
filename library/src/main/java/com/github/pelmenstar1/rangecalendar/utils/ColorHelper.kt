@@ -1,5 +1,3 @@
-@file:Suppress("NOTHING_TO_INLINE")
-
 package com.github.pelmenstar1.rangecalendar.utils
 
 import android.graphics.Color
@@ -34,13 +32,6 @@ internal fun Int.withCombinedAlpha(
     @IntRange(from = 0, to = 255) originAlpha: Int = alpha
 ): Int {
     return withAlpha((originAlpha * newAlpha + 0.5f).toInt())
-}
-
-/**
- * It's unsafe because color long must be sRGB already, otherwise it returns wrong result.
- */
-internal inline fun Long.asSrgbUnsafe(): Int {
-    return (this shr 32).toInt()
 }
 
 @ColorInt

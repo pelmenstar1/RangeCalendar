@@ -1,13 +1,9 @@
 package com.github.pelmenstar1.rangecalendar.utils
 
-import kotlin.math.abs
-
 /**
  * sqrt(2)
  */
 internal const val SQRT_2 = 1.41421356237f
-
-internal fun Float.equalsWithPrecision(other: Float, precision: Float) = abs(this - other) <= precision
 
 internal fun floorMod(x: Long, y: Long): Long {
     val r = x / y
@@ -31,4 +27,15 @@ internal fun lerp(start: Float, end: Float, fraction: Float): Float {
 
 internal fun lerp(start: Int, end: Int, fraction: Float): Int {
     return start + ((end - start).toFloat() * fraction).toInt()
+}
+
+internal fun lerpFloatArray(
+    start: FloatArray, end: FloatArray, outArray: FloatArray,
+    startIndex: Int, endIndexExclusive: Int,
+    fraction: Float,
+    startOffset: Int = 0, endOffset: Int = 0
+) {
+    for(i in startIndex until endIndexExclusive) {
+        outArray[i] = lerp(start[i - startOffset], end[i - endOffset], fraction)
+    }
 }

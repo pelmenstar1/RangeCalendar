@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_marginHorizontal="10dp"
+    android:layout_marginTop="5dp"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <View
+            android:id="@+id/drawableHolder_leftDirection"
+            android:layout_width="@dimen/testArrowSize"
+            android:layout_height="@dimen/testArrowSize" />
+
+        <View
+            android:id="@+id/drawableHolder_rightDirection"
+            android:layout_width="@dimen/testArrowSize"
+            android:layout_height="@dimen/testArrowSize"
+            android:layout_marginStart="20dp"
+            android:layout_marginLeft="20dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/animDurationTextView"
+        style="@style/TextAppearance.Material3.BodyLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/animationDuration" />
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/animDurationSlider"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:stepSize="1000"
+        android:value="1000"
+        android:valueFrom="1000"
+        android:valueTo="10000" />
+
+    <TextView
+        style="@style/TextAppearance.Material3.BodyLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/animationType" />
+
+    <RadioGroup
+        android:id="@+id/animTypeRadioGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/animTypeButton_arrowToCross"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/animType_arrowToCross" />
+
+        <RadioButton
+            android:id="@+id/animTypeButton_voidToArrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginLeft="10dp"
+            android:text="@string/animType_voidToArrow" />
+
+    </RadioGroup>
+    
+    <TextView
+        style="@style/TextAppearance.Material3.BodyLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/newVisualState"/>
+    
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp">
+
+        <CheckBox
+            android:id="@+id/visualStateButton_enabled"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/visualState_enabled"/>
+
+        <CheckBox
+            android:id="@+id/visualStateButton_pressed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/visualState_pressed"/>
+        
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/start_state_change_anim_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/startStateChangeAnimation" />
+
+    <Button
+        android:id="@+id/start_arrow_anim_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/startArrowAnimation" />
+
+</LinearLayout>

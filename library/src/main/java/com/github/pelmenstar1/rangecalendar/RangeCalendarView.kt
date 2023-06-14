@@ -1,9 +1,6 @@
 package com.github.pelmenstar1.rangecalendar
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.TimeInterpolator
-import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.TypedArray
@@ -13,6 +10,7 @@ import android.os.Parcelable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
+import android.view.View.OnClickListener
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -38,7 +36,6 @@ import java.time.LocalDate
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
-import kotlin.math.abs
 import kotlin.math.max
 
 /**
@@ -358,28 +355,11 @@ class RangeCalendarView @JvmOverloads constructor(
     private val hPadding: Int
     private val topContainerMarginBottom: Int
 
-    private var _selectionView: View? = null
-    private var svAnimator: ValueAnimator? = null
-
-    // valid while svAnimator is running
-    private var isSvTransitionForward = false
-
-    var selectionViewTransitionInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
-
-    private var svTransitionDuration = SV_TRANSITION_DURATION
-    private var _hasSvClearButton = true
-    private var isSelectionViewOnScreen = false
-    private var svLayoutParams = CalendarSelectionViewLayoutParams.DEFAULT
-
-    private val prevIcon: MoveButtonDrawable
-    private val nextIcon: MoveButtonDrawable
+    private val toolbarManager: CalendarToolbarManager
 
     private val dateFormatter: CompatDateFormatter
     private var isFirstDaySunday = false
     private var currentLocale: Locale? = null
-
-    private var nextMonthDescription: CharSequence
-    private var clearSelectionDescription: CharSequence
 
     private val layoutRect = Rect()
     private val layoutOutRect = Rect()
@@ -392,8 +372,6 @@ class RangeCalendarView @JvmOverloads constructor(
             res.getDimensionPixelOffset(R.dimen.rangeCalendar_topContainerMarginBottom)
         dateFormatter = CompatDateFormatter(context, DATE_FORMAT)
 
-        initLocaleDependentValues()
-
         val selectableBg = context.getSelectableItemBackground()
         val cr = CalendarResources(context)
 
@@ -404,150 +382,23 @@ class RangeCalendarView @JvmOverloads constructor(
 
         val today = PackedDate.today(currentTimeZone)
 
-        adapter = RangeCalendarPagerAdapter(cr, isFirstDaySunday)
-        adapter.setToday(today)
-        adapter.setStyleObject(
-            { STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER },
-            DefaultRangeCalendarCellAccessibilityInfoProvider(context),
-            notify = false
-        )
-        adapter.setSelectionGate(object : SelectionGate {
-            override fun cell(year: Int, month: Int, dayOfMonth: Int) =
-                internalGate(SelectionType.CELL) {
-                    it.cell(year, month, dayOfMonth)
-                }
-
-            override fun week(
-                weekIndex: Int,
-                startYear: Int,
-                startMonth: Int,
-                startDay: Int,
-                endYear: Int,
-                endMonth: Int,
-                endDay: Int
-            ) = internalGate(SelectionType.WEEK) {
-                it.week(weekIndex, startYear, startMonth, startDay, endYear, endMonth, endDay)
-            }
-
-            override fun month(year: Int, month: Int) = internalGate(SelectionType.MONTH) {
-                it.month(year, month)
-            }
-
-            override fun customRange(
-                startYear: Int,
-                startMonth: Int,
-                startDay: Int,
-                endYear: Int,
-                endMonth: Int,
-                endDay: Int
-            ) = internalGate(SelectionType.CUSTOM) {
-                it.customRange(startYear, startMonth, startDay, endYear, endMonth, endDay)
-            }
-
-            private inline fun internalGate(
-                type: SelectionType,
-                method: (SelectionGate) -> Boolean
-            ): Boolean {
-                return if (isSelectionTypeAllowed(type)) {
-                    selectionGate?.let(method) ?: true
-                } else {
-                    false
-                }
-            }
-        })
-        adapter.setOnSelectionListener(object : OnSelectionListener {
-            override fun onSelectionCleared() {
-                if (_selectionView != null) {
-                    startSelectionViewTransition(false)
-                }
-
-                onSelectionListener?.onSelectionCleared()
-            }
-
-            override fun onDaySelected(year: Int, month: Int, day: Int) {
-                onSelectedHandler {
-                    onDaySelected(year, month, day)
-                }
-            }
-
-            override fun onWeekSelected(
-                weekIndex: Int,
-                startYear: Int,
-                startMonth: Int,
-                startDay: Int,
-                endYear: Int,
-                endMonth: Int,
-                endDay: Int
-            ) {
-                onSelectedHandler {
-                    onWeekSelected(
-                        weekIndex,
-                        startYear, startMonth, startDay,
-                        endYear, endMonth, endDay
-                    )
-                }
-            }
-
-            override fun onMonthSelected(year: Int, month: Int) {
-                onSelectedHandler {
-                    onMonthSelected(year, month)
-                }
-            }
-
-            override fun onCustomRangeSelected(
-                startYear: Int, startMonth: Int, startDay: Int,
-                endYear: Int, endMonth: Int, endDay: Int
-            ) {
-                onSelectedHandler {
-                    onCustomRangeSelected(
-                        startYear, startMonth, startDay,
-                        endYear, endMonth, endDay
-                    )
-                }
-            }
-
-            private inline fun onSelectedHandler(method: OnSelectionListener.() -> Unit) {
-                startSelectionViewTransition(true)
-                onSelectionListener?.method()
-            }
-        })
-
-        val stateChangeDuration = SV_TRANSITION_DURATION / 2
-
-        prevIcon = MoveButtonDrawable(
-            context, cr.colorControlNormal,
-            MoveButtonDrawable.DIRECTION_LEFT, MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
-        ).apply {
-            setAnimationFraction(1f)
-            setStateChangeDuration(stateChangeDuration)
+        adapter = RangeCalendarPagerAdapter(cr, isFirstDaySunday).apply {
+            setToday(today)
+            setStyleObject(
+                { STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER },
+                DefaultRangeCalendarCellAccessibilityInfoProvider(context),
+                notify = false
+            )
+            setSelectionGate(createSelectionGate())
+            setOnSelectionListener(createOnSelectionListener())
         }
-
-        nextIcon = MoveButtonDrawable(
-            context, cr.colorControlNormal,
-            MoveButtonDrawable.DIRECTION_RIGHT, MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CLOSE
-        ).apply {
-            setStateChangeDuration(stateChangeDuration)
-        }
-
-        nextMonthDescription = res.getString(R.string.nextMonthDescription)
-        clearSelectionDescription = res.getString(R.string.clearSelectionDescription)
 
         prevButton = AppCompatImageButton(context).apply {
-            setImageDrawable(prevIcon)
             setOnClickListener { moveToPreviousMonth() }
-            contentDescription = res.getString(R.string.previousMonthDescription)
         }
 
         nextOrClearButton = AppCompatImageButton(context).apply {
-            setImageDrawable(nextIcon)
-            contentDescription = nextMonthDescription
-            setOnClickListener {
-                if (isSelectionViewOnScreen && _hasSvClearButton) {
-                    clearSelection()
-                } else {
-                    moveToNextMonth()
-                }
-            }
+            setOnClickListener(createNextButtonClickListener())
         }
 
         if (selectableBg != null) {
@@ -566,6 +417,12 @@ class RangeCalendarView @JvmOverloads constructor(
             }
         }
 
+        toolbarManager = CalendarToolbarManager(
+            context,
+            cr.colorControlNormal,
+            prevButton, nextOrClearButton, infoView
+        )
+
         pager = ViewPager2(context).apply {
             adapter = this@RangeCalendarView.adapter
             offscreenPageLimit = 1
@@ -581,12 +438,7 @@ class RangeCalendarView @JvmOverloads constructor(
                     positionOffset: Float,
                     positionOffsetPixels: Int
                 ) {
-                    val alpha = (510f * abs(0.5f - positionOffset)).toInt()
-                    setButtonAlphaIfEnabled(prevButton, alpha)
-
-                    if (!_hasSvClearButton || !isSelectionViewOnScreen) {
-                        setButtonAlphaIfEnabled(nextOrClearButton, alpha)
-                    }
+                    toolbarManager.onPageScrolled(positionOffset)
                 }
 
                 override fun onPageSelected(position: Int) {
@@ -595,9 +447,7 @@ class RangeCalendarView @JvmOverloads constructor(
                     currentCalendarYm = ym
                     setInfoViewYearMonth(ym)
 
-                    setButtonAlphaIfEnabled(prevButton, 255)
-                    setButtonAlphaIfEnabled(nextOrClearButton, 255)
-
+                    toolbarManager.restoreButtonsAlpha()
                     updateMoveButtons()
 
                     onPageChangeListener?.onPageChanged(ym.year, ym.month)
@@ -620,7 +470,118 @@ class RangeCalendarView @JvmOverloads constructor(
 
         setYearAndMonthInternal(YearMonth.forDate(today), false)
 
+        // It should be called after the toolbarManager is initialized.
+        initLocaleDependentValues()
+
         attrs?.let { initFromAttributes(context, it, defStyleAttr) }
+    }
+
+    fun createNextButtonClickListener() = OnClickListener {
+        if (toolbarManager.isNextButtonActClear) {
+            clearSelection()
+        } else {
+            moveToNextMonth()
+        }
+    }
+
+    fun createOnSelectionListener() = object : OnSelectionListener {
+        override fun onSelectionCleared() {
+            toolbarManager.onSelectionCleared()
+
+            onSelectionListener?.onSelectionCleared()
+        }
+
+        override fun onDaySelected(year: Int, month: Int, day: Int) {
+            onSelectedHandler {
+                onDaySelected(year, month, day)
+            }
+        }
+
+        override fun onWeekSelected(
+            weekIndex: Int,
+            startYear: Int,
+            startMonth: Int,
+            startDay: Int,
+            endYear: Int,
+            endMonth: Int,
+            endDay: Int
+        ) {
+            onSelectedHandler {
+                onWeekSelected(
+                    weekIndex,
+                    startYear, startMonth, startDay,
+                    endYear, endMonth, endDay
+                )
+            }
+        }
+
+        override fun onMonthSelected(year: Int, month: Int) {
+            onSelectedHandler {
+                onMonthSelected(year, month)
+            }
+        }
+
+        override fun onCustomRangeSelected(
+            startYear: Int, startMonth: Int, startDay: Int,
+            endYear: Int, endMonth: Int, endDay: Int
+        ) {
+            onSelectedHandler {
+                onCustomRangeSelected(
+                    startYear, startMonth, startDay,
+                    endYear, endMonth, endDay
+                )
+            }
+        }
+
+        private inline fun onSelectedHandler(method: OnSelectionListener.() -> Unit) {
+            toolbarManager.onSelection()
+            onSelectionListener?.method()
+        }
+    }
+
+    private fun createSelectionGate() = object : SelectionGate {
+        override fun cell(year: Int, month: Int, dayOfMonth: Int) =
+            internalGate(SelectionType.CELL) {
+                it.cell(year, month, dayOfMonth)
+            }
+
+        override fun week(
+            weekIndex: Int,
+            startYear: Int,
+            startMonth: Int,
+            startDay: Int,
+            endYear: Int,
+            endMonth: Int,
+            endDay: Int
+        ) = internalGate(SelectionType.WEEK) {
+            it.week(weekIndex, startYear, startMonth, startDay, endYear, endMonth, endDay)
+        }
+
+        override fun month(year: Int, month: Int) = internalGate(SelectionType.MONTH) {
+            it.month(year, month)
+        }
+
+        override fun customRange(
+            startYear: Int,
+            startMonth: Int,
+            startDay: Int,
+            endYear: Int,
+            endMonth: Int,
+            endDay: Int
+        ) = internalGate(SelectionType.CUSTOM) {
+            it.customRange(startYear, startMonth, startDay, endYear, endMonth, endDay)
+        }
+
+        private inline fun internalGate(
+            type: SelectionType,
+            method: (SelectionGate) -> Boolean
+        ): Boolean {
+            return if (isSelectionTypeAllowed(type)) {
+                selectionGate?.let(method) ?: true
+            } else {
+                false
+            }
+        }
     }
 
     private fun initFromAttributes(
@@ -661,10 +622,15 @@ class RangeCalendarView @JvmOverloads constructor(
                 // cellSize, cellWidth, cellHeight require special logic.
                 // If cellSize exists, it's written to both cellWidth and cellHeight, but
                 // if either of cellWidth or cellHeight exist, they take precedence over cellSize.
-                var cellWidth = a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellWidth, Float.NaN)
-                var cellHeight = a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellHeight, Float.NaN)
+                var cellWidth =
+                    a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellWidth, Float.NaN)
+                var cellHeight = a.getDimension(
+                    R.styleable.RangeCalendarView_rangeCalendar_cellHeight,
+                    Float.NaN
+                )
 
-                val cellSize = a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellSize, Float.NaN)
+                val cellSize =
+                    a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellSize, Float.NaN)
                 if (!cellSize.isNaN()) {
                     if (cellWidth.isNaN()) cellWidth = cellSize
                     if (cellHeight.isNaN()) cellHeight = cellSize
@@ -698,17 +664,22 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun initLocaleDependentValues() {
-        val locale = context.getLocaleCompat()
-        currentLocale = locale
-
-        refreshIsFirstDaySunday(locale)
+        // dateFormatter is initialized on creation. No need in double creating the underlying models.
+        refreshLocaleDependentValues(
+            newLocale = context.getLocaleCompat(),
+            updateDateFormatter = false
+        )
     }
 
-    private fun refreshLocaleDependentValues(newLocale: Locale) {
+    private fun refreshLocaleDependentValues(newLocale: Locale, updateDateFormatter: Boolean) {
         currentLocale = newLocale
 
-        dateFormatter.onLocaleChanged(newLocale)
         refreshIsFirstDaySunday(newLocale)
+        if (updateDateFormatter) {
+            dateFormatter.onLocaleChanged(newLocale)
+        }
+
+        toolbarManager.onLocaleChanged()
     }
 
     private fun refreshIsFirstDaySunday(locale: Locale) {
@@ -729,7 +700,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
         val newLocale = newConfig.getLocaleCompat()
         if (currentLocale != newLocale) {
-            refreshLocaleDependentValues(newLocale)
+            // Do a full update.
+            refreshLocaleDependentValues(newLocale, updateDateFormatter = true)
         }
     }
 
@@ -769,32 +741,37 @@ class RangeCalendarView @JvmOverloads constructor(
         pager.measure(widthMeasureSpec, heightMeasureSpec)
 
         val pagerWidth = pager.measuredWidth
+        val buttonSize = buttonSize
 
         val buttonSpec = MeasureSpec.makeMeasureSpec(buttonSize, MeasureSpec.EXACTLY)
-        val infoWidthSpec = MeasureSpec.makeMeasureSpec(pager.measuredWidth, MeasureSpec.AT_MOST)
-        val infoHeightSpec = MeasureSpec.makeMeasureSpec(buttonSize, MeasureSpec.AT_MOST)
 
-        if (_selectionView != null) {
-            var maxWidth = pagerWidth - 2 * hPadding - buttonSize
-            if (!_hasSvClearButton) {
-                maxWidth -= buttonSize
-            }
-
-            measureChild(
-                _selectionView,
-                MeasureSpec.makeMeasureSpec(maxWidth, MeasureSpec.AT_MOST),
-                MeasureSpec.makeMeasureSpec(buttonSize, MeasureSpec.AT_MOST)
-            )
-        }
+        val maxInfoWidth = pagerWidth - 2 * (hPadding + buttonSize)
+        val infoWidthSpec = MeasureSpec.makeMeasureSpec(maxInfoWidth, MeasureSpec.AT_MOST)
+        val infoHeightSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
 
         infoView.measure(infoWidthSpec, infoHeightSpec)
         prevButton.measure(buttonSpec, buttonSpec)
         nextOrClearButton.measure(buttonSpec, buttonSpec)
 
+        val toolbarHeight = max(infoView.measuredHeight, buttonSize)
+
+        toolbarManager.selectionView?.also { sv ->
+            var maxWidth = pagerWidth - 2 * hPadding - buttonSize
+            if (!toolbarManager.hasSelectionViewClearButton) {
+                maxWidth -= buttonSize
+            }
+
+            measureChild(
+                sv,
+                MeasureSpec.makeMeasureSpec(maxWidth, MeasureSpec.AT_MOST),
+                MeasureSpec.makeMeasureSpec(toolbarHeight, MeasureSpec.AT_MOST)
+            )
+        }
+
         setMeasuredDimension(
             pager.measuredWidthAndState,
             resolveSize(
-                pager.measuredHeight + buttonSize + topContainerMarginBottom,
+                pager.measuredHeight + toolbarHeight + topContainerMarginBottom,
                 heightMeasureSpec
             )
         )
@@ -803,162 +780,72 @@ class RangeCalendarView @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val width = r - l
 
+        val hPadding = hPadding
+        val buttonSize = buttonSize
+
+        val toolbarManager = toolbarManager
         val prevRight = hPadding + buttonSize
         val nextLeft = width - prevRight
-        val sv = _selectionView
-
-        if (sv != null) {
-            val gravity = svLayoutParams.gravity
-            val svWidth = sv.measuredWidth
-            val svHeight = sv.measuredHeight
-
-            // If selection view is wanted to be in center on x-axis,
-            // let it be actual center of the whole view.
-            if (gravity == Gravity.CENTER || gravity == Gravity.CENTER_HORIZONTAL) {
-                layoutRect.set(hPadding, 0, width - hPadding, buttonSize)
-            } else {
-                layoutRect.set(
-                    if (_hasSvClearButton) hPadding else prevRight,
-                    0,
-                    nextLeft,
-                    buttonSize
-                )
-            }
-
-            if (Build.VERSION.SDK_INT >= 17) {
-                Gravity.apply(
-                    svLayoutParams.gravity,
-                    svWidth, svHeight,
-                    layoutRect, layoutOutRect,
-                    layoutDirection
-                )
-            } else {
-                Gravity.apply(
-                    svLayoutParams.gravity,
-                    svWidth, svHeight,
-                    layoutRect, layoutOutRect
-                )
-            }
-
-            sv.layout(
-                layoutOutRect.left, layoutOutRect.top,
-                layoutOutRect.right, layoutOutRect.bottom
-            )
-        }
 
         val infoWidth = infoView.measuredWidth
         val infoHeight = infoView.measuredHeight
-        val infoLeft = (width - infoWidth) / 2
-        val infoTop = (buttonSize - infoHeight) / 2
 
-        prevButton.layout(hPadding, 0, prevRight, buttonSize)
-        nextOrClearButton.layout(nextLeft, 0, nextLeft + buttonSize, buttonSize)
+        val toolbarHeight = max(buttonSize, infoHeight)
+
+        val infoLeft = (width - infoWidth) / 2
+        val infoTop = (toolbarHeight - infoHeight) / 2
+        val buttonTop = (toolbarHeight - buttonSize) / 2
+        val buttonBottom = buttonTop + buttonSize
+        val pagerTop = toolbarHeight + topContainerMarginBottom
+
+        prevButton.layout(hPadding, buttonTop, prevRight, buttonBottom)
+        nextOrClearButton.layout(nextLeft, buttonTop, nextLeft + buttonSize, buttonBottom)
         infoView.layout(infoLeft, infoTop, infoLeft + infoWidth, infoTop + infoHeight)
 
-        val pagerTop = buttonSize + topContainerMarginBottom
         pager.layout(0, pagerTop, pager.measuredWidth, pagerTop + pager.measuredHeight)
-    }
 
-    private fun setSelectionViewOnScreen(state: Boolean) {
-        isSelectionViewOnScreen = state
-        val sv = _selectionView!!
+        toolbarManager.selectionView?.also { sv ->
+            val lr = layoutRect
+            val lrOut = layoutOutRect
 
-        if (state) {
-            sv.visibility = VISIBLE
-            infoView.visibility = INVISIBLE
-            if (_hasSvClearButton) {
-                nextOrClearButton.contentDescription = clearSelectionDescription
-            }
-        } else {
-            sv.visibility = INVISIBLE
-            infoView.visibility = VISIBLE
-            if (_hasSvClearButton) {
-                nextOrClearButton.contentDescription = nextMonthDescription
-            }
-        }
-        updateMoveButtons()
-    }
+            val svLayoutParams = toolbarManager.selectionViewLayoutParams
+            val gravity = svLayoutParams.gravity
 
-    private fun startSelectionViewTransition(forward: Boolean) {
-        if (_selectionView == null) {
-            return
-        }
+            // lr's top is always 0
+            // lr.top = 0
+            lr.bottom = toolbarHeight
 
-        var animator = svAnimator
+            // Detection of whether the gravity is center_horizontal is a little bit complicated.
+            // Basically we need to check whether bits AXIS_PULL_BEFORE and AXIS_PULL_AFTER bits are 0.
+            val isCenterHorizontal =
+                gravity and ((Gravity.AXIS_PULL_BEFORE or Gravity.AXIS_PULL_AFTER) shl Gravity.AXIS_X_SHIFT) == 0
 
-        // Don't continue if we want to show selection view and it's already shown and vise versa,
-        // but continue if animation is currently running and direction of current animation is not equals to new one.
-        if (animator != null &&
-            (!animator.isRunning || isSvTransitionForward == forward) &&
-            forward == isSelectionViewOnScreen
-        ) {
-            return
-        }
-
-        if (animator == null) {
-            animator = AnimationHelper.createFractionAnimator { fraction ->
-                onSVTransitionTick(fraction)
+            // If the gravity on x-axis is center, let the view be centered along the whole
+            // calendar view (except padding).
+            if (isCenterHorizontal) {
+                lr.left = hPadding
+                lr.right = width - hPadding
+            } else {
+                lr.left = if (toolbarManager.hasSelectionViewClearButton) hPadding else prevRight
+                lr.right = nextLeft
             }
 
-            animator.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationStart(animation: Animator) {
-                    if (!isSvTransitionForward) {
-                        prevButton.visibility = VISIBLE
-                    }
-                }
+            val absGravity = if (Build.VERSION.SDK_INT >= 17) {
+                Gravity.getAbsoluteGravity(gravity, layoutDirection)
+            } else {
+                // Strip off relative bits to get left/right in case we have no layoutDirection data.
+                gravity and Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK.inv()
+            }
 
-                override fun onAnimationEnd(animation: Animator) {
-                    if (isSvTransitionForward) {
-                        prevButton.visibility = GONE
-                    }
-                }
-            })
-        }
-        isSvTransitionForward = forward
+            Gravity.apply(absGravity, sv.measuredWidth,  sv.measuredHeight, lr, lrOut)
 
-        var startPlaytime: Long = 0
-        if (animator.isRunning) {
-            startPlaytime = animator.currentPlayTime
-            animator.end()
-        }
-
-        animator.interpolator = selectionViewTransitionInterpolator
-        animator.duration = svTransitionDuration
-
-        // ValueAnimator.setCurrentFraction() could be used, but it's available only from API >= 22,
-        animator.currentPlayTime = startPlaytime
-
-        if (forward) {
-            animator.start()
-        } else {
-            animator.reverse()
+            sv.layout(
+                lrOut.left, lrOut.top,
+                lrOut.right, lrOut.bottom
+            )
         }
     }
 
-    private fun onSVTransitionTick(fraction: Float) {
-        val sv = _selectionView!!
-
-        if (_hasSvClearButton) {
-            prevIcon.setAnimationFraction(1f - fraction)
-            nextIcon.setAnimationFraction(fraction)
-        }
-
-        if (fraction < 0.5f) {
-            val f = fraction * -2f
-            infoView.translationY = infoView.bottom * f
-
-            if (isSelectionViewOnScreen) {
-                setSelectionViewOnScreen(false)
-            }
-        } else {
-            val f = 2f * fraction - 2f
-            sv.translationY = f * sv.bottom
-
-            if (!isSelectionViewOnScreen) {
-                setSelectionViewOnScreen(true)
-            }
-        }
-    }
 
     /**
      * Gets or sets the selection view.
@@ -971,23 +858,24 @@ class RangeCalendarView @JvmOverloads constructor(
      * This might be helpful for rational use of space.
      */
     var selectionView: View?
-        get() = _selectionView
+        get() = toolbarManager.selectionView
         set(value) {
-            val oldSelectionView = _selectionView
-            _selectionView = value
+            val oldSelectionView = toolbarManager.selectionView
 
             if (oldSelectionView != null) {
-                // On 0 fraction, selection view will disappear
-                onSVTransitionTick(0f)
+                toolbarManager.hideSelectionView()
 
-                // selection view is always in end
+                // selection view is always the last one.
                 removeViewAt(childCount - 1)
             }
+
+            toolbarManager.selectionView = value
 
             if (value != null) {
                 value.visibility = INVISIBLE
                 addView(value)
             }
+
             requestLayout()
         }
 
@@ -996,23 +884,25 @@ class RangeCalendarView @JvmOverloads constructor(
      * from "previous" button and year & month text view to selection view and vise verse.
      */
     var selectionViewTransitionDuration: Long
-        get() = svTransitionDuration
+        get() = toolbarManager.selectionViewTransitionDuration
         set(duration) {
-            svTransitionDuration = duration
-            val stateChangeDuration = duration / 2
-
-            prevIcon.setStateChangeDuration(stateChangeDuration)
-            nextIcon.setStateChangeDuration(stateChangeDuration)
+            toolbarManager.selectionViewTransitionDuration = duration
         }
 
     /**
      * Gets or sets layout params for selection view
      */
     var selectionViewLayoutParams: CalendarSelectionViewLayoutParams
-        get() = svLayoutParams
+        get() = toolbarManager.selectionViewLayoutParams
         set(layoutParams) {
-            svLayoutParams = layoutParams
+            toolbarManager.selectionViewLayoutParams = layoutParams
             requestLayout()
+        }
+
+    var selectionViewTransitionInterpolator: TimeInterpolator
+        get() = toolbarManager.selectionViewTransitionInterpolator
+        set(value) {
+            toolbarManager.selectionViewTransitionInterpolator = value
         }
 
     /**
@@ -1026,13 +916,13 @@ class RangeCalendarView @JvmOverloads constructor(
      * selection will be placed where year & month view. User will still be able to use move buttons
      */
     var hasSelectionViewClearButton: Boolean
-        get() = _hasSvClearButton
+        get() = toolbarManager.hasSelectionViewClearButton
         set(value) {
-            if (_hasSvClearButton == value) {
+            if (toolbarManager.hasSelectionViewClearButton == value) {
                 return
             }
 
-            _hasSvClearButton = value
+            toolbarManager.hasSelectionViewClearButton = value
             requestLayout()
         }
 
@@ -1395,41 +1285,27 @@ class RangeCalendarView @JvmOverloads constructor(
      * Gets or sets content description for the 'previous month' button.
      */
     var previousMonthButtonContentDescription: CharSequence
-        get() = prevButton.contentDescription
+        get() = toolbarManager.prevMonthDescription
         set(value) {
-            prevButton.contentDescription = value
+            toolbarManager.prevMonthDescription = value
         }
 
     /**
      * Gets or sets content description for the 'next month' button.
      */
     var nextMonthButtonContentDescription: CharSequence
-        get() = nextMonthDescription
+        get() = toolbarManager.nextMonthDescription
         set(value) {
-            nextMonthDescription = value
-
-            // We can only update nextOrClearButton's content description if either we don't have selection view
-            // or clear selection button is not enabled. Because if it's enabled, then nextOrClearButton is in
-            // 'clear selection' state and we'd update content description to the wrong value.
-            if (!isSelectionViewOnScreen || !_hasSvClearButton) {
-                nextOrClearButton.contentDescription = value
-            }
+            toolbarManager.nextMonthDescription = value
         }
 
     /**
      * Gets or sets content description for the 'clear selection' button.
      */
     var clearSelectionButtonContentDescription: CharSequence
-        get() = clearSelectionDescription
+        get() = toolbarManager.clearSelectionDescription
         set(value) {
-            clearSelectionDescription = value
-
-            // We can only update nextOrClearButton's content description to this value if
-            // clear selection button is enabled and selection view is on screen, otherwise
-            // the button is in 'next month' state.
-            if (isSelectionViewOnScreen && _hasSvClearButton) {
-                nextOrClearButton.contentDescription = value
-            }
+            toolbarManager.clearSelectionDescription = value
         }
 
     /**
@@ -1792,12 +1668,7 @@ class RangeCalendarView @JvmOverloads constructor(
         val count = adapter.itemCount
 
         prevButton.isEnabled = position != 0
-
-        if (!_hasSvClearButton || !isSelectionViewOnScreen) {
-            nextOrClearButton.isEnabled = position != count - 1
-        } else {
-            nextOrClearButton.isEnabled = true
-        }
+        nextOrClearButton.isEnabled = toolbarManager.isNextButtonActClear || position != count - 1
     }
 
     private fun setInfoViewYearMonth(ym: YearMonth) {
@@ -1812,13 +1683,6 @@ class RangeCalendarView @JvmOverloads constructor(
         private val TAG = RangeCalendarView::class.java.simpleName
 
         private const val DATE_FORMAT = "MMMM y"
-        private const val SV_TRANSITION_DURATION: Long = 300
-
-        private fun setButtonAlphaIfEnabled(button: ImageButton, alpha: Int) {
-            if (button.isEnabled) {
-                button.drawable?.alpha = alpha
-            }
-        }
 
         private fun requireValidEpochDayOnLocalDateTransform(epochDay: Long) {
             require(PackedDate.isValidEpochDay(epochDay)) { "Date is out of valid range" }

@@ -101,13 +101,12 @@ internal class CalendarResources(context: Context) {
     private fun computeWeekdayWidthAndMaxHeight(offset: Int): Float {
         var maxHeight = -1
 
-        getTextBoundsArray(weekdays, offset, offset + 7, weekdayTextSize, typeface = null) { i, size ->
-            val height = size.height
+        getTextBoundsArray(weekdays, offset, offset + 7, weekdayTextSize, typeface = null) { i, width, height ->
             if (height > maxHeight) {
                 maxHeight = height
             }
 
-            defaultWeekdayWidths[i + offset] = size.width.toFloat()
+            defaultWeekdayWidths[i + offset] = width.toFloat()
         }
 
         return maxHeight.toFloat()

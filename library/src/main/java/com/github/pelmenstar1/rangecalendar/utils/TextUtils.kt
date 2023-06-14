@@ -22,65 +22,51 @@ internal fun getTextBounds(text: String, textSize: Float, typeface: Typeface? = 
     return tempPaint.getTextBounds(text)
 }
 
+internal fun Paint.getTextBounds(text: String): PackedSize {
+    val bounds = textBoundsCache
+    getTextBounds(text, 0, text.length, bounds)
+
+    return PackedSize(bounds.width(), bounds.height())
+}
+
 internal fun getTextBoundsArray(
-    texts: Array<String>,
+    texts: Array<out String>,
     textSize: Float,
     typeface: Typeface? = null
 ): PackedSizeArray {
-    val bitsArray = LongArray(texts.size)
-    getTextBoundsArray(texts, 0, texts.size, textSize, typeface) { i, size ->
-        bitsArray[i] = size.bits
+    val array = PackedSizeArray(texts.size)
+    getTextBoundsArray(texts, 0, texts.size, textSize, typeface) { i, width, height ->
+        array[i] = PackedSize(width, height)
     }
 
-    return PackedSizeArray(bitsArray)
+    return array
 }
 
 internal inline fun getTextBoundsArray(
-    texts: Array<String>,
+    texts: Array<out String>,
     start: Int,
     end: Int,
     textSize: Float,
     typeface: Typeface?,
-    block: (index: Int, PackedSize) -> Unit
+    block: (index: Int, width: Int, height: Int) -> Unit
 ) {
     initTempPaint(textSize, typeface)
 
     tempPaint.getTextBoundsArray(texts, start, end, block)
 }
 
-internal fun getTextBounds(
-    text: CharArray, offset: Int, length: Int, textSize: Float, typeface: Typeface? = null
-): PackedSize {
-    initTempPaint(textSize, typeface)
-
-    return tempPaint.getTextBounds(text, offset, length)
-}
-
-internal fun Paint.getTextBounds(text: CharArray, index: Int, length: Int): PackedSize {
-    getTextBounds(text, index, length, textBoundsCache)
-
-    return packTextBoundsCache()
-}
-
-internal fun Paint.getTextBounds(text: String): PackedSize {
-    getTextBounds(text, 0, text.length, textBoundsCache)
-
-    return packTextBoundsCache()
-}
-
 internal inline fun Paint.getTextBoundsArray(
-    texts: Array<String>,
+    texts: Array<out String>,
     start: Int,
     end: Int,
-    block: (index: Int, PackedSize) -> Unit
+    block: (index: Int, width: Int, height: Int) -> Unit
 ) {
-    for (i in start until end) {
-        block(i - start, getTextBounds(texts[i]))
-    }
-}
-
-private fun packTextBoundsCache(): PackedSize {
     val bounds = textBoundsCache
 
-    return PackedSize(bounds.width(), bounds.height())
+    for (i in start until end) {
+        val element = texts[i]
+        getTextBounds(element, 0, element.length, bounds)
+
+        block(i - start, bounds.width(), bounds.height())
+    }
 }

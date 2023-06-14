@@ -9,37 +9,40 @@ import java.util.*
  * Represents a special array wrapper, which internal array is allocated only on writing.
  */
 internal class LazyCellDataArray<T : Any> {
-    @PublishedApi
+    @JvmField
     internal var elements = EMPTY_ARRAY
 
-    var notNullElementsLength = 0
-        private set
+    @JvmField
+    internal var notNullBits = 0L
 
-    inline fun forEachNotNull(action: (cell: Cell, value: T) -> Unit) {
-        // Check if there's need to iterate through each element.
-        if(notNullElementsLength == 0) {
-            return
-        }
+    internal inline fun forEachNotNull(action: (cell: Cell, value: T) -> Unit) {
+        val elems = elements
 
-        for(i in 0 until 42) {
-            val value = elements[i] as T?
+        // Original source: https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
+        var bits = notNullBits
 
-            if(value != null) {
-                action(Cell(i), value)
-            }
+        while (bits != 0L) {
+            val t = bits and (-bits)
+            val index = 63 - t.countLeadingZeroBits()
+
+            action(Cell(index), elems[index] as T)
+
+            bits = bits xor t
         }
     }
 
     operator fun get(cell: Cell): T? {
-        // If elements are not initialized,
-        // then writing to array was never happened, meaning all the elements must be null
-        return if(elements.isEmpty()) null else elements[cell.index] as T?
+        // If notNullBits is 0, it means that all elements are null
+        // Thus there's no sense in making an access even if the 'elements' isn't empty.
+        return if(notNullBits == 0L) null else elements[cell.index] as T?
     }
 
     fun clear() {
-        Arrays.fill(elements, null)
+        if (notNullBits != 0L) {
+            Arrays.fill(elements, null)
 
-        notNullElementsLength = 0
+            notNullBits = 0L
+        }
     }
 
     operator fun set(cell: Cell, value: T?) {
@@ -51,19 +54,13 @@ internal class LazyCellDataArray<T : Any> {
         }
 
         val index = cell.index
-        val oldValue = elements[index]
 
-        if(oldValue != value) {
-            // Update not-null elements counter. I haven't found better way.
+        val mask = 1L shl index
+        var bits = notNullBits
+        bits = if (value == null) bits and mask.inv() else bits or mask
 
-            if((oldValue == null) and (value != null)) {
-                notNullElementsLength++
-            } else if((oldValue != null) and (value == null)) {
-                notNullElementsLength--
-            }
-
-            elements[cell.index] = value
-        }
+        elements[index] = value
+        notNullBits = bits
     }
 
     companion object {
