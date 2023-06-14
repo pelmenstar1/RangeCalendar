@@ -180,10 +180,10 @@ There are two main abstractions in selection management:
 
 - 'selection state' - saves type of selection, its range (rangeStart and rangeEnd) and other data required to draw it on
   canvas.
-- 'selection manager' - handles creating selection state, accessing to it, drawing the state on canvas, drawing
-  transition between states.
+- 'selection manager' - responsible for creating selection state, accessing to it.
+- 'selection renderer' - responsible for rendering the selection state on `Canvas`. The implementation is not expected to have any public visible state, but it's acceptable to cache some information in order to make the rendering faster.
 
-There's a description of methods in `SelectionManager` and what they are expected to do:
+There's a description of methods of `SelectionManager` and what they are expected to do:
 
 - `previousState` - saves a selection state that was before currentState. If there's no such state, then it should
   contain selection state whose type is NONE
@@ -197,9 +197,7 @@ There's a description of methods in `SelectionManager` and what they are expecte
 - `hasTransition()` - returns whether there's a transition between previousState and currentState.
 - `createTransition(measureManager, options)` - creates a transitive state between previousState and currentState. It's
   only called if hasTransition() returns true.
-- `draw(canvas, options)` - draws currentState on given canvas.
-  `options` is used to stylize the selection as selection state shouldn't contain any style-related information.
-- `drawTransition(canvas, transitiveState, options)` - draws a transitive state on given canvas.
+- `options` is used to stylize the selection as selection state shouldn't contain any style-related information.
 
 To use the custom implementation of `SelectionManager` is the calendar view,
 use `RangeCalendarView.setSelectionManager()`
