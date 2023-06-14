@@ -26,6 +26,14 @@ interface SelectionManager {
     val renderer: SelectionRenderer
 
     /**
+     * Gets a transition controller that is connected to the current [SelectionManager] in the way that the controller
+     * recognizes the types of transitive selection states that are created by the selection manager.
+     *
+     * It's expected that the same [SelectionTransitionController] instance is returned each time the property is accessed.
+     */
+    val transitionController: SelectionTransitionController
+
+    /**
      * Sets state whose type is [SelectionType.NONE].
      * It should be used instead of calling [setState] with [SelectionType.NONE] type because 'none' selection can't have selected range.
      */

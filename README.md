@@ -182,6 +182,7 @@ There are two main abstractions in selection management:
   canvas.
 - 'selection manager' - responsible for creating selection state, accessing to it.
 - 'selection renderer' - responsible for rendering the selection state on `Canvas`. The implementation is not expected to have any public visible state, but it's acceptable to cache some information in order to make the rendering faster.
+- 'selection transition controller' - responsible for mutating `SelectionState.Transition` internal data to make a transition.
 
 There's a description of methods of `SelectionManager` and what they are expected to do:
 

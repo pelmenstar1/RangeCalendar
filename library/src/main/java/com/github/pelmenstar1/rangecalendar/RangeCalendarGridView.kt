@@ -1145,11 +1145,11 @@ internal class RangeCalendarGridView(
     }
 
     private fun startSelectionTransition() {
+        val controller = selectionManager.transitionController
+
         val handler = getLazyValue(
             selectionTransitionHandler,
-            {
-                { selectionTransitiveState?.handleTransition(animFraction) }
-            },
+            { { controller.handleTransition(selectionTransitiveState!!, animFraction) } },
             { selectionTransitionHandler = it }
         )
         val onEnd = getLazyValue(

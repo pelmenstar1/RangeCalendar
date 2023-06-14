@@ -172,7 +172,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             }
 
             is DefaultSelectionState.CellToWeek -> {
-                drawRectOnRow(canvas, state.weekTransition.bounds, options)
+                drawRectOnRow(canvas, state.weekBounds, options)
                 drawCell(canvas, state.start, options, state.cellAlpha, usePrimaryNode = true)
             }
 
@@ -188,8 +188,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             }
 
             is DefaultSelectionState.WeekState.ToWeek -> {
-                drawRectOnRow(canvas, state.startTransition.bounds, options)
-                drawRectOnRow(canvas, state.endTransition.bounds, options)
+                drawRectOnRow(canvas, state.startBounds, options)
+                drawRectOnRow(canvas, state.endBounds, options)
             }
 
             is DefaultSelectionState.CustomRangeStateBase.Alpha -> {

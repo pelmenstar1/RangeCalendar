@@ -26,16 +26,6 @@ interface SelectionState {
          * The state to which the transition should come.
          */
         val end: SelectionState
-
-        /**
-         * Changes the internal information to represent the transition between [start] and [end] in the phase specified by [fraction].
-         *
-         * @param fraction specifies fraction of the transition.
-         * Should be in range `[0; 1]`.
-         * If it's 0, it means the transition should be in initial phase.
-         * If it's 1, it means the transition should be final phase.
-         */
-        fun handleTransition(fraction: Float)
     }
 
     /**
