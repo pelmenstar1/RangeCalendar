@@ -1,11 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
-import com.github.pelmenstar1.rangecalendar.SelectionType
-import com.github.pelmenstar1.rangecalendar.utils.distanceSquare
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sqrt
 
 internal class DefaultSelectionManager : SelectionManager {
     private var _prevState: DefaultSelectionState = DefaultSelectionState.None
@@ -33,19 +28,14 @@ internal class DefaultSelectionManager : SelectionManager {
     }
 
     override fun setState(
-        type: SelectionType,
         rangeStart: Int,
         rangeEnd: Int,
         measureManager: CellMeasureManager
     ) {
-        val state = when (type) {
-            SelectionType.CELL -> createCellState(Cell(rangeStart), measureManager)
-            SelectionType.WEEK -> createWeekState(rangeStart, rangeEnd, measureManager)
-            SelectionType.MONTH, SelectionType.CUSTOM -> {
-                createCustomRangeBaseState(type, rangeStart, rangeEnd, measureManager)
-            }
-
-            SelectionType.NONE -> throw IllegalArgumentException("Type can't be NONE")
+        val state = if (rangeStart == rangeEnd) {
+            createCellState(Cell(rangeStart), measureManager)
+        } else {
+            createRangeState(rangeStart, rangeEnd, measureManager)
         }
 
         setStateInternal(state)
@@ -65,20 +55,8 @@ internal class DefaultSelectionManager : SelectionManager {
                 createCellState(state.cell, measureManager)
             }
 
-            is DefaultSelectionState.WeekState -> {
-                createWeekState(state.rangeStart, state.rangeEnd, measureManager)
-            }
-
-            is DefaultSelectionState.CustomRangeStateBase -> {
-                val selType =
-                    if (state is DefaultSelectionState.MonthState) SelectionType.MONTH else SelectionType.CUSTOM
-
-                createCustomRangeBaseState(
-                    selType,
-                    state.rangeStart,
-                    state.rangeEnd,
-                    measureManager
-                )
+            is DefaultSelectionState.RangeState -> {
+                createRangeState(state.rangeStart, state.rangeEnd, measureManager)
             }
 
             DefaultSelectionState.None -> DefaultSelectionState.None
@@ -94,35 +72,16 @@ internal class DefaultSelectionManager : SelectionManager {
 
         return DefaultSelectionState.CellState(
             cell,
-            left,
-            top,
-            measureManager.cellWidth,
-            measureManager.cellHeight
+            left, top,
+            measureManager.cellWidth, measureManager.cellHeight
         )
     }
 
-    private fun createWeekState(
+    private fun createRangeState(
         rangeStart: Int,
         rangeEnd: Int,
         measureManager: CellMeasureManager
-    ): DefaultSelectionState.WeekState {
-        val left = measureManager.getCellLeft(rangeStart)
-        val right = measureManager.getCellRight(rangeEnd)
-
-        val top = measureManager.getCellTop(rangeStart)
-
-        return DefaultSelectionState.WeekState(
-            CellRange(rangeStart, rangeEnd),
-            left, top, right, bottom = top + measureManager.cellHeight
-        )
-    }
-
-    private fun createCustomRangeBaseState(
-        type: SelectionType,
-        rangeStart: Int,
-        rangeEnd: Int,
-        measureManager: CellMeasureManager
-    ): DefaultSelectionState.CustomRangeStateBase {
+    ): DefaultSelectionState.RangeState {
         val cellWidth = measureManager.cellWidth
         val cellHeight = measureManager.cellHeight
 
@@ -137,23 +96,13 @@ internal class DefaultSelectionManager : SelectionManager {
 
         val range = CellRange(rangeStart, rangeEnd)
 
-        return if (type == SelectionType.MONTH) {
-            DefaultSelectionState.MonthState(
-                range,
-                startLeft, startTop,
-                endRight, endTop,
-                firstCellOnRowLeft, lastCellOnRowRight,
-                cellWidth, cellHeight
-            )
-        } else {
-            DefaultSelectionState.CustomRangeState(
-                range,
-                startLeft, startTop,
-                endRight, endTop,
-                firstCellOnRowLeft, lastCellOnRowRight,
-                cellWidth, cellHeight
-            )
-        }
+        return DefaultSelectionState.RangeState(
+            range,
+            startLeft, startTop,
+            endRight, endTop,
+            firstCellOnRowLeft, lastCellOnRowRight,
+            cellWidth, cellHeight
+        )
     }
 
     private fun setStateInternal(state: DefaultSelectionState) {
@@ -162,6 +111,17 @@ internal class DefaultSelectionManager : SelectionManager {
     }
 
     override fun hasTransition(): Boolean {
+        val prevState = _prevState
+        val currentState = _currentState
+
+        val prevStart = prevState.rangeStart
+        val prevEnd = prevState.rangeEnd
+        val currentStart = currentState.rangeStart
+        val currentEnd = currentState.rangeEnd
+
+        return false
+
+        /*
         val prevType = _prevState.type
         val currentType = _currentState.type
 
@@ -181,6 +141,8 @@ internal class DefaultSelectionManager : SelectionManager {
             // Custom range selection has transition only with none.
             SelectionType.CUSTOM -> currentType == SelectionType.NONE
         }
+
+         */
     }
 
     override fun createTransition(
@@ -199,12 +161,14 @@ internal class DefaultSelectionManager : SelectionManager {
                         createCellAppearTransition(currentState, options, isReversed = false)
                     }
 
+                    /*
                     is DefaultSelectionState.WeekState -> {
                         DefaultSelectionState.WeekState.FromCenter(currentState, isReversed = false)
                     }
+                     */
 
-                    is DefaultSelectionState.CustomRangeStateBase -> {
-                        DefaultSelectionState.CustomRangeStateBase.Alpha(
+                    is DefaultSelectionState.RangeState -> {
+                        DefaultSelectionState.RangeState.Alpha(
                             currentState,
                             isReversed = false
                         )
@@ -241,6 +205,7 @@ internal class DefaultSelectionManager : SelectionManager {
                         }
                     }
 
+                    /*
                     is DefaultSelectionState.WeekState -> {
                         createCellToWeekTransition(prevState, currentState, isReversed = false)
                     }
@@ -253,55 +218,16 @@ internal class DefaultSelectionManager : SelectionManager {
                             isReversed = false
                         )
                     }
+                    */
 
                     else -> throwTransitionUnsupported(prevState, currentState)
                 }
             }
 
-            is DefaultSelectionState.WeekState -> {
+            is DefaultSelectionState.RangeState -> {
                 when (val currentState = _currentState) {
                     DefaultSelectionState.None -> {
-                        DefaultSelectionState.WeekState.FromCenter(prevState, isReversed = true)
-                    }
-
-                    is DefaultSelectionState.CellState -> {
-                        createCellToWeekTransition(currentState, prevState, isReversed = true)
-                    }
-
-                    is DefaultSelectionState.WeekState -> {
-                        DefaultSelectionState.WeekState.ToWeek(prevState, currentState)
-                    }
-
-                    else -> throwTransitionUnsupported(prevState, currentState)
-                }
-            }
-
-            is DefaultSelectionState.MonthState -> {
-                when (val currentState = _currentState) {
-                    DefaultSelectionState.None -> {
-                        DefaultSelectionState.CustomRangeStateBase.Alpha(
-                            prevState,
-                            isReversed = true
-                        )
-                    }
-
-                    is DefaultSelectionState.CellState -> {
-                        createCellToMonthTransition(
-                            currentState,
-                            prevState,
-                            measureManager,
-                            isReversed = true
-                        )
-                    }
-
-                    else -> throwTransitionUnsupported(prevState, currentState)
-                }
-            }
-
-            is DefaultSelectionState.CustomRangeState -> {
-                when (val currentState = _currentState) {
-                    DefaultSelectionState.None -> {
-                        DefaultSelectionState.CustomRangeStateBase.Alpha(
+                        DefaultSelectionState.RangeState.Alpha(
                             prevState,
                             isReversed = true
                         )
@@ -327,81 +253,11 @@ internal class DefaultSelectionManager : SelectionManager {
         }
     }
 
-    private fun createCellToWeekTransition(
-        startState: DefaultSelectionState.CellState,
-        endState: DefaultSelectionState.WeekState,
-        isReversed: Boolean
-    ): SelectionState.Transitive {
-        return if (startState.cell.sameY(endState.range.start)) {
-            DefaultSelectionState.CellState.ToWeekOnRow(startState, endState, isReversed)
-        } else {
-            DefaultSelectionState.CellToWeek(startState, endState, isReversed)
-        }
-    }
-
-    private fun createCellToMonthTransition(
-        start: DefaultSelectionState.CellState,
-        end: DefaultSelectionState.MonthState,
-        measureManager: CellMeasureManager,
-        isReversed: Boolean
-    ): DefaultSelectionState.CellToMonth {
-        val halfCellWidth = start.cellWidth * 0.5f
-        val halfCellHeight = start.cellHeight * 0.5f
-
-        val cx = start.left + halfCellWidth
-        val cy = start.top + halfCellHeight
-
-        val startRadius = min(halfCellWidth, halfCellHeight)
-        val finalRadius = getCircleRadiusForCellMonthAnimation(end, cx, cy, measureManager)
-
-        return DefaultSelectionState.CellToMonth(
-            start,
-            end,
-            cx,
-            cy,
-            startRadius,
-            finalRadius,
-            isReversed
-        )
-    }
-
-    private fun getCircleRadiusForCellMonthAnimation(
-        state: DefaultSelectionState.MonthState,
-        x: Float, y: Float,
-        measureManager: CellMeasureManager
-    ): Float {
-        // Find min radius for circle (with center at (x; y)) to fully fit in month selection.
-        val cellHeight = state.cellHeight
-
-        val distToLeftCorner = x - state.firstCellOnRowLeft
-        val distToRightCorner = state.lastCellOnRowRight - x
-        val distToTopCorner = y - measureManager.getCellLeft(0)
-        val distToBottomCorner = measureManager.getCellTop(41) + cellHeight - y
-
-        val startLeft = state.startLeft
-        val startTop = state.startTop
-
-        val endRight = state.endRight
-        val endTop = state.endTop
-
-        val distToStartCellSq = distanceSquare(startLeft, startTop, x, y)
-        val distToEndCellSq = distanceSquare(endRight, endTop + cellHeight, x, y)
-
-        var maxDist = max(distToLeftCorner, distToRightCorner)
-        maxDist = max(maxDist, distToTopCorner)
-        maxDist = max(maxDist, distToBottomCorner)
-
-        // Save on expensive sqrt() call: max(sqrt(a), sqrt(b)) => sqrt(max(a, b))
-        maxDist = max(maxDist, sqrt(max(distToStartCellSq, distToEndCellSq)))
-
-        return maxDist
-    }
-
     companion object {
         private fun throwTransitionUnsupported(
             prevState: SelectionState, currentState: SelectionState
         ): Nothing {
-            throw IllegalStateException("${prevState.type} can't be transitioned to ${currentState.type} by this manager")
+            throw IllegalStateException("$prevState can't be transitioned to $currentState by this manager")
         }
     }
 }

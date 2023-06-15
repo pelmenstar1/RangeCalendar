@@ -17,7 +17,7 @@ internal fun PackedDate(year: Int, month: Int, dayOfMonth: Int): PackedDate {
         dayOfMonth in 1..TimeUtils.getDaysInMonth(year, month)
     ) { "dayOfMonth=$dayOfMonth (daysInMonth=$daysInMonth)" }
 
-    return PackedDate(year shl 16 or (month shl 8) or dayOfMonth)
+    return PackedDate((year shl PackedDate.YEAR_SHIFT) or (month shl PackedDate.MONTH_SHIFT) or dayOfMonth)
 }
 
 internal fun PackedDate(ym: YearMonth, dayOfMonth: Int): PackedDate {
@@ -28,25 +28,32 @@ internal fun PackedDate(ym: YearMonth, dayOfMonth: Int): PackedDate {
 // https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/time/LocalDate.java
 @JvmInline
 internal value class PackedDate(val bits: Int) {
-    /* Packed values:
-       - 32-16 bits - year
-       - 16-8 bits - month
-       - 8-0 bits - day
-     */
+    // 0..8 bits - day of month
+    // 8..16 bits - month
+    // 16..32 bits - year
 
     val year: Int
-        get() = (bits shr 16) and 0xffff
+        get() = (bits shr YEAR_SHIFT) and 0xffff
 
     val month: Int
-        get() = (bits shr 8) and 0xff
+        get() = (bits shr MONTH_SHIFT) and 0xff
+
+    val yearMonth: YearMonth
+        get() = YearMonth(year, month)
 
     val dayOfMonth: Int
         get() = bits and 0xff
 
     val dayOfWeek: Int
-        get() {
-            return floorMod(toEpochDay() + 3L, 7L).toInt() + 1
+        get() = getDayOfWeek(toEpochDay())
+
+    fun plusDays(days: Int): PackedDate {
+        if (days == 0) {
+            return this
         }
+
+        return fromEpochDay(toEpochDay() + days)
+    }
 
     fun toCalendar(calendar: Calendar) {
         // month in Calendar is in [0; 11], but "our" month is in [1; 12], so we need to minus 1
@@ -59,18 +66,17 @@ internal value class PackedDate(val bits: Int) {
 
     fun toEpochDay(): Long {
         val year = year
-        val yearL = year.toLong()
-        val month = month.toLong()
-        val day = dayOfMonth.toLong()
+        val month = month
 
+        val yearL = year.toLong()
         var total = 0L
 
         total += 365L * yearL
         total += ((yearL + 3L) / 4L - (yearL + 99L) / 100L + (yearL + 399L) / 400L)
         total += (367L * month - 362L) / 12L
-        total += day - 1L
+        total += dayOfMonth - 1L
 
-        if (month > 2L) {
+        if (month > 2) {
             total--
             if (!isLeapYear(year)) {
                 total--
@@ -80,15 +86,25 @@ internal value class PackedDate(val bits: Int) {
         return total - DAYS_0000_TO_1970
     }
 
+    override fun toString(): String {
+        return "PackedDate(year=$year, month=$month, dayOfMonth=$dayOfMonth)"
+    }
+
     companion object {
         const val MILLIS_IN_DAY = (24 * 60 * 60000).toLong()
         const val MAX_YEAR = 65535
 
-        val MIN_DATE = PackedDate(257)
-        val MAX_DATE = PackedDate(-6234)
+        const val YEAR_SHIFT = 16
+        const val MONTH_SHIFT = 8
+
+        // year: 0 month: 1 dayOfMonth: 1
+        val MIN_DATE = PackedDate((0 shl YEAR_SHIFT) or (1 shl MONTH_SHIFT) or 1)
+
+        // year: 65535 month: 12 dayOfMonth: 31
+        val MAX_DATE = PackedDate((65535 shl YEAR_SHIFT) or (12 shl MONTH_SHIFT) or 31)
 
         const val MIN_DATE_EPOCH = -719528L
-        const val MAX_DATE_EPOCH = 23217002L
+        const val MAX_DATE_EPOCH = 23217003L
 
         private const val DAYS_PER_CYCLE = 146097L
         private const val DAYS_0000_TO_1970 = DAYS_PER_CYCLE * 5 - (30 * 365 + 7)
@@ -105,7 +121,15 @@ internal value class PackedDate(val bits: Int) {
         }
 
         fun fromEpochDay(epochDay: Long): PackedDate {
-            val zeroDay = epochDay + DAYS_0000_TO_1970 - 60L
+            var zeroDay = epochDay + DAYS_0000_TO_1970 - 60L
+
+            var adjust = 0L
+            if (zeroDay < 0) {
+                // adjust negative years to positive for calculation
+                val adjustCycles = (zeroDay + 1) / DAYS_PER_CYCLE - 1L
+                adjust = adjustCycles * 400L
+                zeroDay -= adjustCycles * DAYS_PER_CYCLE
+            }
 
             var yearEst = (400L * zeroDay + 591L) / DAYS_PER_CYCLE
             var doyEst = zeroDay - (365L * yearEst + yearEst / 4L - yearEst / 100L + yearEst / 400L)
@@ -115,17 +139,21 @@ internal value class PackedDate(val bits: Int) {
                 doyEst = zeroDay - (365L * yearEst + yearEst / 4L - yearEst / 100L + yearEst / 400L)
             }
 
+            yearEst += adjust
+
             val marchDoy0 = doyEst.toInt()
             val marchMonth0 = (marchDoy0 * 5 + 2) / 153
             val month = (marchMonth0 + 2) % 12 + 1
             val dom = marchDoy0 - (marchMonth0 * 306 + 5) / 10 + 1
-            yearEst += (marchMonth0 / 10).toLong()
 
-            return PackedDate(yearEst.toInt(), month, dom)
+            var year = yearEst.toInt()
+            year += marchMonth0 / 10
+
+            return PackedDate(year, month, dom)
         }
 
         fun fromLocalDate(date: LocalDate): PackedDate {
-            require(isValidLocalDate(date)) { "LocalDate is out of valid range" }
+            require(date.year in 0..MAX_YEAR) { "LocalDate is out of valid range" }
 
             return PackedDate(date.year, date.monthValue, date.dayOfMonth)
         }
@@ -134,19 +162,8 @@ internal value class PackedDate(val bits: Int) {
             return epochDay in MIN_DATE_EPOCH..MAX_DATE_EPOCH
         }
 
-        private inline fun localDateCompare(
-            date: LocalDate,
-            year: Int, month: Int, dayOfMonth: Int,
-            op: (Int, Int) -> Boolean
-        ): Boolean {
-            return op(date.year, year) &&
-                    op(date.monthValue, month) &&
-                    op(date.dayOfMonth, dayOfMonth)
-        }
-
-        fun isValidLocalDate(date: LocalDate): Boolean {
-            return localDateCompare(date, 0, 1, 1) { a, b -> a >= b } &&
-                    localDateCompare(date, MAX_YEAR, 12, 30) { a, b -> a <= b }
+        fun getDayOfWeek(epochDay: Long): Int {
+            return floorMod(epochDay + 3L, 7L).toInt() + 1
         }
     }
 }
@@ -166,9 +183,47 @@ internal value class PackedDateRange(val bits: Long) {
     inline operator fun component1() = start
     inline operator fun component2() = end
 
+    override fun toString(): String {
+        return "PackedDateRange(start=$start, end=$end)"
+    }
+
     companion object {
         fun fromLocalDates(start: LocalDate, end: LocalDate): PackedDateRange {
             return PackedDateRange(PackedDate.fromLocalDate(start), PackedDate.fromLocalDate(end))
+        }
+
+        fun fromSingleDate(date: LocalDate): PackedDateRange {
+            val packed = PackedDate.fromLocalDate(date)
+
+            return PackedDateRange(packed, packed)
+        }
+
+        fun week(year: Int, month: Int, weekIndex: Int): PackedDateRange {
+            val firstDay = PackedDate(year, month, 1)
+            val firstDayEpochDay = firstDay.toEpochDay()
+            val dayOfWeek = PackedDate.getDayOfWeek(firstDayEpochDay)
+
+            var startEpochDay = firstDayEpochDay - dayOfWeek + 1
+
+            // Integer multiplication with cast to long is intentional.
+            // weekIndex is always in [0; 5], so the value can't overflow.
+            startEpochDay += (weekIndex * 7).toLong()
+
+            val endEpochDay = startEpochDay + 6
+
+            return PackedDateRange(
+                start = PackedDate.fromEpochDay(startEpochDay),
+                end = PackedDate.fromEpochDay(endEpochDay)
+            )
+        }
+
+        fun month(year: Int, month: Int): PackedDateRange {
+            val daysInMonth = TimeUtils.getDaysInMonth(year, month)
+
+            return PackedDateRange(
+                start = PackedDate(year, month, dayOfMonth = 1),
+                end = PackedDate(year, month, dayOfMonth = daysInMonth)
+            )
         }
     }
 }

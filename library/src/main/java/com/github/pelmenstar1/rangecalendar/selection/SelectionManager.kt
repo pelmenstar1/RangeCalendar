@@ -1,14 +1,12 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
-import com.github.pelmenstar1.rangecalendar.SelectionType
-
 /**
  * Manages selection state and provides a way to draw a state and transition between them.
  */
 interface SelectionManager {
     /**
      * State which was selected before [currentState].
-     * If there's no previous state, it should be instance of [SelectionState] whose type is [SelectionType.NONE].
+     * If there's no previous state, it should be instance of [SelectionState] whose selection range is empty.
      */
     val previousState: SelectionState
 
@@ -34,20 +32,14 @@ interface SelectionManager {
     val transitionController: SelectionTransitionController
 
     /**
-     * Sets state whose type is [SelectionType.NONE].
-     * It should be used instead of calling [setState] with [SelectionType.NONE] type because 'none' selection can't have selected range.
+     * Sets a state with an empty selection range.
      */
     fun setNoneState()
 
     /**
      * Sets a current state.
      */
-    fun setState(
-        type: SelectionType,
-        rangeStart: Int,
-        rangeEnd: Int,
-        measureManager: CellMeasureManager
-    )
+    fun setState(rangeStart: Int, rangeEnd: Int, measureManager: CellMeasureManager)
 
     /**
      * Updates previous and current state due to the configuration change ([CellMeasureManager] measurements are changed)
@@ -64,22 +56,23 @@ interface SelectionManager {
      *
      * It should only be called if [hasTransition] returns true.
      */
-    fun createTransition(measureManager: CellMeasureManager, options: SelectionRenderOptions): SelectionState.Transitive
+    fun createTransition(
+        measureManager: CellMeasureManager,
+        options: SelectionRenderOptions
+    ): SelectionState.Transitive
 }
 
 internal fun SelectionManager.setState(
-    type: SelectionType,
     range: CellRange,
     measureManager: CellMeasureManager
 ) {
-    setState(type, range.start, range.end, measureManager)
+    setState(range.start, range.end, measureManager)
 }
 
 internal fun SelectionManager.setState(
-    type: SelectionType,
     rangeStart: Cell,
     rangeEnd: Cell,
     measureManager: CellMeasureManager
 ) {
-    setState(type, rangeStart.index, rangeEnd.index, measureManager)
+    setState(rangeStart.index, rangeEnd.index, measureManager)
 }

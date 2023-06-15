@@ -16,19 +16,6 @@ internal fun packShorts(first: Int, second: Int): Int {
 internal fun unpackFirstShort(packed: Int): Int = packed and 0xFFFF
 internal fun unpackSecondShort(packed: Int): Int = packed shr 16
 
-internal fun PackedIntPair(first: Int, second: Int): PackedIntPair {
-    return PackedIntPair(packInts(first, second))
-}
-
-@JvmInline
-internal value class PackedIntPair(val bits: Long) {
-    val first: Int
-        get() = unpackFirstInt(bits)
-
-    val second: Int
-        get() = unpackSecondInt(bits)
-}
-
 internal fun PackedIntRange(start: Int, endInclusive: Int): PackedIntRange {
     return PackedIntRange(packInts(start, endInclusive))
 }
@@ -58,19 +45,6 @@ internal value class PackedIntRange(val bits: Long) {
     companion object {
         val Undefined = PackedIntRange(-1, -1)
     }
-}
-
-internal fun PackedShortRange(start: Int, endInclusive: Int): PackedShortRange {
-    return PackedShortRange(packShorts(start, endInclusive))
-}
-
-@JvmInline
-internal value class PackedShortRange(val bits: Int) {
-    val start: Int
-        get() = unpackFirstShort(bits)
-
-    val endInclusive: Int
-        get() = unpackSecondShort(bits)
 }
 
 internal fun PackedSize(width: Int, height: Int): PackedSize {

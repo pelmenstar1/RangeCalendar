@@ -1,12 +1,8 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.RectF
-import com.github.pelmenstar1.rangecalendar.SelectionType
 
-internal sealed class DefaultSelectionState(
-    override val type: SelectionType,
-    val range: CellRange
-) : SelectionState {
+internal sealed class DefaultSelectionState(val range: CellRange) : SelectionState {
     override val rangeStart: Int
         get() = range.start.index
 
@@ -19,7 +15,7 @@ internal sealed class DefaultSelectionState(
         val top: Float,
         val cellWidth: Float,
         val cellHeight: Float
-    ) : DefaultSelectionState(SelectionType.CELL, CellRange.cell(cell)) {
+    ) : DefaultSelectionState(CellRange.single(cell)) {
         class AppearAlpha(
             val baseState: CellState,
             val isReversed: Boolean
@@ -64,52 +60,18 @@ internal sealed class DefaultSelectionState(
             override val start: CellState,
             override val end: CellState
         ) : BoundsTransitionBase()
-
-        class ToWeekOnRow(
-            override val start: CellState,
-            override val end: WeekState,
-            val isReversed: Boolean
-        ) : BoundsTransitionBase()
     }
 
-    class WeekState(
-        range: CellRange,
-        val startLeft: Float,
-        val top: Float,
-        val endRight: Float,
-        val bottom: Float
-    ) : DefaultSelectionState(SelectionType.WEEK, range) {
-        class FromCenter(
-            val baseState: WeekState,
-            val isReversed: Boolean
-        ) : BoundsTransitionBase() {
-            override val start: SelectionState
-                get() = baseState
-
-            override val end: SelectionState
-                get() = baseState
-        }
-
-        class ToWeek(
-            override val start: WeekState,
-            override val end: WeekState
-        ) : SelectionState.Transitive {
-            val startBounds = RectF()
-            val endBounds = RectF()
-        }
-    }
-
-    sealed class CustomRangeStateBase(
-        type: SelectionType,
+    class RangeState(
         range: CellRange,
         val startLeft: Float, val startTop: Float,
         val endRight: Float, val endTop: Float,
         val firstCellOnRowLeft: Float, val lastCellOnRowRight: Float,
         val cellWidth: Float,
         val cellHeight: Float
-    ) : DefaultSelectionState(type, range) {
+    ) : DefaultSelectionState(range) {
         class Alpha(
-            val baseState: CustomRangeStateBase,
+            val baseState: RangeState,
             val isReversed: Boolean
         ) : SelectionState.Transitive {
             override val start: SelectionState
@@ -122,59 +84,29 @@ internal sealed class DefaultSelectionState(
         }
     }
 
-    class MonthState(
-        range: CellRange,
-        startLeft: Float, startTop: Float,
-        endRight: Float, endTop: Float,
-        firstCellOnRowLeft: Float, lastCellOnRowRight: Float,
-        cellWidth: Float, cellHeight: Float,
-    ) : CustomRangeStateBase(
-        SelectionType.MONTH,
-        range,
-        startLeft, startTop,
-        endRight, endTop,
-        firstCellOnRowLeft, lastCellOnRowRight,
-        cellWidth, cellHeight
-    )
-
-    class CustomRangeState(
-        range: CellRange,
-        startLeft: Float, startTop: Float,
-        endRight: Float, endTop: Float,
-        firstCellOnRowLeft: Float, lastCellOnRowRight: Float,
-        cellWidth: Float, cellHeight: Float,
-    ) : CustomRangeStateBase(
-        SelectionType.CUSTOM,
-        range,
-        startLeft, startTop,
-        endRight, endTop,
-        firstCellOnRowLeft, lastCellOnRowRight,
-        cellWidth, cellHeight
-    )
-
-    object None : DefaultSelectionState(SelectionType.NONE, CellRange.Invalid)
-
-    class CellToWeek(
-        override val start: CellState,
-        override val end: WeekState,
-        val isReversed: Boolean
-    ) : SelectionState.Transitive {
-        val weekBounds = RectF()
-        var cellAlpha = 0f
-    }
-
-    class CellToMonth(
-        override val start: CellState,
-        override val end: MonthState,
-        val cx: Float, val cy: Float,
-        val startRadius: Float,
-        val finalRadius: Float,
-        val isReversed: Boolean
-    ) : SelectionState.Transitive {
-        var radius = Float.NaN
-    }
+    object None : DefaultSelectionState(CellRange.Invalid)
 
     abstract class BoundsTransitionBase : SelectionState.Transitive {
         val bounds = RectF()
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other === this) return true
+        if (other == null || javaClass != other.javaClass) return false
+
+        other as DefaultSelectionState
+
+        return range == other.range
+    }
+
+    override fun hashCode(): Int {
+        var result = rangeStart
+        result = result * 31 + rangeEnd
+
+        return result
+    }
+
+    override fun toString(): String {
+        return "DefaultSelectionState(rangeStart=$rangeStart, rangeEnd=$rangeEnd)"
     }
 }

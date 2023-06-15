@@ -40,62 +40,11 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
                 }
             }
 
-            is DefaultSelectionState.CellState.ToWeekOnRow -> {
-                val start = state.start
-                val end = state.end
-
-                val f = fraction.reversedIf(state.isReversed)
-                val startLeft = start.left
-
-                state.bounds.apply {
-                    left = lerp(startLeft, end.startLeft, f)
-                    top = start.top
-                    right = lerp(startLeft + start.cellWidth, end.endRight, f)
-                    bottom = top + start.cellHeight
-                }
-            }
-
-            // Week transitions
-            is DefaultSelectionState.WeekState.FromCenter -> {
-                weekFromCenter(
-                    state.baseState,
-                    fraction = fraction.reversedIf(state.isReversed),
-                    state.bounds
-                )
-            }
-
-            is DefaultSelectionState.WeekState.ToWeek -> {
-                weekFromCenter(
-                    state.start,
-                    fraction = 1f - fraction,
-                    state.startBounds
-                )
-                weekFromCenter(
-                    state.end,
-                    fraction,
-                    state.endBounds
-                )
-            }
 
             // Custom range
 
-            is DefaultSelectionState.CustomRangeStateBase.Alpha -> {
+            is DefaultSelectionState.RangeState.Alpha -> {
                 state.alpha = fraction.reversedIf(state.isReversed)
-            }
-
-            // Misc
-
-            is DefaultSelectionState.CellToWeek -> {
-                val f = fraction.reversedIf(state.isReversed)
-
-                weekFromCenter(state.end, f, state.weekBounds)
-                state.cellAlpha = 1f - f
-            }
-
-            is DefaultSelectionState.CellToMonth -> {
-                val f = fraction.reversedIf(state.isReversed)
-
-                state.radius = lerp(state.startRadius, state.finalRadius, f)
             }
         }
     }
@@ -125,6 +74,7 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
             }
         }
 
+        /*
         private fun weekFromCenter(
             baseState: DefaultSelectionState.WeekState,
             fraction: Float,
@@ -144,5 +94,7 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
                 bottom = baseState.bottom
             }
         }
+
+         */
     }
 }

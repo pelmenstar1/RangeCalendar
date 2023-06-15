@@ -9,7 +9,6 @@ import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
-import androidx.core.graphics.withSave
 import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
 import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
@@ -120,8 +119,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 usePrimaryNode = true
             )
 
-            is DefaultSelectionState.WeekState -> drawWeekSelection(canvas, state, options)
-            is DefaultSelectionState.CustomRangeStateBase -> drawCustomRange(canvas, state, options)
+            is DefaultSelectionState.RangeState -> drawCustomRange(canvas, state, options)
             else -> {}
         }
     }
@@ -171,28 +169,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 drawRectOnRow(canvas, state.bounds, options)
             }
 
-            is DefaultSelectionState.CellToWeek -> {
-                drawRectOnRow(canvas, state.weekBounds, options)
-                drawCell(canvas, state.start, options, state.cellAlpha, usePrimaryNode = true)
-            }
-
-            is DefaultSelectionState.CellToMonth -> {
-                updateCustomRangePath(state.end, options)
-
-                useSelectionFill(canvas, options, pathBounds, alpha = 1f) {
-                    canvas.withSave {
-                        path?.let(::clipPath)
-                        drawCircle(state.cx, state.cy, state.radius, paint)
-                    }
-                }
-            }
-
-            is DefaultSelectionState.WeekState.ToWeek -> {
-                drawRectOnRow(canvas, state.startBounds, options)
-                drawRectOnRow(canvas, state.endBounds, options)
-            }
-
-            is DefaultSelectionState.CustomRangeStateBase.Alpha -> {
+            is DefaultSelectionState.RangeState.Alpha -> {
                 drawCustomRange(canvas, state.baseState, options, state.alpha)
             }
         }
@@ -239,23 +216,9 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         )
     }
 
-    private fun drawWeekSelection(
-        canvas: Canvas,
-        state: DefaultSelectionState.WeekState,
-        options: SelectionRenderOptions,
-    ) {
-        drawRectOnRow(
-            canvas,
-            state.startLeft, state.top,
-            state.endRight, state.bottom,
-            options,
-            alpha = 1f
-        )
-    }
-
     private fun drawCustomRange(
         canvas: Canvas,
-        state: DefaultSelectionState.CustomRangeStateBase,
+        state: DefaultSelectionState.RangeState,
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
@@ -342,7 +305,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     ) = useSelectionFill(canvas, options, { setBounds(bounds) }, alpha, block)
 
     private fun updateCustomRangePath(
-        state: DefaultSelectionState.CustomRangeStateBase,
+        state: DefaultSelectionState.RangeState,
         options: SelectionRenderOptions
     ) {
         val path = getEmptyPath()
