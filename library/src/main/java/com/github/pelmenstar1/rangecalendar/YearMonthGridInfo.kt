@@ -4,11 +4,15 @@ import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 
 internal class YearMonthGridInfo {
-    var ym = YearMonth(0)
+    var year = 0
+    var month = 0
+
     var firstCellInMonthIndex = 0
     var firstCellInGridDate = PackedDate(0, 1, 1)
     var lastCellInGridDate = PackedDate(0, 1, 1)
+
     var daysInMonth = 0
+    var daysInPrevMonth = 0
 
     val inMonthRange: CellRange
         get() {
@@ -18,18 +22,9 @@ internal class YearMonthGridInfo {
         }
 
     fun set(year: Int, month: Int) {
-        this.ym = YearMonth(year, month)
+        this.year = year
+        this.month = month
 
-        setInternal(year, month)
-    }
-
-    fun set(ym: YearMonth) {
-        this.ym = ym
-
-        setInternal(ym.year, ym.month)
-    }
-
-    private fun setInternal(year: Int, month: Int) {
         daysInMonth = getDaysInMonth(year, month)
 
         val firstDayInMonthDate = PackedDate(year, month, dayOfMonth = 1)
@@ -46,21 +41,26 @@ internal class YearMonthGridInfo {
         if (prevMonth == 0) {
             prevYear--
             prevMonth = 12
-        } else if (nextMonth == 13) {
+        } else if (nextMonth > 12) {
             nextYear++
             nextMonth = 1
         }
 
-        val prevDaysInMonth = getDaysInMonth(prevYear, prevMonth)
-        val firstCellInGridDay = prevDaysInMonth - firstDayInMonthDayOfWeek + 2
+        daysInPrevMonth = getDaysInMonth(prevYear, prevMonth)
+
+        val firstCellInGridDay = daysInPrevMonth - firstDayInMonthDayOfWeek + 2
         val lastCellInGridDay = CELLS_IN_GRID - (firstDayInMonthDayOfWeek + daysInMonth) + 1
 
         firstCellInGridDate = PackedDate(prevYear, prevMonth, firstCellInGridDay)
         lastCellInGridDate = PackedDate(nextYear, nextMonth, lastCellInGridDay)
     }
 
+    fun set(ym: YearMonth) {
+        set(ym.year, ym.month)
+    }
+
     fun getCellByDate(date: PackedDate): Cell {
-        val diff = date.daysDifference(firstCellInGridDate)
+        val diff = date.toEpochDay() - firstCellInGridDate.toEpochDay()
 
         if (diff in 0 until CELLS_IN_GRID) {
             return Cell(diff.toInt())
@@ -86,18 +86,20 @@ internal class YearMonthGridInfo {
     fun getDateAtCell(cell: Cell): PackedDate {
         val index = cell.index
 
-        val ym = ym
-
         val start = firstCellInMonthIndex
         val monthEnd = start + daysInMonth - 1
 
         return when {
             index < start -> {
-                val prevYm = ym - 1
-                val prevYear = prevYm.year
-                val prevMonth = prevYm.month
+                var prevYear = year
+                var prevMonth = month - 1
 
-                val day = getDaysInMonth(prevYear, prevMonth) - start + index + 1
+                if (prevMonth == 0) {
+                    prevYear--
+                    prevMonth = 1
+                }
+
+                val day = daysInPrevMonth - start + index + 1
 
                 PackedDate(prevYear, prevMonth, day)
             }
@@ -105,13 +107,21 @@ internal class YearMonthGridInfo {
             index <= monthEnd -> {
                 val day = index - start + 1
 
-                PackedDate(ym, day)
+                PackedDate(year, month, day)
             }
 
             else -> {
                 val day = index - monthEnd
 
-                PackedDate(ym + 1, day)
+                var nextYear = year
+                var nextMonth = month + 1
+
+                if (nextMonth > 12) {
+                    nextYear++
+                    nextMonth = 1
+                }
+
+                PackedDate(nextYear, nextMonth, day)
             }
         }
     }
@@ -121,12 +131,10 @@ internal class YearMonthGridInfo {
     }
 
     fun fillGrid(cells: ByteArray) {
-        val ym = ym
-
         val start = firstCellInMonthIndex
         val daysInMonth = daysInMonth
 
-        val daysInPrevMonth = getDaysInMonth(ym - 1)
+        val daysInPrevMonth = daysInPrevMonth
         val thisMonthEnd = start + daysInMonth
 
         for (i in 0 until start) {

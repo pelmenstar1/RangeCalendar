@@ -121,35 +121,6 @@ internal value class PackedDate(val bits: Int) {
         return fromEpochDay(toEpochDay() + days)
     }
 
-    fun daysDifference(other: PackedDate): Long {
-        /*
-        val currentYear = year
-        val currentMonth = month
-
-        val otherYear = other.year
-        val otherMonth = other.month
-
-        val currentYm = currentYear * 12 + (currentMonth - 1)
-        val otherYm = otherYear * 12 + (otherMonth - 1)
-
-        val monthsDiff = currentYm - otherYm
-
-        when {
-            monthsDiff == 0 -> {
-                return (dayOfMonth - other.dayOfMonth).toLong()
-            }
-            monthsDiff == 1 -> {
-                if (current)
-            }
-        }
-
-        if (monthsDiff in -1..1) {
-
-        }
-        */
-        return toEpochDay() - other.toEpochDay()
-    }
-
     fun toLocalDate(): LocalDate {
         return LocalDate.of(year, month, dayOfMonth)
     }
