@@ -164,6 +164,9 @@ internal value class PackedDate(val bits: Int) {
         // year: 65535 month: 12 dayOfMonth: 31
         val MAX_DATE = PackedDate((MAX_YEAR shl YEAR_SHIFT) or (12 shl MONTH_SHIFT) or 31)
 
+        // the date is invalid because month is 0.
+        val INVALID = PackedDate(0)
+
         const val MIN_DATE_EPOCH = -719528L
         const val MAX_DATE_EPOCH = 23217003L
 

@@ -133,7 +133,7 @@ internal class RangeCalendarPagerAdapter(
     var selectionYm = YearMonth(0)
 
     // used in tests
-    internal var today = PackedDate(0)
+    internal var today = PackedDate.INVALID
 
     private val gridInfo = YearMonthGridInfo()
     private val styleData = IntArray(20)
@@ -217,12 +217,23 @@ internal class RangeCalendarPagerAdapter(
     }
 
     fun setToday(date: PackedDate) {
+        val oldToday = today
         today = date
 
-        val position = getItemPositionForDate(date)
+        val oldTodayPosition = if (oldToday == PackedDate.INVALID) {
+            -1
+        } else {
+            getItemPositionForDate(oldToday)
+        }
 
-        if (position in 0 until count) {
-            notifyItemChanged(position, Payload.updateTodayIndex())
+        val newTodayPosition = getItemPositionForDate(date)
+
+        if (newTodayPosition in 0 until count) {
+            notifyItemChanged(newTodayPosition, Payload.updateTodayIndex())
+        }
+
+        if (oldTodayPosition != newTodayPosition && oldTodayPosition in 0 until count) {
+            notifyItemChanged(oldTodayPosition, Payload.updateTodayIndex())
         }
     }
 
@@ -620,12 +631,14 @@ internal class RangeCalendarPagerAdapter(
     }
 
     // Expects that the gridInfo is initialized to the right year-month.
-    private fun updateTodayIndex(gridView: RangeCalendarGridView) {
-        val cell = gridInfo.getCellByDate(today)
-
-        if (cell.isDefined) {
-            gridView.setTodayCell(cell)
+    private fun updateTodayIndex(gridView: RangeCalendarGridView, position: Int) {
+        val cell = if (getItemPositionForDate(today) == position) {
+            gridInfo.getCellByDate(today)
+        } else {
+            Cell.Undefined
         }
+
+        gridView.setTodayCell(cell)
     }
 
     // Expects that gridInfo is initialized to the right year-month
@@ -930,6 +943,7 @@ internal class RangeCalendarPagerAdapter(
         updateGrid(gridView)
         updateEnabledRange(gridView)
         gridView.setInMonthRange(gridInfo.inMonthRange)
+        updateTodayIndex(gridView, position)
 
         for (type in styleData.indices) {
             updateStyle(gridView, type, PackedInt(styleData[type]))
@@ -942,10 +956,6 @@ internal class RangeCalendarPagerAdapter(
             if (adjustedType != STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS) {
                 updateStyle(gridView, type + STYLE_OBJ_START, PackedObject(styleObjData[type]))
             }
-        }
-
-        if (getItemPositionForDate(today) == position) {
-            updateTodayIndex(gridView)
         }
 
         if (selectionYm == ym) {
@@ -989,7 +999,7 @@ internal class RangeCalendarPagerAdapter(
                 Payload.UPDATE_TODAY_INDEX -> {
                     gridInfo.set(getYearMonthForCalendar(position))
 
-                    updateTodayIndex(gridView)
+                    updateTodayIndex(gridView, position)
                 }
 
                 Payload.UPDATE_STYLE -> {
