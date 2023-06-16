@@ -294,7 +294,7 @@ class RangeCalendarView @JvmOverloads constructor(
                     val adapter = this@RangeCalendarView.adapter
 
                     if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
-                        adapter.clearHoverAt(adapter.getItemPositionForYearMonth(currentCalendarYm))
+                        adapter.clearHoverAt(currentCalendarYm)
                     }
                 }
             })

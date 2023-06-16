@@ -216,27 +216,6 @@ internal class RangeCalendarPagerAdapter(
         selectionGate = value
     }
 
-    fun setToday(date: PackedDate) {
-        val oldToday = today
-        today = date
-
-        val oldTodayPosition = if (oldToday == PackedDate.INVALID) {
-            -1
-        } else {
-            getItemPositionForDate(oldToday)
-        }
-
-        val newTodayPosition = getItemPositionForDate(date)
-
-        if (newTodayPosition in 0 until count) {
-            notifyItemChanged(newTodayPosition, Payload.updateTodayIndex())
-        }
-
-        if (oldTodayPosition != newTodayPosition && oldTodayPosition in 0 until count) {
-            notifyItemChanged(oldTodayPosition, Payload.updateTodayIndex())
-        }
-    }
-
     private fun getStylePacked(type: Int) = PackedInt(styleData[type])
 
     fun getStyleInt(type: Int) = styleData[type]
@@ -425,8 +404,8 @@ internal class RangeCalendarPagerAdapter(
         return YearMonth.forDate(minDate) + position
     }
 
-    fun clearHoverAt(position: Int) {
-        notifyItemChanged(position, Payload.clearHover())
+    fun clearHoverAt(ym: YearMonth) {
+        notifyPageChanged(ym, Payload.clearHover())
     }
 
     private fun createEnabledRange(): CellRange {
@@ -445,16 +424,47 @@ internal class RangeCalendarPagerAdapter(
         return CellRange(startCell, endCell)
     }
 
-    private fun updateEnabledRange(gridView: RangeCalendarGridView) {
-        gridView.setEnabledCellRange(createEnabledRange())
-    }
-
     fun getItemPositionForDate(date: PackedDate): Int {
         return getItemPositionForYearMonth(YearMonth.forDate(date))
     }
 
     fun getItemPositionForYearMonth(ym: YearMonth): Int {
         return ym.totalMonths - YearMonth.forDate(minDate).totalMonths
+    }
+
+    private fun isValidPosition(position: Int) = position in 0 until count
+
+    private fun notifyPageChanged(position: Int, payload: Payload) {
+        if (isValidPosition(position)) {
+            notifyItemChanged(position, payload)
+        }
+    }
+
+    private fun notifyPageChanged(ym: YearMonth, payload: Payload) {
+        notifyPageChanged(getItemPositionForYearMonth(ym), payload)
+    }
+
+    private fun updateEnabledRange(gridView: RangeCalendarGridView) {
+        gridView.setEnabledCellRange(createEnabledRange())
+    }
+
+    fun setToday(date: PackedDate) {
+        val oldToday = today
+        today = date
+
+        val oldTodayPosition = if (oldToday == PackedDate.INVALID) {
+            -1
+        } else {
+            getItemPositionForDate(oldToday)
+        }
+
+        val newTodayPosition = getItemPositionForDate(date)
+
+        notifyPageChanged(newTodayPosition, Payload.updateTodayIndex())
+
+        if (oldTodayPosition != newTodayPosition) {
+            notifyPageChanged(oldTodayPosition, Payload.updateTodayIndex())
+        }
     }
 
     private fun updateGrid(gridView: RangeCalendarGridView) {
@@ -527,13 +537,9 @@ internal class RangeCalendarPagerAdapter(
 
     private fun clearSelection(fireEvent: Boolean, withAnimation: Boolean) {
         if (selectionRange.isValid) {
-            val position = getItemPositionForYearMonth(selectionYm)
-
             discardSelectionValues()
 
-            if (position in 0 until count) {
-                notifyItemChanged(position, Payload.clearSelection(withAnimation))
-            }
+            notifyPageChanged(selectionYm, Payload.clearSelection(withAnimation))
 
             if (fireEvent) {
                 onSelectionListener?.onSelectionCleared()
@@ -560,12 +566,7 @@ internal class RangeCalendarPagerAdapter(
     ): Boolean {
         val position = getItemPositionForYearMonth(ym)
 
-        // position can be negative if selection is out of min-max range
-        if (position in 0 until count) {
-            if (!isSelectionAllowed(dateRange)) {
-                return false
-            }
-
+        if (isValidPosition(position) && isSelectionAllowed(dateRange)) {
             gridInfo.set(ym)
 
             // Clear selection on the page with selection if it's not the page we're changing selection of.
@@ -616,18 +617,14 @@ internal class RangeCalendarPagerAdapter(
 
     // this is special case for RangeCalendarView.onRestoreInstanceState
     fun selectOnRestore(ym: YearMonth, cellRange: CellRange) {
-        val position = getItemPositionForYearMonth(ym)
+        // Restore the selection of the page. Do it without animation because we're restoring things, not setting it.
+        val payload = Payload.select(
+            cellRange,
+            SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+            withAnimation = false
+        )
 
-        if (position in 0 until count) {
-            // Restore the selection of the page. Do it without animation because we're restoring things, not setting it.
-            val payload = Payload.select(
-                cellRange,
-                SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                withAnimation = false
-            )
-
-            notifyItemChanged(position, payload)
-        }
+        notifyPageChanged(ym, payload)
     }
 
     // Expects that the gridInfo is initialized to the right year-month.
@@ -672,8 +669,8 @@ internal class RangeCalendarPagerAdapter(
     ) {
         val position = getItemPositionForDate(date)
 
-        if (position in 0 until count) {
-            gridInfo.set(getYearMonthForCalendar(position))
+        if (isValidPosition(position)) {
+            gridInfo.set(date.year, date.month)
             val cell = gridInfo.getCellByDate(date)
 
             notifyItemChanged(position, Payload.setDecorLayoutOptions(cell, value, withAnimation))
@@ -789,10 +786,10 @@ internal class RangeCalendarPagerAdapter(
     ) {
         val position = getItemPositionForDate(date)
 
-        if (position in 0 until count) {
-            val ym = getYearMonthForCalendar(position)
+        if (isValidPosition(position)) {
+            val ym = YearMonth.forDate(date)
+            gridInfo.set(date.year, date.month)
 
-            gridInfo.set(ym)
             val cell = gridInfo.getCellByDate(date)
 
             check(ym, cell)
@@ -815,7 +812,7 @@ internal class RangeCalendarPagerAdapter(
 
         val position = getItemPositionForDate(decor.date)
 
-        if (position in 0 until count) {
+        if (isValidPosition(position)) {
             val index = decorations.indexOf(decor)
 
             if (index < 0) {
@@ -837,7 +834,7 @@ internal class RangeCalendarPagerAdapter(
     ) {
         val position = getItemPositionForDate(date)
 
-        if (position in 0 until count) {
+        if (isValidPosition(position)) {
             val ym = getYearMonthForCalendar(position)
 
             gridInfo.set(ym)
@@ -869,10 +866,10 @@ internal class RangeCalendarPagerAdapter(
     ) {
         val position = getItemPositionForDate(date)
 
-        if (position in 0 until count) {
-            val ym = getYearMonthForCalendar(position)
+        if (isValidPosition(position)) {
+            val ym = YearMonth.forDate(date)
+            gridInfo.set(date.year, date.month)
 
-            gridInfo.set(ym)
             val cell = gridInfo.getCellByDate(date)
 
             val subregion = decorations.getSubregion(ym, cell)
