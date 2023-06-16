@@ -216,11 +216,7 @@ internal class RangeCalendarPagerAdapter(
         selectionGate = value
     }
 
-    private fun getStylePacked(type: Int) = PackedInt(styleData[type])
-
-    fun getStyleInt(type: Int) = styleData[type]
-    fun getStyleBool(type: Int) = getStylePacked(type).boolean()
-    fun getStyleFloat(type: Int) = getStylePacked(type).float()
+    fun getStylePacked(type: Int) = PackedInt(styleData[type])
 
     @Suppress("UNCHECKED_CAST")
     fun <T> getStyleObject(type: Int): T {
@@ -230,13 +226,12 @@ internal class RangeCalendarPagerAdapter(
     inline fun <T : Enum<T>> getStyleEnum(getType: Companion.() -> Int, fromInt: (Int) -> T) =
         getStylePacked(Companion.getType()).enum(fromInt)
 
-    inline fun getStyleInt(getType: Companion.() -> Int) = getStyleInt(Companion.getType())
-    inline fun getStyleBool(getType: Companion.() -> Int) = getStyleBool(Companion.getType())
-    inline fun getStyleFloat(getType: Companion.() -> Int) = getStyleFloat(Companion.getType())
-    inline fun <T> getStyleObject(getType: Companion.() -> Int): T =
-        getStyleObject(Companion.getType())
+    inline fun getStyleInt(getType: Companion.() -> Int) = getStylePacked(Companion.getType()).value
+    inline fun getStyleBool(getType: Companion.() -> Int) = getStylePacked(Companion.getType()).boolean()
+    inline fun getStyleFloat(getType: Companion.() -> Int) = getStylePacked(Companion.getType()).float()
+    inline fun <T> getStyleObject(getType: Companion.() -> Int): T = getStyleObject(Companion.getType())
 
-    private fun setStylePacked(type: Int, packed: PackedInt, notify: Boolean) {
+    fun setStylePacked(type: Int, packed: PackedInt, notify: Boolean) {
         if (styleData[type] != packed.value) {
             styleData[type] = packed.value
 
@@ -244,22 +239,6 @@ internal class RangeCalendarPagerAdapter(
                 notifyItemRangeChanged(0, count, Payload.updateStyle(type, packed))
             }
         }
-    }
-
-    fun setStyleInt(type: Int, value: Int, notify: Boolean = true) {
-        setStylePacked(type, PackedInt(value), notify)
-    }
-
-    fun <T : Enum<T>> setStyleEnum(type: Int, value: T, notify: Boolean = true) {
-        setStylePacked(type, PackedInt(value), notify)
-    }
-
-    fun setStyleBool(type: Int, value: Boolean, notify: Boolean = true) {
-        setStylePacked(type, PackedInt(value), notify)
-    }
-
-    fun setStyleFloat(type: Int, value: Float, notify: Boolean = true) {
-        setStylePacked(type, PackedInt(value), notify)
     }
 
     fun setStyleObject(type: Int, data: Any?, notify: Boolean = true) {
@@ -270,25 +249,20 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    inline fun setStyleInt(getType: Companion.() -> Int, value: Int, notify: Boolean = true) {
-        setStyleInt(Companion.getType(), value, notify)
-    }
-
-    inline fun setStyleFloat(getType: Companion.() -> Int, value: Float, notify: Boolean = true) {
-        setStyleFloat(Companion.getType(), value, notify)
-    }
-
-    inline fun setStyleBool(getType: Companion.() -> Int, value: Boolean, notify: Boolean = true) {
-        setStyleBool(Companion.getType(), value, notify)
-    }
-
-    fun <T : Enum<T>> setStyleEnum(getType: Companion.() -> Int, value: T, notify: Boolean = true) {
+    inline fun setStyleInt(getType: Companion.() -> Int, value: Int, notify: Boolean = true) =
         setStylePacked(Companion.getType(), PackedInt(value), notify)
-    }
 
-    inline fun setStyleObject(getType: Companion.() -> Int, data: Any?, notify: Boolean = true) {
+    inline fun setStyleFloat(getType: Companion.() -> Int, value: Float, notify: Boolean = true) =
+        setStylePacked(Companion.getType(), PackedInt(value), notify)
+
+    inline fun setStyleBool(getType: Companion.() -> Int, value: Boolean, notify: Boolean = true) =
+        setStylePacked(Companion.getType(), PackedInt(value), notify)
+
+    inline fun <T : Enum<T>> setStyleEnum(getType: Companion.() -> Int, value: T, notify: Boolean = true) =
+        setStylePacked(Companion.getType(), PackedInt(value), notify)
+
+    inline fun setStyleObject(getType: Companion.() -> Int, data: Any?, notify: Boolean = true) =
         setStyleObject(Companion.getType(), data, notify)
-    }
 
     fun setCellSize(value: Float) {
         val valueBits = value.toBits()
@@ -303,85 +277,62 @@ internal class RangeCalendarPagerAdapter(
         gridView: RangeCalendarGridView,
         type: Int, data: PackedInt
     ) {
-        when (type) {
-            // colors
-            STYLE_IN_MONTH_TEXT_COLOR -> gridView.setInMonthTextColor(data.value)
-            STYLE_OUT_MONTH_TEXT_COLOR -> gridView.setOutMonthTextColor(data.value)
-            STYLE_DISABLED_TEXT_COLOR -> gridView.setDisabledCellTextColor(data.value)
-            STYLE_TODAY_TEXT_COLOR -> gridView.setTodayCellColor(data.value)
-            STYLE_WEEKDAY_TEXT_COLOR -> gridView.setWeekdayTextColor(data.value)
-            STYLE_HOVER_COLOR -> gridView.setHoverColor(data.value)
-            STYLE_HOVER_ON_SELECTION_COLOR -> gridView.setHoverOnSelectionColor(data.value)
+        gridView.apply {
+            when (type) {
+                // colors
+                STYLE_IN_MONTH_TEXT_COLOR -> setInMonthTextColor(data.value)
+                STYLE_OUT_MONTH_TEXT_COLOR -> setOutMonthTextColor(data.value)
+                STYLE_DISABLED_TEXT_COLOR -> setDisabledCellTextColor(data.value)
+                STYLE_TODAY_TEXT_COLOR -> setTodayCellColor(data.value)
+                STYLE_WEEKDAY_TEXT_COLOR -> setWeekdayTextColor(data.value)
+                STYLE_HOVER_COLOR -> setHoverColor(data.value)
+                STYLE_HOVER_ON_SELECTION_COLOR -> setHoverOnSelectionColor(data.value)
 
-            // sizes
-            STYLE_DAY_NUMBER_TEXT_SIZE ->
-                gridView.setDayNumberTextSize(data.float())
+                // sizes
+                STYLE_DAY_NUMBER_TEXT_SIZE -> setDayNumberTextSize(data.float())
+                STYLE_WEEKDAY_TEXT_SIZE -> setWeekdayTextSize(data.float())
+                STYLE_CELL_RR_RADIUS -> setCellRoundRadius(data.float())
+                STYLE_CELL_WIDTH -> setCellWidth(data.float())
+                STYLE_CELL_HEIGHT -> setCellHeight(data.float())
 
-            STYLE_WEEKDAY_TEXT_SIZE ->
-                gridView.setWeekdayTextSize(data.float())
+                // preferences
+                STYLE_WEEKDAY_TYPE -> setWeekdayType(data.enum(WeekdayType::ofOrdinal))
 
-            STYLE_CELL_RR_RADIUS ->
-                gridView.setCellRoundRadius(data.float())
+                STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR ->
+                    clickOnCellSelectionBehavior =
+                        data.enum(ClickOnCellSelectionBehavior::ofOrdinal)
 
-            STYLE_CELL_WIDTH ->
-                gridView.setCellWidth(data.float())
+                // animations
+                STYLE_COMMON_ANIMATION_DURATION -> commonAnimationDuration = data.value
+                STYLE_HOVER_ANIMATION_DURATION -> hoverAnimationDuration = data.value
+                STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> setSelectionFillGradientBoundsType(
+                    data.enum(SelectionFillGradientBoundsType::ofOrdinal)
+                )
 
-            STYLE_CELL_HEIGHT ->
-                gridView.setCellHeight(data.float())
+                STYLE_CELL_ANIMATION_TYPE -> setCellAnimationType(data.enum(CellAnimationType::ofOrdinal))
 
-            // preferences
-            STYLE_WEEKDAY_TYPE ->
-                gridView.setWeekdayType(data.enum(WeekdayType::ofOrdinal))
+                // other stuff
+                STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE -> vibrateOnSelectingCustomRange =
+                    data.boolean()
 
-            STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR ->
-                gridView.clickOnCellSelectionBehavior =
-                    data.enum(ClickOnCellSelectionBehavior::ofOrdinal)
-
-            // animations
-            STYLE_COMMON_ANIMATION_DURATION ->
-                gridView.commonAnimationDuration = data.value
-
-            STYLE_HOVER_ANIMATION_DURATION ->
-                gridView.hoverAnimationDuration = data.value
-
-            STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> gridView.setSelectionFillGradientBoundsType(
-                data.enum(SelectionFillGradientBoundsType::ofOrdinal)
-            )
-
-            STYLE_CELL_ANIMATION_TYPE -> gridView.setCellAnimationType(data.enum(CellAnimationType::ofOrdinal))
-
-            // other stuff
-            STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE ->
-                gridView.vibrateOnSelectingCustomRange = data.boolean()
-
-            STYLE_SHOW_ADJACENT_MONTHS ->
-                gridView.setShowAdjacentMonths(data.boolean())
+                STYLE_SHOW_ADJACENT_MONTHS -> setShowAdjacentMonths(data.boolean())
+            }
         }
+
     }
 
     private fun updateStyle(
         gridView: RangeCalendarGridView,
         type: Int, data: PackedObject
     ) {
-        when (type) {
-            STYLE_COMMON_ANIMATION_INTERPOLATOR ->
-                gridView.commonAnimationInterpolator = data.value()
-
-            STYLE_HOVER_ANIMATION_INTERPOLATOR ->
-                gridView.hoverAnimationInterpolator = data.value()
-
-            STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS ->
-                gridView.setDecorationDefaultLayoutOptions(data.value())
-
-            STYLE_SELECTION_FILL ->
-                gridView.setSelectionFill(data.value())
-
-            STYLE_SELECTION_MANAGER -> {
-                gridView.setSelectionManager(data.value())
-            }
-
-            STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER -> {
-                gridView.setCellAccessibilityInfoProvider(data.value())
+        gridView.apply {
+            when (type) {
+                STYLE_COMMON_ANIMATION_INTERPOLATOR -> commonAnimationInterpolator = data.value()
+                STYLE_HOVER_ANIMATION_INTERPOLATOR -> hoverAnimationInterpolator = data.value()
+                STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS -> setDecorationDefaultLayoutOptions(data.value())
+                STYLE_SELECTION_FILL -> setSelectionFill(data.value())
+                STYLE_SELECTION_MANAGER -> setSelectionManager(data.value())
+                STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER -> setCellAccessibilityInfoProvider(data.value())
             }
         }
     }

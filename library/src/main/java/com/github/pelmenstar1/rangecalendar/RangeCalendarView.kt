@@ -109,7 +109,7 @@ class RangeCalendarView @JvmOverloads constructor(
         fun color(@StyleableRes index: Int, styleType: Int) {
             extract(
                 index, styleType,
-                RangeCalendarPagerAdapter::setStyleInt,
+                ::PackedInt,
                 extract = { getColor(index, 0) }
             )
         }
@@ -117,7 +117,7 @@ class RangeCalendarView @JvmOverloads constructor(
         fun dimension(@StyleableRes index: Int, styleType: Int) {
             extract(
                 index, styleType,
-                RangeCalendarPagerAdapter::setStyleFloat,
+                ::PackedInt,
                 extract = { getDimension(index, 0f) }
             )
         }
@@ -125,7 +125,7 @@ class RangeCalendarView @JvmOverloads constructor(
         fun int(@StyleableRes index: Int, styleType: Int) {
             extract(
                 index, styleType,
-                RangeCalendarPagerAdapter::setStyleInt,
+                ::PackedInt,
                 extract = { getInteger(index, 0) }
             )
         }
@@ -133,7 +133,7 @@ class RangeCalendarView @JvmOverloads constructor(
         fun boolean(@StyleableRes index: Int, styleType: Int) {
             extract(
                 index, styleType,
-                RangeCalendarPagerAdapter::setStyleBool,
+                ::PackedInt,
                 extract = { getBoolean(index, false) }
             )
         }
@@ -161,13 +161,13 @@ class RangeCalendarView @JvmOverloads constructor(
         private inline fun <T> extract(
             @StyleableRes index: Int,
             styleType: Int,
-            setStyle: RangeCalendarPagerAdapter.(styleType: Int, value: T, notify: Boolean) -> Unit,
+            createPacked: (T) -> PackedInt,
             extract: TypedArray.() -> T,
         ) {
             if (attrs.hasValue(index)) {
-                val attrValue = attrs.extract()
+                val attrValue = createPacked(attrs.extract())
 
-                calendarView.adapter.setStyle(styleType, attrValue, /* notify = */ false)
+                calendarView.adapter.setStylePacked(styleType, attrValue, notify = false)
             }
         }
     }
