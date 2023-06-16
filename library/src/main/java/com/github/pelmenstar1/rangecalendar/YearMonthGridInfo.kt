@@ -48,10 +48,15 @@ internal class YearMonthGridInfo {
 
         daysInPrevMonth = getDaysInMonth(prevYear, prevMonth)
 
-        val firstCellInGridDay = daysInPrevMonth - firstDayInMonthDayOfWeek + 2
-        val lastCellInGridDay = CELLS_IN_GRID - (firstDayInMonthDayOfWeek + daysInMonth) + 1
+        firstCellInGridDate = if (firstDayInMonthDayOfWeek != 1) {
+            val firstCellInGridDay = daysInPrevMonth - firstDayInMonthDayOfWeek + 2
 
-        firstCellInGridDate = PackedDate(prevYear, prevMonth, firstCellInGridDay)
+            PackedDate(prevYear, prevMonth, firstCellInGridDay)
+        } else {
+            firstDayInMonthDate
+        }
+
+        val lastCellInGridDay = CELLS_IN_GRID - (firstDayInMonthDayOfWeek + daysInMonth) + 1
         lastCellInGridDate = PackedDate(nextYear, nextMonth, lastCellInGridDay)
     }
 

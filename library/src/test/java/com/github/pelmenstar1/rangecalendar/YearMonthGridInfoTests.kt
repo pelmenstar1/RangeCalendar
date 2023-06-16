@@ -71,6 +71,14 @@ class YearMonthGridInfoTests {
             expectedLastCellInGridDate = PackedDate(year = 2024, month = 1, dayOfMonth = 7),
             expectedDaysInMonth = 31
         )
+
+        testCase(
+            year = 2023, month = 5,
+            expectedFirstCellInMonthIndex = 0,
+            expectedFirstCellInGridDate = PackedDate(year = 2023, month = 5, dayOfMonth = 1),
+            expectedLastCellInGridDate = PackedDate(year = 2023, month = 6, dayOfMonth = 11),
+            expectedDaysInMonth = 31
+        )
     }
 
     @Test
