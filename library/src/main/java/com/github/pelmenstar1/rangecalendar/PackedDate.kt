@@ -2,26 +2,26 @@
 
 package com.github.pelmenstar1.rangecalendar
 
-import com.github.pelmenstar1.rangecalendar.TimeUtils.isLeapYear
 import com.github.pelmenstar1.rangecalendar.utils.floorMod
 import java.time.LocalDate
 import java.util.*
 
 internal fun PackedDate(year: Int, month: Int, dayOfMonth: Int): PackedDate {
-    require(year in 0..PackedDate.MAX_YEAR) { "year=$year" }
-    require(month in 1..12) { "month=$month" }
+    PackedDate.checkYear(year)
+    PackedDate.checkMonth(month)
+    PackedDate.checkDayOfMonth(dayOfMonth, daysInMonth = getDaysInMonth(year, month))
 
-    val daysInMonth = TimeUtils.getDaysInMonth(year, month)
-
-    require(
-        dayOfMonth in 1..TimeUtils.getDaysInMonth(year, month)
-    ) { "dayOfMonth=$dayOfMonth (daysInMonth=$daysInMonth)" }
-
-    return PackedDate((year shl PackedDate.YEAR_SHIFT) or (month shl PackedDate.MONTH_SHIFT) or dayOfMonth)
+    return PackedDate.createUnchecked(year, month, dayOfMonth)
 }
 
 internal fun PackedDate(ym: YearMonth, dayOfMonth: Int): PackedDate {
-    return PackedDate(ym.year, ym.month, dayOfMonth)
+    val year = ym.year
+    val month = ym.month
+
+    PackedDate.checkYear(year)
+    PackedDate.checkDayOfMonth(dayOfMonth, daysInMonth = getDaysInMonth(year, month))
+
+    return PackedDate.createUnchecked(year, month, dayOfMonth)
 }
 
 // Some code was taken from OpenJDK
@@ -47,17 +47,107 @@ internal value class PackedDate(val bits: Int) {
     val dayOfWeek: Int
         get() = getDayOfWeek(toEpochDay())
 
+    operator fun compareTo(other: PackedDate): Int {
+        var cmp = year - other.year
+        if (cmp == 0) {
+            cmp = month - other.month
+
+            if (cmp == 0) {
+                cmp = dayOfMonth - other.dayOfMonth
+            }
+        }
+
+        return cmp
+    }
+
+    private fun withDayOfMonthUnchecked(newValue: Int): PackedDate {
+        return PackedDate((bits and 0xFFFFFF00.toInt()) or newValue)
+    }
+
     fun plusDays(days: Int): PackedDate {
         if (days == 0) {
             return this
         }
 
+        val currentYear = year
+        val currentMonth = month
+
+        val newDay = dayOfMonth + days
+
+        if (newDay <= 0) {
+            var prevYear = currentYear
+            var prevMonth = currentMonth - 1
+
+            if (prevMonth == 0) {
+                prevYear--
+                checkYear(prevYear)
+
+                prevMonth = 12
+            }
+
+            val daysInPrevMonth = getDaysInMonth(prevYear, prevMonth)
+            val prevDay = newDay + daysInPrevMonth
+
+            // Check if prevDay specifies the day in prevYear and prevMonth. If not, fallback to slow path.
+            if (prevDay >= 1) {
+                return createUnchecked(prevYear, prevMonth, prevDay)
+            }
+        } else {
+            val daysInCurrentMonth = getDaysInMonth(currentYear, currentMonth)
+
+            if (newDay <= daysInCurrentMonth) {
+                // newDay still specifies the day in year and month. So change only the day.
+                return withDayOfMonthUnchecked(newDay)
+            } else {
+                var nextYear = currentYear
+                var nextMonth = currentMonth + 1
+
+                if (nextMonth == 13) {
+                    nextYear++
+                    checkYear(nextYear)
+
+                    nextMonth = 1
+                }
+
+                val daysInNextMonth = getDaysInMonth(nextYear, nextMonth)
+                val nextDay = newDay - daysInCurrentMonth
+
+                if (nextDay <= daysInNextMonth) {
+                    return PackedDate(nextYear, nextMonth, nextDay)
+                }
+            }
+        }
+
         return fromEpochDay(toEpochDay() + days)
     }
 
-    fun toCalendar(calendar: Calendar) {
-        // month in Calendar is in [0; 11], but "our" month is in [1; 12], so we need to minus 1
-        calendar.set(year, month - 1, dayOfMonth)
+    fun daysDifference(other: PackedDate): Long {
+        /*
+        val currentYear = year
+        val currentMonth = month
+
+        val otherYear = other.year
+        val otherMonth = other.month
+
+        val currentYm = currentYear * 12 + (currentMonth - 1)
+        val otherYm = otherYear * 12 + (otherMonth - 1)
+
+        val monthsDiff = currentYm - otherYm
+
+        when {
+            monthsDiff == 0 -> {
+                return (dayOfMonth - other.dayOfMonth).toLong()
+            }
+            monthsDiff == 1 -> {
+                if (current)
+            }
+        }
+
+        if (monthsDiff in -1..1) {
+
+        }
+        */
+        return toEpochDay() - other.toEpochDay()
     }
 
     fun toLocalDate(): LocalDate {
@@ -101,13 +191,29 @@ internal value class PackedDate(val bits: Int) {
         val MIN_DATE = PackedDate((0 shl YEAR_SHIFT) or (1 shl MONTH_SHIFT) or 1)
 
         // year: 65535 month: 12 dayOfMonth: 31
-        val MAX_DATE = PackedDate((65535 shl YEAR_SHIFT) or (12 shl MONTH_SHIFT) or 31)
+        val MAX_DATE = PackedDate((MAX_YEAR shl YEAR_SHIFT) or (12 shl MONTH_SHIFT) or 31)
 
         const val MIN_DATE_EPOCH = -719528L
         const val MAX_DATE_EPOCH = 23217003L
 
         private const val DAYS_PER_CYCLE = 146097L
         private const val DAYS_0000_TO_1970 = DAYS_PER_CYCLE * 5 - (30 * 365 + 7)
+
+        internal fun checkYear(year: Int) {
+            require(year in 0..MAX_YEAR) { "year" }
+        }
+
+        internal fun checkMonth(month: Int) {
+            require(month in 1..12) { "month" }
+        }
+
+        internal fun checkDayOfMonth(day: Int, daysInMonth: Int) {
+            require(day in 1..daysInMonth) { "dayOfMonth" }
+        }
+
+        internal fun createUnchecked(year: Int, month: Int, dayOfMonth: Int): PackedDate {
+            return PackedDate((year shl YEAR_SHIFT) or (month shl MONTH_SHIFT) or dayOfMonth)
+        }
 
         fun today(timeZone: TimeZone = TimeZone.getDefault()): PackedDate {
             return fromEpochDay(todayEpochDay(timeZone))
@@ -121,6 +227,8 @@ internal value class PackedDate(val bits: Int) {
         }
 
         fun fromEpochDay(epochDay: Long): PackedDate {
+            check(epochDay in MIN_DATE_EPOCH..MAX_DATE_EPOCH) { "epochDay" }
+
             var zeroDay = epochDay + DAYS_0000_TO_1970 - 60L
 
             var adjust = 0L
@@ -149,17 +257,16 @@ internal value class PackedDate(val bits: Int) {
             var year = yearEst.toInt()
             year += marchMonth0 / 10
 
-            return PackedDate(year, month, dom)
+            // year can't be out of range because we already checked epochDay.
+            // month, dom can't be out of range because of the algorithm.
+            return createUnchecked(year, month, dom)
         }
 
         fun fromLocalDate(date: LocalDate): PackedDate {
-            require(date.year in 0..MAX_YEAR) { "LocalDate is out of valid range" }
+            val year = date.year
+            checkYear(year)
 
-            return PackedDate(date.year, date.monthValue, date.dayOfMonth)
-        }
-
-        fun isValidEpochDay(epochDay: Long): Boolean {
-            return epochDay in MIN_DATE_EPOCH..MAX_DATE_EPOCH
+            return createUnchecked(year, date.monthValue, date.dayOfMonth)
         }
 
         fun getDayOfWeek(epochDay: Long): Int {
@@ -218,11 +325,9 @@ internal value class PackedDateRange(val bits: Long) {
         }
 
         fun month(year: Int, month: Int): PackedDateRange {
-            val daysInMonth = TimeUtils.getDaysInMonth(year, month)
-
             return PackedDateRange(
                 start = PackedDate(year, month, dayOfMonth = 1),
-                end = PackedDate(year, month, dayOfMonth = daysInMonth)
+                end = PackedDate(year, month, dayOfMonth = getDaysInMonth(year, month))
             )
         }
     }

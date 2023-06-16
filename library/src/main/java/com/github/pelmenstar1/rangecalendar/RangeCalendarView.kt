@@ -182,9 +182,6 @@ class RangeCalendarView @JvmOverloads constructor(
     private var _minDate = PackedDate.MIN_DATE
     private var _maxDate = PackedDate.MAX_DATE
 
-    private var _minDateEpoch = PackedDate.MIN_DATE_EPOCH
-    private var _maxDateEpoch = PackedDate.MAX_DATE_EPOCH
-
     private var infoViewYm = YearMonth(0)
     private var currentCalendarYm = YearMonth(0)
 
@@ -222,7 +219,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
         val today = PackedDate.today(currentTimeZone)
 
-        adapter = RangeCalendarPagerAdapter(cr, isFirstDaySunday).apply {
+        adapter = RangeCalendarPagerAdapter(cr).apply {
             setToday(today)
             setStyleObject(
                 { STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER },
@@ -742,13 +739,13 @@ class RangeCalendarView @JvmOverloads constructor(
     var minDate: LocalDate
         get() = _minDate.toLocalDate()
         set(value) {
-            _minDateEpoch = value.toEpochDay()
+            val packedMin = PackedDate.fromLocalDate(value)
 
-            requireValidEpochDayOnLocalDateTransform(_minDateEpoch)
-            require(_minDateEpoch <= _maxDateEpoch) { "Minimum date is greater than maximum one" }
+            if (_maxDate > packedMin) {
+                throwInvalidMinMax()
+            }
 
-            _minDate = PackedDate.fromLocalDate(value)
-
+            _minDate = packedMin
             onMinMaxChanged()
         }
 
@@ -761,20 +758,25 @@ class RangeCalendarView @JvmOverloads constructor(
     var maxDate: LocalDate
         get() = _maxDate.toLocalDate()
         set(value) {
-            _maxDateEpoch = value.toEpochDay()
+            val packedMax = PackedDate.fromLocalDate(value)
 
-            requireValidEpochDayOnLocalDateTransform(_maxDateEpoch)
-            require(_minDateEpoch <= _maxDateEpoch) { "Minimum date is greater than maximum one" }
+            if (packedMax > _minDate) {
+                throwInvalidMinMax()
+            }
 
-            _minDate = PackedDate.fromLocalDate(value)
+            _maxDate = packedMax
 
             onMinMaxChanged()
         }
 
-    private fun onMinMaxChanged() {
-        adapter.setRange(_minDate, _minDateEpoch, _maxDate, _maxDateEpoch)
+    private fun throwInvalidMinMax(): Nothing {
+        throw IllegalStateException("Minimum date is greater than maximum one")
+    }
 
-        setYearAndMonthInternal(currentCalendarYm, false)
+    private fun onMinMaxChanged() {
+        adapter.setRange(_minDate, _maxDate)
+
+        setYearAndMonthInternal(currentCalendarYm, smoothScroll = false)
     }
 
     /**
@@ -1459,10 +1461,6 @@ class RangeCalendarView @JvmOverloads constructor(
         private val TAG = RangeCalendarView::class.java.simpleName
 
         private const val DATE_FORMAT = "MMMM y"
-
-        private fun requireValidEpochDayOnLocalDateTransform(epochDay: Long) {
-            require(PackedDate.isValidEpochDay(epochDay)) { "Date is out of valid range" }
-        }
 
         private fun requireDateRangeOnSameYearMonth(start: LocalDate, end: LocalDate): Boolean {
             return start.year == end.year && start.monthValue == end.monthValue

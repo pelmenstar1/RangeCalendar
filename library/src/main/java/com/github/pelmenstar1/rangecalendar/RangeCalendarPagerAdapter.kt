@@ -9,34 +9,12 @@ import com.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import com.github.pelmenstar1.rangecalendar.selection.*
 
+// TODO: Audit isFirstDaySunday
 internal class RangeCalendarPagerAdapter(
     private val cr: CalendarResources,
-    private val isFirstDaySunday: Boolean
+    //private val isFirstDaySunday: Boolean
 ) : RecyclerView.Adapter<RangeCalendarPagerAdapter.ViewHolder>() {
     class ViewHolder(val calendar: RangeCalendarGridView) : RecyclerView.ViewHolder(calendar)
-
-    private class CalendarInfo {
-        var ym = YearMonth(0)
-        var start = 0
-        var daysInMonth = 0
-
-        fun set(year: Int, month: Int) {
-            this.ym = YearMonth(year, month)
-
-            setInternal(year, month)
-        }
-
-        fun set(ym: YearMonth) {
-            this.ym = ym
-
-            setInternal(ym.year, ym.month)
-        }
-
-        private fun setInternal(year: Int, month: Int) {
-            daysInMonth = TimeUtils.getDaysInMonth(year, month)
-            start = PackedDate(year, month, 1).dayOfWeek - 1
-        }
-    }
 
     private class Payload(
         val type: Int,
@@ -146,8 +124,6 @@ internal class RangeCalendarPagerAdapter(
 
     private var minDate = PackedDate.MIN_DATE
     private var maxDate = PackedDate.MAX_DATE
-    private var minDateEpoch = PackedDate.MIN_DATE_EPOCH
-    private var maxDateEpoch = PackedDate.MAX_DATE_EPOCH
 
     var selectionRange = CellRange.Invalid
 
@@ -159,7 +135,7 @@ internal class RangeCalendarPagerAdapter(
     // used in tests
     internal var today = PackedDate(0)
 
-    private val calendarInfo = CalendarInfo()
+    private val gridInfo = YearMonthGridInfo()
     private val styleData = IntArray(20)
     private val styleObjData = arrayOfNulls<Any>(7)
 
@@ -420,14 +396,11 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    fun setRange(minDate: PackedDate, minDateEpoch: Long, maxDate: PackedDate, maxDateEpoch: Long) {
+    fun setRange(minDate: PackedDate, maxDate: PackedDate) {
         this.minDate = minDate
         this.maxDate = maxDate
-        this.minDateEpoch = minDateEpoch
-        this.maxDateEpoch = maxDateEpoch
 
         val oldCount = count
-
         count = (YearMonth.forDate(maxDate) - YearMonth.forDate(minDate) + 1).totalMonths
 
         if (oldCount == count) {
@@ -446,24 +419,14 @@ internal class RangeCalendarPagerAdapter(
     }
 
     private fun createEnabledRange(): CellRange {
-        val start = calendarInfo.start
-        val prevYm = calendarInfo.ym - 1
-
-        val daysInPrevMonth = TimeUtils.getDaysInMonth(prevYm)
-
-        val startDate = PackedDate(prevYm, daysInPrevMonth - start - 1)
-        val startDateEpoch = startDate.toEpochDay()
-
-        val endDateEpoch = startDateEpoch + 42
-
-        val startCell = if (minDateEpoch > startDateEpoch) {
-            getCellByDate(minDate)
+        val startCell = if (minDate > gridInfo.firstCellInGridDate) {
+            gridInfo.getCellByDate(minDate)
         } else {
             Cell(0)
         }
 
-        val endCell = if (maxDateEpoch < endDateEpoch) {
-            getCellByDate(maxDate, startCell.index)
+        val endCell = if (maxDate < gridInfo.lastCellInGridDate) {
+            gridInfo.getCellByDate(maxDate)
         } else {
             Cell(42)
         }
@@ -475,78 +438,6 @@ internal class RangeCalendarPagerAdapter(
         gridView.setEnabledCellRange(createEnabledRange())
     }
 
-    private fun createInMonthRange(): CellRange {
-        var s = calendarInfo.start
-        if (isFirstDaySunday) {
-            s++
-        }
-
-        return CellRange(s, s + calendarInfo.daysInMonth - 1)
-    }
-
-    private fun updateInMonthRange(gridView: RangeCalendarGridView) {
-        gridView.setInMonthRange(createInMonthRange())
-    }
-
-    // TODO: Find a way to optimize this.
-    private fun getCellByDate(date: PackedDate, offset: Int = 0): Cell {
-        for (i in offset until 42) {
-            val cell = Cell(i)
-
-            if (getDateAtCell(cell) == date) {
-                return cell
-            }
-        }
-
-        return Cell.Undefined
-    }
-
-    private fun getCellRangeByDateRange(range: PackedDateRange): CellRange {
-        val startCell = getCellByDate(range.start)
-        val endCell = getCellByDate(range.end, startCell.index)
-
-        return CellRange(startCell, endCell)
-    }
-
-    private fun getDateAtCell(cell: Cell): PackedDate {
-        val info = calendarInfo
-        val index = cell.index
-
-        val ym = info.ym
-        var start = info.start
-        val daysInMonth = info.daysInMonth
-        val monthEnd = start + daysInMonth - 1
-
-        if (isFirstDaySunday) {
-            start++
-        }
-
-        return when {
-            index < start -> {
-                val prevYm = ym - 1
-
-                val day = TimeUtils.getDaysInMonth(prevYm) - start + index + 1
-                PackedDate(prevYm, day)
-            }
-
-            index <= monthEnd -> {
-                val day = index - start + 1
-
-                PackedDate(ym, day)
-            }
-
-            else -> {
-                val day = index - monthEnd
-
-                PackedDate(ym + 1, day)
-            }
-        }
-    }
-
-    private fun getDateRangeByCellRange(range: CellRange): PackedDateRange {
-        return PackedDateRange(getDateAtCell(range.start), getDateAtCell(range.end))
-    }
-
     fun getItemPositionForDate(date: PackedDate): Int {
         return getItemPositionForYearMonth(YearMonth.forDate(date))
     }
@@ -556,38 +447,7 @@ internal class RangeCalendarPagerAdapter(
     }
 
     private fun updateGrid(gridView: RangeCalendarGridView) {
-        val info = calendarInfo
-
-        val ym = info.ym
-
-        var start = info.start
-        val daysInMonth = info.daysInMonth
-
-        val daysInPrevMonth = TimeUtils.getDaysInMonth(ym - 1)
-        if (isFirstDaySunday) {
-            start++
-        }
-
-        val cells = gridView.cells
-
-        for (i in 0 until start) {
-            val day = daysInPrevMonth - i
-            val index = start - i - 1
-            cells[index] = day.toByte()
-        }
-
-        for (i in 0 until daysInMonth) {
-            val index = start + i
-            val day = i + 1
-            cells[index] = day.toByte()
-        }
-
-        val thisMonthEnd = start + daysInMonth
-        for (i in 0 until 42 - thisMonthEnd) {
-            val index = thisMonthEnd + i
-            val day = i + 1
-            cells[index] = day.toByte()
-        }
+        gridInfo.fillGrid(gridView.cells)
 
         gridView.onGridChanged()
     }
@@ -596,9 +456,9 @@ internal class RangeCalendarPagerAdapter(
         return object : RangeCalendarGridView.SelectionGate {
             override fun range(range: CellRange): Boolean {
                 return selectionGate?.let {
-                    calendarInfo.set(ym)
+                    gridInfo.set(ym)
 
-                    val (startDate, endDate) = getDateRangeByCellRange(range)
+                    val (startDate, endDate) = gridInfo.getDateRangeByCellRange(range)
 
                     it.range(
                         startDate.year, startDate.month, startDate.dayOfMonth,
@@ -622,9 +482,9 @@ internal class RangeCalendarPagerAdapter(
                 setSelectionValues(range, ym)
 
                 onSelectionListener?.let {
-                    calendarInfo.set(ym)
+                    gridInfo.set(ym)
 
-                    val (startDate, endDate) = getDateRangeByCellRange(range)
+                    val (startDate, endDate) = gridInfo.getDateRangeByCellRange(range)
 
                     it.onSelection(
                         startDate.year, startDate.month, startDate.dayOfMonth,
@@ -670,9 +530,7 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    private fun isSelectionAllowed(ym: YearMonth, dateRange: PackedDateRange): Boolean {
-        calendarInfo.set(ym)
-
+    private fun isSelectionAllowed(dateRange: PackedDateRange): Boolean {
         val (start, end) = dateRange
         val gate = selectionGate
 
@@ -693,15 +551,16 @@ internal class RangeCalendarPagerAdapter(
 
         // position can be negative if selection is out of min-max range
         if (position in 0 until count) {
-            if (!isSelectionAllowed(ym, dateRange)) {
+            if (!isSelectionAllowed(dateRange)) {
                 return false
             }
+
+            gridInfo.set(ym)
 
             // Clear selection on the page with selection if it's not the page we're changing selection of.
             clearSelectionOnAnotherPage(ym)
 
-            // isSelectionAllowed sets calendarInfo to ym
-            val cellRange = getCellRangeByDateRange(dateRange)
+            val cellRange = gridInfo.getCellRangeByDateRange(dateRange)
 
             setSelectionValues(cellRange, ym)
 
@@ -760,15 +619,16 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    // Expects that the calendarInfo is initialized to the right year-month.
+    // Expects that the gridInfo is initialized to the right year-month.
     private fun updateTodayIndex(gridView: RangeCalendarGridView) {
-        val cell = getCellByDate(today, offset = 0)
+        val cell = gridInfo.getCellByDate(today)
 
         if (cell.isDefined) {
             gridView.setTodayCell(cell)
         }
     }
 
+    // Expects that gridInfo is initialized to the right year-month
     private fun updateDecorations(gridView: RangeCalendarGridView, ym: YearMonth) {
         gridView.decorations = decorations
 
@@ -784,7 +644,7 @@ internal class RangeCalendarPagerAdapter(
             val date = PackedDate(decorLayoutOptionsMap.keyAt(i))
 
             if (YearMonth.forDate(date) == ym) {
-                val cell = getCellByDate(date)
+                val cell = gridInfo.getCellByDate(date)
                 val options = decorLayoutOptionsMap.valueAt(i)
 
                 gridView.setDecorationLayoutOptions(cell, options, false)
@@ -800,8 +660,8 @@ internal class RangeCalendarPagerAdapter(
         val position = getItemPositionForDate(date)
 
         if (position in 0 until count) {
-            calendarInfo.set(getYearMonthForCalendar(position))
-            val cell = getCellByDate(date)
+            gridInfo.set(getYearMonthForCalendar(position))
+            val cell = gridInfo.getCellByDate(date)
 
             notifyItemChanged(position, Payload.setDecorLayoutOptions(cell, value, withAnimation))
         }
@@ -919,8 +779,8 @@ internal class RangeCalendarPagerAdapter(
         if (position in 0 until count) {
             val ym = getYearMonthForCalendar(position)
 
-            calendarInfo.set(ym)
-            val cell = getCellByDate(date)
+            gridInfo.set(ym)
+            val cell = gridInfo.getCellByDate(date)
 
             check(ym, cell)
             init(cell)
@@ -967,8 +827,8 @@ internal class RangeCalendarPagerAdapter(
         if (position in 0 until count) {
             val ym = getYearMonthForCalendar(position)
 
-            calendarInfo.set(ym)
-            val cell = getCellByDate(date)
+            gridInfo.set(ym)
+            val cell = gridInfo.getCellByDate(date)
 
             val subregion = decorations.getSubregion(ym, cell)
             if (subregion.isUndefined) {
@@ -999,8 +859,8 @@ internal class RangeCalendarPagerAdapter(
         if (position in 0 until count) {
             val ym = getYearMonthForCalendar(position)
 
-            calendarInfo.set(ym)
-            val cell = getCellByDate(date)
+            gridInfo.set(ym)
+            val cell = gridInfo.getCellByDate(date)
 
             val subregion = decorations.getSubregion(ym, cell)
 
@@ -1023,8 +883,8 @@ internal class RangeCalendarPagerAdapter(
 
         val ym = getYearMonthForCalendar(position)
 
-        calendarInfo.set(ym)
-        val cell = getCellByDate(date)
+        gridInfo.set(ym)
+        val cell = gridInfo.getCellByDate(date)
 
         val visual = instance.visual()
 
@@ -1058,18 +918,18 @@ internal class RangeCalendarPagerAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val ym = getYearMonthForCalendar(position)
 
-        calendarInfo.set(ym)
+        gridInfo.set(ym)
 
         val gridView = holder.calendar
 
         gridView.ym = ym
-        gridView.isFirstDaySunday = isFirstDaySunday
+        gridView.isFirstDaySunday = false
         gridView.onSelectionListener = createRedirectSelectionListener(ym)
         gridView.selectionGate = createRedirectSelectionGate(ym)
 
         updateGrid(gridView)
         updateEnabledRange(gridView)
-        updateInMonthRange(gridView)
+        gridView.setInMonthRange(gridInfo.inMonthRange)
 
         for (type in styleData.indices) {
             updateStyle(gridView, type, PackedInt(styleData[type]))
@@ -1111,7 +971,7 @@ internal class RangeCalendarPagerAdapter(
             val payload = payloads[0] as Payload
             when (payload.type) {
                 Payload.UPDATE_ENABLED_RANGE -> {
-                    calendarInfo.set(getYearMonthForCalendar(position))
+                    gridInfo.set(getYearMonthForCalendar(position))
 
                     updateEnabledRange(gridView)
                 }
@@ -1127,7 +987,7 @@ internal class RangeCalendarPagerAdapter(
                 }
 
                 Payload.UPDATE_TODAY_INDEX -> {
-                    calendarInfo.set(getYearMonthForCalendar(position))
+                    gridInfo.set(getYearMonthForCalendar(position))
 
                     updateTodayIndex(gridView)
                 }
