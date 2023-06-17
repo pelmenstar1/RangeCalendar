@@ -34,7 +34,7 @@ internal value class CellRange(val bits: Int) {
     inline operator fun component2() = end
 
     fun hasIntersectionWith(other: CellRange): Boolean {
-        return !(other.start.index > end.index || start.index > other.end.index)
+        return other.start.index <= end.index && start.index <= other.end.index
     }
 
     fun intersectionWith(other: CellRange): CellRange {

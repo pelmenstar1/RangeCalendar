@@ -27,10 +27,6 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         private const val RB_SHIFT = 2
         private const val LB_SHIFT = 3
 
-        fun clear() {
-            flags = 0
-        }
-
         private fun setFlag(shift: Int) {
             flags = flags or (1 shl shift)
         }
@@ -67,9 +63,9 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         }
 
         inline fun withRadius(radius: Float, block: Radii.() -> Unit) {
-            clear()
-
+            flags = 0
             currentRadius = radius
+
             block(this)
         }
 
@@ -97,31 +93,28 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         style = Paint.Style.FILL
     }
 
-    private var path: Path? = null
-    private val pathBounds = RectF()
+    private var primaryPath: Path? = null
+    private var secondaryPath: Path? = null
 
     private var primaryCellNode: CellRenderNode? = null
     private var secondaryCellNode: CellRenderNode? = null
 
-    private fun getOrCreatePrimaryCellNode(): CellRenderNode {
-        return getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
-    }
+    private fun getOrCreatePrimaryCellNode() =
+        getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
 
-    private fun getOrCreateSecondaryCellNode(): CellRenderNode {
-        return getLazyValue(secondaryCellNode, ::CellRenderNode) { secondaryCellNode = it }
-    }
+    private fun getOrCreateSecondaryCellNode() =
+        getLazyValue(secondaryCellNode, ::CellRenderNode) { secondaryCellNode = it }
+
+    private fun getOrCreatePrimaryPath() =
+        getLazyValue(primaryPath, ::Path) { primaryPath = it }
+
+    private fun getOrCreateSecondaryPath() =
+        getLazyValue(secondaryPath, ::Path) { secondaryPath = it }
 
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
-        when (state) {
-            is DefaultSelectionState.CellState -> drawCell(
-                canvas, state, options,
-                alpha = 1f,
-                usePrimaryNode = true
-            )
+        state as DefaultSelectionState
 
-            is DefaultSelectionState.RangeState -> drawCustomRange(canvas, state, options)
-            else -> {}
-        }
+        drawRange(canvas, state, options, alpha = 1f, isPrimary = true)
     }
 
     override fun drawTransition(
@@ -130,117 +123,86 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         options: SelectionRenderOptions
     ) {
         when (state) {
-            is DefaultSelectionState.CellState.AppearAlpha -> {
-                drawCell(canvas, state.baseState, options, state.alpha, usePrimaryNode = true)
+            is DefaultSelectionState.AppearAlpha -> {
+                drawRange(canvas, state.baseState, options, state.alpha, isPrimary = true)
             }
 
-            is DefaultSelectionState.CellState.AppearBubble -> {
+            is DefaultSelectionState.DualAlpha -> {
+                drawRange(canvas, state.start, options, state.startAlpha, isPrimary = true)
+                drawRange(canvas, state.end, options, state.endAlpha, isPrimary = false)
+            }
+
+            is DefaultSelectionState.CellAppearBubble -> {
                 drawRectOnRow(canvas, state.bounds, options)
             }
 
-            is DefaultSelectionState.CellState.DualAlpha -> {
-                drawCell(canvas, state.start, options, state.startAlpha, usePrimaryNode = true)
-                drawCell(canvas, state.end, options, state.endAlpha, usePrimaryNode = false)
-            }
-
-            is DefaultSelectionState.CellState.DualBubble -> {
+            is DefaultSelectionState.CellDualBubble -> {
                 drawRectOnRow(canvas, state.startBounds, options)
                 drawRectOnRow(canvas, state.endBounds, options)
             }
 
-            is DefaultSelectionState.CellState.MoveToCell -> {
-                val bounds = state.bounds
-                val left = bounds.left
-                val top = bounds.top
-                val width = bounds.right - left
-                val height = bounds.bottom - top
+            is DefaultSelectionState.CellMoveToCell -> {
+                val (left, top, right, bottom) = state.bounds
 
-                drawCell(
-                    canvas,
-                    left, top,
-                    width, height,
-                    options,
-                    alpha = 1f,
-                    usePrimaryNode = true
-                )
+                drawCell(canvas, left, top, right, bottom, options, alpha = 1f, isPrimary = true)
             }
 
-            is DefaultSelectionState.BoundsTransitionBase -> {
-                drawRectOnRow(canvas, state.bounds, options)
-            }
-
-            is DefaultSelectionState.RangeState.Alpha -> {
-                drawCustomRange(canvas, state.baseState, options, state.alpha)
+            is DefaultSelectionState.RangeToRange -> {
+                drawGeneralRange(canvas, state, options, alpha = 1f, isPrimary = true)
             }
         }
     }
 
     private fun drawCell(
         canvas: Canvas,
-        left: Float, top: Float,
-        cellWidth: Float, cellHeight: Float,
+        left: Float, top: Float, right: Float, bottom: Float,
         options: SelectionRenderOptions,
         alpha: Float,
-        usePrimaryNode: Boolean
+        isPrimary: Boolean
     ) {
         if (Build.VERSION.SDK_INT >= 29 && canvas.isHardwareAccelerated) {
-            val node = if (usePrimaryNode) {
+            val node = if (isPrimary) {
                 getOrCreatePrimaryCellNode()
             } else {
                 getOrCreateSecondaryCellNode()
             }
 
-            node.setSize(cellWidth, cellHeight)
+            val width = right - left
+            val height = bottom - top
+
+            node.setSize(width, height)
             node.setRenderOptions(options)
 
             node.draw(canvas, left, top, alpha)
         } else {
-            drawRectOnRow(canvas, left, top, left + cellWidth, top + cellHeight, options, alpha)
+            drawRectOnRow(canvas, left, top, right, bottom, options, alpha)
         }
     }
 
-    private fun drawCell(
+    private fun drawRange(
         canvas: Canvas,
-        state: DefaultSelectionState.CellState,
+        state: DefaultSelectionState,
         options: SelectionRenderOptions,
-        alpha: Float,
-        usePrimaryNode: Boolean
-    ) {
-        drawCell(
-            canvas,
-            state.left, state.top,
-            state.cellWidth, state.cellHeight,
-            options,
-            alpha,
-            usePrimaryNode
-        )
-    }
-
-    private fun drawCustomRange(
-        canvas: Canvas,
-        state: DefaultSelectionState.RangeState,
-        options: SelectionRenderOptions,
-        alpha: Float = 1f
+        alpha: Float = 1f,
+        isPrimary: Boolean = true
     ) {
         val (rangeStart, rangeEnd) = state.range
 
         // If start and end of the range are on the same row, there could be applied some optimizations
         // that allow drawing the range with using Path.
         if (rangeStart.sameY(rangeEnd)) {
+            val left = state.startLeft
             val top = state.startTop
+            val right = state.endRight
+            val bottom = top + state.cellHeight
 
-            drawRectOnRow(
-                canvas,
-                state.startLeft, state.startTop,
-                state.endRight, bottom = top + state.cellHeight,
-                options, alpha
-            )
-        } else {
-            updateCustomRangePath(state, options)
-
-            useSelectionFill(canvas, options, pathBounds, alpha) {
-                path?.let { drawPath(it, paint) }
+            if (rangeStart == rangeEnd) {
+                drawCell(canvas, left, top, right, bottom, options, alpha, isPrimary)
+            } else {
+                drawRectOnRow(canvas, left, top, right, bottom, options, alpha)
             }
+        } else {
+            drawGeneralRange(canvas, state, options, alpha, isPrimary)
         }
     }
 
@@ -304,36 +266,44 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         block: Canvas.() -> Unit
     ) = useSelectionFill(canvas, options, { setBounds(bounds) }, alpha, block)
 
-    private fun updateCustomRangePath(
-        state: DefaultSelectionState.RangeState,
-        options: SelectionRenderOptions
+    private fun drawGeneralRange(
+        canvas: Canvas,
+        rangeInfo: DefaultSelectionStateRangeInfo,
+        options: SelectionRenderOptions,
+        alpha: Float,
+        isPrimary: Boolean
     ) {
-        val path = getEmptyPath()
+        val (start, end) = rangeInfo.range
 
-        val (start, end) = state.range
-        val startLeft = state.startLeft
-        val startTop = state.startTop
+        val startLeft = rangeInfo.startLeft
+        val startTop = rangeInfo.startTop
 
-        val endRight = state.endRight
-        val endTop = state.endTop
+        val endRight = rangeInfo.endRight
+        val endTop = rangeInfo.endTop
 
-        val firstCellLeft = state.firstCellOnRowLeft
-        val lastCellRight = state.lastCellOnRowRight
+        val firstCellLeft = rangeInfo.firstCellOnRowLeft
+        val lastCellRight = rangeInfo.lastCellOnRowRight
 
-        val cellHeight = state.cellHeight
+        val cellHeight = rangeInfo.cellHeight
         val rr = options.roundRadius
 
         val startBottom = startTop + cellHeight
         val gridYDiff = end.gridY - start.gridY
 
         if (gridYDiff == 0) {
-            pathBounds.set(startLeft, startTop, endRight, startBottom)
-
-            path.addRoundRect(pathBounds, rr, rr, Path.Direction.CW)
+            useSelectionFill(canvas, options, startLeft, startTop, endRight, startBottom, alpha) {
+                drawRoundRectCompat(startLeft, startTop, endRight, startBottom, rr, paint)
+            }
         } else {
-            val endBottom = endTop + cellHeight
+            val path = if (isPrimary) {
+                getOrCreatePrimaryPath()
+            } else {
+                getOrCreateSecondaryPath()
+            }
 
-            pathBounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
+            path.rewind()
+
+            val endBottom = endTop + cellHeight
 
             Radii.withRadius(rr) {
                 lt()
@@ -369,19 +339,10 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                     )
                 }
             }
+
+            useSelectionFill(canvas, options, firstCellLeft, startTop, lastCellRight, endBottom, alpha) {
+                drawPath(path, paint)
+            }
         }
-    }
-
-    private fun getEmptyPath(): Path {
-        var path = path
-
-        if (path == null) {
-            path = Path()
-            this.path = path
-        } else {
-            path.rewind()
-        }
-
-        return path
     }
 }

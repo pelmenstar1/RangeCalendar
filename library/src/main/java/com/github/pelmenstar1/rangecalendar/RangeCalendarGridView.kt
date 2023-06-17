@@ -8,6 +8,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.*
@@ -165,6 +166,12 @@ internal class RangeCalendarGridView(
 
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
         override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
+
+        override fun getCellDistance(cellIndex: Int): Float =
+            view.getCellDistance(Cell(cellIndex))
+
+        override fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int =
+            view.getCellAndPointByCellDistance(distance, outPoint)
     }
 
     val cells = ByteArray(42)
@@ -707,7 +714,7 @@ internal class RangeCalendarGridView(
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-                    if (isSelectingCustomRange && isXInActiveZone(x) && y > gridTop()) {
+                    if (isSelectingCustomRange && isXInActiveZone(x)) {
                         parent?.requestDisallowInterceptTouchEvent(true)
 
                         val cell = getCellByPointOnScreen(x, y)
@@ -717,11 +724,9 @@ internal class RangeCalendarGridView(
                             newRange,
                             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                             isCellSelectionByUser = false,
-                            isUserStartSelection = true,
+                            isUserStartSelection = false,
                             doAnimation = true
                         )
-
-                        invalidate()
                     }
                 }
             }
@@ -831,7 +836,7 @@ internal class RangeCalendarGridView(
             clearSelectionToMatchBehaviour(requestRejectedBehaviour)
 
             return
-        } else if (selState.range == intersection) {
+        } else if (!isUserStartSelection && selState.range == intersection) {
             return
         }
 
@@ -893,7 +898,7 @@ internal class RangeCalendarGridView(
 
         val handler = getLazyValue(
             selectionTransitionHandler,
-            { { controller.handleTransition(selectionTransitiveState!!, animFraction) } },
+            { { controller.handleTransition(selectionTransitiveState!!, cellMeasureManager, animFraction) } },
             { selectionTransitionHandler = it }
         )
         val onEnd = getLazyValue(
@@ -1510,16 +1515,20 @@ internal class RangeCalendarGridView(
         return cr.hPadding + (columnWidth - cellWidth) * 0.5f
     }
 
-    private fun getCellLeft(cell: Cell): Float {
-        return getCellCenterLeft(cell) - cellWidth * 0.5f
-    }
-
     private fun getCellCenterLeft(cell: Cell): Float {
         return cr.hPadding + columnWidth * (cell.gridX + 0.5f)
     }
 
+    private fun getCellLeft(cell: Cell): Float {
+        return getCellCenterLeft(cell) - cellWidth * 0.5f
+    }
+
+    private fun getCellTopByGridY(gridY: Int): Float {
+        return gridTop() + gridY * (cellHeight + cr.yCellMargin)
+    }
+
     private fun getCellTop(cell: Cell): Float {
-        return gridTop() + cell.gridY * (cellHeight + cr.yCellMargin)
+        return getCellTopByGridY(cell.gridY)
     }
 
     private fun getCellCenterTop(cell: Cell): Float {
@@ -1538,15 +1547,43 @@ internal class RangeCalendarGridView(
         return getCellCenterLeft(cell) + cellWidth * 0.5f
     }
 
-    private fun isSelectableCell(cell: Cell): Boolean {
-        return enabledCellRange.contains(cell) && (showAdjacentMonths || inMonthRange.contains(cell))
+    private fun getCellDistance(cell: Cell): Float {
+        // Width of the view without horizontal paddings (left and right)
+        val rowWidth = width - 2 * cr.hPadding
+
+        // First, find a x-axis of the cell but without horizontal padding
+        var distance = columnWidth * (cell.gridX + 0.5f) - cellWidth * 0.5f
+
+        // Add widths of the rows on the way to the cell.
+        distance += rowWidth * cell.gridY
+
+        return distance
     }
 
-    fun getCellByPointOnScreen(x: Float, y: Float): Cell {
+    private fun getCellAndPointByCellDistance(distance: Float, outPoint: PointF): Int {
+        val rowWidth = width - 2f * cr.hPadding
+
+        val gridY = (distance / rowWidth).toInt()
+        val cellTop = getCellTopByGridY(gridY)
+
+        val xOnRow = distance - gridY * rowWidth
+        val gridX = (xOnRow / columnWidth).toInt()
+
+        outPoint.x = cr.hPadding + xOnRow
+        outPoint.y = cellTop
+
+        return gridY * 7 + gridX
+    }
+
+    private fun getCellByPointOnScreen(x: Float, y: Float): Cell {
         val gridX = ((x - cr.hPadding) / columnWidth).toInt()
         val gridY = ((y - gridTop()) / (cellHeight + cr.yCellMargin)).toInt()
 
         return Cell(gridY * 7 + gridX)
+    }
+
+    private fun isSelectableCell(cell: Cell): Boolean {
+        return enabledCellRange.contains(cell) && (showAdjacentMonths || inMonthRange.contains(cell))
     }
 
     // Checks whether x in active (touchable) zone

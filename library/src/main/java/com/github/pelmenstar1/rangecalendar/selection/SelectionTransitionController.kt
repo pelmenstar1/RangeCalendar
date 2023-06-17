@@ -7,5 +7,5 @@ interface SelectionTransitionController {
     /**
      * Changes given [state] based on specified animation [fraction].
      */
-    fun handleTransition(state: SelectionState.Transitive, fraction: Float)
+    fun handleTransition(state: SelectionState.Transitive, measureManager: CellMeasureManager, fraction: Float)
 }

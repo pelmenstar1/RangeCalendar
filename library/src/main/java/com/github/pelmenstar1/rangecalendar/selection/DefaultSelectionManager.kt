@@ -32,11 +32,7 @@ internal class DefaultSelectionManager : SelectionManager {
         rangeEnd: Int,
         measureManager: CellMeasureManager
     ) {
-        val state = if (rangeStart == rangeEnd) {
-            createCellState(Cell(rangeStart), measureManager)
-        } else {
-            createRangeState(rangeStart, rangeEnd, measureManager)
-        }
+        val state = createRangeState(rangeStart, rangeEnd, measureManager)
 
         setStateInternal(state)
     }
@@ -50,38 +46,21 @@ internal class DefaultSelectionManager : SelectionManager {
         state: DefaultSelectionState,
         measureManager: CellMeasureManager,
     ): DefaultSelectionState {
-        return when (state) {
-            is DefaultSelectionState.CellState -> {
-                createCellState(state.cell, measureManager)
-            }
+        val rangeStart = state.rangeStart
+        val rangeEnd = state.rangeEnd
 
-            is DefaultSelectionState.RangeState -> {
-                createRangeState(state.rangeStart, state.rangeEnd, measureManager)
-            }
-
-            DefaultSelectionState.None -> DefaultSelectionState.None
+        return if (rangeStart > rangeEnd) {
+            DefaultSelectionState.None
+        } else {
+            createRangeState(rangeStart, rangeEnd, measureManager)
         }
-    }
-
-    private fun createCellState(
-        cell: Cell,
-        measureManager: CellMeasureManager
-    ): DefaultSelectionState.CellState {
-        val left = measureManager.getCellLeft(cell)
-        val top = measureManager.getCellTop(cell)
-
-        return DefaultSelectionState.CellState(
-            cell,
-            left, top,
-            measureManager.cellWidth, measureManager.cellHeight
-        )
     }
 
     private fun createRangeState(
         rangeStart: Int,
         rangeEnd: Int,
         measureManager: CellMeasureManager
-    ): DefaultSelectionState.RangeState {
+    ): DefaultSelectionState {
         val cellWidth = measureManager.cellWidth
         val cellHeight = measureManager.cellHeight
 
@@ -96,7 +75,7 @@ internal class DefaultSelectionManager : SelectionManager {
 
         val range = CellRange(rangeStart, rangeEnd)
 
-        return DefaultSelectionState.RangeState(
+        return DefaultSelectionState(
             range,
             startLeft, startTop,
             endRight, endTop,
@@ -114,150 +93,110 @@ internal class DefaultSelectionManager : SelectionManager {
         val prevState = _prevState
         val currentState = _currentState
 
-        val prevStart = prevState.rangeStart
-        val prevEnd = prevState.rangeEnd
-        val currentStart = currentState.rangeStart
-        val currentEnd = currentState.rangeEnd
+        return when {
+            // If previous state is none, it can be transitioned to any state except none.
+            prevState.range.isInvalid -> currentState.range.isValid
 
-        return false
-
-        /*
-        val prevType = _prevState.type
-        val currentType = _currentState.type
-
-        return when (prevType) {
-            // There's no transition between none and none.
-            SelectionType.NONE -> currentType != SelectionType.NONE
-
-            // Cell selection has transition with every selection except custom range.
-            SelectionType.CELL -> currentType != SelectionType.CUSTOM
-
-            // Week selection doesn't have transition with month and custom range.
-            SelectionType.WEEK -> currentType != SelectionType.MONTH && currentType != SelectionType.CUSTOM
-
-            // Month selection has transition only with none and cell.
-            SelectionType.MONTH -> currentType == SelectionType.NONE || currentType == SelectionType.CELL
-
-            // Custom range selection has transition only with none.
-            SelectionType.CUSTOM -> currentType == SelectionType.NONE
+            else -> true
         }
-
-         */
     }
 
     override fun createTransition(
         measureManager: CellMeasureManager,
         options: SelectionRenderOptions
     ): SelectionState.Transitive {
-        return when (val prevState = _prevState) {
-            DefaultSelectionState.None -> {
-                when (val currentState = _currentState) {
-                    DefaultSelectionState.None -> throwTransitionUnsupported(
-                        prevState,
-                        currentState
-                    )
+        val prevState = _prevState
+        val currentState = _currentState
 
-                    is DefaultSelectionState.CellState -> {
-                        createCellAppearTransition(currentState, options, isReversed = false)
-                    }
+        val prevStart = prevState.rangeStart
+        val prevEnd = prevState.rangeEnd
 
-                    /*
-                    is DefaultSelectionState.WeekState -> {
-                        DefaultSelectionState.WeekState.FromCenter(currentState, isReversed = false)
-                    }
-                     */
+        val currentStart = currentState.rangeStart
+        val currentEnd = currentState.rangeEnd
 
-                    is DefaultSelectionState.RangeState -> {
-                        DefaultSelectionState.RangeState.Alpha(
-                            currentState,
-                            isReversed = false
-                        )
-                    }
-                }
+        // previous state is none.
+        return if (prevStart > prevEnd) {
+            // transition between none and none is forbidden.
+            if (currentStart > currentEnd) {
+                throw IllegalStateException("$prevState can't be transitioned to $currentState by this manager")
             }
 
-            is DefaultSelectionState.CellState -> {
-                when (val currentState = _currentState) {
-                    DefaultSelectionState.None -> {
-                        createCellAppearTransition(prevState, options, isReversed = true)
-                    }
-
-                    is DefaultSelectionState.CellState -> {
-                        val prevCell = prevState.cell
-                        val currentCell = currentState.cell
-
-                        if (prevCell.sameX(currentCell) || prevCell.sameY(currentCell)) {
-                            DefaultSelectionState.CellState.MoveToCell(prevState, currentState)
-                        } else {
-                            when (options.cellAnimationType) {
-                                CellAnimationType.ALPHA ->
-                                    DefaultSelectionState.CellState.DualAlpha(
-                                        prevState,
-                                        currentState
-                                    )
-
-                                CellAnimationType.BUBBLE ->
-                                    DefaultSelectionState.CellState.DualBubble(
-                                        prevState,
-                                        currentState
-                                    )
-                            }
-                        }
-                    }
-
-                    /*
-                    is DefaultSelectionState.WeekState -> {
-                        createCellToWeekTransition(prevState, currentState, isReversed = false)
-                    }
-
-                    is DefaultSelectionState.MonthState -> {
-                        createCellToMonthTransition(
-                            prevState,
-                            currentState,
-                            measureManager,
-                            isReversed = false
-                        )
-                    }
-                    */
-
-                    else -> throwTransitionUnsupported(prevState, currentState)
-                }
+            // current state is single-cell.
+            if (currentStart == currentEnd) {
+                createCellAppearTransition(currentState, options, isReversed = false)
+            } else {
+                createRangeToRangeTransition(prevState, currentState, measureManager)
             }
+        } else if (prevStart == prevEnd) { // previous state is single-cell
+            // current state is none.
+            return if (currentStart > currentEnd) {
+                createCellAppearTransition(prevState, options, isReversed = true)
+            } else if (currentStart == currentEnd) { // current state is single-cell
+                val prevCell = Cell(prevStart)
+                val currentCell = Cell(currentStart)
 
-            is DefaultSelectionState.RangeState -> {
-                when (val currentState = _currentState) {
-                    DefaultSelectionState.None -> {
-                        DefaultSelectionState.RangeState.Alpha(
-                            prevState,
-                            isReversed = true
-                        )
+                if (prevCell.sameX(currentCell) || prevCell.sameY(currentCell)) {
+                    DefaultSelectionState.CellMoveToCell(prevState, currentState)
+                } else {
+                    when (options.cellAnimationType) {
+                        CellAnimationType.ALPHA ->
+                            DefaultSelectionState.DualAlpha(prevState, currentState)
+
+                        CellAnimationType.BUBBLE ->
+                            DefaultSelectionState.CellDualBubble(prevState, currentState)
                     }
-
-                    else -> throwTransitionUnsupported(prevState, currentState)
                 }
+            } else {
+                createRangeToRangeTransition(prevState, currentState, measureManager)
+            }
+        } else {
+            // current state is none
+            if (currentStart > currentEnd) {
+                DefaultSelectionState.AppearAlpha(prevState, isReversed = true)
+            } else {
+                createRangeToRangeTransition(prevState, currentState, measureManager)
             }
         }
     }
 
     private fun createCellAppearTransition(
-        state: DefaultSelectionState.CellState,
+        state: DefaultSelectionState,
         options: SelectionRenderOptions,
         isReversed: Boolean
     ): SelectionState.Transitive {
         return when (options.cellAnimationType) {
-            CellAnimationType.ALPHA ->
-                DefaultSelectionState.CellState.AppearAlpha(state, isReversed)
-
-            CellAnimationType.BUBBLE ->
-                DefaultSelectionState.CellState.AppearBubble(state, isReversed)
+            CellAnimationType.ALPHA -> DefaultSelectionState.AppearAlpha(state, isReversed)
+            CellAnimationType.BUBBLE -> DefaultSelectionState.CellAppearBubble(state, isReversed)
         }
     }
 
-    companion object {
-        private fun throwTransitionUnsupported(
-            prevState: SelectionState, currentState: SelectionState
-        ): Nothing {
-            throw IllegalStateException("$prevState can't be transitioned to $currentState by this manager")
+    private fun createRangeToRangeTransition(
+        prevState: DefaultSelectionState,
+        currentState: DefaultSelectionState,
+        measureManager: CellMeasureManager
+    ): SelectionState.Transitive {
+        val prevRange = prevState.range
+        val currentRange = currentState.range
+
+        return if (prevRange.hasIntersectionWith(currentRange)) {
+            val (prevStart, prevEnd) = prevRange
+            val (currentStart, currentEnd) = currentRange
+
+            val cellWidth = measureManager.cellWidth
+
+            val startStateStartCellDistance = measureManager.getCellDistance(prevStart.index)
+            val startStateEndCellDistance = measureManager.getCellDistance(prevEnd.index) + cellWidth
+
+            val endStateStartCellDistance = measureManager.getCellDistance(currentStart.index)
+            val endStateEndCellDistance = measureManager.getCellDistance(currentEnd.index) + cellWidth
+
+            DefaultSelectionState.RangeToRange(
+                prevState, currentState,
+                startStateStartCellDistance, startStateEndCellDistance,
+                endStateStartCellDistance, endStateEndCellDistance
+            )
+        } else {
+            DefaultSelectionState.DualAlpha(prevState, currentState)
         }
     }
 }
