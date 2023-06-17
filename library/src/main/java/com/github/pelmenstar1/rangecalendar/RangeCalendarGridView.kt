@@ -21,6 +21,7 @@ import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
 import com.github.pelmenstar1.rangecalendar.decoration.*
 import com.github.pelmenstar1.rangecalendar.selection.*
+import com.github.pelmenstar1.rangecalendar.utils.VibratorCompat
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
@@ -260,8 +261,7 @@ internal class RangeCalendarGridView(
 
     private var cellAnimationType = CellAnimationType.ALPHA
 
-    private var vibrator: Vibrator? = null
-    private var vibrationEffect: VibrationEffect? = null
+    private var vibrator = VibratorCompat(context)
 
     var vibrateOnSelectingCustomRange = true
 
@@ -865,26 +865,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun vibrateOnUserSelection() {
-        var v = vibrator
-
-        if (v == null) {
-            v = getVibrator(context)
-
-            // If vibrator is null then vibrationEffect is too.
-            if (Build.VERSION.SDK_INT >= 26) {
-                vibrationEffect = VibrationEffect.createOneShot(
-                    VIBRATE_DURATION,
-                    VibrationEffect.DEFAULT_AMPLITUDE
-                )
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= 26) {
-            v.vibrate(vibrationEffect)
-        } else {
-            @Suppress("DEPRECATION")
-            v.vibrate(VIBRATE_DURATION)
-        }
+        vibrator.vibrateTick()
     }
 
     private fun clearSelectionToMatchBehaviour(value: SelectionRequestRejectedBehaviour) {
@@ -1613,7 +1594,6 @@ internal class RangeCalendarGridView(
         private val HOVER_DELAY = ViewConfiguration.getTapTimeout()
 
         private const val DOUBLE_TOUCH_MAX_MILLIS: Long = 500
-        private const val VIBRATE_DURATION = 50L
         private const val TAG = "RangeCalendarGridView"
 
         private const val ANIMATION_REVERSE_BIT = 1 shl 31
@@ -1623,17 +1603,5 @@ internal class RangeCalendarGridView(
         private const val SELECTION_ANIMATION = 1
         private const val HOVER_ANIMATION = 2
         private const val DECOR_ANIMATION = 3
-
-        private fun getVibrator(context: Context): Vibrator {
-            return if (Build.VERSION.SDK_INT >= 31) {
-                val vibratorManager =
-                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-
-                vibratorManager.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            }
-        }
     }
 }
