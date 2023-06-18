@@ -2,6 +2,21 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.RectF
 
+internal class DefaultSelectionStateRadii {
+    var firstRowLb: Float = 0f
+    var firstRowRb: Float = 0f
+
+    var lastRowRt: Float = 0f
+    var lastRowLt: Float = 0f
+
+    var centerRectLt: Float = 0f
+    var centerRectRb: Float = 0f
+
+    override fun toString(): String {
+        return "DefaultSelectionStateRadii(firstRowLb=$firstRowLb, firstRowRb=$firstRowRb, lastRowLt=$lastRowLt, lastRowRt=$lastRowRt, centerRectLt=$centerRectLt, centerRectRb=$centerRectRb)"
+    }
+}
+
 internal interface DefaultSelectionStateRangeInfo {
     val range: CellRange
 
@@ -15,6 +30,10 @@ internal interface DefaultSelectionStateRangeInfo {
 
     val cellWidth: Float
     val cellHeight: Float
+
+    val roundRadius: Float
+
+    val radii: DefaultSelectionStateRadii
 }
 
 internal class DefaultSelectionState(
@@ -23,7 +42,9 @@ internal class DefaultSelectionState(
     override val endRight: Float, override val endTop: Float,
     override val firstCellOnRowLeft: Float, override val lastCellOnRowRight: Float,
     override val cellWidth: Float,
-    override val cellHeight: Float
+    override val cellHeight: Float,
+    override val roundRadius: Float,
+    override val radii: DefaultSelectionStateRadii
 ) : SelectionState, DefaultSelectionStateRangeInfo {
     override val rangeStart: Int
         get() = range.start.index
@@ -34,6 +55,7 @@ internal class DefaultSelectionState(
     class RangeToRange(
         override val start: DefaultSelectionState,
         override val end: DefaultSelectionState,
+        override val roundRadius: Float,
         val startStateStartCellDistance: Float,
         val startStateEndCellDistance: Float,
         val endStateStartCellDistance: Float,
@@ -45,6 +67,8 @@ internal class DefaultSelectionState(
 
         override var endRight = 0f
         override var endTop = 0f
+
+        override val radii = DefaultSelectionStateRadii()
 
         override val firstCellOnRowLeft: Float
             get() = start.firstCellOnRowLeft
@@ -124,6 +148,14 @@ internal class DefaultSelectionState(
     }
 
     companion object {
-        val None = DefaultSelectionState(CellRange.Invalid, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+        val None = DefaultSelectionState(
+            CellRange.Invalid,
+            0f, 0f,
+            0f, 0f,
+            0f, 0f,
+            0f, 0f,
+            0f,
+            DefaultSelectionStateRadii()
+        )
     }
 }

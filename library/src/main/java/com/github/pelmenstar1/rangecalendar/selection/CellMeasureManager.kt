@@ -18,6 +18,8 @@ interface CellMeasureManager {
      */
     val cellHeight: Float
 
+    val roundRadius: Float
+
     /**
      * Gets x-axis value of the coordinate that specifies left corner of the cell.
      *
@@ -37,6 +39,10 @@ interface CellMeasureManager {
     fun getCellDistance(cellIndex: Int): Float
 
     fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int
+
+    fun getXOfCellDistance(distance: Float): Float
+
+    fun getCellFractionByDistance(distance: Float): Float
 }
 
 /**

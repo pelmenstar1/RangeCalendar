@@ -11,84 +11,12 @@ import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
+import com.github.pelmenstar1.rangecalendar.utils.RadiiHelper
 import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 internal class DefaultSelectionRenderer : SelectionRenderer {
-    private object Radii {
-        private val value = FloatArray(8)
-        private var currentRadius: Float = 0f
-
-        private var flags = 0
-
-        private const val LT_SHIFT = 0
-        private const val RT_SHIFT = 1
-        private const val RB_SHIFT = 2
-        private const val LB_SHIFT = 3
-
-        private fun setFlag(shift: Int) {
-            flags = flags or (1 shl shift)
-        }
-
-        private fun setFlag(shift: Int, condition: Boolean) {
-            val bit = if (condition) 1 else 0
-
-            flags = flags or (bit shl shift)
-        }
-
-        // left top
-        fun lt() = setFlag(LT_SHIFT)
-        fun lt(condition: Boolean) = setFlag(LT_SHIFT, condition)
-
-        // right top
-        fun rt() = setFlag(RT_SHIFT)
-        fun rt(condition: Boolean) = setFlag(RT_SHIFT, condition)
-
-        // right bottom
-        fun rb() = setFlag(RB_SHIFT)
-        fun rb(condition: Boolean) = setFlag(RB_SHIFT, condition)
-
-        // left bottom
-        fun lb() = setFlag(LB_SHIFT)
-        fun lb(condition: Boolean) = setFlag(LB_SHIFT, condition)
-
-        private fun createMask(shift: Int): Int {
-            // If the bit at 'shift' position is set, returns 'all bits set' mask, otherwise 0
-            // (flags shr shift and 1) part extracts state of bit at 'shift' position. It can be either 1 or 0.
-            // Then it's multiplied by -0x1
-            // (as signed integers are used, it's the only way to represent all bits set in decimal notation)
-            // to get the mask. If the bit is 1, then -1 * 1 = -1 (all bits set). If it's 0, then -1 * 0 = 0
-            return -0x1 * (flags shr shift and 1)
-        }
-
-        inline fun withRadius(radius: Float, block: Radii.() -> Unit) {
-            flags = 0
-            currentRadius = radius
-
-            block(this)
-        }
-
-        fun radii(): FloatArray {
-            val radiusBits = currentRadius.toBits()
-
-            initCorner(radiusBits, 0, LT_SHIFT)
-            initCorner(radiusBits, 2, RT_SHIFT)
-            initCorner(radiusBits, 4, RB_SHIFT)
-            initCorner(radiusBits, 6, LB_SHIFT)
-
-            return value
-        }
-
-        private fun initCorner(radiusBits: Int, offset: Int, shift: Int) {
-            // This is works, because 0.0f in binary representation is 0, so Float.fromBits(0) == 0.0f
-            val cornerRadius = Float.fromBits(radiusBits and createMask(shift))
-
-            value[offset] = cornerRadius
-            value[offset + 1] = cornerRadius
-        }
-    }
-
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
@@ -188,8 +116,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     ) {
         val (rangeStart, rangeEnd) = state.range
 
-        // If start and end of the range are on the same row, there could be applied some optimizations
-        // that allow drawing the range with using Path.
+        // If start and end of the range are on the same row, the selection can be drawn without using Path.
         if (rangeStart.sameY(rangeEnd)) {
             val left = state.startLeft
             val top = state.startTop
@@ -303,22 +230,25 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
             path.rewind()
 
+            val radii = rangeInfo.radii
             val endBottom = endTop + cellHeight
 
-            Radii.withRadius(rr) {
-                lt()
-                rt()
-                lb(start.gridX != 0)
-                rb(gridYDiff == 1 && end.gridX != 6)
+            // first row
+            RadiiHelper.use {
+                leftTop(rr)
+                rightTop(rr)
+                leftBottom(radii.firstRowLb)
+                rightBottom(radii.firstRowRb)
 
                 path.addRoundRectCompat(startLeft, startTop, lastCellRight, startBottom, radii())
             }
 
-            Radii.withRadius(rr) {
-                rb()
-                lb()
-                rt(end.gridX != 6)
-                lt(gridYDiff == 1 && start.gridX != 0)
+            // last row
+            RadiiHelper.use {
+                rightBottom(rr)
+                leftBottom(rr)
+                leftTop(radii.lastRowLt)
+                rightTop (radii.lastRowRt)
 
                 path.addRoundRectCompat(
                     firstCellLeft, if (gridYDiff == 1) startBottom else endTop,
@@ -328,9 +258,9 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             }
 
             if (gridYDiff > 1) {
-                Radii.withRadius(rr) {
-                    lt(start.gridX != 0)
-                    rb(end.gridX != 6)
+                RadiiHelper.use {
+                    leftTop(radii.centerRectLt)
+                    rightBottom(radii.centerRectRb)
 
                     path.addRoundRectCompat(
                         firstCellLeft, startBottom,
@@ -340,7 +270,12 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 }
             }
 
-            useSelectionFill(canvas, options, firstCellLeft, startTop, lastCellRight, endBottom, alpha) {
+            useSelectionFill(
+                canvas, options,
+                firstCellLeft, startTop,
+                lastCellRight, endBottom,
+                alpha
+            ) {
                 drawPath(path, paint)
             }
         }

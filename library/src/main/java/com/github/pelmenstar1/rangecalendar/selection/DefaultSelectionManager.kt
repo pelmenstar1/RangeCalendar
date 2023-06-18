@@ -73,15 +73,39 @@ internal class DefaultSelectionManager : SelectionManager {
         val firstCellOnRowLeft = measureManager.getCellLeft(0)
         val lastCellOnRowRight = measureManager.getCellLeft(6) + cellWidth
 
-        val range = CellRange(rangeStart, rangeEnd)
+        val roundRadius = measureManager.roundRadius
 
         return DefaultSelectionState(
-            range,
+            range = CellRange(rangeStart, rangeEnd),
             startLeft, startTop,
             endRight, endTop,
             firstCellOnRowLeft, lastCellOnRowRight,
-            cellWidth, cellHeight
+            cellWidth, cellHeight,
+            roundRadius,
+            radii = createRadii(rangeStart, rangeEnd, roundRadius)
         )
+    }
+
+    private fun createRadii(rangeStart: Int, rangeEnd: Int, roundRadius: Float): DefaultSelectionStateRadii {
+        val startCell = Cell(rangeStart)
+        val endCell = Cell(rangeEnd)
+
+        val startGridX = startCell.gridX
+        val endGridX = endCell.gridX
+        val gridYDiff = endCell.gridY - startCell.gridY
+
+        return DefaultSelectionStateRadii().apply {
+            if (startGridX != 0) firstRowLb = roundRadius
+            if (gridYDiff == 1 && endGridX != 6) firstRowRb = roundRadius
+
+            if (gridYDiff == 1 && startGridX != 0) lastRowLt = roundRadius
+            if (endGridX != 6) lastRowRt = roundRadius
+
+            if (gridYDiff > 1) {
+                if (startGridX != 0) centerRectLt = roundRadius
+                if (endGridX != 6) centerRectRb = roundRadius
+            }
+        }
     }
 
     private fun setStateInternal(state: DefaultSelectionState) {
@@ -192,6 +216,7 @@ internal class DefaultSelectionManager : SelectionManager {
 
             DefaultSelectionState.RangeToRange(
                 prevState, currentState,
+                roundRadius = measureManager.roundRadius,
                 startStateStartCellDistance, startStateEndCellDistance,
                 endStateStartCellDistance, endStateEndCellDistance
             )

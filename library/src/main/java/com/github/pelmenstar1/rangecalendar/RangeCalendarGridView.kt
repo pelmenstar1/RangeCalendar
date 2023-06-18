@@ -165,6 +165,9 @@ internal class RangeCalendarGridView(
         override val cellHeight: Float
             get() = view.cellHeight
 
+        override val roundRadius: Float
+            get() = view.cellRoundRadius()
+
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
         override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
 
@@ -173,6 +176,13 @@ internal class RangeCalendarGridView(
 
         override fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int =
             view.getCellAndPointByCellDistance(distance, outPoint)
+
+        override fun getXOfCellDistance(distance: Float): Float =
+            view.getXOfCellDistance(distance)
+
+        override fun getCellFractionByDistance(distance: Float): Float =
+            view.getCellFractionByDistance(distance)
+
     }
 
     val cells = ByteArray(42)
@@ -1554,6 +1564,20 @@ internal class RangeCalendarGridView(
         outPoint.y = cellTop
 
         return gridY * 7 + gridX
+    }
+
+    private fun getXOfCellDistance(distance: Float): Float {
+        return distance % (width - 2f * cr.hPadding)
+    }
+
+    private fun getCellFractionByDistance (distance: Float): Float {
+        val gridX = (distance / columnWidth).toInt()
+        val alignedXByColumn = gridX * columnWidth
+        val adjustedDistance = distance - (columnWidth - cellWidth) * 0.5f
+
+        //val columnAlignedDist = distance % columnWidth
+
+        return (adjustedDistance - alignedXByColumn) / columnWidth
     }
 
     private fun getCellByPointOnScreen(x: Float, y: Float): Cell {
