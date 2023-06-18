@@ -24,6 +24,13 @@ interface SelectionState {
          * The state to which the transition should come.
          */
         val end: SelectionState
+
+        /**
+         * Determines whether selection determined by the transitive state overlays a cell specified by [cellIndex].
+         *
+         * @param cellIndex index of the cell, should be in range 0..41
+         */
+        fun overlaysCell(cellIndex: Int): Boolean
     }
 
     /**

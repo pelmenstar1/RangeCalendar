@@ -889,7 +889,15 @@ internal class RangeCalendarGridView(
 
         val handler = getLazyValue(
             selectionTransitionHandler,
-            { { controller.handleTransition(selectionTransitiveState!!, cellMeasureManager, animFraction) } },
+            {
+                {
+                    controller.handleTransition(
+                        selectionTransitiveState!!,
+                        cellMeasureManager,
+                        animFraction
+                    )
+                }
+            },
             { selectionTransitionHandler = it }
         )
         val onEnd = getLazyValue(
@@ -1358,22 +1366,21 @@ internal class RangeCalendarGridView(
         measureDayNumberTextSizesIfNecessary()
 
         val halfCellHeight = cellHeight * 0.5f
+
         val startIndex: Int
         val endIndex: Int
 
         if (showAdjacentMonths) {
             startIndex = 0
-            endIndex = 42
+            endIndex = 41
         } else {
             val (start, end) = inMonthRange
 
             startIndex = start.index
-
-            // endIndex is exclusive, inMonthRange.end is inclusive, that's why +1
-            endIndex = end.index + 1
+            endIndex = end.index
         }
 
-        for (i in startIndex until endIndex) {
+        for (i in startIndex..endIndex) {
             val cell = Cell(i)
 
             val centerX = getCellCenterLeft(cell)
@@ -1385,19 +1392,18 @@ internal class RangeCalendarGridView(
 
     private fun resolveCellType(cell: Cell): Int {
         val selState = selectionManager.currentState
-        val start = selState.rangeStart
-        val end = selState.rangeEnd
+        val currentStart = selState.rangeStart
+        val currentEnd = selState.rangeEnd
 
-        var cellType = if (start == cell.index && end == cell.index) { // Is a single cell
+        val selectionOverlaysCell = selectionTransitiveState?.overlaysCell(cell.index)
+            ?: (cell.index in currentStart..currentEnd)
+
+        var cellType = if (selectionOverlaysCell) {
             CELL_SELECTED
         } else if (enabledCellRange.contains(cell)) {
             if (inMonthRange.contains(cell)) {
                 if (cell == todayCell) {
-                    if (cell.index in start..end) {
-                        CELL_IN_MONTH
-                    } else {
-                        CELL_TODAY
-                    }
+                    CELL_TODAY
                 } else {
                     CELL_IN_MONTH
                 }
@@ -1570,7 +1576,7 @@ internal class RangeCalendarGridView(
         return distance % (width - 2f * cr.hPadding)
     }
 
-    private fun getCellFractionByDistance (distance: Float): Float {
+    private fun getCellFractionByDistance(distance: Float): Float {
         val gridX = (distance / columnWidth).toInt()
         val alignedXByColumn = gridX * columnWidth
         val adjustedDistance = distance - (columnWidth - cellWidth) * 0.5f

@@ -1,6 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.RectF
+import com.github.pelmenstar1.rangecalendar.utils.rangeContains
 
 internal class DefaultSelectionStateRadii {
     var firstRowLb: Float = 0f
@@ -81,6 +82,10 @@ internal class DefaultSelectionState(
 
         override val cellHeight: Float
             get() = start.cellHeight
+
+        override fun overlaysCell(cellIndex: Int): Boolean {
+            return range.contains(Cell(cellIndex))
+        }
     }
 
     class AppearAlpha(
@@ -94,6 +99,10 @@ internal class DefaultSelectionState(
             get() = baseState
 
         var alpha = 0f
+
+        override fun overlaysCell(cellIndex: Int): Boolean {
+            return baseState.rangeStart == cellIndex
+        }
     }
 
     class DualAlpha(
@@ -102,6 +111,10 @@ internal class DefaultSelectionState(
     ) : SelectionState.Transitive {
         var startAlpha = Float.NaN
         var endAlpha = Float.NaN
+
+        override fun overlaysCell(cellIndex: Int): Boolean {
+            return start.contains(Cell(cellIndex)) || end.contains(Cell(cellIndex))
+        }
     }
 
     class CellAppearBubble(
@@ -113,6 +126,10 @@ internal class DefaultSelectionState(
 
         override val end: SelectionState
             get() = baseState
+
+        override fun overlaysCell(cellIndex: Int): Boolean {
+            return baseState.rangeStart == cellIndex
+        }
     }
 
     class CellDualBubble(
@@ -121,12 +138,37 @@ internal class DefaultSelectionState(
     ) : SelectionState.Transitive {
         val startBounds = RectF()
         val endBounds = RectF()
+
+        override fun overlaysCell(cellIndex: Int): Boolean {
+            return start.rangeStart == cellIndex || end.rangeEnd == cellIndex
+        }
     }
 
     class CellMoveToCell(
         override val start: DefaultSelectionState,
         override val end: DefaultSelectionState
-    ) : BoundsTransitionBase()
+    ) : BoundsTransitionBase() {
+        override fun overlaysCell(cellIndex: Int): Boolean {
+            val startCell = start.startCell
+            val endCell = end.startCell
+
+            val cellX = Cell(cellIndex).gridX
+            val cellY = Cell(cellIndex).gridY
+
+            val startX = startCell.gridX
+            val startY = startCell.gridY
+
+            val endX = endCell.gridX
+            val endY = endCell.gridY
+
+            return if (startY == endY) {
+                cellY == startY && rangeContains(startX, endX, cellX)
+            } else {
+                // Then cells have same x on grid.
+                cellX == startX && rangeContains(startY, endY, cellY)
+            }
+        }
+    }
 
     abstract class BoundsTransitionBase : SelectionState.Transitive {
         val bounds = RectF()
