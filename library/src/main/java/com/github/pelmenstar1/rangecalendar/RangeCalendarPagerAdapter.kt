@@ -140,7 +140,7 @@ internal class RangeCalendarPagerAdapter(
     private val styleObjData = arrayOfNulls<Any>(7)
 
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
-    private var selectionGate: RangeCalendarView.SelectionGate? = null
+    var selectionGate: RangeCalendarView.SelectionGate? = null
 
     private val decorations = DecorGroupedList()
     private val decorLayoutOptionsMap = SparseArray<DecorLayoutOptions>()
@@ -206,14 +206,6 @@ internal class RangeCalendarPagerAdapter(
 
     private fun initStyle(type: Int, data: Any) {
         styleObjData[type - STYLE_OBJ_START] = data
-    }
-
-    fun setOnSelectionListener(value: RangeCalendarView.OnSelectionListener) {
-        onSelectionListener = value
-    }
-
-    fun setSelectionGate(value: RangeCalendarView.SelectionGate) {
-        selectionGate = value
     }
 
     fun getStylePacked(type: Int) = PackedInt(styleData[type])
@@ -351,10 +343,6 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    fun getYearMonthForCalendar(position: Int): YearMonth {
-        return YearMonth.forDate(minDate) + position
-    }
-
     fun clearHoverAt(ym: YearMonth) {
         notifyPageChanged(ym, Payload.clearHover())
     }
@@ -373,6 +361,10 @@ internal class RangeCalendarPagerAdapter(
         }
 
         return CellRange(startCell, endCell)
+    }
+
+    fun getYearMonthForCalendar(position: Int): YearMonth {
+        return YearMonth.forDate(minDate) + position
     }
 
     fun getItemPositionForDate(date: PackedDate): Int {

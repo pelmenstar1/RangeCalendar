@@ -226,8 +226,8 @@ class RangeCalendarView @JvmOverloads constructor(
                 DefaultRangeCalendarCellAccessibilityInfoProvider(context),
                 notify = false
             )
-            //setSelectionGate(createSelectionGate())
-            setOnSelectionListener(createOnSelectionListener())
+
+            onSelectionListener = createOnSelectionListener()
         }
 
         prevButton = AppCompatImageButton(context).apply {
@@ -343,53 +343,6 @@ class RangeCalendarView @JvmOverloads constructor(
             )
         }
     }
-
-    /*
-    private fun createSelectionGate() = object : SelectionGate {
-        override fun cell(year: Int, month: Int, dayOfMonth: Int) =
-            internalGate(SelectionType.CELL) {
-                it.cell(year, month, dayOfMonth)
-            }
-
-        override fun week(
-            weekIndex: Int,
-            startYear: Int,
-            startMonth: Int,
-            startDay: Int,
-            endYear: Int,
-            endMonth: Int,
-            endDay: Int
-        ) = internalGate(SelectionType.WEEK) {
-            it.week(weekIndex, startYear, startMonth, startDay, endYear, endMonth, endDay)
-        }
-
-        override fun month(year: Int, month: Int) = internalGate(SelectionType.MONTH) {
-            it.month(year, month)
-        }
-
-        override fun customRange(
-            startYear: Int,
-            startMonth: Int,
-            startDay: Int,
-            endYear: Int,
-            endMonth: Int,
-            endDay: Int
-        ) = internalGate(SelectionType.CUSTOM) {
-            it.customRange(startYear, startMonth, startDay, endYear, endMonth, endDay)
-        }
-
-        private inline fun internalGate(
-            type: SelectionType,
-            method: (SelectionGate) -> Boolean
-        ): Boolean {
-            return if (isSelectionTypeAllowed(type)) {
-                selectionGate?.let(method) ?: true
-            } else {
-                false
-            }
-        }
-    }
-    */
 
     private fun initFromAttributes(
         context: Context,
@@ -801,7 +754,11 @@ class RangeCalendarView @JvmOverloads constructor(
     /**
      * Gets or sets a selection "gate" which determines whether to allow selection or not.
      */
-    var selectionGate: SelectionGate? = null
+    var selectionGate: SelectionGate?
+        get() = adapter.selectionGate
+        set(value) {
+            adapter.selectionGate = value
+        }
 
     /**
      * Gets or sets a listener which responds when calendar page is changed (by user or from code)
