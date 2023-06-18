@@ -22,6 +22,7 @@ import androidx.customview.widget.ExploreByTouchHelper
 import com.github.pelmenstar1.rangecalendar.decoration.*
 import com.github.pelmenstar1.rangecalendar.selection.*
 import com.github.pelmenstar1.rangecalendar.utils.VibratorCompat
+import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
@@ -591,8 +592,8 @@ internal class RangeCalendarGridView(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val preferredWidth = (cellWidth * 7).toInt()
-        val preferredHeight = (gridTop() + (cellHeight + cr.yCellMargin) * 6).toInt()
+        val preferredWidth = ceilToInt(cellWidth * 7)
+        val preferredHeight = ceilToInt(gridTop() + (cellHeight * 6))
 
         setMeasuredDimension(
             resolveSize(preferredWidth, widthMeasureSpec),
@@ -1521,7 +1522,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun getCellTopByGridY(gridY: Int): Float {
-        return gridTop() + gridY * (cellHeight + cr.yCellMargin)
+        return gridTop() + gridY * cellHeight
     }
 
     private fun getCellTop(cell: Cell): Float {
@@ -1588,7 +1589,7 @@ internal class RangeCalendarGridView(
 
     private fun getCellByPointOnScreen(x: Float, y: Float): Cell {
         val gridX = ((x - cr.hPadding) / columnWidth).toInt()
-        val gridY = ((y - gridTop()) / (cellHeight + cr.yCellMargin)).toInt()
+        val gridY = ((y - gridTop()) / cellHeight).toInt()
 
         return Cell(gridY * 7 + gridX)
     }
