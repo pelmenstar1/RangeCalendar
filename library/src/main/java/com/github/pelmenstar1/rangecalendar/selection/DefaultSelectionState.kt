@@ -3,34 +3,12 @@ package com.github.pelmenstar1.rangecalendar.selection
 import android.graphics.RectF
 import com.github.pelmenstar1.rangecalendar.utils.rangeContains
 
-internal interface DefaultSelectionStateRangeInfo {
-    val range: CellRange
-
-    val startLeft: Float
-    val startTop: Float
-    val endRight: Float
-    val endTop: Float
-
-    val firstCellOnRowLeft: Float
-    val lastCellOnRowRight: Float
-
-    val cellWidth: Float
-    val cellHeight: Float
-}
-
-internal class DefaultSelectionState(
-    override val range: CellRange,
-    override val startLeft: Float, override val startTop: Float,
-    override val endRight: Float, override val endTop: Float,
-    override val firstCellOnRowLeft: Float, override val lastCellOnRowRight: Float,
-    override val cellWidth: Float,
-    override val cellHeight: Float
-) : SelectionState, DefaultSelectionStateRangeInfo {
+internal class DefaultSelectionState(val shapeInfo: SelectionShapeInfo) : SelectionState {
     override val rangeStart: Int
-        get() = range.start.index
+        get() = shapeInfo.range.start.index
 
     override val rangeEnd: Int
-        get() = range.end.index
+        get() = shapeInfo.range.end.index
 
     class RangeToRange(
         override val start: DefaultSelectionState,
@@ -38,29 +16,11 @@ internal class DefaultSelectionState(
         val startStateStartCellDistance: Float,
         val startStateEndCellDistance: Float,
         val endStateStartCellDistance: Float,
-        val endStateEndCellDistance: Float
-    ) : SelectionState.Transitive, DefaultSelectionStateRangeInfo {
-        override var range: CellRange = CellRange.Invalid
-        override var startLeft = 0f
-        override var startTop = 0f
-
-        override var endRight = 0f
-        override var endTop = 0f
-
-        override val firstCellOnRowLeft: Float
-            get() = start.firstCellOnRowLeft
-
-        override val lastCellOnRowRight: Float
-            get() = start.lastCellOnRowRight
-
-        override val cellWidth: Float
-            get() = start.cellWidth
-
-        override val cellHeight: Float
-            get() = start.cellHeight
-
+        val endStateEndCellDistance: Float,
+        val shapeInfo: SelectionShapeInfo
+    ) : SelectionState.Transitive {
         override fun overlaysCell(cellIndex: Int): Boolean {
-            return range.contains(Cell(cellIndex))
+            return shapeInfo.range.contains(Cell(cellIndex))
         }
     }
 
@@ -156,7 +116,7 @@ internal class DefaultSelectionState(
 
         other as DefaultSelectionState
 
-        return range == other.range
+        return shapeInfo.range == other.shapeInfo.range
     }
 
     override fun hashCode(): Int = rangeStart * 31 + rangeEnd
@@ -166,6 +126,6 @@ internal class DefaultSelectionState(
     }
 
     companion object {
-        val None = DefaultSelectionState(CellRange.Invalid, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+        val None = DefaultSelectionState(SelectionShapeInfo())
     }
 }

@@ -19,18 +19,7 @@ internal fun Canvas.drawRoundRectCompat(
         val rect = tempRect!!
 
         rect.set(left, top, right, bottom)
-
         drawRoundRect(rect, radius, radius, paint)
-    }
-}
-
-internal fun Canvas.drawOvalCompat(left: Float, top: Float, right: Float, bottom: Float, paint: Paint) {
-    if(Build.VERSION.SDK_INT >= 21) {
-        drawOval(left, top, right, bottom, paint)
-    } else {
-        tempRect!!.set(left, top, right, bottom)
-
-        drawOval(tempRect, paint)
     }
 }
 
@@ -45,32 +34,5 @@ internal fun Path.addRoundRectCompat(
 
         rect.set(left, top, right, bottom)
         addRoundRect(rect, radii, Path.Direction.CW)
-    }
-}
-
-internal fun Path.addRoundRectCompat(
-    left: Float, top: Float, right: Float, bottom: Float,
-    radius: Float
-) {
-    if(Build.VERSION.SDK_INT >= 21) {
-        addRoundRect(left, top, right, bottom, radius, radius, Path.Direction.CW)
-    } else {
-        val rect = tempRect!!
-
-        rect.set(left, top, right, bottom)
-        addRoundRect(rect, radius, radius, Path.Direction.CW)
-    }
-}
-
-internal fun Path.addRectCompat(
-    left: Float, top: Float, right: Float, bottom: Float,
-) {
-    if(Build.VERSION.SDK_INT >= 21) {
-        addRect(left, top, right, bottom, Path.Direction.CW)
-    } else {
-        val rect = tempRect!!
-
-        rect.set(left, top, right, bottom)
-        addRect(rect, Path.Direction.CW)
     }
 }

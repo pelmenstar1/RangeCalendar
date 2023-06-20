@@ -166,6 +166,9 @@ internal class RangeCalendarGridView(
         override val cellHeight: Float
             get() = view.cellHeight
 
+        override val roundRadius: Float
+            get() = view.cellRoundRadius()
+
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
         override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
 
@@ -178,8 +181,8 @@ internal class RangeCalendarGridView(
 
     val cells = ByteArray(42)
 
-    internal var cellWidth: Float = cr.cellSize
-    internal var cellHeight: Float = cr.cellSize
+    private var cellWidth: Float = cr.cellSize
+    private var cellHeight: Float = cr.cellSize
 
     private var columnWidth = 0f
 
@@ -262,7 +265,7 @@ internal class RangeCalendarGridView(
 
     private var cellAnimationType = CellAnimationType.ALPHA
 
-    private var vibrator = VibratorCompat(context)
+    private val vibrator = VibratorCompat(context)
 
     var vibrateOnSelectingCustomRange = true
 

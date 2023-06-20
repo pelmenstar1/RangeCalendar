@@ -2,6 +2,7 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.PointF
 import android.graphics.RectF
+import android.util.Log
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import com.github.pelmenstar1.rangecalendar.utils.lerp
@@ -31,8 +32,8 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
-                val start = state.start
-                val end = state.end
+                val start = state.start.shapeInfo
+                val end = state.end.shapeInfo
 
                 state.bounds.apply {
                     left = lerp(start.startLeft, end.startLeft, fraction)
@@ -53,13 +54,17 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
                 val newEndCell = measureManager.getCellAndPointByDistance(newEndCellDist, point)
                 val (newEndCellRight, newEndCellTop) = point
 
-                state.startLeft = newStartCellLeft
-                state.startTop = newStartCellTop
+                Log.i("TransContr", "startCell=$newStartCell endCell=$newEndCell")
 
-                state.endRight = newEndCellRight
-                state.endTop = newEndCellTop
+                state.shapeInfo.apply {
+                    startLeft = newStartCellLeft
+                    startTop = newStartCellTop
 
-                state.range = CellRange(newStartCell, newEndCell)
+                    endRight = newEndCellRight
+                    endTop = newEndCellTop
+
+                    range = CellRange(newStartCell, newEndCell)
+                }
             }
         }
     }
@@ -74,11 +79,13 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
             fraction: Float,
             outRect: RectF
         ) {
-            val rx = state.cellWidth * 0.5f
-            val ry = state.cellHeight * 0.5f
+            val shapeInfo = state.shapeInfo
 
-            val cx = state.startLeft + rx
-            val cy = state.startTop + ry
+            val rx = shapeInfo.cellWidth * 0.5f
+            val ry = shapeInfo.cellHeight * 0.5f
+
+            val cx = shapeInfo.startLeft + rx
+            val cy = shapeInfo.startTop + ry
 
             val frx = rx * fraction
             val fry = ry * fraction

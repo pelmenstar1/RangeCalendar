@@ -73,15 +73,16 @@ internal class DefaultSelectionManager : SelectionManager {
         val firstCellOnRowLeft = measureManager.getCellLeft(0)
         val lastCellOnRowRight = measureManager.getCellLeft(6) + cellWidth
 
-        val range = CellRange(rangeStart, rangeEnd)
-
-        return DefaultSelectionState(
-            range,
+        val pathInfo = SelectionShapeInfo(
+            range = CellRange(rangeStart, rangeEnd),
             startLeft, startTop,
             endRight, endTop,
             firstCellOnRowLeft, lastCellOnRowRight,
-            cellWidth, cellHeight
+            cellWidth, cellHeight,
+            measureManager.roundRadius
         )
+
+        return DefaultSelectionState(pathInfo)
     }
 
     private fun setStateInternal(state: DefaultSelectionState) {
@@ -182,18 +183,32 @@ internal class DefaultSelectionManager : SelectionManager {
             val (prevStart, prevEnd) = prevRange
             val (currentStart, currentEnd) = currentRange
 
-            val cellWidth = measureManager.cellWidth
+            val cw = measureManager.cellWidth
 
             val startStateStartCellDistance = measureManager.getCellDistance(prevStart.index)
-            val startStateEndCellDistance = measureManager.getCellDistance(prevEnd.index) + cellWidth
+            val startStateEndCellDistance = measureManager.getCellDistance(prevEnd.index) + cw
 
             val endStateStartCellDistance = measureManager.getCellDistance(currentStart.index)
-            val endStateEndCellDistance = measureManager.getCellDistance(currentEnd.index) + cellWidth
+            val endStateEndCellDistance = measureManager.getCellDistance(currentEnd.index) + cw
+
+            val prevShapeInfo = prevState.shapeInfo
+
+            val shapeInfo = SelectionShapeInfo().apply {
+                // These are supposed to be changed during the animation. Init them now.
+                firstCellOnRowLeft = prevShapeInfo.firstCellOnRowLeft
+                lastCellOnRowRight = prevShapeInfo.lastCellOnRowRight
+
+                cellWidth = cw
+                cellHeight = measureManager.cellHeight
+
+                roundRadius = measureManager.roundRadius
+            }
 
             DefaultSelectionState.RangeToRange(
                 prevState, currentState,
                 startStateStartCellDistance, startStateEndCellDistance,
-                endStateStartCellDistance, endStateEndCellDistance
+                endStateStartCellDistance, endStateEndCellDistance,
+                shapeInfo
             )
         } else {
             DefaultSelectionState.DualAlpha(prevState, currentState)
