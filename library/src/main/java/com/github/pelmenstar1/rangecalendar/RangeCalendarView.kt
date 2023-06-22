@@ -903,6 +903,25 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
+     * Gets or sets array of weekdays. Length of the array should be exactly 7. First day of week is expected to be Monday.
+     *
+     * Note that the getter returns a reference to weekdays, not a copy, thus that array should not be modified in any way.
+     * If you want to update weekdays, make a copy with changes and use setter.
+     *
+     * Pass `null` to use localized weekdays. Note that if you do that, the getter will return localized weekdays, not `null`.
+     */
+    var weekdays: Array<out String>?
+        get() = adapter.getStyleObject { STYLE_WEEKDAYS }
+        set(value) {
+            if (value != null && value.size != 7) {
+                throw IllegalArgumentException("Length of the array should be 7")
+            }
+
+            // Copy the array because the caller might be it later.
+            adapter.setStyleObject({ STYLE_WEEKDAYS }, value?.copyOf())
+        }
+
+    /**
      * Gets or sets a background color of cell which appears when user hovers under a cell
      * (when a pointer is registered to be down).
      *
@@ -969,12 +988,16 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets weekday type. Should be [WeekdayType.SHORT] or [WeekdayType.NARROW].
+     * Gets or sets weekday type.
+     *
      * If [WeekdayType.SHORT], then weekdays will be: Mo, Tue, Wed, Thu, Fri.
      * If [WeekdayType.NARROW], then weekdays will be: M, T, W, T, F.
      * Note:
-     * - Narrow weekdays is dependent on user locale and are not always one-letter.
+     * - Narrow weekdays depend on user locale and are not always one-letter.
      * - **If API level is less than 24, [WeekdayType.NARROW] won't work.**
+     *
+     * Changing weekday type when custom weekdays array was set (via [weekdays]) won't have any effect, even though when
+     * `null` value is passed to the setter of [weekdays], the latest value of [weekdayType] will be used.
      *
      * @throws IllegalArgumentException if type is not one of [WeekdayType] constants
      */

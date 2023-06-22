@@ -190,6 +190,7 @@ internal class RangeCalendarPagerAdapter(
         // other stuff
         initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true)
         initStyle(STYLE_SHOW_ADJACENT_MONTHS, true)
+        initStyle(STYLE_WEEKDAYS, null)
     }
 
     private fun initStyle(type: Int, data: Boolean) {
@@ -330,6 +331,7 @@ internal class RangeCalendarPagerAdapter(
                 STYLE_SELECTION_MANAGER -> setSelectionManager(data.value())
                 STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER -> setCellAccessibilityInfoProvider(data.value())
                 STYLE_WEEKDAY_TYPEFACE -> setWeekdayTypeface(data.value())
+                STYLE_WEEKDAYS -> setCustomWeekdays(data.value())
             }
         }
     }
@@ -1039,6 +1041,7 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_SELECTION_MANAGER = 36
         const val STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER = 37
         const val STYLE_WEEKDAY_TYPEFACE = 38
+        const val STYLE_WEEKDAYS = 39
 
         // Precomputed value
         private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432

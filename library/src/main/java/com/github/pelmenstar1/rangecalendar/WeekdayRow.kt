@@ -7,10 +7,13 @@ internal class WeekdayRow(
     private val defaultShortWeekdayRowHeight: Float,
     private val defaultNarrowWeekdayRowHeight: Float,
     private val defaultWeekdayWidths: FloatArray,
-    private val weekdayData: WeekdayData,
+    private val localizedWeekdayData: WeekdayData,
     private val textPaint: Paint
 ) {
     private var weekdayWidths: FloatArray = defaultWeekdayWidths
+
+    private var isCustomWeekdays = false
+    private var weekdayData = localizedWeekdayData
 
     /**
      * Height of the row, in pixels.
@@ -26,17 +29,34 @@ internal class WeekdayRow(
             if (field != value) {
                 field = value
 
-                // If we're still using defaultWeekdayWidths, it means that text size of weekday haven't been changed and
-                // we can use default measurements.
-                if (weekdayWidths === defaultWeekdayWidths) {
-                    height = if (value == WeekdayType.SHORT)
-                        defaultShortWeekdayRowHeight
-                    else
-                        defaultNarrowWeekdayRowHeight
-                } else {
-                    onMeasurementsChanged()
+                // Changing the type when custom weekdays are used should have no effect
+                if (!isCustomWeekdays) {
+                    // If we're still using defaultWeekdayWidths, it means that text size of weekday haven't been changed and
+                    // we can use default measurements.
+                    if (weekdayWidths === defaultWeekdayWidths) {
+                        height = if (value == WeekdayType.SHORT)
+                            defaultShortWeekdayRowHeight
+                        else
+                            defaultNarrowWeekdayRowHeight
+                    } else {
+                        onMeasurementsChanged()
+                    }
                 }
             }
+        }
+
+    var weekdays: Array<out String>?
+        get() = weekdayData.weekdays
+        set(value) {
+            weekdayData = if (value == null) {
+                localizedWeekdayData
+            } else {
+                WeekdayData(value)
+            }
+
+            isCustomWeekdays = value != null
+
+            onMeasurementsChanged()
         }
 
     /**

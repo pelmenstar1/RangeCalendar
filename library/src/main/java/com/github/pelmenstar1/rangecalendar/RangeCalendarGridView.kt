@@ -437,10 +437,7 @@ internal class RangeCalendarGridView(
 
     fun setWeekdayTextSize(size: Float) = updateUIState(weekdayPaint.textSize, size) {
         weekdayPaint.textSize = size
-
-        if (size != cr.weekdayTextSize) {
-            weekdayRow.onMeasurementsChanged()
-        }
+        weekdayRow.onMeasurementsChanged()
 
         onGridTopChanged()
     }
@@ -450,6 +447,12 @@ internal class RangeCalendarGridView(
         weekdayRow.onMeasurementsChanged()
 
         onGridTopChanged()
+    }
+
+    fun setCustomWeekdays(weekdays: Array<out String>?) = updateUIState(weekdayRow.weekdays, weekdays) {
+        weekdayRow.weekdays = weekdays
+
+        onGridChanged()
     }
 
     fun setInMonthTextColor(color: Int) = updateUIState(inMonthTextColor, color) {
