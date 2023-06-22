@@ -18,8 +18,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         style = Paint.Style.FILL
     }
 
-    private var primaryPath: SelectionShape? = null
-    private var secondaryPath: SelectionShape? = null
+    private val primaryShape = SelectionShape()
+    private val secondaryShape = SelectionShape()
 
     private var primaryCellNode: CellRenderNode? = null
     private var secondaryCellNode: CellRenderNode? = null
@@ -29,12 +29,6 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private fun getOrCreateSecondaryCellNode() =
         getLazyValue(secondaryCellNode, ::CellRenderNode) { secondaryCellNode = it }
-
-    private fun getOrCreatePrimaryPath() =
-        getLazyValue(primaryPath, ::SelectionShape) { primaryPath = it }
-
-    private fun getOrCreateSecondaryPath() =
-        getLazyValue(secondaryPath, ::SelectionShape) { secondaryPath = it }
 
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
         state as DefaultSelectionState
@@ -173,27 +167,16 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         alpha: Float,
         isPrimary: Boolean
     ) {
-        val (start, end) = shapeInfo.range
-
-        if (start.sameY(end)) {
-            val left = shapeInfo.startLeft
-            val top = shapeInfo.startTop
-            val right = shapeInfo.endRight
-            val bottom = top + shapeInfo.cellHeight
-
-            drawRect(canvas, left, top, right, bottom, options, alpha)
+        val shape = if (isPrimary) {
+            primaryShape
         } else {
-            val path = if (isPrimary) {
-                getOrCreatePrimaryPath()
-            } else {
-                getOrCreateSecondaryPath()
-            }
+            secondaryShape
+        }
 
-            path.updateShapeIfNecessary(shapeInfo)
+        shape.updateShapeIfNecessary(shapeInfo)
 
-            useSelectionFill(canvas, options, path.bounds, alpha) {
-                path.draw(canvas, paint)
-            }
+        useSelectionFill(canvas, options, shape.bounds, alpha) {
+            shape.draw(canvas, paint)
         }
     }
 
