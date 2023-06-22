@@ -104,8 +104,6 @@ month are 1-based.
 - `onSelectionCleared()` fires when selection is cleared.
 - `onSelection(startYear, startMonth, startDay, endYear, endMonth, endDay)` fires on selection. Start and end dates are inclusive.
 
-The methods (except `onSelectionCleared()`) should return boolean that indicate whether the selection is valid or not.
-
 ## Animations
 
 They are enabled by default (currently they cannot be disabled).
