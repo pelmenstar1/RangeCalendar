@@ -14,7 +14,6 @@ import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 internal class CalendarResources(context: Context) {
     val hPadding: Float
     val cellSize: Float
-    val yCellMargin: Float
 
     val colorPrimary: Int
     val colorPrimaryDark: Int
@@ -57,7 +56,6 @@ internal class CalendarResources(context: Context) {
         weekdayTextSize = res.getDimension(R.dimen.rangeCalendar_weekdayTextSize)
         dayNumberTextSize = res.getDimension(R.dimen.rangeCalendar_dayNumberTextSize)
         cellSize = res.getDimension(R.dimen.rangeCalendar_cellSize)
-        yCellMargin = res.getDimension(R.dimen.rangeCalendar_yCellMargin)
         weekdayRowMarginBottom = res.getDimension(R.dimen.rangeCalendar_weekdayRowMarginBottom)
 
         // Compute text size of numbers in [0; 31]

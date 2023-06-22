@@ -51,45 +51,22 @@ Define `RangeCalendarView` in your XML layout:
 
 Get notified when the date or range are selected:
 <br/>
-*(In example, the methods return true to mark that selection is valid. [More about it](#listener))*
 
 ```kotlin
-calendar.onSelectionListener = object : RangeCalendarView.OnSelectionListener {
+onSelectionListener = object : RangeCalendarView.OnSelectionListener { 
     override fun onSelectionCleared() {
     }
 
-    override fun onDaySelected(year: Int, month: Int, day: Int): Boolean {
-        return true
-    }
-
-    override fun onWeekSelected(
-        weekIndex: Int,
+    override fun onSelection(
         startYear: Int,
         startMonth: Int,
         startDay: Int,
         endYear: Int,
         endMonth: Int,
         endDay: Int
-    ): Boolean {
-        return true
-    }
-
-    override fun onMonthSelected(year: Int, month: Int): Boolean {
-        return true
-    }
-
-    override fun onCustomRangeSelected(
-        startYear: Int,
-        startMonth: Int,
-        startDay: Int,
-        endYear: Int,
-        endMonth: Int,
-        endDay: Int
-    ): Boolean {
-        return true
+    ) {
     }
 }
-
 ```
 
 ## Demo
@@ -125,13 +102,7 @@ Use `getOnSelectionListener()/setOnSelectionListener()` to get or set the listen
 month are 1-based.
 
 - `onSelectionCleared()` fires when selection is cleared.
-- `onDaySelected(year, month, day)` fires when day is selected.
-- onWeekSelected(weekIndex, startYear, startMonth, startDay, endYear, endMonth, endDay) fires when week is selected.
-    - weekIndex - index of selected week, 0-based
-- onMonthSelected(year, month) fires when month is selected.
-- onCustomRangeSelected(startYear, startMonth, startDay, endYear, endMonth, endDay) fires when custom range is selected
-
-The methods (except `onSelectionCleared()`) should return boolean that indicate whether the selection is valid or not.
+- `onSelection(startYear, startMonth, startDay, endYear, endMonth, endDay)` fires on selection. Start and end dates are inclusive.
 
 ## Animations
 
@@ -166,8 +137,7 @@ They are enabled by default (currently they cannot be disabled).
 - `selectMonth(year, month)` to select a month.
     - year should be in range of [0; 65535]
     - month is 1-based
-- `selectCustom(startDate, endDate)` to select custom range. The range should fit in single month, otherwise the
-  exception will be thrown.
+- `selectRange(startDate, endDate)` to select a date range. Start and end dates of the range should have same year and month, otherwise exception will be thrown.
 - `clearSelection()` to clear selection.
 
 Any 'selection' method accepts optional parameter `SelectionRequestRejectedBehaviour` which specifies expected behaviour
@@ -235,22 +205,6 @@ observer.register() // The observer should be registered manually.
 ```
 
 ## Other
-
-- `allowedSelectionTypes()` returns special object that manages allowed types of selection. Example:
-
-    ```java
-    calendar.allowedSelectionTypes().month(false).customRange(true)
-    ```
-
-  By code above, we disabled month and custom range selection. If selection type become disabled, it'll be automatically
-  cleared.
-
-    - `cell(boolean)` sets whether cell can be selected
-    - `week(boolean)` sets whether week can be selected
-    - `month(boolean)` sets whether month can be selected
-    - `customRange(boolean)` sets whether custom range can be selected
-
-  By default all types of selection are allowed.
 
 - `getVibrateOnSelectingCustomRange()/setVibrateOnSelectingCustomRange()` to get or set whether the device should
   vibrate on start of selecting custom range.

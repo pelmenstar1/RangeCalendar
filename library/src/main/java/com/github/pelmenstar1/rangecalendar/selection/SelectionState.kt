@@ -1,7 +1,5 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
-import com.github.pelmenstar1.rangecalendar.SelectionType
-
 /**
  * A set of properties which are needed to represent selection state.
  *
@@ -26,12 +24,14 @@ interface SelectionState {
          * The state to which the transition should come.
          */
         val end: SelectionState
-    }
 
-    /**
-     * Type of selection.
-     */
-    val type: SelectionType
+        /**
+         * Determines whether selection determined by the transitive state overlays a cell specified by [cellIndex].
+         *
+         * @param cellIndex index of the cell, should be in range 0..41
+         */
+        fun overlaysCell(cellIndex: Int): Boolean
+    }
 
     /**
      * Index of the cell from which selection begins. Inclusive.
@@ -44,11 +44,22 @@ interface SelectionState {
     val rangeEnd: Int
 }
 
-internal val SelectionState.startCell: Cell
+internal inline val SelectionState.startCell: Cell
     get() = Cell(rangeStart)
 
-internal val SelectionState.endCell: Cell
+internal inline val SelectionState.endCell: Cell
     get() = Cell(rangeEnd)
 
 internal val SelectionState.range: CellRange
     get() = CellRange(rangeStart, rangeEnd)
+
+internal val SelectionState.isNone: Boolean
+    get() = rangeStart > rangeEnd
+
+internal fun SelectionState.contains(cell: Cell): Boolean {
+    return cell.index in rangeEnd..rangeStart
+}
+
+internal fun SelectionState.isSingleCell(cell: Cell): Boolean {
+    return rangeStart == cell.index && rangeEnd == cell.index
+}

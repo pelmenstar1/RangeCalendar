@@ -8,6 +8,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.*
@@ -20,6 +21,8 @@ import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
 import com.github.pelmenstar1.rangecalendar.decoration.*
 import com.github.pelmenstar1.rangecalendar.selection.*
+import com.github.pelmenstar1.rangecalendar.utils.VibratorCompat
+import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
@@ -36,81 +39,11 @@ internal class RangeCalendarGridView(
 ) : View(context) {
     interface OnSelectionListener {
         fun onSelectionCleared()
-        fun onCellSelected(cell: Cell)
-        fun onWeekSelected(weekIndex: Int, range: CellRange)
-        fun onCustomRangeSelected(range: CellRange)
+        fun onSelection(range: CellRange)
     }
 
     interface SelectionGate {
-        fun cell(cell: Cell): Boolean
-        fun week(weekIndex: Int, range: CellRange): Boolean
-        fun customRange(range: CellRange): Boolean
-    }
-
-    class SetSelectionInfo(
-        val type: SelectionType,
-        val data: NarrowSelectionData,
-        val requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        val withAnimation: Boolean
-    ) {
-        companion object {
-            private inline fun create(
-                type: SelectionType,
-                getSelData: NarrowSelectionData.Companion.() -> NarrowSelectionData,
-                requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-                withAnimation: Boolean
-            ) = SetSelectionInfo(
-                type,
-                NarrowSelectionData.getSelData(),
-                requestRejectedBehaviour,
-                withAnimation
-            )
-
-            val Undefined = create(
-                SelectionType.NONE,
-                { Undefined },
-                SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                false
-            )
-
-            fun cell(
-                cell: Cell,
-                requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-                withAnimation: Boolean
-            ) = create(
-                SelectionType.CELL,
-                { cellSelection(cell) },
-                requestRejectedBehaviour,
-                withAnimation
-            )
-
-            fun week(
-                index: Int,
-                requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-                withAnimation: Boolean
-            ) = create(
-                SelectionType.WEEK,
-                { weekSelection(index) },
-                requestRejectedBehaviour,
-                withAnimation
-            )
-
-            fun month(
-                requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-                withAnimation: Boolean
-            ) = create(SelectionType.MONTH, { Undefined }, requestRejectedBehaviour, withAnimation)
-
-            fun customRange(
-                range: CellRange,
-                requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-                withAnimation: Boolean
-            ) = create(
-                SelectionType.CUSTOM,
-                { customRangeSelection(range) },
-                requestRejectedBehaviour,
-                withAnimation
-            )
-        }
+        fun range(range: CellRange): Boolean
     }
 
     private class TouchHelper(private val grid: RangeCalendarGridView) :
@@ -152,9 +85,7 @@ internal class RangeCalendarGridView(
                 contentDescription = getDayDescriptionForIndex(virtualViewId)
                 text = CalendarResources.getDayText(grid.cells[virtualViewId].toInt())
 
-                val selState = grid.selectionManager.currentState
-
-                isSelected = selState.type == SelectionType.CELL && cell == selState.startCell
+                isSelected = grid.selectionManager.currentState.isSingleCell(cell)
                 isClickable = true
 
                 isEnabled = if (grid.enabledCellRange.contains(cell)) {
@@ -173,11 +104,12 @@ internal class RangeCalendarGridView(
             arguments: Bundle?
         ): Boolean {
             return if (action == AccessibilityNodeInfoCompat.ACTION_CLICK) {
-                grid.selectCell(
-                    Cell(virtualViewId),
+                grid.selectRange(
+                    range = CellRange.single(virtualViewId),
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                    doAnimation = false,
-                    isUser = true
+                    isCellSelectionByUser = true,
+                    isUserStartSelection = false,
+                    doAnimation = false
                 )
 
                 true
@@ -234,14 +166,23 @@ internal class RangeCalendarGridView(
         override val cellHeight: Float
             get() = view.cellHeight
 
+        override val roundRadius: Float
+            get() = view.cellRoundRadius()
+
         override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
         override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
+
+        override fun getCellDistance(cellIndex: Int): Float =
+            view.getCellDistance(Cell(cellIndex))
+
+        override fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int =
+            view.getCellAndPointByCellDistance(distance, outPoint)
     }
 
     val cells = ByteArray(42)
 
-    internal var cellWidth: Float = cr.cellSize
-    internal var cellHeight: Float = cr.cellSize
+    private var cellWidth: Float = cr.cellSize
+    private var cellHeight: Float = cr.cellSize
 
     private var columnWidth = 0f
 
@@ -324,8 +265,7 @@ internal class RangeCalendarGridView(
 
     private var cellAnimationType = CellAnimationType.ALPHA
 
-    private var vibrator: Vibrator? = null
-    private var vibrationEffect: VibrationEffect? = null
+    private val vibrator = VibratorCompat(context)
 
     var vibrateOnSelectingCustomRange = true
 
@@ -467,11 +407,13 @@ internal class RangeCalendarGridView(
     }
 
     private fun SelectionManager.setStateOrNone(state: SelectionState) {
-        val type = state.type
-        if (type == SelectionType.NONE) {
+        val rangeStart = state.rangeStart
+        val rangeEnd = state.rangeEnd
+
+        if (rangeStart > rangeEnd) {
             setNoneState()
         } else {
-            setState(type, state.rangeStart, state.rangeEnd, cellMeasureManager)
+            setState(rangeStart, rangeEnd, cellMeasureManager)
         }
     }
 
@@ -643,8 +585,8 @@ internal class RangeCalendarGridView(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val preferredWidth = (cellWidth * 7).toInt()
-        val preferredHeight = (gridTop() + (cellHeight + cr.yCellMargin) * 6).toInt()
+        val preferredWidth = ceilToInt(cellWidth * 7)
+        val preferredHeight = ceilToInt(gridTop() + (cellHeight * 6))
 
         setMeasuredDimension(
             resolveSize(preferredWidth, widthMeasureSpec),
@@ -726,18 +668,22 @@ internal class RangeCalendarGridView(
                                 touchTime - lastTouchTime < DOUBLE_TOUCH_MAX_MILLIS &&
                                 lastTouchCell == cell
                             ) {
-                                selectWeek(
-                                    cell.gridY,
+                                selectRange(
+                                    range = CellRange.week(cell.gridY),
                                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                                    isCellSelectionByUser = false,
+                                    isUserStartSelection = false,
                                     doAnimation = true
                                 )
                             } else {
-                                selectCell(
-                                    cell,
+                                selectRange(
+                                    CellRange.single(cell),
                                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                                    doAnimation = true,
-                                    isUser = true
+                                    isCellSelectionByUser = true,
+                                    isUserStartSelection = false,
+                                    doAnimation = true
                                 )
+
                                 sendClickEventToAccessibility(cell)
 
                                 lastTouchCell = cell
@@ -772,20 +718,19 @@ internal class RangeCalendarGridView(
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-                    if (isSelectingCustomRange && isXInActiveZone(x) && y > gridTop()) {
+                    if (isSelectingCustomRange && isXInActiveZone(x)) {
                         parent?.requestDisallowInterceptTouchEvent(true)
 
                         val cell = getCellByPointOnScreen(x, y)
                         val newRange = CellRange(customRangeStartCell, cell).normalize()
 
-                        selectCustom(
+                        selectRange(
                             newRange,
                             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                            startSelecting = false,
-                            doAnimation = false
+                            isCellSelectionByUser = false,
+                            isUserStartSelection = false,
+                            doAnimation = true
                         )
-
-                        invalidate()
                     }
                 }
             }
@@ -800,38 +745,27 @@ internal class RangeCalendarGridView(
     }
 
     private fun onCellLongPress(cell: Cell) {
-        selectCustom(
-            CellRange.cell(cell),
+        selectRange(
+            CellRange.single(cell),
             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-            startSelecting = true,
+            isCellSelectionByUser = false,
+            isUserStartSelection = true,
             doAnimation = true
         )
     }
 
     override fun getFocusedRect(r: Rect) {
-        val cw = cellWidth
-        val ch = cellHeight
-
         val selState = selectionManager.currentState
+        val start = selState.startCell
+        val end = selState.endCell
 
-        when (selState.type) {
-            SelectionType.CELL -> {
-                val (left, top) = getCellLeftTop(selState.startCell)
+        if (start.sameY(end)) {
+            val (left, top) = getCellLeftTop(start)
+            val right = getCellRight(end)
 
-                r.set(left.toInt(), top.toInt(), (left + cw).toInt(), (top + ch).toInt())
-            }
-
-            SelectionType.WEEK -> {
-                val start = Cell(selState.rangeStart)
-                val end = Cell(selState.rangeEnd)
-
-                val (left, top) = getCellLeftTop(start)
-                val right = getCellRight(end)
-
-                r.set(left.toInt(), top.toInt(), right.toInt(), (top + ch).toInt())
-            }
-
-            else -> super.getFocusedRect(r)
+            r.set(left.toInt(), top.toInt(), right.toInt(), (top + cellHeight).toInt())
+        } else {
+            super.getFocusedRect(r)
         }
     }
 
@@ -842,237 +776,51 @@ internal class RangeCalendarGridView(
     private fun updateSelectionRange() {
         val selState = selectionManager.currentState
 
-        when (selState.type) {
-            SelectionType.CELL -> {
-                val cell = selState.startCell
-
-                selectCell(
-                    cell,
-                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                    doAnimation = true,
-                    isUser = false
-                )
-            }
-
-            SelectionType.WEEK -> {
-                // If type is WEEK, then rangeStart and rangeEnd should be on the same row.
-                val weekIndex = selState.rangeStart / 7
-
-                selectWeek(
-                    weekIndex,
-                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                    doAnimation = true
-                )
-            }
-
-            SelectionType.MONTH -> {
-                selectMonth(
-                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                    doAnimation = true
-                )
-            }
-
-            SelectionType.CUSTOM -> {
-                selectCustom(
-                    selState.range,
-                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                    startSelecting = false,
-                    doAnimation = true
-                )
-            }
-
-            else -> {}
-        }
-    }
-
-    fun select(info: SetSelectionInfo) {
-        select(info.type, info.data, info.requestRejectedBehaviour, info.withAnimation)
+        selectRange(
+            selState.range,
+            requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+            isCellSelectionByUser = false,
+            isUserStartSelection = false,
+            doAnimation = true
+        )
     }
 
     fun select(
-        type: SelectionType,
-        data: NarrowSelectionData,
+        range: CellRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        doAnimation: Boolean
+        withAnimation: Boolean
     ) {
-        when (type) {
-            SelectionType.CELL -> selectCell(data.cell, requestRejectedBehaviour, doAnimation)
-            SelectionType.WEEK -> selectWeek(data.weekIndex, requestRejectedBehaviour, doAnimation)
-            SelectionType.MONTH -> selectMonth(requestRejectedBehaviour, doAnimation)
-            SelectionType.CUSTOM -> selectCustom(
-                data.range,
-                requestRejectedBehaviour,
-                startSelecting = false,
-                doAnimation = doAnimation
-            )
-
-            else -> {}
-        }
+        selectRange(
+            range,
+            requestRejectedBehaviour,
+            isCellSelectionByUser = false,
+            isUserStartSelection = false,
+            doAnimation = withAnimation
+        )
     }
 
-    private fun selectCell(
-        cell: Cell,
+    private fun selectRange(
+        range: CellRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        doAnimation: Boolean,
-        isUser: Boolean = false
+        isCellSelectionByUser: Boolean,
+        isUserStartSelection: Boolean,
+        doAnimation: Boolean
     ) {
         val selState = selectionManager.currentState
-
-        // Check if cell is enabled
-        if (!enabledCellRange.contains(cell)) {
-            clearSelectionToMatchBehaviour(requestRejectedBehaviour)
-
-            return
-        }
-
-        // Check if the cell is shown at all.
-        if (!showAdjacentMonths && !inMonthRange.contains(cell)) {
-            clearSelectionToMatchBehaviour(requestRejectedBehaviour)
-
-            return
-        }
-
-        // If selection type is CELL, then rangeStart and rangeEnd should point to the same cell.
-        val isSameSelection =
-            selState.type == SelectionType.CELL && selState.rangeStart == cell.index
+        val rangeStart = range.start
+        val isSameCellSelection = rangeStart == range.end && selState.isSingleCell(rangeStart)
 
         // We don't do gate validation if the request come from user and it's the same selection and specified behaviour is CLEAR.
         // That's done because if the gate rejects the request and behaviour is PRESERVE, the cell won't be cleared but
         // it should be.
-        if (isUser && isSameSelection && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
+        if (isCellSelectionByUser && isSameCellSelection && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
             clearSelection(fireEvent = true, doAnimation = true)
             return
         }
 
-        // Call listeners and check if such selection is allowed.
         val gate = selectionGate
         if (gate != null) {
-            if (!gate.cell(cell)) {
-                clearSelectionToMatchBehaviour(requestRejectedBehaviour)
-
-                return
-            }
-        }
-
-        if (isSameSelection) {
-            return
-        }
-
-        onSelectionListener?.onCellSelected(cell)
-
-        if (hoverCell.isDefined) {
-            clearHoverCellWithAnimation()
-        }
-
-        selectionManager.setState(
-            SelectionType.CELL,
-            cell, cell,
-            cellMeasureManager
-        )
-
-        if (doAnimation && selectionManager.hasTransition()) {
-            startSelectionTransition()
-        } else {
-            invalidate()
-        }
-    }
-
-    private fun selectWeek(
-        weekIndex: Int,
-        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        doAnimation: Boolean
-    ) {
-        // 1. Resolve week range.
-        var weekRange = CellRange.week(weekIndex).intersectionWith(enabledCellRange)
-
-        if (weekRange == CellRange.Invalid) {
-            clearSelectionToMatchBehaviour(requestRejectedBehaviour)
-
-            return
-        }
-
-        if (!showAdjacentMonths) {
-            weekRange = weekRange.intersectionWith(inMonthRange)
-        }
-
-        val selState = selectionManager.currentState
-        val (start, end) = weekRange
-
-        // 2. If we're selecting the same range or range is cell-type, stop it or redirect to selectCell().
-        if (selState.type == SelectionType.WEEK && selState.range == weekRange) {
-            return
-        } else if (weekRange == CellRange.Invalid) {
-            clearSelectionToMatchBehaviour(requestRejectedBehaviour)
-
-            return
-        } else if (end == start) {
-            selectCell(start, requestRejectedBehaviour, doAnimation)
-
-            return
-        }
-
-        // 3. Call listeners and check if such selection is allowed.
-        val gate = selectionGate
-        if (gate != null) {
-            if (!gate.week(weekIndex, weekRange)) {
-                clearSelectionToMatchBehaviour(requestRejectedBehaviour)
-
-                return
-            }
-        }
-
-        onSelectionListener?.onWeekSelected(weekIndex, weekRange)
-
-        selectionManager.setState(
-            SelectionType.WEEK,
-            start, end,
-            cellMeasureManager,
-        )
-
-        // 4. Start appropriate animation if it's necessary.
-        if (doAnimation && selectionManager.hasTransition()) {
-            startSelectionTransition()
-        } else {
-            invalidate()
-        }
-    }
-
-    fun selectMonth(
-        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        doAnimation: Boolean
-    ) {
-        val selState = selectionManager.currentState
-
-        val intersection = inMonthRange.intersectionWith(enabledCellRange)
-
-        // If there's no intersection, clear path and previous selection.
-        if (intersection == CellRange.Invalid) {
-            clearSelectionToMatchBehaviour(requestRejectedBehaviour)
-
-            return
-        } else if (selState.type == SelectionType.MONTH && selState.range == intersection) {
-            return
-        }
-
-        selectionManager.setState(SelectionType.MONTH, intersection, cellMeasureManager)
-
-        // Start appropriate animation if it's necessary.
-        if (doAnimation && selectionManager.hasTransition()) {
-            startSelectionTransition()
-        } else {
-            invalidate()
-        }
-    }
-
-    fun selectCustom(
-        range: CellRange,
-        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        startSelecting: Boolean,
-        doAnimation: Boolean = true
-    ) {
-        val gate = selectionGate
-        if (gate != null) {
-            if (!gate.customRange(range)) {
+            if (!gate.range(range)) {
                 clearSelectionToMatchBehaviour(requestRejectedBehaviour)
 
                 return
@@ -1083,8 +831,6 @@ internal class RangeCalendarGridView(
         // hover will be cleared but it shouldn't.
         clearHoverCellWithAnimation()
 
-        val selState = selectionManager.currentState
-
         var intersection = range.intersectionWith(enabledCellRange)
         if (!showAdjacentMonths) {
             intersection = intersection.intersectionWith(inMonthRange)
@@ -1094,41 +840,25 @@ internal class RangeCalendarGridView(
             clearSelectionToMatchBehaviour(requestRejectedBehaviour)
 
             return
-        } else if (selState.type == SelectionType.CUSTOM && selState.range == intersection) {
+        } else if (!isUserStartSelection && selState.range == intersection) {
             return
         }
 
-        if (startSelecting) {
-            // If startSelecting is true, range should be single-cell.
-            customRangeStartCell = range.cell
+        if (isUserStartSelection) {
+            customRangeStartCell = range.start
             isSelectingCustomRange = true
         }
 
-        selectionManager.setState(SelectionType.CUSTOM, intersection, cellMeasureManager)
+        selectionManager.setState(intersection, cellMeasureManager)
 
-        onSelectionListener?.onCustomRangeSelected(intersection)
+        onSelectionListener?.onSelection(intersection)
 
-        if (vibrateOnSelectingCustomRange && startSelecting) {
-            if (vibrator == null) {
-                vibrator = getVibrator(context)
+        if (hoverCell.isDefined) {
+            clearHoverCellWithAnimation()
+        }
 
-                // If vibrator is null then vibrationEffect is too.
-                if (Build.VERSION.SDK_INT >= 26) {
-                    vibrationEffect = VibrationEffect.createOneShot(
-                        VIBRATE_DURATION,
-                        VibrationEffect.DEFAULT_AMPLITUDE
-                    )
-                }
-            }
-
-            vibrator?.let {
-                if (Build.VERSION.SDK_INT >= 26) {
-                    it.vibrate(vibrationEffect)
-                } else {
-                    @Suppress("DEPRECATION")
-                    it.vibrate(VIBRATE_DURATION)
-                }
-            }
+        if (vibrateOnSelectingCustomRange && isUserStartSelection) {
+            vibrateOnUserSelection()
         }
 
         if (doAnimation && selectionManager.hasTransition()) {
@@ -1136,6 +866,10 @@ internal class RangeCalendarGridView(
         } else {
             invalidate()
         }
+    }
+
+    private fun vibrateOnUserSelection() {
+        vibrator.vibrateTick()
     }
 
     private fun clearSelectionToMatchBehaviour(value: SelectionRequestRejectedBehaviour) {
@@ -1149,7 +883,7 @@ internal class RangeCalendarGridView(
 
         val handler = getLazyValue(
             selectionTransitionHandler,
-            { { controller.handleTransition(selectionTransitiveState!!, animFraction) } },
+            { { controller.handleTransition(selectionTransitiveState!!, cellMeasureManager, animFraction) } },
             { selectionTransitionHandler = it }
         )
         val onEnd = getLazyValue(
@@ -1168,8 +902,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun setHoverCell(cell: Cell) {
-        val selState = selectionManager.currentState
-        if ((selState.type == SelectionType.CELL && selState.rangeStart == cell.index) || hoverCell == cell) {
+        if (selectionManager.currentState.isSingleCell(cell) || hoverCell == cell) {
             return
         }
 
@@ -1189,7 +922,7 @@ internal class RangeCalendarGridView(
 
     fun clearSelection(fireEvent: Boolean, doAnimation: Boolean) {
         // No sense to clear selection if there's none.
-        if (selectionManager.currentState.type == SelectionType.NONE) {
+        if (selectionManager.currentState.isNone) {
             return
         }
 
@@ -1594,7 +1327,7 @@ internal class RangeCalendarGridView(
         if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
             val cell = if (isHoverAnimation) animationHoverCell else hoverCell
             val (left, top) = getCellLeftTop(cell)
-            val isOnSelection = isSelectionRangeContains(cell)
+            val isOnSelection = selectionManager.currentState.contains(cell)
 
             var color = if (isOnSelection) {
                 hoverOnSelectionBgColor
@@ -1646,27 +1379,28 @@ internal class RangeCalendarGridView(
 
     private fun resolveCellType(cell: Cell): Int {
         val selState = selectionManager.currentState
+        val start = selState.rangeStart
+        val end = selState.rangeEnd
 
-        var cellType =
-            if (selState.type == SelectionType.CELL && selState.rangeStart == cell.index) {
-                CELL_SELECTED
-            } else if (enabledCellRange.contains(cell)) {
-                if (inMonthRange.contains(cell)) {
-                    if (cell == todayCell) {
-                        if (isSelectionRangeContains(cell)) {
-                            CELL_IN_MONTH
-                        } else {
-                            CELL_TODAY
-                        }
-                    } else {
+        var cellType = if (start == cell.index && end == cell.index) { // Is a single cell
+            CELL_SELECTED
+        } else if (enabledCellRange.contains(cell)) {
+            if (inMonthRange.contains(cell)) {
+                if (cell == todayCell) {
+                    if (cell.index in start..end) {
                         CELL_IN_MONTH
+                    } else {
+                        CELL_TODAY
                     }
                 } else {
-                    CELL_OUT_MONTH
+                    CELL_IN_MONTH
                 }
             } else {
-                CELL_DISABLED
+                CELL_OUT_MONTH
             }
+        } else {
+            CELL_DISABLED
+        }
 
         if (cell == hoverCell) {
             cellType = cellType or CELL_HOVER_BIT
@@ -1766,16 +1500,20 @@ internal class RangeCalendarGridView(
         return cr.hPadding + (columnWidth - cellWidth) * 0.5f
     }
 
-    private fun getCellLeft(cell: Cell): Float {
-        return getCellCenterLeft(cell) - cellWidth * 0.5f
-    }
-
     private fun getCellCenterLeft(cell: Cell): Float {
         return cr.hPadding + columnWidth * (cell.gridX + 0.5f)
     }
 
+    private fun getCellLeft(cell: Cell): Float {
+        return getCellCenterLeft(cell) - cellWidth * 0.5f
+    }
+
+    private fun getCellTopByGridY(gridY: Int): Float {
+        return gridTop() + gridY * cellHeight
+    }
+
     private fun getCellTop(cell: Cell): Float {
-        return gridTop() + cell.gridY * (cellHeight + cr.yCellMargin)
+        return getCellTopByGridY(cell.gridY)
     }
 
     private fun getCellCenterTop(cell: Cell): Float {
@@ -1794,23 +1532,43 @@ internal class RangeCalendarGridView(
         return getCellCenterLeft(cell) + cellWidth * 0.5f
     }
 
-    private fun isSelectionRangeContains(cell: Cell): Boolean {
-        val selState = selectionManager.currentState
-        val selType = selState.type
+    private fun getCellDistance(cell: Cell): Float {
+        // Width of the view without horizontal paddings (left and right)
+        val rowWidth = width - 2 * cr.hPadding
 
-        return selType != SelectionType.NONE &&
-                selState.range.contains(cell)
+        // First, find a x-axis of the cell but without horizontal padding
+        var distance = columnWidth * (cell.gridX + 0.5f) - cellWidth * 0.5f
+
+        // Add widths of the rows on the way to the cell.
+        distance += rowWidth * cell.gridY
+
+        return distance
+    }
+
+    private fun getCellAndPointByCellDistance(distance: Float, outPoint: PointF): Int {
+        val rowWidth = width - 2f * cr.hPadding
+
+        val gridY = (distance / rowWidth).toInt()
+        val cellTop = getCellTopByGridY(gridY)
+
+        val xOnRow = distance - gridY * rowWidth
+        val gridX = (xOnRow / columnWidth).toInt()
+
+        outPoint.x = cr.hPadding + xOnRow
+        outPoint.y = cellTop
+
+        return gridY * 7 + gridX
+    }
+
+    private fun getCellByPointOnScreen(x: Float, y: Float): Cell {
+        val gridX = ((x - cr.hPadding) / columnWidth).toInt()
+        val gridY = ((y - gridTop()) / cellHeight).toInt()
+
+        return Cell(gridY * 7 + gridX)
     }
 
     private fun isSelectableCell(cell: Cell): Boolean {
         return enabledCellRange.contains(cell) && (showAdjacentMonths || inMonthRange.contains(cell))
-    }
-
-    fun getCellByPointOnScreen(x: Float, y: Float): Cell {
-        val gridX = ((x - cr.hPadding) / columnWidth).toInt()
-        val gridY = ((y - gridTop()) / (cellHeight + cr.yCellMargin)).toInt()
-
-        return Cell(gridY * 7 + gridX)
     }
 
     // Checks whether x in active (touchable) zone
@@ -1840,7 +1598,6 @@ internal class RangeCalendarGridView(
         private val HOVER_DELAY = ViewConfiguration.getTapTimeout()
 
         private const val DOUBLE_TOUCH_MAX_MILLIS: Long = 500
-        private const val VIBRATE_DURATION = 50L
         private const val TAG = "RangeCalendarGridView"
 
         private const val ANIMATION_REVERSE_BIT = 1 shl 31
@@ -1850,17 +1607,5 @@ internal class RangeCalendarGridView(
         private const val SELECTION_ANIMATION = 1
         private const val HOVER_ANIMATION = 2
         private const val DECOR_ANIMATION = 3
-
-        private fun getVibrator(context: Context): Vibrator {
-            return if (Build.VERSION.SDK_INT >= 31) {
-                val vibratorManager =
-                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-
-                vibratorManager.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            }
-        }
     }
 }
