@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.content.res.TypedArray
 import android.graphics.Rect
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Parcelable
 import android.util.AttributeSet
@@ -890,6 +891,15 @@ class RangeCalendarView @JvmOverloads constructor(
         get() = adapter.getStyleFloat { STYLE_WEEKDAY_TEXT_SIZE }
         set(size) {
             adapter.setStyleFloat({ STYLE_WEEKDAY_TEXT_SIZE }, size)
+        }
+
+    /**
+     * Gets or sets a typeface of weekday. Pass null to clear previous typeface.
+     */
+    var weekdayTypeface: Typeface?
+        get() = adapter.getStyleObject { STYLE_WEEKDAY_TYPEFACE }
+        set(value) {
+            adapter.setStyleObject({ STYLE_WEEKDAY_TYPEFACE }, value)
         }
 
     /**

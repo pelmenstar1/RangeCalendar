@@ -1,5 +1,6 @@
 package com.github.pelmenstar1.rangecalendar
 
+import android.graphics.Typeface
 import android.util.SparseArray
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
@@ -137,7 +138,7 @@ internal class RangeCalendarPagerAdapter(
 
     private val gridInfo = YearMonthGridInfo()
     private val styleData = IntArray(20)
-    private val styleObjData = arrayOfNulls<Any>(7)
+    private val styleObjData = arrayOfNulls<Any>(8)
 
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
     var selectionGate: RangeCalendarView.SelectionGate? = null
@@ -163,6 +164,9 @@ internal class RangeCalendarPagerAdapter(
         initStyle(STYLE_CELL_WIDTH, cr.cellSize)
         initStyle(STYLE_CELL_HEIGHT, cr.cellSize)
         initStyle(STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR, ClickOnCellSelectionBehavior.NONE)
+
+        // typefaces
+        initStyle(STYLE_WEEKDAY_TYPEFACE, Typeface.DEFAULT_BOLD)
 
         // animations
         initStyle(
@@ -204,7 +208,7 @@ internal class RangeCalendarPagerAdapter(
         initStyle(type, data.ordinal)
     }
 
-    private fun initStyle(type: Int, data: Any) {
+    private fun initStyle(type: Int, data: Any?) {
         styleObjData[type - STYLE_OBJ_START] = data
     }
 
@@ -325,6 +329,7 @@ internal class RangeCalendarPagerAdapter(
                 STYLE_SELECTION_FILL -> setSelectionFill(data.value())
                 STYLE_SELECTION_MANAGER -> setSelectionManager(data.value())
                 STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER -> setCellAccessibilityInfoProvider(data.value())
+                STYLE_WEEKDAY_TYPEFACE -> setWeekdayTypeface(data.value())
             }
         }
     }
@@ -1033,6 +1038,7 @@ internal class RangeCalendarPagerAdapter(
         const val STYLE_SELECTION_FILL = 35
         const val STYLE_SELECTION_MANAGER = 36
         const val STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER = 37
+        const val STYLE_WEEKDAY_TYPEFACE = 38
 
         // Precomputed value
         private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432

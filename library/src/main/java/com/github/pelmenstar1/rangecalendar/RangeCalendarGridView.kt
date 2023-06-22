@@ -445,6 +445,13 @@ internal class RangeCalendarGridView(
         onGridTopChanged()
     }
 
+    fun setWeekdayTypeface(typeface: Typeface?) = updateUIState(weekdayPaint.typeface, typeface) {
+        weekdayPaint.typeface = typeface
+        weekdayRow.onMeasurementsChanged()
+
+        onGridTopChanged()
+    }
+
     fun setInMonthTextColor(color: Int) = updateUIState(inMonthTextColor, color) {
         inMonthTextColor = color
     }
