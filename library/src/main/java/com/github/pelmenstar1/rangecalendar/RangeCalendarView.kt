@@ -53,7 +53,7 @@ import kotlin.math.max
  *
  * The gate is used to intercept all selection requests and determine whether such selection is valid and should be allowed.
  * If the gate is specified, appropriate methods are called when there's a selection request. A selection request can
- * come from user (motion events) or from the code. Such methods as [selectDay], [selectWeek], [selectMonth], [selectCustom]
+ * come from user (motion events) or from the code. Such methods as [selectDay], [selectWeek], [selectMonth], [selectRange]
  * "sends" a selection request. There's also situations when a selection request may not be processed by [SelectionGate].
  * Usually, it's when there are another factors that rejects a request, for example when a range to be selected is out of
  * enabled range. Besides, a selection request can be processed by [SelectionGate] when [minDate] or [maxDate] are called.
@@ -83,6 +83,18 @@ class RangeCalendarView @JvmOverloads constructor(
          */
         fun onSelectionCleared()
 
+        /**
+         * Fires when on date range selection. Start date of selection specified by [startYear], [startMonth], [startDay] is inclusive.
+         * End date specified by [endYear], [endMonth], [endDay] is inclusive, so that if a single cell is selected, start date is equal to end date.
+         * But start date cannot be greater than end date.
+         *
+         * @param startYear year of the start date
+         * @param startMonth month of the start date, 1-based
+         * @param startDay day of month of the start date, 1-based
+         * @param endYear year of the end date
+         * @param endMonth month of the end date, 1-based
+         * @param endDay day of month of the end date, 1-based
+         */
         fun onSelection(
             startYear: Int, startMonth: Int, startDay: Int,
             endYear: Int, endMonth: Int, endDay: Int
@@ -1141,7 +1153,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Selects a date if cell selection is allowed.
+     * Selects a date.
      *
      * @param date a date to be selected
      * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
@@ -1162,7 +1174,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Selects a week if week selection is allowed.
+     * Selects a week.
      *
      * @param year          year, should be in range `[1970; 32767]`
      * @param month         month, 1-based
@@ -1185,7 +1197,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Selects a month if month selection is allowed.
+     * Selects a month.
      *
      * @param year          year, should be in range `[1970; 32767]`
      * @param month         month, 1-based
@@ -1212,16 +1224,17 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Selects a custom range if custom range selection is allowed.
+     * Selects a date range.
      *
      * @param startDate start of the range, inclusive
      * @param endDate end of the range, inclusive
+     * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
      * @param withAnimation whether to do it with animation of not
      */
-    fun selectCustom(
+    fun selectRange(
         startDate: LocalDate,
         endDate: LocalDate,
-        requestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = true
     ) {
         requireDateRangeOnSameYearMonth(startDate, endDate)
@@ -1229,7 +1242,7 @@ class RangeCalendarView @JvmOverloads constructor(
         selectRangeInternal(
             YearMonth(startDate.year, endDate.monthValue),
             PackedDateRange.fromLocalDates(startDate, endDate),
-            requestRejectedBehaviour,
+            selectionRequestRejectedBehaviour,
             withAnimation
         )
     }
