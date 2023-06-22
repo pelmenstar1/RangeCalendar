@@ -276,11 +276,17 @@ observer.register() // The observer should be registered manually.
         <td>rangeCalendar_weekdayType</td>
         <td>
             Type of weekday. <br/> 
-            Format of weekdays is very dependent on locale. In example, English locale is used.
+            Format of weekdays depends on locale. In example, English locale is used.
             <ul>
                 <li>shortName (WeekdayType.SHORT) - weekdays will look like Mob, Tue, Wed. </li>
                 <li>narrowName (WeekdayType.NARROW) - weekdays will look like M, T, W,. </li>
-            </ul>
+            </ul> 
+        </td>
+    </tr>
+    <tr>
+        <td>rangeCalendar_weekdays</td>  
+        <td>
+            Custom weekdays. The value should be a string array, whose length is 7.
         </td>
     </tr>
     <tr>

@@ -115,12 +115,14 @@ class RangeCalendarView @JvmOverloads constructor(
         fun onPageChanged(year: Int, month: Int)
     }
 
+    // Kotlin says that there's redundant qualitifer in RangeCalendarPagerAdapter.getStyle() but it's wrong.
+    @Suppress("RemoveRedundantQualifierName")
     private class ExtractAttributesScope(
         private val calendarView: RangeCalendarView,
         private val attrs: TypedArray
     ) {
         fun color(@StyleableRes index: Int, styleType: Int) {
-            extract(
+            extractPrimitive(
                 index, styleType,
                 ::PackedInt,
                 extract = { getColor(index, 0) }
@@ -128,7 +130,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         fun dimension(@StyleableRes index: Int, styleType: Int) {
-            extract(
+            extractPrimitive(
                 index, styleType,
                 ::PackedInt,
                 extract = { getDimension(index, 0f) }
@@ -136,7 +138,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         fun int(@StyleableRes index: Int, styleType: Int) {
-            extract(
+            extractPrimitive(
                 index, styleType,
                 ::PackedInt,
                 extract = { getInteger(index, 0) }
@@ -144,7 +146,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         fun boolean(@StyleableRes index: Int, styleType: Int) {
-            extract(
+            extractPrimitive(
                 index, styleType,
                 ::PackedInt,
                 extract = { getBoolean(index, false) }
@@ -171,7 +173,7 @@ class RangeCalendarView @JvmOverloads constructor(
             getStyle: RangeCalendarPagerAdapter.Companion.() -> Int
         ) = boolean(index, RangeCalendarPagerAdapter.getStyle())
 
-        private inline fun <T> extract(
+        private inline fun <T> extractPrimitive(
             @StyleableRes index: Int,
             styleType: Int,
             createPacked: (T) -> PackedInt,
@@ -423,6 +425,12 @@ class RangeCalendarView @JvmOverloads constructor(
                     }
                 }
 
+                // weekdays should be set via setter because additional checks should be made.
+                if (a.hasValue(R.styleable.RangeCalendarView_rangeCalendar_weekdays)) {
+                    val resId = a.getResourceId(R.styleable.RangeCalendarView_rangeCalendar_weekdays, 0)
+
+                    weekdays = resources.getStringArray(resId)
+                }
             }
         } finally {
             a.recycle()
