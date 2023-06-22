@@ -1,6 +1,5 @@
 package com.github.pelmenstar1.rangecalendar
 
-import android.util.Log
 import android.util.SparseArray
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
@@ -876,7 +875,6 @@ internal class RangeCalendarPagerAdapter(
         val gridView = holder.calendar
 
         gridView.ym = ym
-        gridView.isFirstDaySunday = false
         gridView.onSelectionListener = createRedirectSelectionListener(ym)
         gridView.selectionGate = createRedirectSelectionGate(ym)
 
