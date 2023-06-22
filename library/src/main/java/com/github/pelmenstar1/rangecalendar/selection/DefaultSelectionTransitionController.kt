@@ -54,8 +54,6 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
                 val newEndCell = measureManager.getCellAndPointByDistance(newEndCellDist, point)
                 val (newEndCellRight, newEndCellTop) = point
 
-                Log.i("TransContr", "startCell=$newStartCell endCell=$newEndCell")
-
                 state.shapeInfo.apply {
                     startLeft = newStartCellLeft
                     startTop = newStartCellTop

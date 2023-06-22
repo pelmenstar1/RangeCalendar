@@ -1,5 +1,6 @@
 package com.github.pelmenstar1.rangecalendar
 
+import android.util.Log
 import android.util.SparseArray
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
@@ -480,9 +481,8 @@ internal class RangeCalendarPagerAdapter(
 
     private fun clearSelection(fireEvent: Boolean, withAnimation: Boolean) {
         if (selectionRange.isValid) {
-            discardSelectionValues()
-
             notifyPageChanged(selectionYm, Payload.clearSelection(withAnimation))
+            discardSelectionValues()
 
             if (fireEvent) {
                 onSelectionListener?.onSelectionCleared()
