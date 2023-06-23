@@ -204,6 +204,21 @@ observer.setLifecycle(lifecycle) // If we want to unregister the observer on des
 observer.register() // The observer should be registered manually.
 ```
 
+## Weekdays
+
+By default, the calendar will use localized weekdays in 'short' format. The format of localized weekdays can be changed via `weekdayType`. Currently there's only two options:
+
+- WeekdayType.SHORT. If user locale is English, weekdays will look like: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+- WeekdayType.NARROW. If user locale is English, weekdays will look like: M, T, W, T, F, S, S. **This option only works when API level >= 24. If API level is lower, weekdays in 'short' format will be used.
+
+If you want to change weekdays, it can be done via `weekdays`. 
+
+```kotlin
+rangeCalendarView.weekdays = arrayOf("0", "1", "2", "3", "4", "5", "6")
+```
+
+If you want back to using localized weekdays, pass null to `weekdays`.
+
 ## Other
 
 - `getVibrateOnSelectingCustomRange()/setVibrateOnSelectingCustomRange()` to get or set whether the device should
