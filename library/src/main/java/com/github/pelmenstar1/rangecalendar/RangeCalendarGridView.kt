@@ -33,10 +33,7 @@ import kotlin.math.min
 
 // It will never be XML layout, so there's no need to match conventions
 @SuppressLint("ViewConstructor")
-internal class RangeCalendarGridView(
-    context: Context,
-    val cr: CalendarResources
-) : View(context) {
+internal class RangeCalendarGridView(context: Context, val cr: CalendarResources) : View(context) {
     interface OnSelectionListener {
         fun onSelectionCleared()
         fun onSelection(range: CellRange)
@@ -244,15 +241,9 @@ internal class RangeCalendarGridView(
     private var onAnimationEnd: (() -> Unit)? = null
     private var animationHandler: (() -> Unit)? = null
 
-    var isFirstDaySunday = false
     private val touchHelper: TouchHelper
 
-    private var weekdayType = WeekdayType.SHORT
-
-    private var isWeekdayMeasurementsDirty = false
-
-    private var weekdayWidths: FloatArray = cr.defaultWeekdayWidths
-    private var maxWeekdayHeight: Float = cr.defaultShortWeekdayRowHeight
+    private val weekdayRow: WeekdayRow
 
     private var isDayNumberMeasurementsDirty = false
     private var dayNumberSizes = cr.defaultDayNumberSizes
@@ -332,6 +323,8 @@ internal class RangeCalendarGridView(
         cellHoverPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
         }
+
+        weekdayRow = WeekdayRow(cr.defaultWeekdayData, weekdayPaint)
     }
 
     private inline fun updateUIState(block: () -> Unit) =
@@ -435,12 +428,22 @@ internal class RangeCalendarGridView(
 
     fun setWeekdayTextSize(size: Float) = updateUIState(weekdayPaint.textSize, size) {
         weekdayPaint.textSize = size
-
-        if (size != cr.weekdayTextSize) {
-            isWeekdayMeasurementsDirty = true
-        }
+        weekdayRow.onMeasurementsChanged()
 
         onGridTopChanged()
+    }
+
+    fun setWeekdayTypeface(typeface: Typeface?) = updateUIState(weekdayPaint.typeface, typeface) {
+        weekdayPaint.typeface = typeface
+        weekdayRow.onMeasurementsChanged()
+
+        onGridTopChanged()
+    }
+
+    fun setCustomWeekdays(weekdays: Array<out String>?) = updateUIState(weekdayRow.weekdays, weekdays) {
+        weekdayRow.weekdays = weekdays
+
+        onGridChanged()
     }
 
     fun setInMonthTextColor(color: Int) = updateUIState(inMonthTextColor, color) {
@@ -539,20 +542,8 @@ internal class RangeCalendarGridView(
         // There is no narrow weekdays before API < 24, so we need to resolve it
         val type = _type.resolved()
 
-        if (weekdayType != type) {
-            weekdayType = type
-
-            // If weekdays measurements are from calendar resources then we can use precomputed values and don't make them "dirty"
-            if (weekdayWidths === cr.defaultWeekdayWidths) {
-                maxWeekdayHeight = if (type == WeekdayType.SHORT) {
-                    cr.defaultShortWeekdayRowHeight
-                } else {
-                    cr.defaultNarrowWeekdayRowHeight
-                }
-            } else {
-                // Widths and max height needs to be precomputed if they are not from calendar resources.
-                isWeekdayMeasurementsDirty = true
-            }
+        if (weekdayRow.type != type) {
+            weekdayRow.type = type
 
             onGridTopChanged()
             invalidate()
@@ -1259,66 +1250,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun drawWeekdayRow(c: Canvas) {
-        if (isWeekdayMeasurementsDirty) {
-            isWeekdayMeasurementsDirty = false
-
-            measureWeekdays()
-        }
-
-        var x = cr.hPadding + columnWidth * 0.5f
-
-        val offset = if (weekdayType == WeekdayType.SHORT)
-            CalendarResources.SHORT_WEEKDAYS_OFFSET
-        else
-            CalendarResources.NARROW_WEEKDAYS_OFFSET
-
-        val startIndex = if (isFirstDaySunday) 0 else 1
-
-        // If widths are from calendar resources, then we do not need any widths-offset to get the size,
-        // because it contains both short and narrow (if API level >= 24) weekday widths.
-        // But if the widths are recomputed, not from calendar resources,
-        // then it contains either short or narrow (if API level >= 24) weekday widths and
-        // we need to shift the index.
-        val widthsOffset = if (weekdayWidths === cr.defaultWeekdayWidths) 0 else offset
-
-        for (i in offset + startIndex until offset + 7) {
-            drawWeekday(c, i, widthsOffset, x)
-
-            x += columnWidth
-        }
-
-        if (!isFirstDaySunday) {
-            drawWeekday(c, offset, widthsOffset, x)
-        }
-    }
-
-    private fun drawWeekday(c: Canvas, index: Int, widthsOffset: Int, midX: Float) {
-        val textX = midX - weekdayWidths[index - widthsOffset] * 0.5f
-        val textY = maxWeekdayHeight
-
-        c.drawText(cr.weekdays[index], textX, textY, weekdayPaint)
-    }
-
-    private fun measureWeekdays() {
-        val offset = if (weekdayType == WeekdayType.SHORT) 0 else 7
-
-        var maxHeight = -1
-
-        // If weekdays are from calendar resources,
-        // then create new array to not overwrite the resources' one.
-        if (weekdayWidths === cr.defaultWeekdayWidths) {
-            weekdayWidths = FloatArray(7)
-        }
-
-        weekdayPaint.getTextBoundsArray(cr.weekdays, offset, offset + 7) { i, width, height ->
-            if (height > maxHeight) {
-                maxHeight = height
-            }
-
-            weekdayWidths[i] = width.toFloat()
-        }
-
-        maxWeekdayHeight = maxHeight.toFloat()
+        weekdayRow.draw(c, cr.hPadding, columnWidth)
     }
 
     private fun drawHover(c: Canvas) {
@@ -1483,12 +1415,15 @@ internal class RangeCalendarGridView(
         updateGradientBoundsIfNeeded()
         updateSelectionStateConfiguration()
 
+        // Height of the view depends on gridTop()
+        requestLayout()
+
         // y-axis of entries depends on type of weekday, so we need to refresh accessibility info
         touchHelper.invalidateRoot()
     }
 
     private fun gridTop(): Float {
-        return maxWeekdayHeight + cr.weekdayRowMarginBottom
+        return weekdayRow.height + cr.weekdayRowMarginBottom
     }
 
     // It'd be better if cellRoundRadius() returns round radius that isn't greater than half of cell size.

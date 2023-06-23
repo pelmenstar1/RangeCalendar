@@ -204,6 +204,21 @@ observer.setLifecycle(lifecycle) // If we want to unregister the observer on des
 observer.register() // The observer should be registered manually.
 ```
 
+## Weekdays
+
+By default, the calendar will use localized weekdays in 'short' format. The format of localized weekdays can be changed via `weekdayType`. Currently there's only two options:
+
+- `WeekdayType.SHORT`. If user locale is English, weekdays will look like: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+- `WeekdayType.NARROW`. If user locale is English, weekdays will look like: M, T, W, T, F, S, S. **This option only works when API level >= 24. If API level is lower, weekdays in 'short' format will be used.**
+
+If you want to change weekdays, it can be done via `weekdays`:
+
+```kotlin
+rangeCalendarView.weekdays = arrayOf("0", "1", "2", "3", "4", "5", "6")
+```
+
+If you want back to using localized weekdays, pass null to `weekdays`.
+
 ## Other
 
 - `getVibrateOnSelectingCustomRange()/setVibrateOnSelectingCustomRange()` to get or set whether the device should
@@ -276,11 +291,17 @@ observer.register() // The observer should be registered manually.
         <td>rangeCalendar_weekdayType</td>
         <td>
             Type of weekday. <br/> 
-            Format of weekdays is very dependent on locale. In example, English locale is used.
+            Format of weekdays depends on locale. In example, English locale is used.
             <ul>
                 <li>shortName (WeekdayType.SHORT) - weekdays will look like Mob, Tue, Wed. </li>
                 <li>narrowName (WeekdayType.NARROW) - weekdays will look like M, T, W,. </li>
-            </ul>
+            </ul> 
+        </td>
+    </tr>
+    <tr>
+        <td>rangeCalendar_weekdays</td>  
+        <td>
+            Custom weekdays. The value should be a string array, whose length is 7.
         </td>
     </tr>
     <tr>

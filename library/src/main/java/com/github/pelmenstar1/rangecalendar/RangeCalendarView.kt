@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.content.res.TypedArray
 import android.graphics.Rect
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Parcelable
 import android.util.AttributeSet
@@ -114,12 +115,14 @@ class RangeCalendarView @JvmOverloads constructor(
         fun onPageChanged(year: Int, month: Int)
     }
 
+    // Kotlin says that there's redundant qualitifer in RangeCalendarPagerAdapter.getStyle() but it's wrong.
+    @Suppress("RemoveRedundantQualifierName")
     private class ExtractAttributesScope(
         private val calendarView: RangeCalendarView,
         private val attrs: TypedArray
     ) {
         fun color(@StyleableRes index: Int, styleType: Int) {
-            extract(
+            extractPrimitive(
                 index, styleType,
                 ::PackedInt,
                 extract = { getColor(index, 0) }
@@ -127,7 +130,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         fun dimension(@StyleableRes index: Int, styleType: Int) {
-            extract(
+            extractPrimitive(
                 index, styleType,
                 ::PackedInt,
                 extract = { getDimension(index, 0f) }
@@ -135,7 +138,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         fun int(@StyleableRes index: Int, styleType: Int) {
-            extract(
+            extractPrimitive(
                 index, styleType,
                 ::PackedInt,
                 extract = { getInteger(index, 0) }
@@ -143,7 +146,7 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         fun boolean(@StyleableRes index: Int, styleType: Int) {
-            extract(
+            extractPrimitive(
                 index, styleType,
                 ::PackedInt,
                 extract = { getBoolean(index, false) }
@@ -170,7 +173,7 @@ class RangeCalendarView @JvmOverloads constructor(
             getStyle: RangeCalendarPagerAdapter.Companion.() -> Int
         ) = boolean(index, RangeCalendarPagerAdapter.getStyle())
 
-        private inline fun <T> extract(
+        private inline fun <T> extractPrimitive(
             @StyleableRes index: Int,
             styleType: Int,
             createPacked: (T) -> PackedInt,
@@ -422,6 +425,12 @@ class RangeCalendarView @JvmOverloads constructor(
                     }
                 }
 
+                // weekdays should be set via setter because additional checks should be made.
+                if (a.hasValue(R.styleable.RangeCalendarView_rangeCalendar_weekdays)) {
+                    val resId = a.getResourceId(R.styleable.RangeCalendarView_rangeCalendar_weekdays, 0)
+
+                    weekdays = resources.getStringArray(resId)
+                }
             }
         } finally {
             a.recycle()
@@ -893,6 +902,34 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
+     * Gets or sets a typeface of weekday. Pass null to clear previous typeface.
+     */
+    var weekdayTypeface: Typeface?
+        get() = adapter.getStyleObject { STYLE_WEEKDAY_TYPEFACE }
+        set(value) {
+            adapter.setStyleObject({ STYLE_WEEKDAY_TYPEFACE }, value)
+        }
+
+    /**
+     * Gets or sets array of weekdays. Length of the array should be exactly 7. First day of week is expected to be Monday.
+     *
+     * Note that the getter returns a reference to weekdays, not a copy, thus that array should not be modified in any way.
+     * If you want to update weekdays, make a copy with changes and use setter.
+     *
+     * Pass `null` to use localized weekdays. Note that if you do that, the getter will return localized weekdays, not `null`.
+     */
+    var weekdays: Array<out String>?
+        get() = adapter.getStyleObject { STYLE_WEEKDAYS }
+        set(value) {
+            if (value != null && value.size != 7) {
+                throw IllegalArgumentException("Length of the array should be 7")
+            }
+
+            // Copy the array because the caller might be it later.
+            adapter.setStyleObject({ STYLE_WEEKDAYS }, value?.copyOf())
+        }
+
+    /**
      * Gets or sets a background color of cell which appears when user hovers under a cell
      * (when a pointer is registered to be down).
      *
@@ -959,12 +996,16 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
-     * Gets or sets weekday type. Should be [WeekdayType.SHORT] or [WeekdayType.NARROW].
+     * Gets or sets weekday type.
+     *
      * If [WeekdayType.SHORT], then weekdays will be: Mo, Tue, Wed, Thu, Fri.
      * If [WeekdayType.NARROW], then weekdays will be: M, T, W, T, F.
      * Note:
-     * - Narrow weekdays is dependent on user locale and are not always one-letter.
+     * - Narrow weekdays depend on user locale and are not always one-letter.
      * - **If API level is less than 24, [WeekdayType.NARROW] won't work.**
+     *
+     * Changing weekday type when custom weekdays array was set (via [weekdays]) won't have any effect, even though when
+     * `null` value is passed to the setter of [weekdays], the latest value of [weekdayType] will be used.
      *
      * @throws IllegalArgumentException if type is not one of [WeekdayType] constants
      */
