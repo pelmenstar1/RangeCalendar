@@ -4,21 +4,16 @@ import android.graphics.Canvas
 import android.graphics.Paint
 
 internal class WeekdayRow(
-    private val defaultShortWeekdayRowHeight: Float,
-    private val defaultNarrowWeekdayRowHeight: Float,
-    private val defaultWeekdayWidths: FloatArray,
     private val localizedWeekdayData: WeekdayData,
     private val textPaint: Paint
 ) {
-    private var weekdayWidths: FloatArray = defaultWeekdayWidths
-
     private var isCustomWeekdays = false
-    private var weekdayData = localizedWeekdayData
+    private val currentWidths = FloatArray(7)
 
     /**
      * Height of the row, in pixels.
      */
-    var height: Float = defaultShortWeekdayRowHeight
+    var height: Float = Float.NaN
         private set
 
     /**
@@ -31,63 +26,40 @@ internal class WeekdayRow(
 
                 // Changing the type when custom weekdays are used should have no effect
                 if (!isCustomWeekdays) {
-                    // If we're still using defaultWeekdayWidths, it means that text size of weekday haven't been changed and
-                    // we can use default measurements.
-                    if (weekdayWidths === defaultWeekdayWidths) {
-                        height = if (value == WeekdayType.SHORT)
-                            defaultShortWeekdayRowHeight
-                        else
-                            defaultNarrowWeekdayRowHeight
-                    } else {
-                        onMeasurementsChanged()
-                    }
+                    _weekdays = localizedWeekdayData.getWeekdays(value)
+
+                    onMeasurementsChanged()
                 }
             }
         }
 
-    var weekdays: Array<out String>?
-        get() = weekdayData.weekdays
-        set(value) {
-            weekdayData = if (value == null) {
-                localizedWeekdayData
-            } else {
-                WeekdayData(value)
-            }
+    private var _weekdays: Array<out String> = localizedWeekdayData.shortWeekdays
 
+    var weekdays: Array<out String>?
+        get() = _weekdays
+        set(value) {
+            _weekdays = value ?: localizedWeekdayData.getWeekdays(type)
             isCustomWeekdays = value != null
 
             onMeasurementsChanged()
         }
 
-    /**
-     * The method should be called when some measurements might be changed.
-     */
+    init {
+        onMeasurementsChanged()
+    }
+
     fun onMeasurementsChanged() {
-        val offset = WeekdayData.getOffsetByWeekdayType(type)
-
-        // If weekdayWidths is default one, create a new array not to overwrite default one.
-        if (weekdayWidths === defaultWeekdayWidths) {
-            // If we can't use precomputed widths, we re-compute them only for specified weekday type, so length is 7.
-            weekdayWidths = FloatArray(7)
-        }
-
-        height = WeekdayMeasureHelper.computeWeekdayWidthAndMaxHeight(
-            weekdayData.weekdays, offset, textPaint, weekdayWidths
-        )
+        height = WeekdayMeasureHelper.computeWidthsAndMaxHeight(_weekdays, textPaint, currentWidths)
     }
 
     fun draw(c: Canvas, x: Float, columnWidth: Float) {
         var midX = x + columnWidth * 0.5f
 
-        val offset = WeekdayData.getOffsetByWeekdayType(type)
-        val widthsOffset = if (weekdayWidths === defaultWeekdayWidths) offset else 0
-
-        val weekdays = weekdayData.weekdays
         val textY = height
 
         for (i in 0 until 7) {
-            val text = weekdays[i + offset]
-            val width = weekdayWidths[i + widthsOffset]
+            val text = _weekdays[i]
+            val width = currentWidths[i]
 
             val textX = midX - width * 0.5f
 

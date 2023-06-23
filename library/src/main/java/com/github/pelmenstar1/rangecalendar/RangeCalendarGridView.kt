@@ -33,10 +33,7 @@ import kotlin.math.min
 
 // It will never be XML layout, so there's no need to match conventions
 @SuppressLint("ViewConstructor")
-internal class RangeCalendarGridView(
-    context: Context,
-    val cr: CalendarResources
-) : View(context) {
+internal class RangeCalendarGridView(context: Context, val cr: CalendarResources) : View(context) {
     interface OnSelectionListener {
         fun onSelectionCleared()
         fun onSelection(range: CellRange)
@@ -327,13 +324,7 @@ internal class RangeCalendarGridView(
             style = Paint.Style.FILL
         }
 
-        weekdayRow = WeekdayRow(
-            cr.defaultShortWeekdayRowHeight,
-            cr.defaultNarrowWeekdayRowHeight,
-            cr.defaultWeekdayWidths,
-            cr.defaultWeekdayData,
-            weekdayPaint
-        )
+        weekdayRow = WeekdayRow(cr.defaultWeekdayData, weekdayPaint)
     }
 
     private inline fun updateUIState(block: () -> Unit) =

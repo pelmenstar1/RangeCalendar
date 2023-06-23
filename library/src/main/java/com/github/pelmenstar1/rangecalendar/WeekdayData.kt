@@ -5,27 +5,17 @@ import android.os.Build
 import java.util.Calendar
 import java.util.Locale
 
-class WeekdayData(val weekdays: Array<out String>) {
+/**
+ * Saves weekdays in short format and in narrow format (if possible). [narrowWeekdays] is always non-null when API level >= 24
+ */
+class WeekdayData(val shortWeekdays: Array<out String>, val narrowWeekdays: Array<out String>?) {
+    fun getWeekdays(type: WeekdayType): Array<out String> {
+        return if (type == WeekdayType.SHORT) shortWeekdays else narrowWeekdays!!
+    }
+
     companion object {
-        const val SHORT_WEEKDAYS_OFFSET = 0
-        const val NARROW_WEEKDAYS_OFFSET = 7
-
         fun get(locale: Locale): WeekdayData {
-            return WeekdayData(weekdays = getWeekdays(locale))
-        }
-
-        fun getOffsetByWeekdayType(type: WeekdayType): Int {
-            return if (type == WeekdayType.SHORT) {
-                SHORT_WEEKDAYS_OFFSET
-            } else {
-                NARROW_WEEKDAYS_OFFSET
-            }
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        private fun getWeekdays(locale: Locale): Array<out String> {
-            val resultArrayLength: Int
-            val shortWeekdays: Array<String>
+            var shortWeekdays: Array<String>
             var narrowWeekdays: Array<String>? = null
 
             if (Build.VERSION.SDK_INT >= 24) {
@@ -36,32 +26,32 @@ class WeekdayData(val weekdays: Array<out String>) {
                     DateFormatSymbols.FORMAT,
                     DateFormatSymbols.NARROW
                 )
-                resultArrayLength = 14
+
+                shortWeekdays = fixWeekdaysOrder(shortWeekdays)
+                narrowWeekdays = fixWeekdaysOrder(narrowWeekdays)
             } else {
                 shortWeekdays = java.text.DateFormatSymbols.getInstance(locale).shortWeekdays
-                resultArrayLength = 7
+                shortWeekdays = fixWeekdaysOrder(shortWeekdays)
             }
 
-            // Cast to array with non-null elements because in the end the array won't have any null elements.
-            val weekdays = arrayOfNulls<String>(resultArrayLength) as Array<String>
-
-            copyAndFixWeekdaysOrder(shortWeekdays, weekdays, offset = SHORT_WEEKDAYS_OFFSET)
-
-            if (narrowWeekdays != null) {
-                copyAndFixWeekdaysOrder(narrowWeekdays, weekdays, offset = NARROW_WEEKDAYS_OFFSET)
-            }
-
-            return weekdays
+            return WeekdayData(shortWeekdays, narrowWeekdays)
         }
+
 
         // In format that DateFormatSymbols returns, Sunday is the first day of the week and 0 element is null, then goes Sun, Mon, Tue, ...
         // But it's better for logic when first day of week is Monday and the elements start from 0 element.
-        // The method copies elements from source to dest with some reordering.
-        private fun copyAndFixWeekdaysOrder(source: Array<out String>, dest: Array<String>, offset: Int) {
-            System.arraycopy(source, 2, dest, offset, 6)
+        // The method creates a new array with fixed order.
+        @Suppress("UNCHECKED_CAST")
+        private fun fixWeekdaysOrder(source: Array<out String>): Array<String> {
+            // In the end, weekdays will contain only non-null elements
+            val weekdays = arrayOfNulls<String>(7) as Array<String>
+
+            System.arraycopy(source, 2, weekdays, 0, 6)
 
             // Sunday is the last day of week
-            dest[offset + 6] = source[Calendar.SUNDAY]
+            weekdays[6] = source[Calendar.SUNDAY]
+
+            return weekdays
         }
     }
 }
