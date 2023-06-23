@@ -4,7 +4,7 @@ import android.graphics.Paint
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 import kotlin.math.max
 
-object WeekdayMeasureHelper {
+internal object WeekdayMeasureHelper {
     fun computeWidthsAndMaxHeight(
         weekdays: Array<out String>,
         paint: Paint,

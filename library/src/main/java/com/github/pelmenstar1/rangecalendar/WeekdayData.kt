@@ -8,7 +8,7 @@ import java.util.Locale
 /**
  * Saves weekdays in short format and in narrow format (if possible). [narrowWeekdays] is always non-null when API level >= 24
  */
-class WeekdayData(val shortWeekdays: Array<out String>, val narrowWeekdays: Array<out String>?) {
+internal class WeekdayData(val shortWeekdays: Array<out String>, val narrowWeekdays: Array<out String>?) {
     fun getWeekdays(type: WeekdayType): Array<out String> {
         return if (type == WeekdayType.SHORT) shortWeekdays else narrowWeekdays!!
     }
@@ -36,7 +36,6 @@ class WeekdayData(val shortWeekdays: Array<out String>, val narrowWeekdays: Arra
 
             return WeekdayData(shortWeekdays, narrowWeekdays)
         }
-
 
         // In format that DateFormatSymbols returns, Sunday is the first day of the week and 0 element is null, then goes Sun, Mon, Tue, ...
         // But it's better for logic when first day of week is Monday and the elements start from 0 element.
