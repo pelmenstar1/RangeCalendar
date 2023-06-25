@@ -66,14 +66,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         ) {
             val cell = Cell(virtualViewId)
 
-            val (x, y) = grid.getCellLeftTop(cell)
-
-            tempRect.set(
-                x.toInt(),
-                y.toInt(),
-                (x + grid.cellWidth).toInt(),
-                (y + grid.cellHeight).toInt()
-            )
+            grid.fillCellBounds(cell, tempRect)
 
             node.apply {
                 @Suppress("DEPRECATION")
@@ -741,10 +734,11 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         val end = selState.endCell
 
         if (start.sameY(end)) {
-            val (left, top) = getCellLeftTop(start)
+            val left = getCellLeft(start)
+            val top = getCellTop(start)
             val right = getCellRight(end)
 
-            r.set(left.toInt(), top.toInt(), right.toInt(), (top + cellHeight).toInt())
+            r.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(top + cellHeight))
         } else {
             super.getFocusedRect(r)
         }
@@ -1248,7 +1242,9 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
         if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
             val cell = if (isHoverAnimation) animationHoverCell else hoverCell
-            val (left, top) = getCellLeftTop(cell)
+
+            val left = getCellLeft(cell)
+            val top = getCellTop(cell)
             val isOnSelection = selectionManager.currentState.contains(cell)
 
             var color = if (isOnSelection) {
@@ -1393,7 +1389,8 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
     private fun drawDecorations(c: Canvas) {
         decorVisualStates.forEachNotNull { cell, state ->
-            val (dx, dy) = getCellLeftTop(cell)
+            val dx = getCellLeft(cell)
+            val dy = getCellTop(cell)
 
             c.translate(dx, dy)
             state.visual().renderer().renderState(c, state)
@@ -1442,6 +1439,10 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         return getCellCenterLeft(cell) - cellWidth * 0.5f
     }
 
+    private fun getCellRight(cell: Cell): Float {
+        return getCellCenterLeft(cell) + cellWidth * 0.5f
+    }
+
     private fun getCellTopByGridY(gridY: Int): Float {
         return gridTop() + gridY * cellHeight
     }
@@ -1450,20 +1451,16 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         return getCellTopByGridY(cell.gridY)
     }
 
-    private fun getCellCenterTop(cell: Cell): Float {
-        return getCellTop(cell) + cellHeight * 0.5f
-    }
+    private fun fillCellBounds(cell: Cell, bounds: Rect) {
+        val left = getCellLeft(cell)
+        val top = getCellTop(cell)
 
-    private fun getCellLeftTop(cell: Cell): PackedPointF {
-        return PackedPointF(getCellLeft(cell), getCellTop(cell))
-    }
-
-    private fun getCellCenter(cell: Cell): PackedPointF {
-        return PackedPointF(getCellCenterLeft(cell), getCellCenterTop(cell))
-    }
-
-    private fun getCellRight(cell: Cell): Float {
-        return getCellCenterLeft(cell) + cellWidth * 0.5f
+        bounds.set(
+            left.toInt(),
+            top.toInt(),
+            ceilToInt(left + cellWidth),
+            ceilToInt(top + cellHeight)
+        )
     }
 
     private fun getCellDistance(cell: Cell): Float {

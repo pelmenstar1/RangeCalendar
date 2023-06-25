@@ -83,26 +83,6 @@ internal value class PackedSizeArray(val array: LongArray) {
     }
 }
 
-internal fun PackedPointF(x: Float, y: Float): PackedPointF {
-    return PackedPointF(packInts(x.toBits(), y.toBits()))
-}
-
-@JvmInline
-internal value class PackedPointF(val bits: Long) {
-    inline val x: Float
-        get() = Float.fromBits(unpackFirstInt(bits))
-
-    inline val y: Float
-        get() = Float.fromBits(unpackSecondInt(bits))
-
-    inline operator fun component1() = x
-    inline operator fun component2() = y
-
-    override fun toString(): String {
-        return "PackedPointF(x=$x, y=$y)"
-    }
-}
-
 internal inline fun PackedInt(value: Float) = PackedInt(value.toBits())
 internal inline fun PackedInt(value: Boolean) = PackedInt(if(value) 1 else 0)
 internal inline fun <T : Enum<T>> PackedInt(value: T) = PackedInt(value.ordinal)
