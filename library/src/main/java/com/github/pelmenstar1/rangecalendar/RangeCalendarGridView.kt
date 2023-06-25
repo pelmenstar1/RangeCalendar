@@ -181,8 +181,6 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     private var cellWidth: Float = cr.cellSize
     private var cellHeight: Float = cr.cellSize
 
-    private var columnWidth = 0f
-
     // The cell is circle by default and to achieve it with any possible cell size,
     // we should take greatest round radius possible, that's why it's positive inf.
     //
@@ -481,11 +479,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
             cellWidth = size
             cellHeight = size
 
-            refreshAllDecorVisualStates()
-            refreshColumnWidth()
-            updateSelectionStateConfiguration()
-
-            requestLayout()
+            onCellSizeComponentChanged()
         }
     }
 
@@ -497,12 +491,16 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         if (currentValue != newValue) {
             setCurrent(newValue)
 
-            refreshAllDecorVisualStates()
-            refreshColumnWidth()
-            updateSelectionStateConfiguration()
-
-            requestLayout()
+            onCellSizeComponentChanged()
         }
+    }
+
+    private fun onCellSizeComponentChanged() {
+        refreshAllDecorVisualStates()
+        updateSelectionStateConfiguration()
+
+        // Size depends on cellWidth and cellHeight
+        requestLayout()
     }
 
     fun setCellWidth(value: Float) {
@@ -569,12 +567,6 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         touchHelper.invalidateRoot()
     }
 
-    private fun refreshColumnWidth() = updateUIState {
-        val width = width.toFloat()
-
-        columnWidth = (width - cr.hPadding * 2) * (1f / 7)
-    }
-
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val preferredWidth = ceilToInt(cellWidth * 7)
         val preferredHeight = ceilToInt(gridTop() + (cellHeight * 6))
@@ -586,8 +578,6 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        refreshColumnWidth()
-
         updateGradientBoundsIfNeeded()
         updateSelectionStateConfiguration()
     }
@@ -1250,7 +1240,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     private fun drawWeekdayRow(c: Canvas) {
-        weekdayRow.draw(c, cr.hPadding, columnWidth)
+        weekdayRow.draw(c, cr.hPadding, columnWidth())
     }
 
     private fun drawHover(c: Canvas) {
@@ -1431,12 +1421,21 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         return min(rrRadius, min(cellWidth, cellHeight) * 0.5f)
     }
 
+    // Width of the view without horizontal paddings (left and right)
+    private fun rowWidth(): Float {
+        return width - cr.hPadding * 2f
+    }
+
+    private fun columnWidth(): Float {
+        return rowWidth() / 7f
+    }
+
     private fun firstCellLeft(): Float {
-        return cr.hPadding + (columnWidth - cellWidth) * 0.5f
+        return cr.hPadding + (columnWidth() - cellWidth) * 0.5f
     }
 
     private fun getCellCenterLeft(cell: Cell): Float {
-        return cr.hPadding + columnWidth * (cell.gridX + 0.5f)
+        return cr.hPadding + columnWidth() * (cell.gridX + 0.5f)
     }
 
     private fun getCellLeft(cell: Cell): Float {
@@ -1468,26 +1467,28 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     private fun getCellDistance(cell: Cell): Float {
-        // Width of the view without horizontal paddings (left and right)
-        val rowWidth = width - 2 * cr.hPadding
+        val rw = rowWidth()
 
         // First, find a x-axis of the cell but without horizontal padding
-        var distance = columnWidth * (cell.gridX + 0.5f) - cellWidth * 0.5f
+        var distance = (rw / 7f) * (cell.gridX + 0.5f) - cellWidth * 0.5f
 
         // Add widths of the rows on the way to the cell.
-        distance += rowWidth * cell.gridY
+        distance += rw * cell.gridY
 
         return distance
     }
 
     private fun getCellAndPointByCellDistance(distance: Float, outPoint: PointF): Int {
-        val rowWidth = width - 2f * cr.hPadding
+        val rw = rowWidth()
 
-        val gridY = (distance / rowWidth).toInt()
+        val gridY = (distance / rw).toInt()
         val cellTop = getCellTopByGridY(gridY)
 
-        val xOnRow = distance - gridY * rowWidth
-        val gridX = (xOnRow / columnWidth).toInt()
+        val xOnRow = distance - gridY * rw
+
+        // Basically this is xOnRow / columnWidth() but we already have rowWidth, so
+        // we rewrite xOnRow / (rw / 7f) as (7f * xOnRow) / rw
+        val gridX = ((7f * xOnRow) / rw).toInt()
 
         outPoint.x = cr.hPadding + xOnRow
         outPoint.y = cellTop
@@ -1496,7 +1497,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     private fun getCellByPointOnScreen(x: Float, y: Float): Cell {
-        val gridX = ((x - cr.hPadding) / columnWidth).toInt()
+        val gridX = ((x - cr.hPadding) / columnWidth()).toInt()
         val gridY = ((y - gridTop()) / cellHeight).toInt()
 
         return Cell(gridY * 7 + gridX)
