@@ -315,9 +315,11 @@ internal class RangeCalendarGridView(
                 DAY_NUMBER_TEXT_SIZE -> onDayNumberTextSizeChanged(data.float())
                 WEEKDAY_TEXT_SIZE -> onWeekdayTextSizeChanged(data.float())
                 CELL_WIDTH, CELL_HEIGHT -> onCellSizeComponentChanged()
+                CELL_ROUND_RADIUS -> onCellRoundRadiusChanged()
                 WEEKDAY_TYPE -> onWeekdayTypeChanged(data.enum(WeekdayType::ofOrdinal))
                 SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> onSelectionFillOrGradientBoundsTypeChanged()
                 CELL_ANIMATION_TYPE -> onCellAnimationTypeChanged()
+                WEEKDAY_TEXT_COLOR -> onWeekdayTextColorChanged(data.value)
                 SHOW_ADJACENT_MONTHS -> onShowAdjacentMonthsChanged()
             }
         }
