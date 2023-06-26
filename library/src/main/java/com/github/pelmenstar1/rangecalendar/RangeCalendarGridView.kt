@@ -418,18 +418,6 @@ internal class RangeCalendarGridView(
         invalidate()
     }
 
-    private inline fun setCellWidthHeightInternal(
-        newValue: Float,
-        currentValue: Float,
-        setCurrent: (Float) -> Unit
-    ) {
-        if (currentValue != newValue) {
-            setCurrent(newValue)
-
-            onCellSizeComponentChanged()
-        }
-    }
-
     fun onCellSizeComponentChanged() {
         refreshAllDecorVisualStates()
         updateSelectionStateConfiguration()
