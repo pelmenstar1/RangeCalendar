@@ -746,11 +746,8 @@ internal class RangeCalendarPagerAdapter(
         gridView.setInMonthRange(gridInfo.inMonthRange)
         updateTodayIndex(gridView, position)
 
-        style.forEachIntStyle { propIndex ->
-            gridView.onStylePropertyChanged(propIndex)
-        }
-
-        style.forEachObjectStyle { propIndex ->
+        // Call onStylePropertyChanged to initialize the view with particular style data.
+        style.forEachProperty { propIndex ->
             gridView.onStylePropertyChanged(propIndex)
         }
 

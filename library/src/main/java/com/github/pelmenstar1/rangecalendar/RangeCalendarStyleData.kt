@@ -48,13 +48,11 @@ internal class RangeCalendarStyleData {
         return old != value
     }
 
-    inline fun forEachIntStyle(block: (propIndex: Int) -> Unit) {
+    inline fun forEachProperty(block: (propIndex: Int) -> Unit) {
         for (propIndex in 0 until INT_PROPS_COUNT) {
             block(propIndex)
         }
-    }
 
-    inline fun forEachObjectStyle(block: (propIndex: Int) -> Unit) {
         for (propIndex in OBJECT_PROP_START until (OBJECT_PROP_START + OBJECT_PROPS_COUNT)) {
             block(propIndex)
         }

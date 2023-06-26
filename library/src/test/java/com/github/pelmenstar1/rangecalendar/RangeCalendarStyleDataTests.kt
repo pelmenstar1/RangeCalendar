@@ -5,22 +5,17 @@ import kotlin.test.assertEquals
 
 class RangeCalendarStyleDataTests {
     @Test
-    fun forEachIntStyleTest() {
+    fun forEachPropertyTest() {
         val styleData = RangeCalendarStyleData()
 
-        // Checks whether internal int array has sufficient size. If not, out of bounds will happen.
-        styleData.forEachIntStyle { propIndex ->
-            styleData.getPackedInt(propIndex)
-        }
-    }
-
-    @Test
-    fun forEachObjectStyleTest() {
-        val styleData = RangeCalendarStyleData()
-
-        // Checks whether internal int array has sufficient size. If not, out of bounds will happen.
-        styleData.forEachObjectStyle { propIndex ->
-            styleData.getObject(propIndex)
+        // Checks whether internal int or object arrays have sufficient size.
+        // If not, out of bounds will happen.
+        styleData.forEachProperty { propIndex ->
+            if (RangeCalendarStyleData.isObjectProperty(propIndex)) {
+                styleData.getObject(propIndex)
+            } else {
+                styleData.getPackedInt(propIndex)
+            }
         }
     }
 
