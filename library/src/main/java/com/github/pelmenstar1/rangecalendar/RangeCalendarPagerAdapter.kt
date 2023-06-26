@@ -1,6 +1,5 @@
 package com.github.pelmenstar1.rangecalendar
 
-import android.graphics.Typeface
 import android.util.SparseArray
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
@@ -29,8 +28,8 @@ internal class RangeCalendarPagerAdapter(
             const val UPDATE_ENABLED_RANGE = 0
             const val SELECT = 1
             const val UPDATE_TODAY_INDEX = 2
-            const val UPDATE_STYLE = 3
-            const val UPDATE_CELL_SIZE = 4
+            const val ON_STYLE_PROP_CHANGED = 3
+            const val ON_CELL_SIZE_CHANGED = 4
             const val CLEAR_HOVER = 5
             const val CLEAR_SELECTION = 6
             const val ON_DECOR_ADDED = 7
@@ -47,16 +46,12 @@ internal class RangeCalendarPagerAdapter(
             fun updateEnabledRange() = UPDATE_ENABLED_RANGE_PAYLOAD
             fun updateTodayIndex() = UPDATE_TODAY_INDEX_PAYLOAD
 
-            fun updateStyle(type: Int, data: PackedInt): Payload {
-                return Payload(UPDATE_STYLE, arg1 = type.toLong(), arg2 = data.value.toLong())
+            fun onStylePropertyChanged(styleIndex: Int): Payload {
+                return Payload(ON_STYLE_PROP_CHANGED, arg1 = styleIndex.toLong())
             }
 
-            fun updateStyle(type: Int, obj: Any?): Payload {
-                return Payload(UPDATE_STYLE, type.toLong(), arg2 = 0, obj1 = obj)
-            }
-
-            fun updateCellSize(valueBits: Int): Payload {
-                return Payload(UPDATE_CELL_SIZE, arg1 = valueBits.toLong())
+            fun onCellSizeChanged(): Payload {
+                return Payload(ON_CELL_SIZE_CHANGED)
             }
 
             fun clearSelection(withAnimation: Boolean): Payload {
@@ -133,12 +128,11 @@ internal class RangeCalendarPagerAdapter(
     // and this can lead to bugs when we mutate the wrong page.
     var selectionYm = YearMonth(0)
 
-    // used in tests
+    // internal as used in tests
     internal var today = PackedDate.INVALID
 
     private val gridInfo = YearMonthGridInfo()
-    private val styleData = IntArray(20)
-    private val styleObjData = arrayOfNulls<Any>(8)
+    private val style = RangeCalendarStyleData.default(cr)
 
     private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
     var selectionGate: RangeCalendarView.SelectionGate? = null
@@ -146,193 +140,62 @@ internal class RangeCalendarPagerAdapter(
     private val decorations = DecorGroupedList()
     private val decorLayoutOptionsMap = SparseArray<DecorLayoutOptions>()
 
-    init {
-        // colors
-        initStyle(STYLE_IN_MONTH_TEXT_COLOR, cr.textColor)
-        initStyle(STYLE_OUT_MONTH_TEXT_COLOR, cr.outMonthTextColor)
-        initStyle(STYLE_DISABLED_TEXT_COLOR, cr.disabledTextColor)
-        initStyle(STYLE_TODAY_TEXT_COLOR, cr.colorPrimary)
-        initStyle(STYLE_WEEKDAY_TEXT_COLOR, cr.textColor)
-        initStyle(STYLE_HOVER_COLOR, cr.hoverColor)
-        initStyle(STYLE_HOVER_ON_SELECTION_COLOR, cr.colorPrimaryDark)
+    fun <T> getStyleObject(type: Int): T = style.getObject(type)
+    fun getStylePackedInt(styleIndex: Int) = style.getPackedInt(styleIndex)
 
-        // sizes
-        initStyle(STYLE_DAY_NUMBER_TEXT_SIZE, cr.dayNumberTextSize)
-        initStyle(STYLE_WEEKDAY_TEXT_SIZE, cr.weekdayTextSize)
-        initStyle(STYLE_WEEKDAY_TYPE, WeekdayType.SHORT)
-        initStyle(STYLE_CELL_RR_RADIUS, Float.POSITIVE_INFINITY)
-        initStyle(STYLE_CELL_WIDTH, cr.cellSize)
-        initStyle(STYLE_CELL_HEIGHT, cr.cellSize)
-        initStyle(STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR, ClickOnCellSelectionBehavior.NONE)
+    inline fun getStylePackedInt(getStyle: GetCalendarStyleProp): PackedInt =
+        getStylePackedInt(getStyle(RangeCalendarStyleData.Companion))
 
-        // typefaces
-        initStyle(STYLE_WEEKDAY_TYPEFACE, Typeface.DEFAULT_BOLD)
+    inline fun <T : Enum<T>> getStyleEnum(getStyle: GetCalendarStyleProp, fromInt: (Int) -> T) =
+        getStylePackedInt(getStyle).enum(fromInt)
 
-        // animations
-        initStyle(
-            STYLE_COMMON_ANIMATION_DURATION,
-            RangeCalendarGridView.DEFAULT_COMMON_ANIM_DURATION
-        )
-        initStyle(
-            STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE,
-            SelectionFillGradientBoundsType.GRID.ordinal
-        )
+    inline fun getStyleInt(getType: GetCalendarStyleProp) = getStylePackedInt(getType).value
+    inline fun getStyleFloat(getType: GetCalendarStyleProp) = getStylePackedInt(getType).float()
+    inline fun getStyleBool(getType: GetCalendarStyleProp) = getStylePackedInt(getType).boolean()
 
-        initStyle(STYLE_COMMON_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
-        initStyle(STYLE_HOVER_ANIMATION_DURATION, RangeCalendarGridView.DEFAULT_HOVER_ANIM_DURATION)
-        initStyle(STYLE_CELL_ANIMATION_TYPE, CellAnimationType.ALPHA)
-        initStyle(STYLE_HOVER_ANIMATION_INTERPOLATOR, LINEAR_INTERPOLATOR)
+    inline fun <T> getStyleObject(getType: GetCalendarStyleProp): T =
+        getStyleObject(getType(RangeCalendarStyleData.Companion))
 
-        // selection
-        initStyle(STYLE_SELECTION_FILL, Fill.solid(cr.colorPrimary))
-        initStyle(STYLE_SELECTION_MANAGER, DefaultSelectionManager())
-
-        // other stuff
-        initStyle(STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE, true)
-        initStyle(STYLE_SHOW_ADJACENT_MONTHS, true)
-        initStyle(STYLE_WEEKDAYS, null)
+    fun setStylePacked(styleIndex: Int, packed: PackedInt, notify: Boolean) {
+        setStyleWithNotify(styleIndex, notify) { style.set(styleIndex, packed.value) }
     }
 
-    private fun initStyle(type: Int, data: Boolean) {
-        styleData[type] = if (data) 1 else 0
+    fun setStyleObject(styleIndex: Int, value: Any?, notify: Boolean = true) {
+        setStyleWithNotify(styleIndex, notify) { style.set(styleIndex, value) }
     }
 
-    private fun initStyle(type: Int, data: Int) {
-        styleData[type] = data
-    }
+    private inline fun setStyleWithNotify(styleIndex: Int, notify: Boolean, set: () -> Boolean) {
+        val changed = set()
 
-    private fun initStyle(type: Int, data: Float) {
-        initStyle(type, data.toBits())
-    }
-
-    private fun <T : Enum<T>> initStyle(type: Int, data: T) {
-        initStyle(type, data.ordinal)
-    }
-
-    private fun initStyle(type: Int, data: Any?) {
-        styleObjData[type - STYLE_OBJ_START] = data
-    }
-
-    fun getStylePacked(type: Int) = PackedInt(styleData[type])
-
-    @Suppress("UNCHECKED_CAST")
-    fun <T> getStyleObject(type: Int): T {
-        return styleObjData[type - STYLE_OBJ_START] as T
-    }
-
-    inline fun <T : Enum<T>> getStyleEnum(getType: Companion.() -> Int, fromInt: (Int) -> T) =
-        getStylePacked(Companion.getType()).enum(fromInt)
-
-    inline fun getStyleInt(getType: Companion.() -> Int) = getStylePacked(Companion.getType()).value
-    inline fun getStyleBool(getType: Companion.() -> Int) = getStylePacked(Companion.getType()).boolean()
-    inline fun getStyleFloat(getType: Companion.() -> Int) = getStylePacked(Companion.getType()).float()
-    inline fun <T> getStyleObject(getType: Companion.() -> Int): T = getStyleObject(Companion.getType())
-
-    fun setStylePacked(type: Int, packed: PackedInt, notify: Boolean) {
-        if (styleData[type] != packed.value) {
-            styleData[type] = packed.value
-
-            if (notify) {
-                notifyItemRangeChanged(0, count, Payload.updateStyle(type, packed))
-            }
+        if (notify && changed) {
+            notifyItemRangeChanged(0, count, Payload.onStylePropertyChanged(styleIndex))
         }
     }
 
-    fun setStyleObject(type: Int, data: Any?, notify: Boolean = true) {
-        styleObjData[type - STYLE_OBJ_START] = data
+    inline fun setStylePacked(getStyle: GetCalendarStyleProp, value: PackedInt, notify: Boolean) =
+        setStylePacked(getStyle(RangeCalendarStyleData.Companion), value, notify)
 
-        if (notify) {
-            notifyItemRangeChanged(0, count, Payload.updateStyle(type, data))
-        }
-    }
+    inline fun setStyleInt(getStyle: GetCalendarStyleProp, value: Int, notify: Boolean = true) =
+        setStylePacked(getStyle, PackedInt(value), notify)
 
-    inline fun setStyleInt(getType: Companion.() -> Int, value: Int, notify: Boolean = true) =
-        setStylePacked(Companion.getType(), PackedInt(value), notify)
+    inline fun setStyleFloat(getStyle: GetCalendarStyleProp, value: Float, notify: Boolean = true) =
+        setStylePacked(getStyle, PackedInt(value), notify)
 
-    inline fun setStyleFloat(getType: Companion.() -> Int, value: Float, notify: Boolean = true) =
-        setStylePacked(Companion.getType(), PackedInt(value), notify)
+    inline fun setStyleBool(getStyle: GetCalendarStyleProp, value: Boolean, notify: Boolean = true) =
+        setStylePacked(getStyle, PackedInt(value), notify)
 
-    inline fun setStyleBool(getType: Companion.() -> Int, value: Boolean, notify: Boolean = true) =
-        setStylePacked(Companion.getType(), PackedInt(value), notify)
+    inline fun <T : Enum<T>> setStyleEnum(getStyle: GetCalendarStyleProp, value: T, notify: Boolean = true) =
+        setStylePacked(getStyle, PackedInt(value), notify)
 
-    inline fun <T : Enum<T>> setStyleEnum(getType: Companion.() -> Int, value: T, notify: Boolean = true) =
-        setStylePacked(Companion.getType(), PackedInt(value), notify)
-
-    inline fun setStyleObject(getType: Companion.() -> Int, data: Any?, notify: Boolean = true) =
-        setStyleObject(Companion.getType(), data, notify)
+    inline fun setStyleObject(getStyle: GetCalendarStyleProp, data: Any?, notify: Boolean = true) =
+        setStyleObject(getStyle(RangeCalendarStyleData.Companion), data, notify)
 
     fun setCellSize(value: Float) {
-        val valueBits = value.toBits()
+        var changed = style.set(RangeCalendarStyleData.CELL_WIDTH, value)
+        changed = changed or style.set(RangeCalendarStyleData.CELL_HEIGHT, value)
 
-        styleData[STYLE_CELL_WIDTH] = valueBits
-        styleData[STYLE_CELL_HEIGHT] = valueBits
-
-        notifyItemRangeChanged(0, count, Payload.updateCellSize(valueBits))
-    }
-
-    private fun updateStyle(
-        gridView: RangeCalendarGridView,
-        type: Int, data: PackedInt
-    ) {
-        gridView.apply {
-            when (type) {
-                // colors
-                STYLE_IN_MONTH_TEXT_COLOR -> setInMonthTextColor(data.value)
-                STYLE_OUT_MONTH_TEXT_COLOR -> setOutMonthTextColor(data.value)
-                STYLE_DISABLED_TEXT_COLOR -> setDisabledCellTextColor(data.value)
-                STYLE_TODAY_TEXT_COLOR -> setTodayCellColor(data.value)
-                STYLE_WEEKDAY_TEXT_COLOR -> setWeekdayTextColor(data.value)
-                STYLE_HOVER_COLOR -> setHoverColor(data.value)
-                STYLE_HOVER_ON_SELECTION_COLOR -> setHoverOnSelectionColor(data.value)
-
-                // sizes
-                STYLE_DAY_NUMBER_TEXT_SIZE -> setDayNumberTextSize(data.float())
-                STYLE_WEEKDAY_TEXT_SIZE -> setWeekdayTextSize(data.float())
-                STYLE_CELL_RR_RADIUS -> setCellRoundRadius(data.float())
-                STYLE_CELL_WIDTH -> setCellWidth(data.float())
-                STYLE_CELL_HEIGHT -> setCellHeight(data.float())
-
-                // preferences
-                STYLE_WEEKDAY_TYPE -> setWeekdayType(data.enum(WeekdayType::ofOrdinal))
-
-                STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR ->
-                    clickOnCellSelectionBehavior =
-                        data.enum(ClickOnCellSelectionBehavior::ofOrdinal)
-
-                // animations
-                STYLE_COMMON_ANIMATION_DURATION -> commonAnimationDuration = data.value
-                STYLE_HOVER_ANIMATION_DURATION -> hoverAnimationDuration = data.value
-                STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> setSelectionFillGradientBoundsType(
-                    data.enum(SelectionFillGradientBoundsType::ofOrdinal)
-                )
-
-                STYLE_CELL_ANIMATION_TYPE -> setCellAnimationType(data.enum(CellAnimationType::ofOrdinal))
-
-                // other stuff
-                STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE -> vibrateOnSelectingCustomRange =
-                    data.boolean()
-
-                STYLE_SHOW_ADJACENT_MONTHS -> setShowAdjacentMonths(data.boolean())
-            }
-        }
-
-    }
-
-    private fun updateStyle(
-        gridView: RangeCalendarGridView,
-        type: Int, data: PackedObject
-    ) {
-        gridView.apply {
-            when (type) {
-                STYLE_COMMON_ANIMATION_INTERPOLATOR -> commonAnimationInterpolator = data.value()
-                STYLE_HOVER_ANIMATION_INTERPOLATOR -> hoverAnimationInterpolator = data.value()
-                STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS -> setDecorationDefaultLayoutOptions(data.value())
-                STYLE_SELECTION_FILL -> setSelectionFill(data.value())
-                STYLE_SELECTION_MANAGER -> setSelectionManager(data.value())
-                STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER -> setCellAccessibilityInfoProvider(data.value())
-                STYLE_WEEKDAY_TYPEFACE -> setWeekdayTypeface(data.value())
-                STYLE_WEEKDAYS -> setCustomWeekdays(data.value())
-            }
+        if (changed) {
+            notifyAllPages(Payload.onCellSizeChanged())
         }
     }
 
@@ -344,7 +207,7 @@ internal class RangeCalendarPagerAdapter(
         count = (YearMonth.forDate(maxDate) - YearMonth.forDate(minDate) + 1).totalMonths
 
         if (oldCount == count) {
-            notifyItemRangeChanged(0, count, Payload.updateEnabledRange())
+            notifyAllPages(Payload.updateEnabledRange())
         } else {
             notifyDataSetChanged()
         }
@@ -383,6 +246,10 @@ internal class RangeCalendarPagerAdapter(
     }
 
     private fun isValidPosition(position: Int) = position in 0 until count
+
+    private fun notifyAllPages(payload: Payload) {
+        notifyItemRangeChanged(0, count, payload)
+    }
 
     private fun notifyPageChanged(position: Int, payload: Payload) {
         if (isValidPosition(position)) {
@@ -588,16 +455,10 @@ internal class RangeCalendarPagerAdapter(
     }
 
     // Expects that gridInfo is initialized to the right year-month
-    private fun updateDecorations(gridView: RangeCalendarGridView, ym: YearMonth) {
+    private fun initDecorations(gridView: RangeCalendarGridView, ym: YearMonth) {
         gridView.decorations = decorations
 
-        val decorRegion = decorations.getRegion(ym)
-
-        // The reason for such tweak is described in RangeCalendarGridView.onDecorInit()
-        val defaultLayoutOptions =
-            styleObjData[STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS - STYLE_OBJ_START] as DecorLayoutOptions?
-
-        gridView.onDecorInit(decorRegion, defaultLayoutOptions)
+        gridView.onDecorInit(newDecorRegion = decorations.getRegion(ym))
 
         for (i in 0 until decorLayoutOptionsMap.size()) {
             val date = PackedDate(decorLayoutOptionsMap.keyAt(i))
@@ -866,7 +727,7 @@ internal class RangeCalendarPagerAdapter(
     override fun getItemCount() = count
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        return ViewHolder(RangeCalendarGridView(parent.context, cr).apply {
+        return ViewHolder(RangeCalendarGridView(parent.context, cr, style).apply {
             layoutParams = RecyclerView.LayoutParams(
                 RecyclerView.LayoutParams.MATCH_PARENT,
                 RecyclerView.LayoutParams.MATCH_PARENT
@@ -876,7 +737,6 @@ internal class RangeCalendarPagerAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val ym = getYearMonthForCalendar(position)
-
         gridInfo.set(ym)
 
         val gridView = holder.calendar
@@ -890,17 +750,12 @@ internal class RangeCalendarPagerAdapter(
         gridView.setInMonthRange(gridInfo.inMonthRange)
         updateTodayIndex(gridView, position)
 
-        for (type in styleData.indices) {
-            updateStyle(gridView, type, PackedInt(styleData[type]))
+        style.forEachIntStyle { propIndex ->
+            gridView.onStylePropertyChanged(propIndex)
         }
 
-        for (type in styleObjData.indices) {
-            val adjustedType = type + STYLE_OBJ_START
-
-            // Special case for decor's default layout options. The options will be set in updateDecorations()
-            if (adjustedType != STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS) {
-                updateStyle(gridView, type + STYLE_OBJ_START, PackedObject(styleObjData[type]))
-            }
+        style.forEachObjectStyle { propIndex ->
+            gridView.onStylePropertyChanged(propIndex)
         }
 
         if (selectionYm == ym) {
@@ -915,7 +770,7 @@ internal class RangeCalendarPagerAdapter(
             gridView.clearSelection(fireEvent = false, doAnimation = false)
         }
 
-        updateDecorations(gridView, ym)
+        initDecorations(gridView, ym)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: List<Any>) {
@@ -947,21 +802,14 @@ internal class RangeCalendarPagerAdapter(
                     updateTodayIndex(gridView, position)
                 }
 
-                Payload.UPDATE_STYLE -> {
-                    val type = payload.arg1.toInt()
-                    val value = payload.arg2.toInt()
+                Payload.ON_STYLE_PROP_CHANGED -> {
+                    val propIndex = payload.arg1.toInt()
 
-                    if (type >= STYLE_OBJ_START) {
-                        updateStyle(gridView, type, PackedObject(payload.obj1))
-                    } else {
-                        updateStyle(gridView, type, PackedInt(value))
-                    }
+                    gridView.onStylePropertyChanged(propIndex)
                 }
 
-                Payload.UPDATE_CELL_SIZE -> {
-                    val value = Float.fromBits(payload.arg1.toInt())
-
-                    gridView.setCellSize(value)
+                Payload.ON_CELL_SIZE_CHANGED -> {
+                    gridView.onCellSizeComponentChanged()
                 }
 
                 Payload.CLEAR_HOVER -> {
@@ -1012,37 +860,6 @@ internal class RangeCalendarPagerAdapter(
     }
 
     companion object {
-        const val STYLE_DAY_NUMBER_TEXT_SIZE = 0
-        const val STYLE_WEEKDAY_TEXT_SIZE = 1
-        const val STYLE_CELL_RR_RADIUS = 2
-        const val STYLE_CELL_WIDTH = 3
-        const val STYLE_CELL_HEIGHT = 4
-        const val STYLE_WEEKDAY_TYPE = 5
-        const val STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR = 6
-        const val STYLE_COMMON_ANIMATION_DURATION = 7
-        const val STYLE_HOVER_ANIMATION_DURATION = 8
-        const val STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE = 9
-        const val STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE = 10
-        const val STYLE_CELL_ANIMATION_TYPE = 11
-        const val STYLE_IN_MONTH_TEXT_COLOR = 12
-        const val STYLE_OUT_MONTH_TEXT_COLOR = 13
-        const val STYLE_DISABLED_TEXT_COLOR = 14
-        const val STYLE_TODAY_TEXT_COLOR = 15
-        const val STYLE_WEEKDAY_TEXT_COLOR = 16
-        const val STYLE_HOVER_COLOR = 17
-        const val STYLE_HOVER_ON_SELECTION_COLOR = 18
-        const val STYLE_SHOW_ADJACENT_MONTHS = 19
-
-        private const val STYLE_OBJ_START = 32
-        const val STYLE_COMMON_ANIMATION_INTERPOLATOR = 32
-        const val STYLE_HOVER_ANIMATION_INTERPOLATOR = 33
-        const val STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS = 34
-        const val STYLE_SELECTION_FILL = 35
-        const val STYLE_SELECTION_MANAGER = 36
-        const val STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER = 37
-        const val STYLE_WEEKDAY_TYPEFACE = 38
-        const val STYLE_WEEKDAYS = 39
-
         // Precomputed value
         private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
     }

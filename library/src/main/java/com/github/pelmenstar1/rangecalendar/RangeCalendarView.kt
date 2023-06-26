@@ -115,8 +115,6 @@ class RangeCalendarView @JvmOverloads constructor(
         fun onPageChanged(year: Int, month: Int)
     }
 
-    // Kotlin says that there's redundant qualitifer in RangeCalendarPagerAdapter.getStyle() but it's wrong.
-    @Suppress("RemoveRedundantQualifierName")
     private class ExtractAttributesScope(
         private val calendarView: RangeCalendarView,
         private val attrs: TypedArray
@@ -155,23 +153,23 @@ class RangeCalendarView @JvmOverloads constructor(
 
         inline fun color(
             @StyleableRes index: Int,
-            getStyle: RangeCalendarPagerAdapter.Companion.() -> Int
-        ) = color(index, RangeCalendarPagerAdapter.getStyle())
+            getStyle: GetCalendarStyleProp
+        ) = color(index, getStyle(RangeCalendarStyleData.Companion))
 
         inline fun dimension(
             @StyleableRes index: Int,
-            getStyle: RangeCalendarPagerAdapter.Companion.() -> Int
-        ) = dimension(index, RangeCalendarPagerAdapter.getStyle())
+            getStyle: GetCalendarStyleProp
+        ) = dimension(index, getStyle(RangeCalendarStyleData.Companion))
 
         inline fun int(
             @StyleableRes index: Int,
-            getStyle: RangeCalendarPagerAdapter.Companion.() -> Int
-        ) = int(index, RangeCalendarPagerAdapter.getStyle())
+            getStyle: GetCalendarStyleProp
+        ) = int(index, getStyle(RangeCalendarStyleData.Companion))
 
         inline fun boolean(
             @StyleableRes index: Int,
-            getStyle: RangeCalendarPagerAdapter.Companion.() -> Int
-        ) = boolean(index, RangeCalendarPagerAdapter.getStyle())
+            getStyle: GetCalendarStyleProp
+        ) = boolean(index, getStyle(RangeCalendarStyleData.Companion))
 
         private inline fun <T> extractPrimitive(
             @StyleableRes index: Int,
@@ -237,7 +235,7 @@ class RangeCalendarView @JvmOverloads constructor(
         adapter = RangeCalendarPagerAdapter(cr).apply {
             setToday(today)
             setStyleObject(
-                { STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER },
+                { CELL_ACCESSIBILITY_INFO_PROVIDER },
                 DefaultRangeCalendarCellAccessibilityInfoProvider(context),
                 notify = false
             )
@@ -376,22 +374,22 @@ class RangeCalendarView @JvmOverloads constructor(
                     setSelectionColor(color)
                 }
 
-                color(R.styleable.RangeCalendarView_rangeCalendar_inMonthDayNumberColor) { STYLE_IN_MONTH_TEXT_COLOR }
-                color(R.styleable.RangeCalendarView_rangeCalendar_outMonthDayNumberColor) { STYLE_OUT_MONTH_TEXT_COLOR }
-                color(R.styleable.RangeCalendarView_rangeCalendar_disabledDayNumberColor) { STYLE_DISABLED_TEXT_COLOR }
-                color(R.styleable.RangeCalendarView_rangeCalendar_todayColor) { STYLE_TODAY_TEXT_COLOR }
-                color(R.styleable.RangeCalendarView_rangeCalendar_weekdayColor) { STYLE_WEEKDAY_TEXT_COLOR }
-                color(R.styleable.RangeCalendarView_rangeCalendar_hoverColor) { STYLE_HOVER_COLOR }
-                color(R.styleable.RangeCalendarView_rangeCalendar_hoverOnSelectionColor) { STYLE_HOVER_ON_SELECTION_COLOR }
-                dimension(R.styleable.RangeCalendarView_rangeCalendar_dayNumberTextSize) { STYLE_DAY_NUMBER_TEXT_SIZE }
-                dimension(R.styleable.RangeCalendarView_rangeCalendar_weekdayTextSize) { STYLE_WEEKDAY_TEXT_SIZE }
-                int(R.styleable.RangeCalendarView_rangeCalendar_weekdayType) { STYLE_WEEKDAY_TYPE }
-                int(R.styleable.RangeCalendarView_rangeCalendar_clickOnCellSelectionBehavior) { STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR }
-                dimension(R.styleable.RangeCalendarView_rangeCalendar_cellRoundRadius) { STYLE_CELL_RR_RADIUS }
-                boolean(R.styleable.RangeCalendarView_rangeCalendar_vibrateOnSelectingCustomRange) { STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE }
-                int(R.styleable.RangeCalendarView_rangeCalendar_selectionFillGradientBoundsType) { STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE }
-                int(R.styleable.RangeCalendarView_rangeCalendar_cellAnimationType) { STYLE_CELL_ANIMATION_TYPE }
-                boolean(R.styleable.RangeCalendarView_rangeCalendar_showAdjacentMonths) { STYLE_SHOW_ADJACENT_MONTHS }
+                color(R.styleable.RangeCalendarView_rangeCalendar_inMonthDayNumberColor) { IN_MONTH_TEXT_COLOR }
+                color(R.styleable.RangeCalendarView_rangeCalendar_outMonthDayNumberColor) { OUT_MONTH_TEXT_COLOR }
+                color(R.styleable.RangeCalendarView_rangeCalendar_disabledDayNumberColor) { DISABLED_TEXT_COLOR }
+                color(R.styleable.RangeCalendarView_rangeCalendar_todayColor) { TODAY_TEXT_COLOR }
+                color(R.styleable.RangeCalendarView_rangeCalendar_weekdayColor) { WEEKDAY_TEXT_COLOR }
+                color(R.styleable.RangeCalendarView_rangeCalendar_hoverColor) { HOVER_COLOR }
+                color(R.styleable.RangeCalendarView_rangeCalendar_hoverOnSelectionColor) { HOVER_ON_SELECTION_COLOR }
+                dimension(R.styleable.RangeCalendarView_rangeCalendar_dayNumberTextSize) { DAY_NUMBER_TEXT_SIZE }
+                dimension(R.styleable.RangeCalendarView_rangeCalendar_weekdayTextSize) { WEEKDAY_TEXT_SIZE }
+                int(R.styleable.RangeCalendarView_rangeCalendar_weekdayType) { WEEKDAY_TYPE }
+                int(R.styleable.RangeCalendarView_rangeCalendar_clickOnCellSelectionBehavior) { CLICK_ON_CELL_SELECTION_BEHAVIOR }
+                dimension(R.styleable.RangeCalendarView_rangeCalendar_cellRoundRadius) { CELL_ROUND_RADIUS }
+                boolean(R.styleable.RangeCalendarView_rangeCalendar_vibrateOnSelectingCustomRange) { VIBRATE_ON_SELECTING_RANGE }
+                int(R.styleable.RangeCalendarView_rangeCalendar_selectionFillGradientBoundsType) { SELECTION_FILL_GRADIENT_BOUNDS_TYPE }
+                int(R.styleable.RangeCalendarView_rangeCalendar_cellAnimationType) { CELL_ANIMATION_TYPE }
+                boolean(R.styleable.RangeCalendarView_rangeCalendar_showAdjacentMonths) { SHOW_ADJACENT_MONTHS }
 
 
                 // cellSize, cellWidth, cellHeight require special logic.
@@ -417,11 +415,11 @@ class RangeCalendarView @JvmOverloads constructor(
                     adapter.setCellSize(cellWidth)
                 } else {
                     if (!cellWidth.isNaN()) {
-                        adapter.setStyleFloat({ STYLE_CELL_WIDTH }, cellWidth)
+                        adapter.setStyleFloat({ CELL_WIDTH }, cellWidth)
                     }
 
                     if (!cellHeight.isNaN()) {
-                        adapter.setStyleFloat({ STYLE_CELL_HEIGHT }, cellHeight)
+                        adapter.setStyleFloat({ CELL_HEIGHT }, cellHeight)
                     }
                 }
 
@@ -803,9 +801,9 @@ class RangeCalendarView @JvmOverloads constructor(
      * by default it's solid color which color is extracted from [androidx.appcompat.R.attr.colorPrimary]
      */
     var selectionFill: Fill
-        get() = adapter.getStyleObject { STYLE_SELECTION_FILL }
+        get() = adapter.getStyleObject { SELECTION_FILL }
         set(value) {
-            adapter.setStyleObject({ STYLE_SELECTION_FILL }, value)
+            adapter.setStyleObject({ SELECTION_FILL }, value)
         }
 
     /**
@@ -823,20 +821,20 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     var selectionFillGradientBoundsType: SelectionFillGradientBoundsType
         get() = adapter.getStyleEnum(
-            { STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE },
+            { SELECTION_FILL_GRADIENT_BOUNDS_TYPE },
             SelectionFillGradientBoundsType::ofOrdinal
         )
         set(value) {
-            adapter.setStyleEnum({ STYLE_SELECTION_FILL_GRADIENT_BOUNDS_TYPE }, value)
+            adapter.setStyleEnum({ SELECTION_FILL_GRADIENT_BOUNDS_TYPE }, value)
         }
 
     /**
      * Gets or sets a text size of day number, in pixels
      */
     var dayNumberTextSize: Float
-        get() = adapter.getStyleFloat { STYLE_DAY_NUMBER_TEXT_SIZE }
+        get() = adapter.getStyleFloat { DAY_NUMBER_TEXT_SIZE }
         set(size) {
-            adapter.setStyleFloat({ STYLE_DAY_NUMBER_TEXT_SIZE }, size)
+            adapter.setStyleFloat({ DAY_NUMBER_TEXT_SIZE }, size)
         }
 
     /**
@@ -844,9 +842,9 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @get:ColorInt
     var inMonthDayNumberColor: Int
-        get() = adapter.getStyleInt { STYLE_IN_MONTH_TEXT_COLOR }
+        get() = adapter.getStyleInt { IN_MONTH_TEXT_COLOR }
         set(@ColorInt color) {
-            adapter.setStyleInt({ STYLE_IN_MONTH_TEXT_COLOR }, color)
+            adapter.setStyleInt({ IN_MONTH_TEXT_COLOR }, color)
         }
 
     /**
@@ -854,9 +852,9 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @get:ColorInt
     var outMonthDayNumberColor: Int
-        get() = adapter.getStyleInt { STYLE_OUT_MONTH_TEXT_COLOR }
+        get() = adapter.getStyleInt { OUT_MONTH_TEXT_COLOR }
         set(@ColorInt color) {
-            adapter.setStyleInt({ STYLE_OUT_MONTH_TEXT_COLOR }, color)
+            adapter.setStyleInt({ OUT_MONTH_TEXT_COLOR }, color)
         }
 
 
@@ -865,9 +863,9 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @get:ColorInt
     var disabledDayNumberColor: Int
-        get() = adapter.getStyleInt { STYLE_DISABLED_TEXT_COLOR }
+        get() = adapter.getStyleInt { DISABLED_TEXT_COLOR }
         set(@ColorInt color) {
-            adapter.setStyleInt({ STYLE_DISABLED_TEXT_COLOR }, color)
+            adapter.setStyleInt({ DISABLED_TEXT_COLOR }, color)
         }
 
     /**
@@ -876,9 +874,9 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @get:ColorInt
     var todayColor: Int
-        get() = adapter.getStyleInt { STYLE_TODAY_TEXT_COLOR }
+        get() = adapter.getStyleInt { TODAY_TEXT_COLOR }
         set(@ColorInt color) {
-            adapter.setStyleInt({ STYLE_TODAY_TEXT_COLOR }, color)
+            adapter.setStyleInt({ TODAY_TEXT_COLOR }, color)
         }
 
     /**
@@ -887,27 +885,27 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @get:ColorInt
     var weekdayColor: Int
-        get() = adapter.getStyleInt { STYLE_WEEKDAY_TEXT_COLOR }
+        get() = adapter.getStyleInt { WEEKDAY_TEXT_COLOR }
         set(@ColorInt color) {
-            adapter.setStyleInt({ STYLE_WEEKDAY_TEXT_COLOR }, color)
+            adapter.setStyleInt({ WEEKDAY_TEXT_COLOR }, color)
         }
 
     /**
      * Gets or sets a text size of weekday, in pixels
      */
     var weekdayTextSize: Float
-        get() = adapter.getStyleFloat { STYLE_WEEKDAY_TEXT_SIZE }
+        get() = adapter.getStyleFloat { WEEKDAY_TEXT_SIZE }
         set(size) {
-            adapter.setStyleFloat({ STYLE_WEEKDAY_TEXT_SIZE }, size)
+            adapter.setStyleFloat({ WEEKDAY_TEXT_SIZE }, size)
         }
 
     /**
      * Gets or sets a typeface of weekday. Pass null to clear previous typeface.
      */
     var weekdayTypeface: Typeface?
-        get() = adapter.getStyleObject { STYLE_WEEKDAY_TYPEFACE }
+        get() = adapter.getStyleObject { WEEKDAY_TYPEFACE }
         set(value) {
-            adapter.setStyleObject({ STYLE_WEEKDAY_TYPEFACE }, value)
+            adapter.setStyleObject({ WEEKDAY_TYPEFACE }, value)
         }
 
     /**
@@ -919,14 +917,14 @@ class RangeCalendarView @JvmOverloads constructor(
      * Pass `null` to use localized weekdays. Note that if you do that, the getter will return localized weekdays, not `null`.
      */
     var weekdays: Array<out String>?
-        get() = adapter.getStyleObject { STYLE_WEEKDAYS }
+        get() = adapter.getStyleObject { WEEKDAYS }
         set(value) {
             if (value != null && value.size != 7) {
                 throw IllegalArgumentException("Length of the array should be 7")
             }
 
             // Copy the array because the caller might be it later.
-            adapter.setStyleObject({ STYLE_WEEKDAYS }, value?.copyOf())
+            adapter.setStyleObject({ WEEKDAYS }, value?.copyOf())
         }
 
     /**
@@ -937,9 +935,9 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @get:ColorInt
     var hoverColor: Int
-        get() = adapter.getStyleInt { STYLE_HOVER_COLOR }
+        get() = adapter.getStyleInt { HOVER_COLOR }
         set(color) {
-            adapter.setStyleInt({ STYLE_HOVER_COLOR }, color)
+            adapter.setStyleInt({ HOVER_COLOR }, color)
         }
 
     /**
@@ -948,9 +946,9 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @get:ColorInt
     var hoverOnSelectionColor: Int
-        get() = adapter.getStyleInt { STYLE_HOVER_ON_SELECTION_COLOR }
+        get() = adapter.getStyleInt { HOVER_ON_SELECTION_COLOR }
         set(color) {
-            adapter.setStyleInt({ STYLE_HOVER_ON_SELECTION_COLOR }, color)
+            adapter.setStyleInt({ HOVER_ON_SELECTION_COLOR }, color)
         }
 
     /**
@@ -960,9 +958,9 @@ class RangeCalendarView @JvmOverloads constructor(
      * Set to [Float.POSITIVE_INFINITY] if cell shape is wanted to be circle regardless the size of it.
      */
     var cellRoundRadius: Float
-        get() = adapter.getStyleFloat { STYLE_CELL_RR_RADIUS }
+        get() = adapter.getStyleFloat { CELL_ROUND_RADIUS }
         set(ratio) {
-            adapter.setStyleFloat({ STYLE_CELL_RR_RADIUS }, ratio)
+            adapter.setStyleFloat({ CELL_ROUND_RADIUS }, ratio)
         }
 
     /**
@@ -974,6 +972,8 @@ class RangeCalendarView @JvmOverloads constructor(
     var cellSize: Float
         get() = max(cellWidth, cellHeight)
         set(size) {
+            require(size > 0) { "Cell size should be positive" }
+
             adapter.setCellSize(size)
         }
 
@@ -981,18 +981,22 @@ class RangeCalendarView @JvmOverloads constructor(
      * Gets or sets width of cells, in pixels, should be greater than 0.
      */
     var cellWidth: Float
-        get() = adapter.getStyleFloat { STYLE_CELL_WIDTH }
+        get() = adapter.getStyleFloat { CELL_WIDTH }
         set(value) {
-            adapter.setStyleFloat({ STYLE_CELL_WIDTH }, value)
+            require(value > 0) { "Cell width should be positive" }
+
+            adapter.setStyleFloat({ CELL_WIDTH }, value)
         }
 
     /**
      * Gets or sets height of cells, in pixels, should be greater than 0.
      */
     var cellHeight: Float
-        get() = adapter.getStyleFloat { STYLE_CELL_HEIGHT }
+        get() = adapter.getStyleFloat { CELL_HEIGHT }
         set(value) {
-            adapter.setStyleFloat({ STYLE_CELL_HEIGHT }, value)
+            require(value > 0) { "Cell height should be positive" }
+
+            adapter.setStyleFloat({ CELL_HEIGHT }, value)
         }
 
     /**
@@ -1010,9 +1014,9 @@ class RangeCalendarView @JvmOverloads constructor(
      * @throws IllegalArgumentException if type is not one of [WeekdayType] constants
      */
     var weekdayType: WeekdayType
-        get() = adapter.getStyleEnum({ STYLE_WEEKDAY_TYPE }, WeekdayType::ofOrdinal)
+        get() = adapter.getStyleEnum({ WEEKDAY_TYPE }, WeekdayType::ofOrdinal)
         set(type) {
-            adapter.setStyleEnum({ STYLE_WEEKDAY_TYPE }, type)
+            adapter.setStyleEnum({ WEEKDAY_TYPE }, type)
         }
 
     /**
@@ -1021,11 +1025,11 @@ class RangeCalendarView @JvmOverloads constructor(
     var clickOnCellSelectionBehavior: ClickOnCellSelectionBehavior
         get() {
             return adapter.getStyleEnum(
-                { STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR }, ClickOnCellSelectionBehavior::ofOrdinal
+                { CLICK_ON_CELL_SELECTION_BEHAVIOR }, ClickOnCellSelectionBehavior::ofOrdinal
             )
         }
         set(value) {
-            adapter.setStyleEnum({ STYLE_CLICK_ON_CELL_SELECTION_BEHAVIOR }, value)
+            adapter.setStyleEnum({ CLICK_ON_CELL_SELECTION_BEHAVIOR }, value)
         }
 
     /**
@@ -1035,10 +1039,10 @@ class RangeCalendarView @JvmOverloads constructor(
      * @throws IllegalArgumentException if duration is negative
      */
     var commonAnimationDuration: Int
-        get() = adapter.getStyleInt { STYLE_COMMON_ANIMATION_DURATION }
+        get() = adapter.getStyleInt { COMMON_ANIMATION_DURATION }
         set(duration) {
             require(duration >= 0) { "duration" }
-            adapter.setStyleInt({ STYLE_COMMON_ANIMATION_DURATION }, duration)
+            adapter.setStyleInt({ COMMON_ANIMATION_DURATION }, duration)
         }
 
     /**
@@ -1046,9 +1050,9 @@ class RangeCalendarView @JvmOverloads constructor(
      * By default, the interpolator is linear.
      */
     var commonAnimationInterpolator: TimeInterpolator
-        get() = adapter.getStyleObject { STYLE_COMMON_ANIMATION_INTERPOLATOR }
+        get() = adapter.getStyleObject { COMMON_ANIMATION_INTERPOLATOR }
         set(value) {
-            adapter.setStyleObject({ STYLE_COMMON_ANIMATION_INTERPOLATOR }, value)
+            adapter.setStyleObject({ COMMON_ANIMATION_INTERPOLATOR }, value)
         }
 
     /**
@@ -1057,47 +1061,47 @@ class RangeCalendarView @JvmOverloads constructor(
      * @throws IllegalArgumentException if duration is negative
      */
     var hoverAnimationDuration: Int
-        get() = adapter.getStyleInt { STYLE_HOVER_ANIMATION_DURATION }
+        get() = adapter.getStyleInt { HOVER_ANIMATION_DURATION }
         set(duration) {
             require(duration >= 0) { "duration" }
 
-            adapter.setStyleInt({ STYLE_HOVER_ANIMATION_DURATION }, duration)
+            adapter.setStyleInt({ HOVER_ANIMATION_DURATION }, duration)
         }
 
     /**
      * Gets or sets time interpolator of hover animation.
      */
     var hoverAnimationInterpolator: TimeInterpolator
-        get() = adapter.getStyleObject { STYLE_HOVER_ANIMATION_INTERPOLATOR }
+        get() = adapter.getStyleObject { HOVER_ANIMATION_INTERPOLATOR }
         set(value) {
-            adapter.setStyleObject({ STYLE_HOVER_ANIMATION_INTERPOLATOR }, value)
+            adapter.setStyleObject({ HOVER_ANIMATION_INTERPOLATOR }, value)
         }
 
     /**
      * Gets or sets whether device should vibrate when user starts to select custom range.
      */
     var vibrateOnSelectingCustomRange: Boolean
-        get() = adapter.getStyleBool { STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE }
+        get() = adapter.getStyleBool { VIBRATE_ON_SELECTING_RANGE }
         set(state) {
-            adapter.setStyleBool({ STYLE_VIBRATE_ON_SELECTING_CUSTOM_RANGE }, state)
+            adapter.setStyleBool({ VIBRATE_ON_SELECTING_RANGE }, state)
         }
 
     /**
      * Gets or sets animation type for cells.
      */
     var cellAnimationType: CellAnimationType
-        get() = adapter.getStyleEnum({ STYLE_CELL_ANIMATION_TYPE }, CellAnimationType::ofOrdinal)
+        get() = adapter.getStyleEnum({ CELL_ANIMATION_TYPE }, CellAnimationType::ofOrdinal)
         set(type) {
-            adapter.setStyleEnum({ STYLE_CELL_ANIMATION_TYPE }, type)
+            adapter.setStyleEnum({ CELL_ANIMATION_TYPE }, type)
         }
 
     /**
      * Gets or sets whether adjacent month should be shown on the calendar page. By default, it's `true`.
      */
     var showAdjacentMonths: Boolean
-        get() = adapter.getStyleBool { STYLE_SHOW_ADJACENT_MONTHS }
+        get() = adapter.getStyleBool { SHOW_ADJACENT_MONTHS }
         set(value) {
-            adapter.setStyleBool({ STYLE_SHOW_ADJACENT_MONTHS }, value)
+            adapter.setStyleBool({ SHOW_ADJACENT_MONTHS }, value)
         }
 
     /**
@@ -1132,9 +1136,9 @@ class RangeCalendarView @JvmOverloads constructor(
      * responsible of providing accessibility-related information about cells in the calendar.
      */
     var cellAccessibilityInfoProvider: RangeCalendarCellAccessibilityInfoProvider
-        get() = adapter.getStyleObject { STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER }
+        get() = adapter.getStyleObject { CELL_ACCESSIBILITY_INFO_PROVIDER }
         set(value) {
-            adapter.setStyleObject({ STYLE_CELL_ACCESSIBILITY_INFO_PROVIDER }, value)
+            adapter.setStyleObject({ CELL_ACCESSIBILITY_INFO_PROVIDER }, value)
         }
 
     /**
@@ -1329,7 +1333,7 @@ class RangeCalendarView @JvmOverloads constructor(
      * Sets custom implementation of selection manager. If you want to use default one, pass null as an argument.
      */
     fun setSelectionManager(selectionManager: SelectionManager?) {
-        adapter.setStyleObject({ STYLE_SELECTION_MANAGER }, selectionManager)
+        adapter.setStyleObject({ SELECTION_MANAGER }, selectionManager)
     }
 
     /**
@@ -1449,7 +1453,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     fun setDecorationDefaultLayoutOptions(options: DecorLayoutOptions?) {
-        adapter.setStyleObject({ STYLE_DECOR_DEFAULT_LAYOUT_OPTIONS }, options)
+        adapter.setStyleObject({ DECOR_DEFAULT_LAYOUT_OPTIONS }, options)
     }
 
     private fun updateMoveButtons() {
