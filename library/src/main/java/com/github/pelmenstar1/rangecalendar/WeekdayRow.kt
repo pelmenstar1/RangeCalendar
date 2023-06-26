@@ -2,6 +2,8 @@ package com.github.pelmenstar1.rangecalendar
 
 import android.graphics.Canvas
 import android.graphics.Paint
+import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
+import kotlin.math.max
 
 internal class WeekdayRow(
     private val localizedWeekdayData: WeekdayData,
@@ -49,7 +51,15 @@ internal class WeekdayRow(
     }
 
     fun onMeasurementsChanged() {
-        height = WeekdayMeasureHelper.computeWidthsAndMaxHeight(_weekdays, textPaint, currentWidths)
+        val widths = currentWidths
+        var maxHeight = -1
+
+        textPaint.getTextBoundsArray(_weekdays, start = 0, end = 7) { i, width, height ->
+            maxHeight = max(maxHeight, height)
+            widths[i] = width.toFloat()
+        }
+
+        height = maxHeight.toFloat()
     }
 
     fun draw(c: Canvas, x: Float, columnWidth: Float) {
