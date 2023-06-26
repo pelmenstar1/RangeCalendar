@@ -122,10 +122,6 @@ internal class RangeCalendarPagerAdapter(
     private var maxDate = PackedDate.MAX_DATE
 
     var selectionRange = CellRange.Invalid
-
-    // We need to save year-month of selection despite the fact we can compute it from selectionData
-    // because computed position will point to the page where the position is in currentMonthRange
-    // and this can lead to bugs when we mutate the wrong page.
     var selectionYm = YearMonth(0)
 
     // internal as used in tests
@@ -168,7 +164,7 @@ internal class RangeCalendarPagerAdapter(
         val changed = set()
 
         if (notify && changed) {
-            notifyItemRangeChanged(0, count, Payload.onStylePropertyChanged(styleIndex))
+            notifyAllPages(Payload.onStylePropertyChanged(styleIndex))
         }
     }
 
@@ -184,7 +180,7 @@ internal class RangeCalendarPagerAdapter(
     inline fun setStyleBool(getStyle: GetCalendarStyleProp, value: Boolean, notify: Boolean = true) =
         setStylePacked(getStyle, PackedInt(value), notify)
 
-    inline fun <T : Enum<T>> setStyleEnum(getStyle: GetCalendarStyleProp, value: T, notify: Boolean = true) =
+    inline fun setStyleEnum(getStyle: GetCalendarStyleProp, value: Enum<*>, notify: Boolean = true) =
         setStylePacked(getStyle, PackedInt(value), notify)
 
     inline fun setStyleObject(getStyle: GetCalendarStyleProp, data: Any?, notify: Boolean = true) =

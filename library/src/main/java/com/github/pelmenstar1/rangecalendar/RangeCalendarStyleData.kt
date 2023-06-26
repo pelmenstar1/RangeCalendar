@@ -30,8 +30,7 @@ internal class RangeCalendarStyleData {
     fun set(propIndex: Int, value: Int) = set(propIndex, PackedInt(value))
     fun set(propIndex: Int, value: Float) = set(propIndex, PackedInt(value))
     fun set(propIndex: Int, value: Boolean) = set(propIndex, PackedInt(value))
-    fun <T : Enum<T>> set(propIndex: Int, value: T) =
-        set(propIndex, PackedInt(value.ordinal))
+    fun set(propIndex: Int, value: Enum<*>) = set(propIndex, PackedInt(value.ordinal))
 
     fun set(propIndex: Int, packed: PackedInt): Boolean {
         val old = propInts[propIndex]
@@ -88,8 +87,6 @@ internal class RangeCalendarStyleData {
         const val HOVER_COLOR = 17
         const val HOVER_ON_SELECTION_COLOR = 18
         const val SHOW_ADJACENT_MONTHS = 19
-
-
 
         // These are properties that can be stored as an object
         const val COMMON_ANIMATION_INTERPOLATOR = 32
