@@ -85,7 +85,7 @@ internal value class PackedSizeArray(val array: LongArray) {
 
 internal inline fun PackedInt(value: Float) = PackedInt(value.toBits())
 internal inline fun PackedInt(value: Boolean) = PackedInt(if(value) 1 else 0)
-internal inline fun <T : Enum<T>> PackedInt(value: T) = PackedInt(value.ordinal)
+internal inline fun PackedInt(value: Enum<*>) = PackedInt(value.ordinal)
 
 @JvmInline
 internal value class PackedInt(val value: Int) {

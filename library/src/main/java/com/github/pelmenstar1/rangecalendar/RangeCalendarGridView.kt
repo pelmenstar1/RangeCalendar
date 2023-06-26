@@ -33,7 +33,11 @@ import kotlin.math.min
 
 // It will never be XML layout, so there's no need to match conventions
 @SuppressLint("ViewConstructor")
-internal class RangeCalendarGridView(context: Context, val cr: CalendarResources) : View(context) {
+internal class RangeCalendarGridView(
+    context: Context,
+    val cr: CalendarResources,
+    val style: RangeCalendarStyleData
+) : View(context) {
     interface OnSelectionListener {
         fun onSelectionCleared()
         fun onSelection(range: CellRange)
@@ -107,8 +111,8 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         }
 
         private fun getDayDescriptionForIndex(index: Int): CharSequence {
-            val provider = grid.cellAccessibilityInfoProvider
-                ?: throw RuntimeException("cellAccessibilityInfoProvider should not be null")
+            val provider =
+                grid.style.getObject<RangeCalendarCellAccessibilityInfoProvider> { CELL_ACCESSIBILITY_INFO_PROVIDER }
 
             val (monthStart, monthEnd) = grid.inMonthRange
 
@@ -151,10 +155,10 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     private class CellMeasureManagerImpl(private val view: RangeCalendarGridView) :
         CellMeasureManager {
         override val cellWidth: Float
-            get() = view.cellWidth
+            get() = view.cellWidth()
 
         override val cellHeight: Float
-            get() = view.cellHeight
+            get() = view.cellHeight()
 
         override val roundRadius: Float
             get() = view.cellRoundRadius()
@@ -171,29 +175,10 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
     val cells = ByteArray(42)
 
-    private var cellWidth: Float = cr.cellSize
-    private var cellHeight: Float = cr.cellSize
-
-    // The cell is circle by default and to achieve it with any possible cell size,
-    // we should take greatest round radius possible, that's why it's positive inf.
-    //
-    // But when infinity is passed as round radius, round radius is changed to 0 somewhere inside the Android
-    // and round rect becomes rect. So, when rrRadius is used, it needs to be resolved to get rid of infinities.
-    //
-    // There's method for that: cellRoundRadius()
-    private var rrRadius: Float = Float.POSITIVE_INFINITY
-
     private val dayNumberPaint: Paint
     private val weekdayPaint: Paint
     private val selectionPaint: Paint
     private val cellHoverPaint: Paint
-
-    private var inMonthTextColor: Int
-    private var outMonthTextColor: Int
-    private var disabledCellTextColor: Int
-    private var todayCellTextColor: Int
-    private var hoverCellBgColor: Int
-    private var hoverOnSelectionBgColor: Int
 
     private var lastTouchTime: Long = -1
     private var lastTouchCell = Cell.Undefined
@@ -216,10 +201,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
     private var selectionManager: SelectionManager = DefaultSelectionManager()
     private var selectionRenderer = selectionManager.renderer
-    private var selectionRenderOptions: SelectionRenderOptions
-
-    private var selectionFill: Fill
-    private var selectionFillGradientBoundsType = SelectionFillGradientBoundsType.GRID
+    private var selectionRenderOptions: SelectionRenderOptions? = null
 
     private val cellMeasureManager = CellMeasureManagerImpl(this)
 
@@ -232,26 +214,14 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     private var onAnimationEnd: (() -> Unit)? = null
     private var animationHandler: (() -> Unit)? = null
 
-    private val touchHelper: TouchHelper
+    private val touchHelper = TouchHelper(this)
 
     private val weekdayRow: WeekdayRow
 
     private var isDayNumberMeasurementsDirty = false
     private var dayNumberSizes = cr.defaultDayNumberSizes
 
-    var clickOnCellSelectionBehavior = ClickOnCellSelectionBehavior.NONE
-    var commonAnimationDuration = DEFAULT_COMMON_ANIM_DURATION
-    var hoverAnimationDuration = DEFAULT_HOVER_ANIM_DURATION
-    var commonAnimationInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
-    var hoverAnimationInterpolator: TimeInterpolator = LINEAR_INTERPOLATOR
-
-    private var cellAnimationType = CellAnimationType.ALPHA
-
     private val vibrator = VibratorCompat(context)
-
-    var vibrateOnSelectingCustomRange = true
-
-    private var showAdjacentMonths = true
 
     internal var decorations: DecorGroupedList? = null
     private var decorRegion = PackedIntRange.Undefined
@@ -259,7 +229,6 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     private val decorVisualStates = LazyCellDataArray<CellDecor.VisualState>()
     private val decorLayoutOptionsArray = LazyCellDataArray<DecorLayoutOptions>()
     private val cellInfo = CellInfo()
-    private var decorDefaultLayoutOptions: DecorLayoutOptions? = null
 
     private var decorAnimFractionInterpolator: DecorAnimationFractionInterpolator? = null
     private var decorAnimatedCell = Cell.Undefined
@@ -269,47 +238,17 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
     private val pressTimeoutHandler = PressTimeoutHandler(this)
 
-    private var cellAccessibilityInfoProvider: RangeCalendarCellAccessibilityInfoProvider? = null
-
     init {
-        val defTextColor = cr.textColor
-        val colorPrimary = cr.colorPrimary
-        val dayNumberTextSize = cr.dayNumberTextSize
-
-        touchHelper = TouchHelper(this)
         ViewCompat.setAccessibilityDelegate(this, touchHelper)
 
-        inMonthTextColor = defTextColor
-        outMonthTextColor = cr.outMonthTextColor
-        disabledCellTextColor = cr.disabledTextColor
-        todayCellTextColor = colorPrimary
-        hoverCellBgColor = cr.hoverColor
-        hoverOnSelectionBgColor = cr.colorPrimaryDark
-
-        selectionFill = Fill.solid(colorPrimary)
         background = null
-
-        selectionRenderOptions = SelectionRenderOptions(
-            selectionFill,
-            SelectionFillGradientBoundsType.GRID,
-            cr.cellSize * 0.5f,
-            CellAnimationType.ALPHA
-        )
 
         selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
         }
 
-        dayNumberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = dayNumberTextSize
-            color = defTextColor
-        }
-
-        weekdayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = cr.weekdayTextSize
-            typeface = Typeface.DEFAULT_BOLD
-            color = defTextColor
-        }
+        dayNumberPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        weekdayPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         cellHoverPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
@@ -318,32 +257,37 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         weekdayRow = WeekdayRow(cr.defaultWeekdayData, weekdayPaint)
     }
 
-    private inline fun updateUIState(block: () -> Unit) =
-        updateUIState(condition = true, block)
+    private fun rrRadius(): Float = style.getFloat { CELL_ROUND_RADIUS }
+    private fun cellWidth(): Float = style.getFloat { CELL_WIDTH }
+    private fun cellHeight(): Float = style.getFloat { CELL_HEIGHT }
 
-    private inline fun <T> updateUIState(oldValue: T, newValue: T, block: () -> Unit) =
-        updateUIState(oldValue != newValue, block)
+    private fun selectionFill() = style.getObject<Fill> { SELECTION_FILL }
+    private fun selectionFillGradientBoundsType() =
+        SelectionFillGradientBoundsType.ofOrdinal(style.getInt { SELECTION_FILL_GRADIENT_BOUNDS_TYPE })
 
-    private inline fun updateUIState(oldValue: Float, newValue: Float, block: () -> Unit) =
-        updateUIState(oldValue != newValue, block)
+    private fun clickOnCellSelectionBehavior() =
+        ClickOnCellSelectionBehavior.ofOrdinal(style.getInt { CLICK_ON_CELL_SELECTION_BEHAVIOR })
 
-    private inline fun updateUIState(oldValue: Int, newValue: Int, block: () -> Unit) =
-        updateUIState(oldValue != newValue, block)
+    private fun cellAnimationType() =
+        CellAnimationType.ofOrdinal(style.getInt { CELL_ANIMATION_TYPE })
 
-    private inline fun updateUIState(condition: Boolean, block: () -> Unit) {
-        if (condition) {
-            block()
+    private fun showAdjacentMonths() = style.getBoolean { SHOW_ADJACENT_MONTHS }
+    private fun vibrateOnSelectingRange() = style.getBoolean { VIBRATE_ON_SELECTING_RANGE }
 
-            invalidate()
-        }
-    }
+    private fun commonAnimationDuration() = style.getInt { COMMON_ANIMATION_DURATION }
+    private fun hoverAnimationDuration() = style.getInt { HOVER_ANIMATION_DURATION }
+
+    private fun commonAnimationInterpolator() = style.getObject<TimeInterpolator> { COMMON_ANIMATION_INTERPOLATOR }
+    private fun hoverAnimationInterpolator() = style.getObject<TimeInterpolator> { HOVER_ANIMATION_INTERPOLATOR }
+
+    private fun decorDefaultLayoutOptions() = style.getObject<DecorLayoutOptions> { DECOR_DEFAULT_LAYOUT_OPTIONS }
 
     private fun updateSelectionRenderOptions() {
         selectionRenderOptions = SelectionRenderOptions(
-            selectionFill,
-            selectionFillGradientBoundsType,
+            selectionFill(),
+            selectionFillGradientBoundsType(),
             cellRoundRadius(),
-            cellAnimationType
+            cellAnimationType()
         )
 
         invalidate()
@@ -355,22 +299,54 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         invalidate()
     }
 
-    fun setSelectionFill(fill: Fill) = updateUIState {
-        selectionFill = fill
-
-        updateGradientBoundsIfNeeded()
-        updateSelectionRenderOptions()
+    fun onStylePropertyChanged(propIndex: Int) {
+        if (RangeCalendarStyleData.isObjectProperty(propIndex)) {
+            onStylePropertyObjectChanged(propIndex)
+        } else {
+            onStylePropertyIntChanged(propIndex)
+        }
     }
 
-    fun setSelectionFillGradientBoundsType(value: SelectionFillGradientBoundsType) =
-        updateUIState(selectionFillGradientBoundsType, value) {
-            selectionFillGradientBoundsType = value
+    private fun onStylePropertyIntChanged(propIndex: Int) {
+        val data = style.getPackedInt(propIndex)
 
-            updateGradientBoundsIfNeeded()
-            updateSelectionRenderOptions()
+        with(RangeCalendarStyleData.Companion) {
+            when (propIndex) {
+                DAY_NUMBER_TEXT_SIZE -> onDayNumberTextSizeChanged(data.float())
+                WEEKDAY_TEXT_SIZE -> onWeekdayTextSizeChanged(data.float())
+                CELL_WIDTH, CELL_HEIGHT -> onCellSizeComponentChanged()
+                CELL_ROUND_RADIUS -> onCellRoundRadiusChanged()
+                WEEKDAY_TYPE -> onWeekdayTypeChanged(data.enum(WeekdayType::ofOrdinal))
+                SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> onSelectionFillOrGradientBoundsTypeChanged()
+                CELL_ANIMATION_TYPE -> onCellAnimationTypeChanged()
+                WEEKDAY_TEXT_COLOR -> onWeekdayTextColorChanged(data.value)
+                SHOW_ADJACENT_MONTHS -> onShowAdjacentMonthsChanged()
+            }
         }
+    }
 
-    fun setSelectionManager(manager: SelectionManager?) = updateUIState {
+    private fun onStylePropertyObjectChanged(propIndex: Int) {
+        val data = PackedObject(style.getObject(propIndex))
+
+        with(RangeCalendarStyleData.Companion) {
+            when (propIndex) {
+                DECOR_DEFAULT_LAYOUT_OPTIONS -> onDecorationDefaultLayoutOptionsChanged()
+                SELECTION_FILL -> onSelectionFillOrGradientBoundsTypeChanged()
+                SELECTION_MANAGER -> onSelectionManagerChanged(data.value())
+                CELL_ACCESSIBILITY_INFO_PROVIDER -> onCellAccessibilityInfoProviderChanged()
+                WEEKDAY_TYPEFACE -> onWeekdayTypefaceChanged(data.value())
+                WEEKDAYS -> onWeekdaysChanged(data.value())
+            }
+        }
+    }
+
+    private fun onSelectionFillOrGradientBoundsTypeChanged() {
+        updateGradientBoundsIfNeeded()
+        updateSelectionRenderOptions()
+        invalidate()
+    }
+
+    private fun onSelectionManagerChanged(manager: SelectionManager?) {
         val resolvedManager = manager ?: DefaultSelectionManager()
 
         // DefaultSelectionManager has no options and preferences which means re-setting it has no effect.
@@ -388,6 +364,8 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
         selectionManager = resolvedManager
         selectionRenderer = resolvedManager.renderer
+
+        invalidate()
     }
 
     private fun SelectionManager.setStateOrNone(state: SelectionState) {
@@ -401,94 +379,46 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         }
     }
 
-    fun setCellAnimationType(type: CellAnimationType) = updateUIState(cellAnimationType, type) {
-        cellAnimationType = type
-
+    private fun onCellAnimationTypeChanged() {
         updateSelectionRenderOptions()
     }
 
-    fun setDayNumberTextSize(size: Float) = updateUIState(dayNumberPaint.textSize, size) {
-        dayNumberPaint.textSize = size
+    private fun onDayNumberTextSizeChanged(newSize: Float) {
+        dayNumberPaint.textSize = newSize
 
-        if (size != cr.dayNumberTextSize) {
+        if (newSize != cr.dayNumberTextSize) {
             isDayNumberMeasurementsDirty = true
         }
 
         refreshAllDecorVisualStates()
     }
 
-    fun setWeekdayTextSize(size: Float) = updateUIState(weekdayPaint.textSize, size) {
-        weekdayPaint.textSize = size
+    private fun onWeekdayTextSizeChanged(newSize: Float) {
+        weekdayPaint.textSize = newSize
         weekdayRow.onMeasurementsChanged()
 
         onGridTopChanged()
     }
 
-    fun setWeekdayTypeface(typeface: Typeface?) = updateUIState(weekdayPaint.typeface, typeface) {
+    private fun onWeekdayTypefaceChanged(typeface: Typeface?) {
         weekdayPaint.typeface = typeface
         weekdayRow.onMeasurementsChanged()
 
         onGridTopChanged()
     }
 
-    fun setCustomWeekdays(weekdays: Array<out String>?) = updateUIState(weekdayRow.weekdays, weekdays) {
+    private fun onWeekdaysChanged(weekdays: Array<out String>?) {
         weekdayRow.weekdays = weekdays
 
         onGridChanged()
     }
 
-    fun setInMonthTextColor(color: Int) = updateUIState(inMonthTextColor, color) {
-        inMonthTextColor = color
-    }
-
-    fun setOutMonthTextColor(color: Int) = updateUIState(outMonthTextColor, color) {
-        outMonthTextColor = color
-    }
-
-    fun setDisabledCellTextColor(color: Int) = updateUIState(disabledCellTextColor, color) {
-        disabledCellTextColor = color
-    }
-
-    fun setTodayCellColor(color: Int) = updateUIState(todayCellTextColor, color) {
-        todayCellTextColor = color
-    }
-
-    fun setHoverColor(color: Int) = updateUIState(hoverCellBgColor, color) {
-        hoverCellBgColor = color
-    }
-
-    fun setHoverOnSelectionColor(color: Int) = updateUIState(hoverOnSelectionBgColor, color) {
-        hoverCellBgColor = color
-    }
-
-    fun setWeekdayTextColor(color: Int) = updateUIState(weekdayPaint.color, color) {
+    private fun onWeekdayTextColorChanged(color: Int) {
         weekdayPaint.color = color
+        invalidate()
     }
 
-    fun setCellSize(size: Float) {
-        require(size > 0f) { "size <= 0" }
-
-        if (cellWidth != size || cellHeight != size) {
-            cellWidth = size
-            cellHeight = size
-
-            onCellSizeComponentChanged()
-        }
-    }
-
-    private inline fun setCellWidthHeightInternal(
-        newValue: Float,
-        currentValue: Float,
-        setCurrent: (Float) -> Unit
-    ) {
-        if (currentValue != newValue) {
-            setCurrent(newValue)
-
-            onCellSizeComponentChanged()
-        }
-    }
-
-    private fun onCellSizeComponentChanged() {
+    fun onCellSizeComponentChanged() {
         refreshAllDecorVisualStates()
         updateSelectionStateConfiguration()
 
@@ -496,25 +426,33 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         requestLayout()
     }
 
-    fun setCellWidth(value: Float) {
-        require(value > 0f) { "width <= 0" }
-
-        setCellWidthHeightInternal(value, cellWidth) { cellWidth = it }
-    }
-
-    fun setCellHeight(value: Float) {
-        require(value > 0f) { "height <= 0" }
-
-        setCellWidthHeightInternal(value, cellHeight) { cellHeight = it }
-    }
-
-    fun setCellRoundRadius(value: Float) = updateUIState(rrRadius, value) {
-        require(value >= 0f) { "ratio < 0" }
-
-        rrRadius = value
-
+    fun onCellRoundRadiusChanged()  {
         refreshAllDecorVisualStates()
         updateSelectionRenderOptions()
+
+        invalidate()
+    }
+
+    private fun onWeekdayTypeChanged(_type: WeekdayType) {
+        // There is no narrow weekdays before API < 24, so we need to resolve it
+        val type = _type.resolved()
+
+        if (weekdayRow.type != type) {
+            weekdayRow.type = type
+
+            onGridTopChanged()
+            invalidate()
+        }
+    }
+
+    private fun onShowAdjacentMonthsChanged() {
+        // showAdjacentMonths directly affects on the selection range, so we need to update it.
+        updateSelectionRange()
+    }
+
+    private fun onCellAccessibilityInfoProviderChanged() {
+        // Some accessibility-related properties might be changed.
+        touchHelper.invalidateRoot()
     }
 
     fun setInMonthRange(range: CellRange) {
@@ -529,40 +467,18 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         updateSelectionRange()
     }
 
-    fun setWeekdayType(_type: WeekdayType) {
-        // There is no narrow weekdays before API < 24, so we need to resolve it
-        val type = _type.resolved()
+    fun setTodayCell(cell: Cell) {
+        val old = todayCell
+        todayCell = cell
 
-        if (weekdayRow.type != type) {
-            weekdayRow.type = type
-
-            onGridTopChanged()
+        if (old != cell) {
             invalidate()
         }
     }
 
-    fun setTodayCell(cell: Cell) = updateUIState(todayCell != cell) {
-        todayCell = cell
-        invalidate()
-    }
-
-    fun setShowAdjacentMonths(value: Boolean) = updateUIState(showAdjacentMonths != value) {
-        showAdjacentMonths = value
-
-        // showAdjacentMonths directly affects on the selection range, so we need to update it.
-        updateSelectionRange()
-    }
-
-    fun setCellAccessibilityInfoProvider(value: RangeCalendarCellAccessibilityInfoProvider) {
-        cellAccessibilityInfoProvider = value
-
-        // Some accessibility-related properties might be changed.
-        touchHelper.invalidateRoot()
-    }
-
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val preferredWidth = ceilToInt(cellWidth * 7)
-        val preferredHeight = ceilToInt(gridTop() + (cellHeight * 6))
+        val preferredWidth = ceilToInt(cellWidth() * 7)
+        val preferredHeight = ceilToInt(gridTop() + (cellHeight() * 6))
 
         setMeasuredDimension(
             resolveSize(preferredWidth, widthMeasureSpec),
@@ -576,10 +492,10 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     private fun updateGradientBoundsIfNeeded() {
-        if (selectionFillGradientBoundsType == SelectionFillGradientBoundsType.GRID) {
+        if (selectionFillGradientBoundsType() == SelectionFillGradientBoundsType.GRID) {
             val hPadding = cr.hPadding
 
-            selectionFill.setBounds(
+            selectionFill().setBounds(
                 hPadding, gridTop(), width - hPadding, height.toFloat()
             )
         }
@@ -738,7 +654,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
             val top = getCellTop(start)
             val right = getCellRight(end)
 
-            r.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(top + cellHeight))
+            r.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(top + cellHeight()))
         } else {
             super.getFocusedRect(r)
         }
@@ -788,7 +704,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         // We don't do gate validation if the request come from user and it's the same selection and specified behaviour is CLEAR.
         // That's done because if the gate rejects the request and behaviour is PRESERVE, the cell won't be cleared but
         // it should be.
-        if (isCellSelectionByUser && isSameCellSelection && clickOnCellSelectionBehavior == ClickOnCellSelectionBehavior.CLEAR) {
+        if (isCellSelectionByUser && isSameCellSelection && clickOnCellSelectionBehavior() == ClickOnCellSelectionBehavior.CLEAR) {
             clearSelection(fireEvent = true, doAnimation = true)
             return
         }
@@ -807,7 +723,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         clearHoverCellWithAnimation()
 
         var intersection = range.intersectionWith(enabledCellRange)
-        if (!showAdjacentMonths) {
+        if (!showAdjacentMonths()) {
             intersection = intersection.intersectionWith(inMonthRange)
         }
 
@@ -832,7 +748,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
             clearHoverCellWithAnimation()
         }
 
-        if (vibrateOnSelectingCustomRange && isUserStartSelection) {
+        if (vibrateOnSelectingRange() && isUserStartSelection) {
             vibrateOnUserSelection()
         }
 
@@ -858,7 +774,15 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
         val handler = getLazyValue(
             selectionTransitionHandler,
-            { { controller.handleTransition(selectionTransitiveState!!, cellMeasureManager, animFraction) } },
+            {
+                {
+                    controller.handleTransition(
+                        selectionTransitiveState!!,
+                        cellMeasureManager,
+                        animFraction
+                    )
+                }
+            },
             { selectionTransitionHandler = it }
         )
         val onEnd = getLazyValue(
@@ -871,7 +795,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         endCalendarAnimation()
 
         selectionTransitiveState =
-            selectionManager.createTransition(cellMeasureManager, selectionRenderOptions)
+            selectionManager.createTransition(cellMeasureManager, selectionRenderOptions!!)
 
         startCalendarAnimation(SELECTION_ANIMATION, handler, onEnd)
     }
@@ -928,8 +852,8 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
             return stateHandler.emptyState()
         }
 
-        val cw = cellWidth
-        val ch = cellHeight
+        val cw = cellWidth()
+        val ch = cellHeight()
 
         val halfCellWidth = cw * 0.5f
         val halfCellHeight = ch * 0.5f
@@ -942,7 +866,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
             width = cw
             height = ch
             radius = cellRoundRadius()
-            layoutOptions = decorLayoutOptionsArray[cell] ?: decorDefaultLayoutOptions
+            layoutOptions = decorLayoutOptionsArray[cell] ?: decorDefaultLayoutOptions()
 
             setTextBounds(
                 halfCellWidth - halfCellTextWidth,
@@ -971,9 +895,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     // Should be called on calendar's decors initialization
-    fun setDecorationDefaultLayoutOptions(options: DecorLayoutOptions?) {
-        decorDefaultLayoutOptions = options
-
+    fun onDecorationDefaultLayoutOptionsChanged() {
         decorVisualStates.forEachNotNull { cell, value ->
             val endState = createDecorVisualState(value.visual().stateHandler(), cell)
 
@@ -1025,14 +947,8 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         }
     }
 
-    // Common setDecorationLayoutOptions() updates visual states.
-    // Default layout options is set here to avoid double-update of the states.
-    fun onDecorInit(
-        newDecorRegion: PackedIntRange,
-        defaultLayoutOptions: DecorLayoutOptions?
-    ) {
+    fun onDecorInit(newDecorRegion: PackedIntRange) {
         decorRegion = newDecorRegion
-        decorDefaultLayoutOptions = defaultLayoutOptions
 
         val decors = decorations!!
 
@@ -1172,8 +1088,6 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
             animator.addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(a: Animator) {
-                    //Log.i(TAG, "onAnimationEnd()")
-
                     animType = NO_ANIMATION
                     onAnimationEnd?.invoke()
 
@@ -1185,11 +1099,11 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
         }
 
         if (type and ANIMATION_DATA_MASK == HOVER_ANIMATION) {
-            animator.duration = hoverAnimationDuration.toLong()
-            animator.interpolator = hoverAnimationInterpolator
+            animator.duration = hoverAnimationDuration().toLong()
+            animator.interpolator = hoverAnimationInterpolator()
         } else {
-            animator.duration = commonAnimationDuration.toLong()
-            animator.interpolator = commonAnimationInterpolator
+            animator.duration = commonAnimationDuration().toLong()
+            animator.interpolator = commonAnimationInterpolator()
         }
 
         if ((type and ANIMATION_REVERSE_BIT) != 0) {
@@ -1222,7 +1136,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
     private fun drawSelection(c: Canvas) {
         val renderer = selectionRenderer
-        val options = selectionRenderOptions
+        val options = selectionRenderOptions!!
 
         if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
             selectionTransitiveState?.let {
@@ -1248,9 +1162,9 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
             val isOnSelection = selectionManager.currentState.contains(cell)
 
             var color = if (isOnSelection) {
-                hoverOnSelectionBgColor
+                style.getInt { HOVER_ON_SELECTION_COLOR }
             } else {
-                hoverCellBgColor
+                style.getInt { HOVER_COLOR }
             }
 
             if (isHoverAnimation) {
@@ -1260,7 +1174,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
             cellHoverPaint.color = color
 
             c.drawRoundRectCompat(
-                left, top, left + cellWidth, top + cellHeight,
+                left, top, left + cellWidth(), top + cellHeight(),
                 cellRoundRadius(), cellHoverPaint
             )
         }
@@ -1269,23 +1183,21 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     private fun drawCells(c: Canvas) {
         measureDayNumberTextSizesIfNecessary()
 
-        val halfCellHeight = cellHeight * 0.5f
+        val halfCellHeight = cellHeight() * 0.5f
         val startIndex: Int
         val endIndex: Int
 
-        if (showAdjacentMonths) {
+        if (showAdjacentMonths()) {
             startIndex = 0
-            endIndex = 42
+            endIndex = 41
         } else {
             val (start, end) = inMonthRange
 
             startIndex = start.index
-
-            // endIndex is exclusive, inMonthRange.end is inclusive, that's why +1
-            endIndex = end.index + 1
+            endIndex = end.index
         }
 
-        for (i in startIndex until endIndex) {
+        for (i in startIndex .. endIndex) {
             val cell = Cell(i)
 
             val centerX = getCellCenterLeft(cell)
@@ -1329,18 +1241,18 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
     private fun drawCell(c: Canvas, centerX: Float, centerY: Float, day: Int, cellType: Int) {
         if (day > 0) {
-            val color = when (cellType and CELL_DATA_MASK) {
-                CELL_SELECTED, CELL_IN_MONTH -> inMonthTextColor
-                CELL_OUT_MONTH -> outMonthTextColor
-                CELL_DISABLED -> disabledCellTextColor
+            val propIndex = when(cellType and CELL_DATA_MASK) {
+                CELL_SELECTED, CELL_IN_MONTH -> RangeCalendarStyleData.IN_MONTH_TEXT_COLOR
+                CELL_OUT_MONTH -> RangeCalendarStyleData.OUT_MONTH_TEXT_COLOR
                 CELL_TODAY -> if ((cellType and CELL_HOVER_BIT) != 0) {
-                    inMonthTextColor
+                    RangeCalendarStyleData.IN_MONTH_TEXT_COLOR
                 } else {
-                    todayCellTextColor
+                    RangeCalendarStyleData.TODAY_TEXT_COLOR
                 }
-
                 else -> throw IllegalArgumentException("type")
             }
+
+            val color = style.getInt(propIndex)
 
             val textSize = getDayNumberSize(day)
 
@@ -1399,13 +1311,16 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     private fun onGridTopChanged() {
+        // Gradient bounds if gradient bounds type is GRID, depends on gridTop()
         updateGradientBoundsIfNeeded()
+
+        // Selection state's internal measurements depend on coordinates of cells that depend on gridTop()
         updateSelectionStateConfiguration()
 
         // Height of the view depends on gridTop()
         requestLayout()
 
-        // y-axis of entries depends on type of weekday, so we need to refresh accessibility info
+        // Y coordinates of cells depend on gridTop(), so we need to refresh accessibility info
         touchHelper.invalidateRoot()
     }
 
@@ -1415,7 +1330,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
     // It'd be better if cellRoundRadius() returns round radius that isn't greater than half of cell size.
     private fun cellRoundRadius(): Float {
-        return min(rrRadius, min(cellWidth, cellHeight) * 0.5f)
+        return min(rrRadius(), min(cellWidth(), cellHeight()) * 0.5f)
     }
 
     // Width of the view without horizontal paddings (left and right)
@@ -1428,7 +1343,7 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     private fun firstCellLeft(): Float {
-        return cr.hPadding + (columnWidth() - cellWidth) * 0.5f
+        return cr.hPadding + (columnWidth() - cellWidth()) * 0.5f
     }
 
     private fun getCellCenterLeft(cell: Cell): Float {
@@ -1436,15 +1351,15 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     private fun getCellLeft(cell: Cell): Float {
-        return getCellCenterLeft(cell) - cellWidth * 0.5f
+        return getCellCenterLeft(cell) - cellWidth() * 0.5f
     }
 
     private fun getCellRight(cell: Cell): Float {
-        return getCellCenterLeft(cell) + cellWidth * 0.5f
+        return getCellCenterLeft(cell) + cellWidth() * 0.5f
     }
 
     private fun getCellTopByGridY(gridY: Int): Float {
-        return gridTop() + gridY * cellHeight
+        return gridTop() + gridY * cellHeight()
     }
 
     private fun getCellTop(cell: Cell): Float {
@@ -1452,22 +1367,26 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
     }
 
     private fun fillCellBounds(cell: Cell, bounds: Rect) {
-        val left = getCellLeft(cell)
-        val top = getCellTop(cell)
+        val gridY = cell.gridY
+        val halfCw = cellWidth() * 0.5f
+        val ch = cellHeight()
 
-        bounds.set(
-            left.toInt(),
-            top.toInt(),
-            ceilToInt(left + cellWidth),
-            ceilToInt(top + cellHeight)
-        )
+        val centerX = getCellCenterLeft(cell)
+
+        val left = centerX - halfCw
+        val right = centerX + halfCw
+
+        val top = gridTop() + ch * gridY
+        val bottom = top + ch
+
+        bounds.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(bottom))
     }
 
     private fun getCellDistance(cell: Cell): Float {
         val rw = rowWidth()
 
         // First, find a x-axis of the cell but without horizontal padding
-        var distance = (rw / 7f) * (cell.gridX + 0.5f) - cellWidth * 0.5f
+        var distance = (rw / 7f) * (cell.gridX + 0.5f) - cellWidth() * 0.5f
 
         // Add widths of the rows on the way to the cell.
         distance += rw * cell.gridY
@@ -1495,13 +1414,13 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
     private fun getCellByPointOnScreen(x: Float, y: Float): Cell {
         val gridX = ((x - cr.hPadding) / columnWidth()).toInt()
-        val gridY = ((y - gridTop()) / cellHeight).toInt()
+        val gridY = ((y - gridTop()) / cellHeight()).toInt()
 
         return Cell(gridY * 7 + gridX)
     }
 
     private fun isSelectableCell(cell: Cell): Boolean {
-        return enabledCellRange.contains(cell) && (showAdjacentMonths || inMonthRange.contains(cell))
+        return enabledCellRange.contains(cell) && (showAdjacentMonths() || inMonthRange.contains(cell))
     }
 
     // Checks whether x in active (touchable) zone
@@ -1526,8 +1445,6 @@ internal class RangeCalendarGridView(context: Context, val cr: CalendarResources
 
         private val ALL_SELECTED = CellRange(0, 42)
 
-        const val DEFAULT_COMMON_ANIM_DURATION = 250
-        const val DEFAULT_HOVER_ANIM_DURATION = 100
         private val HOVER_DELAY = ViewConfiguration.getTapTimeout()
 
         private const val DOUBLE_TOUCH_MAX_MILLIS: Long = 500
