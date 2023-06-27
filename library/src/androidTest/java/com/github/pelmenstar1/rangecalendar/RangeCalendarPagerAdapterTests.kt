@@ -17,21 +17,66 @@ class RangeCalendarPagerAdapterTests {
         CHANGED
     }
 
-    data class TypedRange(val type: NotifyType, val position: Int, val itemCount: Int)
+    internal data class TypedRange(
+        val type: NotifyType,
+        val position: Int,
+        val itemCount: Int,
+        val payload: RangeCalendarPagerAdapter.Payload? = null
+    )
 
-    class RangeListBuilder {
+    internal class RangeListBuilder {
         private val list = ArrayList<TypedRange>()
 
         fun inserted(position: Int, itemCount: Int) =
-            list.add(TypedRange(NotifyType.INSERTED, position, itemCount))
+            add(NotifyType.INSERTED, position, itemCount)
 
         fun removed(position: Int, itemCount: Int) =
-            list.add(TypedRange(NotifyType.REMOVED, position, itemCount))
+            add(NotifyType.REMOVED, position, itemCount)
 
         fun changed(position: Int, itemCount: Int) =
-            list.add(TypedRange(NotifyType.CHANGED, position, itemCount))
+            add(NotifyType.CHANGED, position, itemCount)
+
+        fun changed(ym: YearMonth, payload: RangeCalendarPagerAdapter.Payload? = null) =
+            add(NotifyType.CHANGED, position = ym.totalMonths, itemCount = 1, payload)
+
+        private fun add(
+            type: NotifyType,
+            position: Int,
+            itemCount: Int,
+            payload: RangeCalendarPagerAdapter.Payload? = null
+        ) {
+            list.add(TypedRange(type, position, itemCount, payload))
+        }
 
         fun toArray() = list.toTypedArray()
+    }
+
+    private class CapturedAdapterNotifications(adapter: RangeCalendarPagerAdapter) {
+        private val ranges = ArrayList<TypedRange>()
+
+        init {
+            adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+                override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                    ranges.add(TypedRange(NotifyType.INSERTED, positionStart, itemCount))
+                }
+
+                override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) {
+                    ranges.add(TypedRange(NotifyType.REMOVED, positionStart, itemCount))
+                }
+
+                override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) {
+                    payload as RangeCalendarPagerAdapter.Payload?
+
+                    ranges.add(TypedRange(NotifyType.CHANGED, positionStart, itemCount, payload))
+                }
+
+                override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
+                    onItemRangeChanged(positionStart, itemCount, payload = null)
+                }
+            })
+        }
+
+        fun getRanges() = ranges.toTypedArray()
     }
 
     private val context = InstrumentationRegistry.getInstrumentation().context
@@ -49,33 +94,20 @@ class RangeCalendarPagerAdapterTests {
             expectedItemCount: Int,
             buildRanges: RangeListBuilder.() -> Unit,
         ) {
-            val actualRanges = ArrayList<TypedRange>()
             val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
 
             val adapter = RangeCalendarPagerAdapter(cr)
             adapter.setRange(oldMinDate, oldMaxDate)
 
-            adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
-                override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
-                    actualRanges.add(TypedRange(NotifyType.INSERTED, positionStart, itemCount))
-                }
-
-                override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) {
-                    actualRanges.add(TypedRange(NotifyType.REMOVED, positionStart, itemCount))
-                }
-
-                override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
-                    actualRanges.add(TypedRange(NotifyType.CHANGED, positionStart, itemCount))
-                }
-            })
+            val notifications = CapturedAdapterNotifications(adapter)
 
             adapter.setRange(newMinDate, newMaxDate)
 
             val actualItemCount = adapter.itemCount
             assertEquals(expectedItemCount, actualItemCount, "item count")
 
-            val actualRangesArray = actualRanges.toTypedArray()
-            assertContentEquals(expectedRanges, actualRangesArray)
+            val actualRanges = notifications.getRanges()
+            assertContentEquals(expectedRanges, actualRanges)
         }
 
         fun testCase(
@@ -211,5 +243,65 @@ class RangeCalendarPagerAdapterTests {
         val actualValue = RangeCalendarPagerAdapter.PAGES_BETWEEN_ABS_MIN_MAX
 
         assertEquals(expectedValue, actualValue)
+    }
+
+    @Test
+    fun setTodayTest() {
+        fun testCase(
+            oldToday: PackedDate,
+            newToday: PackedDate,
+            buildRanges: RangeListBuilder.() -> Unit
+        ) {
+            val adapter = RangeCalendarPagerAdapter(cr)
+
+            if (oldToday != PackedDate.INVALID) {
+                adapter.setToday(oldToday)
+            }
+
+            val notifications = CapturedAdapterNotifications(adapter)
+            adapter.setToday(newToday)
+
+            assertEquals(newToday, adapter.today)
+
+            val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
+            val actualRanges = notifications.getRanges()
+
+            assertContentEquals(expectedRanges, actualRanges)
+        }
+
+        testCase(
+            oldToday = PackedDate.INVALID,
+            newToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5)
+        ) {
+            changed(
+                YearMonth(year = 2023, month = 5),
+                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
+            )
+        }
+
+        testCase(
+            oldToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5),
+            newToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5)
+        ) {
+            changed(
+                YearMonth(year = 2023, month = 5),
+                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
+            )
+        }
+
+        testCase(
+            oldToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5),
+            newToday = PackedDate(year = 2023, month = 6, dayOfMonth = 5)
+        ) {
+            changed(
+                YearMonth(year = 2023, month = 6),
+                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
+            )
+
+            changed(
+                YearMonth(year = 2023, month = 5),
+                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
+            )
+        }
     }
 }

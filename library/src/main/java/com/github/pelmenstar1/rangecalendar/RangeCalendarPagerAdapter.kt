@@ -17,7 +17,7 @@ internal class RangeCalendarPagerAdapter(
 ) : RecyclerView.Adapter<RangeCalendarPagerAdapter.ViewHolder>() {
     class ViewHolder(val calendar: RangeCalendarGridView) : RecyclerView.ViewHolder(calendar)
 
-    private class Payload(
+    internal data class Payload(
         val type: Int,
         val arg1: Long = 0L,
         val arg2: Long = 0L,
