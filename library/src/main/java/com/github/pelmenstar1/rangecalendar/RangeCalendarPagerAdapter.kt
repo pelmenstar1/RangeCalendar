@@ -17,7 +17,7 @@ internal class RangeCalendarPagerAdapter(
 ) : RecyclerView.Adapter<RangeCalendarPagerAdapter.ViewHolder>() {
     class ViewHolder(val calendar: RangeCalendarGridView) : RecyclerView.ViewHolder(calendar)
 
-    private class Payload(
+    internal data class Payload(
         val type: Int,
         val arg1: Long = 0L,
         val arg2: Long = 0L,
@@ -40,7 +40,6 @@ internal class RangeCalendarPagerAdapter(
             private val CLEAR_HOVER_PAYLOAD = Payload(CLEAR_HOVER)
             private val UPDATE_ENABLED_RANGE_PAYLOAD = Payload(UPDATE_ENABLED_RANGE)
             private val UPDATE_TODAY_INDEX_PAYLOAD = Payload(UPDATE_TODAY_INDEX)
-            private val SELECT_PAYLOAD = Payload(SELECT)
 
             fun clearHover() = CLEAR_HOVER_PAYLOAD
 
@@ -131,7 +130,7 @@ internal class RangeCalendarPagerAdapter(
     private val gridInfo = YearMonthGridInfo()
     private val style = RangeCalendarStyleData.default(cr)
 
-    private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
+    var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
     var selectionGate: RangeCalendarView.SelectionGate? = null
 
     private val decorations = DecorGroupedList()
@@ -889,6 +888,6 @@ internal class RangeCalendarPagerAdapter(
 
     companion object {
         // Precomputed value
-        private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
+        internal const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
     }
 }

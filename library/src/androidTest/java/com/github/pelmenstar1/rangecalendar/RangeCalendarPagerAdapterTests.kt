@@ -4,10 +4,13 @@ import androidx.appcompat.view.ContextThemeWrapper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class RangeCalendarPagerAdapterTests {
@@ -17,21 +20,74 @@ class RangeCalendarPagerAdapterTests {
         CHANGED
     }
 
-    data class TypedRange(val type: NotifyType, val position: Int, val itemCount: Int)
+    internal data class TypedRange(
+        val type: NotifyType,
+        val position: Int,
+        val itemCount: Int,
+        val payload: RangeCalendarPagerAdapter.Payload? = null
+    )
 
-    class RangeListBuilder {
+    internal class RangeListBuilder {
         private val list = ArrayList<TypedRange>()
 
         fun inserted(position: Int, itemCount: Int) =
-            list.add(TypedRange(NotifyType.INSERTED, position, itemCount))
+            add(NotifyType.INSERTED, position, itemCount)
 
         fun removed(position: Int, itemCount: Int) =
-            list.add(TypedRange(NotifyType.REMOVED, position, itemCount))
+            add(NotifyType.REMOVED, position, itemCount)
 
         fun changed(position: Int, itemCount: Int) =
-            list.add(TypedRange(NotifyType.CHANGED, position, itemCount))
+            add(NotifyType.CHANGED, position, itemCount)
+
+        fun changed(ym: YearMonth, payload: RangeCalendarPagerAdapter.Payload? = null) =
+            add(NotifyType.CHANGED, position = ym.totalMonths, itemCount = 1, payload)
+
+        private fun add(
+            type: NotifyType,
+            position: Int,
+            itemCount: Int,
+            payload: RangeCalendarPagerAdapter.Payload? = null
+        ) {
+            list.add(TypedRange(type, position, itemCount, payload))
+        }
 
         fun toArray() = list.toTypedArray()
+    }
+
+    private class CapturedAdapterNotifications(
+        adapter: RangeCalendarPagerAdapter,
+        capturePayloads: Boolean
+    ) {
+        private val ranges = ArrayList<TypedRange>()
+
+        init {
+            adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+                override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                    ranges.add(TypedRange(NotifyType.INSERTED, positionStart, itemCount))
+                }
+
+                override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) {
+                    ranges.add(TypedRange(NotifyType.REMOVED, positionStart, itemCount))
+                }
+
+                override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) {
+                    ranges.add(
+                        TypedRange(
+                            NotifyType.CHANGED,
+                            positionStart,
+                            itemCount,
+                            (payload as RangeCalendarPagerAdapter.Payload?).takeIf { capturePayloads }
+                        )
+                    )
+                }
+
+                override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
+                    onItemRangeChanged(positionStart, itemCount, payload = null)
+                }
+            })
+        }
+
+        fun getRanges() = ranges.toTypedArray()
     }
 
     private val context = InstrumentationRegistry.getInstrumentation().context
@@ -49,33 +105,20 @@ class RangeCalendarPagerAdapterTests {
             expectedItemCount: Int,
             buildRanges: RangeListBuilder.() -> Unit,
         ) {
-            val actualRanges = ArrayList<TypedRange>()
             val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
 
             val adapter = RangeCalendarPagerAdapter(cr)
             adapter.setRange(oldMinDate, oldMaxDate)
 
-            adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
-                override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
-                    actualRanges.add(TypedRange(NotifyType.INSERTED, positionStart, itemCount))
-                }
-
-                override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) {
-                    actualRanges.add(TypedRange(NotifyType.REMOVED, positionStart, itemCount))
-                }
-
-                override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
-                    actualRanges.add(TypedRange(NotifyType.CHANGED, positionStart, itemCount))
-                }
-            })
+            val notifications = CapturedAdapterNotifications(adapter, capturePayloads = false)
 
             adapter.setRange(newMinDate, newMaxDate)
 
             val actualItemCount = adapter.itemCount
             assertEquals(expectedItemCount, actualItemCount, "item count")
 
-            val actualRangesArray = actualRanges.toTypedArray()
-            assertContentEquals(expectedRanges, actualRangesArray)
+            val actualRanges = notifications.getRanges()
+            assertContentEquals(expectedRanges, actualRanges)
         }
 
         fun testCase(
@@ -201,5 +244,267 @@ class RangeCalendarPagerAdapterTests {
         ) {
             changed(position = 0, itemCount = 2)
         }
+    }
+
+    @Test
+    fun pagesBetweenAbsMinMaxTest() {
+        val maxYm = YearMonth.forDate(PackedDate.MAX_DATE)
+        val minYm = YearMonth.forDate(PackedDate.MIN_DATE)
+        val expectedValue = (maxYm - minYm + 1).totalMonths
+        val actualValue = RangeCalendarPagerAdapter.PAGES_BETWEEN_ABS_MIN_MAX
+
+        assertEquals(expectedValue, actualValue)
+    }
+
+    @Test
+    fun setTodayTest() {
+        fun testCase(
+            oldToday: PackedDate,
+            newToday: PackedDate,
+            buildRanges: RangeListBuilder.() -> Unit
+        ) {
+            val adapter = RangeCalendarPagerAdapter(cr)
+
+            if (oldToday != PackedDate.INVALID) {
+                adapter.setToday(oldToday)
+            }
+
+            val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
+            adapter.setToday(newToday)
+
+            assertEquals(newToday, adapter.today)
+
+            val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
+            val actualRanges = notifications.getRanges()
+
+            assertContentEquals(expectedRanges, actualRanges)
+        }
+
+        testCase(
+            oldToday = PackedDate.INVALID,
+            newToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5)
+        ) {
+            changed(
+                YearMonth(year = 2023, month = 5),
+                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
+            )
+        }
+
+        testCase(
+            oldToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5),
+            newToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5)
+        ) {
+            changed(
+                YearMonth(year = 2023, month = 5),
+                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
+            )
+        }
+
+        testCase(
+            oldToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5),
+            newToday = PackedDate(year = 2023, month = 6, dayOfMonth = 5)
+        ) {
+            changed(
+                YearMonth(year = 2023, month = 6),
+                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
+            )
+
+            changed(
+                YearMonth(year = 2023, month = 5),
+                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
+            )
+        }
+    }
+
+    @Test
+    fun clearSelectionTest() {
+        fun testCase(
+            selectionYm: YearMonth,
+            selectionRange: CellRange,
+            withAnimation: Boolean,
+            expectedEventFired: Boolean,
+            buildRanges: RangeListBuilder.() -> Unit
+        ) {
+            val adapter = RangeCalendarPagerAdapter(cr)
+            adapter.selectionYm = selectionYm
+            adapter.selectionRange = selectionRange
+
+            var isEventFired = false
+
+            adapter.onSelectionListener = object : RangeCalendarView.OnSelectionListener {
+                override fun onSelectionCleared() {
+                    isEventFired = true
+                }
+
+                override fun onSelection(
+                    startYear: Int, startMonth: Int, startDay: Int,
+                    endYear: Int, endMonth: Int, endDay: Int
+                ) {
+                }
+            }
+
+            val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
+            adapter.clearSelection(withAnimation)
+
+            assertEquals(CellRange.Invalid, adapter.selectionRange)
+            assertEquals(isEventFired, expectedEventFired, "event")
+
+            val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
+            val actualRanges = notifications.getRanges()
+
+            assertContentEquals(expectedRanges, actualRanges)
+        }
+
+        testCase(
+            selectionYm = YearMonth(year = 2023, month = 6),
+            selectionRange = CellRange(0, 5),
+            withAnimation = true,
+            expectedEventFired = true
+        ) {
+            changed(
+                YearMonth(year = 2023, month = 6),
+                payload = RangeCalendarPagerAdapter.Payload.clearSelection(withAnimation = true)
+            )
+        }
+
+        testCase(
+            selectionYm = YearMonth(0),
+            selectionRange = CellRange.Invalid,
+            withAnimation = false,
+            expectedEventFired = false
+        ) {
+            // No notifications should be made
+        }
+    }
+
+    @Test
+    fun selectRangeTest() {
+        val ym = YearMonth(year = 2023, month = 6)
+        val dateRange = PackedDateRange(
+            start = PackedDate(year = 2023, month = 6, dayOfMonth = 2),
+            end = PackedDate(year = 2023, month = 6, dayOfMonth = 5)
+        )
+        val expectedCellRange = CellRange(4, 7)
+        val reqRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION
+        val expectedRanges = RangeListBuilder().apply {
+            val payload = RangeCalendarPagerAdapter.Payload.select(
+                expectedCellRange,
+                reqRejectedBehaviour,
+                withAnimation = true
+            )
+
+            changed(ym, payload)
+        }.toArray()
+
+        val adapter = RangeCalendarPagerAdapter(cr)
+        val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
+
+        val isSelected =
+            adapter.selectRange(ym, dateRange, reqRejectedBehaviour, withAnimation = true)
+
+        val actualRanges = notifications.getRanges()
+        assertContentEquals(expectedRanges, actualRanges)
+
+        assertEquals(adapter.selectionRange, expectedCellRange)
+        assertEquals(adapter.selectionYm, ym)
+        assertTrue(isSelected)
+    }
+
+    @Test
+    fun selectRangeShouldClearOtherSelectionTest() {
+        val adapter = RangeCalendarPagerAdapter(cr)
+        val oldYm = YearMonth(year = 2023, month = 5)
+        val newYm = YearMonth(year = 2023, month = 6)
+
+        val newRange = PackedDateRange(
+            PackedDate(newYm, dayOfMonth = 5),
+            PackedDate(newYm, dayOfMonth = 6)
+        )
+
+        val newCellRange = CellRange(7, 8)
+
+        val expectedRanges = RangeListBuilder().apply {
+            changed(
+                oldYm,
+                RangeCalendarPagerAdapter.Payload.clearSelection(withAnimation = false)
+            )
+            changed(
+                newYm,
+                RangeCalendarPagerAdapter.Payload.select(
+                    newCellRange,
+                    SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                    withAnimation = false
+                )
+            )
+        }.toArray()
+
+        adapter.selectRange(
+            oldYm,
+            PackedDateRange(
+                PackedDate(oldYm, dayOfMonth = 5),
+                PackedDate(oldYm, dayOfMonth = 6)
+            ),
+            SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+            withAnimation = false
+        )
+
+        val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
+
+        adapter.selectRange(
+            newYm,
+            newRange,
+            SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+            withAnimation = false
+        )
+
+        val actualRanges = notifications.getRanges()
+        assertContentEquals(expectedRanges, actualRanges)
+    }
+
+    @Test
+    fun selectRangeRespectsGateTest() {
+        fun assertDate(year: Int, month: Int, dayOfMonth: Int, expectedDate: PackedDate) {
+            assertEquals(year, expectedDate.year, "year")
+            assertEquals(month, expectedDate.month, "month")
+            assertEquals(dayOfMonth, expectedDate.dayOfMonth, "dayOfMonth")
+        }
+
+
+        val ym = YearMonth(year = 2023, month = 6)
+        val dateRange = PackedDateRange(
+            PackedDate(ym, dayOfMonth = 5),
+            PackedDate(ym, dayOfMonth = 6)
+        )
+
+        val gate = object : RangeCalendarView.SelectionGate {
+            override fun range(
+                startYear: Int,
+                startMonth: Int,
+                startDay: Int,
+                endYear: Int,
+                endMonth: Int,
+                endDay: Int
+            ): Boolean {
+                assertDate(startYear, startMonth, startDay, dateRange.start)
+                assertDate(endYear, endMonth, endDay, dateRange.end)
+
+                return false
+            }
+        }
+
+        val adapter = RangeCalendarPagerAdapter(cr)
+        adapter.selectionGate = gate
+
+        val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
+        val isSelected = adapter.selectRange(
+            ym,
+            dateRange,
+            SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+            withAnimation = false
+        )
+
+        val actualRanges = notifications.getRanges()
+        assertEquals(0, actualRanges.size)
+        assertFalse(isSelected)
     }
 }
