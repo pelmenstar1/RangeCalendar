@@ -40,7 +40,6 @@ internal class RangeCalendarPagerAdapter(
             private val CLEAR_HOVER_PAYLOAD = Payload(CLEAR_HOVER)
             private val UPDATE_ENABLED_RANGE_PAYLOAD = Payload(UPDATE_ENABLED_RANGE)
             private val UPDATE_TODAY_INDEX_PAYLOAD = Payload(UPDATE_TODAY_INDEX)
-            private val SELECT_PAYLOAD = Payload(SELECT)
 
             fun clearHover() = CLEAR_HOVER_PAYLOAD
 
