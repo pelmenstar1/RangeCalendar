@@ -529,7 +529,7 @@ internal class RangeCalendarGridView(
                         val eTime = e.eventTime
 
                         val longPressTime = eTime + ViewConfiguration.getLongPressTimeout()
-                        val hoverTime = eTime + HOVER_DELAY
+                        val hoverTime = eTime + ViewConfiguration.getTapTimeout()
 
                         val msg1 = Message.obtain().apply {
                             what = MSG_LONG_PRESS
@@ -552,23 +552,20 @@ internal class RangeCalendarGridView(
                         pressTimeoutHandler.sendMessageAtTime(msg1, longPressTime)
                         pressTimeoutHandler.sendMessageAtTime(msg2, hoverTime)
                     }
-
-                    invalidate()
                 }
 
                 MotionEvent.ACTION_UP -> {
                     performClick()
+
                     if (!isSelectingCustomRange && isXInActiveZone(x)) {
                         val cell = getCellByPointOnScreen(x, y)
                         val touchTime = e.downTime
 
                         if (isSelectableCell(cell)) {
                             val withAnimation = isSelectionAnimatedByDefault()
+                            val timeout = ViewConfiguration.getDoubleTapTimeout()
 
-                            if (lastTouchTime > 0 &&
-                                touchTime - lastTouchTime < DOUBLE_TOUCH_MAX_MILLIS &&
-                                lastTouchCell == cell
-                            ) {
+                            if (touchTime - lastTouchTime < timeout && lastTouchCell == cell) {
                                 selectRange(
                                     range = CellRange.week(cell.gridY),
                                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
@@ -614,8 +611,6 @@ internal class RangeCalendarGridView(
                     // If event is cancelled, then we don't select anything and animation is necessary.
                     clearHoverCell()
                     stopSelectingCustomRange()
-
-                    invalidate()
                 }
 
                 MotionEvent.ACTION_MOVE -> {
@@ -1496,9 +1491,6 @@ internal class RangeCalendarGridView(
 
         private val ALL_SELECTED = CellRange(0, 42)
 
-        private val HOVER_DELAY = ViewConfiguration.getTapTimeout()
-
-        private const val DOUBLE_TOUCH_MAX_MILLIS: Long = 500
         private const val TAG = "RangeCalendarGridView"
 
         private const val ANIMATION_REVERSE_BIT = 1 shl 31
