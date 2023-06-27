@@ -202,4 +202,14 @@ class RangeCalendarPagerAdapterTests {
             changed(position = 0, itemCount = 2)
         }
     }
+
+    @Test
+    fun pagesBetweenAbsMinMaxTest() {
+        val maxYm = YearMonth.forDate(PackedDate.MAX_DATE)
+        val minYm = YearMonth.forDate(PackedDate.MIN_DATE)
+        val expectedValue = (maxYm - minYm + 1).totalMonths
+        val actualValue = RangeCalendarPagerAdapter.PAGES_BETWEEN_ABS_MIN_MAX
+
+        assertEquals(expectedValue, actualValue)
+    }
 }

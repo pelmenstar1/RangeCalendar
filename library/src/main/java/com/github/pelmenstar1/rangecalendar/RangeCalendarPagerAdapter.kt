@@ -889,6 +889,6 @@ internal class RangeCalendarPagerAdapter(
 
     companion object {
         // Precomputed value
-        private const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
+        internal const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
     }
 }
