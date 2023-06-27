@@ -131,7 +131,7 @@ internal class RangeCalendarPagerAdapter(
     private val gridInfo = YearMonthGridInfo()
     private val style = RangeCalendarStyleData.default(cr)
 
-    private var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
+    var onSelectionListener: RangeCalendarView.OnSelectionListener? = null
     var selectionGate: RangeCalendarView.SelectionGate? = null
 
     private val decorations = DecorGroupedList()

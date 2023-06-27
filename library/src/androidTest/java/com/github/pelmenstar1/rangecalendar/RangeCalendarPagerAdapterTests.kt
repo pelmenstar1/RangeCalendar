@@ -4,10 +4,12 @@ import androidx.appcompat.view.ContextThemeWrapper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class RangeCalendarPagerAdapterTests {
@@ -302,6 +304,67 @@ class RangeCalendarPagerAdapterTests {
                 YearMonth(year = 2023, month = 5),
                 payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
             )
+        }
+    }
+
+    @Test
+    fun clearSelectionTest() {
+        fun testCase(
+            selectionYm: YearMonth,
+            selectionRange: CellRange,
+            withAnimation: Boolean,
+            expectedEventFired: Boolean,
+            buildRanges: RangeListBuilder.() -> Unit
+        ) {
+            val adapter = RangeCalendarPagerAdapter(cr)
+            adapter.selectionYm = selectionYm
+            adapter.selectionRange = selectionRange
+
+            var isEventFired = false
+
+            adapter.onSelectionListener = object: RangeCalendarView.OnSelectionListener {
+                override fun onSelectionCleared() {
+                    isEventFired = true
+                }
+
+                override fun onSelection(
+                    startYear: Int, startMonth: Int, startDay: Int,
+                    endYear: Int, endMonth: Int, endDay: Int
+                ) {
+                }
+            }
+
+            val notifications = CapturedAdapterNotifications(adapter)
+            adapter.clearSelection(withAnimation)
+
+            assertEquals(CellRange.Invalid, adapter.selectionRange)
+            assertEquals(isEventFired, expectedEventFired, "event")
+
+            val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
+            val actualRanges = notifications.getRanges()
+
+            assertContentEquals(expectedRanges, actualRanges)
+        }
+
+        testCase(
+            selectionYm = YearMonth(year = 2023, month = 6),
+            selectionRange = CellRange(0, 5),
+            withAnimation = true,
+            expectedEventFired = true
+        ) {
+            changed(
+                YearMonth(year = 2023, month = 6),
+                payload = RangeCalendarPagerAdapter.Payload.clearSelection(withAnimation = true)
+            )
+        }
+
+        testCase(
+            selectionYm = YearMonth(0),
+            selectionRange = CellRange.Invalid,
+            withAnimation = false,
+            expectedEventFired = false
+        ) {
+            // No notifications should be made
         }
     }
 }
