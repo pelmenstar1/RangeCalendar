@@ -661,11 +661,7 @@ internal class RangeCalendarGridView(
         val end = selState.endCell
 
         if (start.sameY(end)) {
-            val left = getCellLeft(start)
-            val top = getCellTop(start)
-            val right = getCellRight(end)
-
-            r.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(top + cellHeight()))
+            fillRangeOnRowBounds(start, end, r)
         } else {
             super.getFocusedRect(r)
         }
@@ -1175,8 +1171,6 @@ internal class RangeCalendarGridView(
         if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
             val cell = if (isHoverAnimation) animationHoverCell else hoverCell
 
-            val left = getCellLeft(cell)
-            val top = getCellTop(cell)
             val isOnSelection = selectionManager.currentState.contains(cell)
 
             var color = if (isOnSelection) {
@@ -1191,8 +1185,18 @@ internal class RangeCalendarGridView(
 
             cellHoverPaint.color = color
 
+            val halfCellWidth = cellWidth() * 0.5f
+            val cellHeight = cellHeight()
+
+            val centerX = getCellCenterX(cell)
+            val left = centerX - halfCellWidth
+            val right = centerX + halfCellWidth
+
+            val top = getCellTop(cell, cellHeight)
+            val bottom = top + cellHeight
+
             c.drawRoundRectCompat(
-                left, top, left + cellWidth(), top + cellHeight(),
+                left, top, right, bottom,
                 cellRoundRadius(), cellHoverPaint
             )
         }
@@ -1201,7 +1205,6 @@ internal class RangeCalendarGridView(
     private fun drawCells(c: Canvas) {
         measureDayNumberTextSizesIfNecessary()
 
-        val halfCellHeight = cellHeight() * 0.5f
         val startIndex: Int
         val endIndex: Int
 
@@ -1215,11 +1218,15 @@ internal class RangeCalendarGridView(
             endIndex = end.index
         }
 
+        val columnWidth = columnWidth()
+        val cellHeight = cellHeight()
+        val halfCellHeight = cellHeight * 0.5f
+
         for (i in startIndex..endIndex) {
             val cell = Cell(i)
 
-            val centerX = getCellCenterLeft(cell)
-            val centerY = getCellTop(cell) + halfCellHeight
+            val centerX = getCellCenterX(cell, columnWidth)
+            val centerY = getCellTop(cell, cellHeight) + halfCellHeight
 
             drawCell(c, centerX, centerY, cells[i].toInt(), resolveCellType(cell))
         }
@@ -1273,10 +1280,10 @@ internal class RangeCalendarGridView(
 
             val color = style.getInt(propIndex)
 
-            val textSize = getDayNumberSize(day)
+            val (textWidth, textHeight) = getDayNumberSize(day)
 
-            val textX = centerX - textSize.width * 0.5f
-            val textY = centerY + textSize.height * 0.5f
+            val textX = centerX - textWidth * 0.5f
+            val textY = centerY + textHeight * 0.5f
 
             dayNumberPaint.color = color
 
@@ -1319,9 +1326,13 @@ internal class RangeCalendarGridView(
     }
 
     private fun drawDecorations(c: Canvas) {
+        val columnWidth = columnWidth()
+        val cellWidth = cellWidth()
+        val cellHeight = cellHeight()
+
         decorVisualStates.forEachNotNull { cell, state ->
-            val dx = getCellLeft(cell)
-            val dy = getCellTop(cell)
+            val dx = getCellLeft(cell, columnWidth, cellWidth)
+            val dy = getCellTop(cell, cellHeight)
 
             c.translate(dx, dy)
             state.visual().renderer().renderState(c, state)
@@ -1365,38 +1376,58 @@ internal class RangeCalendarGridView(
         return cr.hPadding + (columnWidth() - cellWidth()) * 0.5f
     }
 
-    private fun getCellCenterLeft(cell: Cell): Float {
-        return cr.hPadding + columnWidth() * (cell.gridX + 0.5f)
+    private fun getCellCenterX(cell: Cell) = getCellCenterX(cell, columnWidth())
+
+    private fun getCellCenterX(cell: Cell, columnWidth: Float): Float {
+        return cr.hPadding + columnWidth * (cell.gridX + 0.5f)
     }
 
-    private fun getCellLeft(cell: Cell): Float {
-        return getCellCenterLeft(cell) - cellWidth() * 0.5f
+    private fun getCellLeft(cell: Cell) = getCellLeft(cell, columnWidth(), cellWidth())
+
+    private fun getCellLeft(cell: Cell, columnWidth: Float, cellWidth: Float): Float {
+        return getCellCenterX(cell, columnWidth) - cellWidth * 0.5f
     }
 
-    private fun getCellRight(cell: Cell): Float {
-        return getCellCenterLeft(cell) + cellWidth() * 0.5f
+    private fun getCellRight(cell: Cell, columnWidth: Float, cellWidth: Float): Float {
+        return getCellCenterX(cell, columnWidth) + cellWidth * 0.5f
     }
 
-    private fun getCellTopByGridY(gridY: Int): Float {
-        return gridTop() + gridY * cellHeight()
+    private fun getCellTopByGridY(gridY: Int) = getCellTopByGridY(gridY, cellHeight())
+
+    private fun getCellTopByGridY(gridY: Int, cellHeight: Float): Float {
+        return gridTop() + gridY * cellHeight
     }
 
-    private fun getCellTop(cell: Cell): Float {
-        return getCellTopByGridY(cell.gridY)
+    private fun getCellTop(cell: Cell) = getCellTop(cell, cellHeight())
+
+    private fun getCellTop(cell: Cell, cellHeight: Float): Float {
+        return getCellTopByGridY(cell.gridY, cellHeight)
     }
 
     private fun fillCellBounds(cell: Cell, bounds: Rect) {
-        val gridY = cell.gridY
         val halfCw = cellWidth() * 0.5f
         val ch = cellHeight()
 
-        val centerX = getCellCenterLeft(cell)
+        val centerX = getCellCenterX(cell)
 
         val left = centerX - halfCw
         val right = centerX + halfCw
 
-        val top = gridTop() + ch * gridY
+        val top = getCellTop(cell, ch)
         val bottom = top + ch
+
+        bounds.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(bottom))
+    }
+
+    private fun fillRangeOnRowBounds(start: Cell, end: Cell, bounds: Rect) {
+        val columnWidth = columnWidth()
+        val cellWidth = cellWidth()
+        val cellHeight = cellHeight()
+
+        val left = getCellLeft(start, columnWidth, cellWidth)
+        val top = getCellTop(start, cellHeight)
+        val right = getCellRight(end, columnWidth, cellWidth)
+        val bottom = top + cellHeight
 
         bounds.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(bottom))
     }
