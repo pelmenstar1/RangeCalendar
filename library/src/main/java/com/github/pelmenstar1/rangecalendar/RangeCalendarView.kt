@@ -259,11 +259,9 @@ class RangeCalendarView @JvmOverloads constructor(
         infoView = AppCompatTextView(context).apply {
             setTextColor(cr.textColor)
             setOnClickListener {
-                selectMonth(
-                    currentCalendarYm,
-                    SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                    true
-                )
+                val (year, month) = currentCalendarYm
+
+                selectMonth(year, month)
             }
         }
 
@@ -1257,11 +1255,12 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        val ym = YearMonth(year, month)
-
-        selectInternal(ym, withAnimation) {
-            selectWeek(ym, weekIndex, selectionRequestRejectedBehaviour, withAnimation)
-        }
+        selectRangeInternal(
+            ym = YearMonth(year, month),
+            range = PackedDateRange.week(year, month, weekIndex),
+            selectionRequestRejectedBehaviour,
+            withAnimation
+        )
     }
 
     /**
@@ -1278,17 +1277,12 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        selectMonth(YearMonth(year, month), selectionRequestRejectedBehaviour, withAnimation)
-    }
-
-    private fun selectMonth(
-        ym: YearMonth,
-        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        withAnimation: Boolean
-    ) {
-        selectInternal(ym, withAnimation) {
-            selectMonth(ym, selectionRequestRejectedBehaviour, withAnimation)
-        }
+        selectRangeInternal(
+            YearMonth(year, month),
+            range = PackedDateRange.month(year, month),
+            selectionRequestRejectedBehaviour,
+            withAnimation
+        )
     }
 
     /**
@@ -1309,23 +1303,11 @@ class RangeCalendarView @JvmOverloads constructor(
         requireDateRangeOnSameYearMonth(startDate, endDate)
 
         selectRangeInternal(
-            YearMonth(startDate.year, endDate.monthValue),
+            YearMonth(startDate.year, startDate.monthValue),
             PackedDateRange.fromLocalDates(startDate, endDate),
             selectionRequestRejectedBehaviour,
             withAnimation
         )
-    }
-
-    private inline fun selectInternal(
-        ym: YearMonth,
-        withAnimation: Boolean,
-        block: RangeCalendarPagerAdapter.() -> Boolean
-    ) {
-        val actuallySelected = adapter.block()
-
-        if (actuallySelected) {
-            afterSuccessSelection(ym, withAnimation)
-        }
     }
 
     private fun selectRangeInternal(
@@ -1334,15 +1316,13 @@ class RangeCalendarView @JvmOverloads constructor(
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ) {
-        selectInternal(ym, withAnimation) {
-            selectRange(ym, range, requestRejectedBehaviour, withAnimation)
+        val actuallySelected = adapter.selectRange(ym, range, requestRejectedBehaviour, withAnimation)
+
+        if (actuallySelected) {
+            val position = adapter.getItemPositionForYearMonth(ym)
+
+            pager.setCurrentItem(position, withAnimation)
         }
-    }
-
-    private fun afterSuccessSelection(ym: YearMonth, withAnimation: Boolean) {
-        val position = adapter.getItemPositionForYearMonth(ym)
-
-        pager.setCurrentItem(position, withAnimation)
     }
 
     /**

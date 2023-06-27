@@ -433,33 +433,6 @@ internal class RangeCalendarPagerAdapter(
         return false
     }
 
-    fun selectWeek(
-        ym: YearMonth,
-        weekIndex: Int,
-        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        withAnimation: Boolean
-    ): Boolean {
-        return selectRange(
-            ym,
-            dateRange = PackedDateRange.week(ym.year, ym.month, weekIndex),
-            requestRejectedBehaviour,
-            withAnimation
-        )
-    }
-
-    fun selectMonth(
-        ym: YearMonth,
-        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        withAnimation: Boolean
-    ): Boolean {
-        return selectRange(
-            ym,
-            dateRange = PackedDateRange.month(ym.year, ym.month),
-            requestRejectedBehaviour,
-            withAnimation
-        )
-    }
-
     // this is special case for RangeCalendarView.onRestoreInstanceState
     fun selectOnRestore(ym: YearMonth, cellRange: CellRange) {
         // Restore the selection of the page. Do it without animation because we're restoring things, not setting it.
