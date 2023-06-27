@@ -230,112 +230,29 @@ If you want back to using localized weekdays, pass null to `weekdays`.
 
 ## Style
 
-<table>
-    <tr>
-        <th>Attribute</th>
-        <th>Description</th>
-    </tr>
-    <tr>
-        <td>rangeCalendar_selectionColor</td>
-        <td>Color of background of selection shape</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_dayNumberTextSize</td>
-        <td>Text size of text in cells (day number)</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_inMonthDayNumberColor</td>
-        <td>Color of day number which is in selected month range</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_outMonthDayNumberColor</td>
-        <td>Color of day number which is out of selected month range</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_disabledMonthDayNumberColor</td>
-        <td>Color of day number which is out of enabled range</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_todayColor</td>
-        <td>Color of day number which represents today</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_weekdayColor</td>
-        <td>Color of weekday row (Mo, Tue, Wed...)</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_weekdayTextSize</td>
-        <td>Text size of weekday row (Mo, Tue, Wed...)</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_hoverColor</td>
-        <td>Color of background of hover shape</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_hoverOnSelectionColor</td>
-        <td>Color of background of hover shape that is in selection</td>
-    </tr>
-     <tr>
-        <td>rangeCalendar_cellSize</td>
-        <td>Size of cell</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_cellWidth</td>
-        <td>Width of cell. This value takes precedence over rangeCalendar_cellSize</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_cellHeight</td>
-        <td>Height of cell. This value takes precedence over rangeCalendar_cellSize</td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_weekdayType</td>
-        <td>
-            Type of weekday. <br/> 
-            Format of weekdays depends on locale. In example, English locale is used.
-            <ul>
-                <li>shortName (WeekdayType.SHORT) - weekdays will look like Mob, Tue, Wed. </li>
-                <li>narrowName (WeekdayType.NARROW) - weekdays will look like M, T, W,. </li>
-            </ul> 
-        </td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_weekdays</td>  
-        <td>
-            Custom weekdays. The value should be a string array, whose length is 7.
-        </td>
-    </tr>
-    <tr>
-        <td>rangeCalendar_cellRoundRadius</td>
-        <td>Round radius of the cell. By default it's positive infinity which means the shape is circle regardless the size of it.</td>
-    </tr>
-    <tr>
-      <td>rangeCalendar_selectionFillGradientBoundsType</td>
-      <td>
-        Specifies the way of determining bounds of selection. 
-        It only matters when selection fill is gradient-like.
-        It can be one of these values:
-        <ul>
-          <li>grid - gradient distribution is limited to grid of the calendar.</li>
-          <li>shape - gradient distribution is limited to selection shape.</li>
-        </ul>
-      </td>
-    </tr>
-    <tr>
-      <td>rangeCalendar_cellAnimationType</td>
-      <td>
-           Specifies type of animation for cell.
-           It can be one of these values:
-           <ul>
-               <li>alpha - the cell gradually appears using color alpha animation</li>
-               <li>bubble - the cell rises from the center as circle (or oval if width and height are different). Looks better when the cell is a circle. </li>
-           </ul>
-      </td>
-    </tr>
-    <tr>
-       <td>rangeCalendar_showAdjacentMonths</td>
-       <td>Specifies whether to show adjacent months on the calendar page. By default, it's true</td>
-    </tr>
-</table>
+| Attribute                                     | Description                                                                                                                                                                                                                                                                                          |
+|-----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| rangeCalendar_selectionColor                  | Color of background of selection shape                                                                                                                                                                                                                                                               |
+| rangeCalendar_dayNumberTextSize               | Text size of text in cells (day number)                                                                                                                                                                                                                                                              |
+| rangeCalendar_inMonthDayNumberColor           | Color of day number which is in selected month range                                                                                                                                                                                                                                                 |
+| rangeCalendar_outMonthDayNumberColor          | Color of day number which is out of selected month range                                                                                                                                                                                                                                             |
+| rangeCalendar_disabledMonthDayNumberColor     | Color of day number which is out of enabled range                                                                                                                                                                                                                                                    |
+| rangeCalendar_todayColor                      | Color of day number which represents today                                                                                                                                                                                                                                                           |
+| rangeCalendar_weekdayColor                    | Color of text in weekday row (Mon, Tue, Wed...)                                                                                                                                                                                                                                                      |
+| rangeCalendar_weekdayTextSize                 | Size of text in weekday row (Mon, Tue, Wed...)                                                                                                                                                                                                                                                       |
+| rangeCalendar_hoverColor                      | Color of background of hover shape                                                                                                                                                                                                                                                                   |
+| rangeCalendar_hoverOnSelectionColor           | Color of background of hover shape that is in selection                                                                                                                                                                                                                                              |
+| rangeCalendar_cellSize                        | Size of cell                                                                                                                                                                                                                                                                                         |
+| rangeCalendar_cellWidth                       | Width of cell. This value takes precedence over rangeCalendar_cellSize                                                                                                                                                                                                                               |
+| rangeCalendar_cellHeight                      | Height of cell. This value takes precedence over rangeCalendar_cellSize                                                                                                                                                                                                                              |
+| rangeCalendar_weekdayType                     | Type of weekday. Format of weekdays depends on locale. In examples, English locale is used. <ul><li>shortName - weekdays will look like Mon, Tue, Wed. </li><li>narrowName - weekdays will look like M, T, W,. </li></ul>                                                                            |
+| rangeCalendar_weekdays                        | Custom weekdays. The value should be a string array, whose length is 7.                                                                                                                                                                                                                              |
+| rangeCalendar_clickOnCellSelectionBehavior    | Specifies behaviour when **user** clicks on already selected cell. It can be one of these values: <ul><li>none - nothing happens</li><li>clear - selection is cleared</li></ul>                                                                                                                      |
+| rangeCalendar_cellRoundRadius                 | Round radius of the cell. By default it's positive infinity which means the shape is circle regardless the size of it.                                                                                                                                                                               |
+| rangeCalendar_selectionFillGradientBoundsType | Specifies the way of determining bounds of selection. It only matters when selection fill is gradient-like. It can be one of these values: <ul><li>grid - gradient distribution is limited to grid of the calendar.</li><li>shape - gradient distribution is limited to selection shape.</li></ul>   |
+| rangeCalendar_cellAnimationType               | Specifies type of animation for cell. It can be one of these values: <ul><li>alpha - the cell gradually appears using color alpha animation</li><li>bubble - the cell rises from the center as circle (or oval if width and height are different). Looks better when the cell is a circle.</li></ul> |
+| rangeCalendar_showAdjacentMonths              | Specifies whether to show adjacent months on the calendar page. By default, it's true                                                                                                                                                                                                                |
+| rangeCalendar_vibrateOnSelectingCustomRange   | Specifies  whether the device should vibrate on start of selecting custom range                                                                                                                                                                                                                      |
 
 ## Library status
 
