@@ -8,6 +8,7 @@ import com.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInt
 import com.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import com.github.pelmenstar1.rangecalendar.selection.*
+import kotlin.math.min
 
 // TODO: Audit isFirstDaySunday
 internal class RangeCalendarPagerAdapter(
@@ -196,17 +197,51 @@ internal class RangeCalendarPagerAdapter(
     }
 
     fun setRange(minDate: PackedDate, maxDate: PackedDate) {
+        val oldMinDate = this.minDate
+        val oldMaxDate = this.maxDate
+
+        if (oldMinDate == minDate && oldMaxDate == maxDate) {
+            return
+        }
+
         this.minDate = minDate
         this.maxDate = maxDate
 
         val oldCount = count
-        count = (YearMonth.forDate(maxDate) - YearMonth.forDate(minDate) + 1).totalMonths
+        val newMinYm = YearMonth.forDate(minDate)
+        val newMaxYm = YearMonth.forDate(maxDate)
 
-        if (oldCount == count) {
-            notifyAllPages(Payload.updateEnabledRange())
-        } else {
-            notifyDataSetChanged()
+        val newCount = (newMaxYm - newMinYm + 1).totalMonths
+        count = newCount
+
+        if (newCount != oldCount) {
+            val minDiff = (newMinYm - YearMonth.forDate(oldMinDate)).totalMonths
+            val maxDiff = (newMaxYm - YearMonth.forDate(oldMaxDate)).totalMonths
+
+            if (minDiff > 0) {
+                notifyItemRangeRemoved(0, minDiff)
+
+                when {
+                    maxDiff > 0 -> notifyItemRangeInserted(oldCount - minDiff, maxDiff)
+                    maxDiff < 0 -> notifyItemRangeRemoved(newCount, -maxDiff)
+                }
+            } else {
+                val insertedToFrontCount = -minDiff
+
+                if (minDiff != 0) {
+                    notifyItemRangeInserted(0, insertedToFrontCount)
+                }
+
+                when {
+                    maxDiff > 0 ->
+                        notifyItemRangeInserted(oldCount + insertedToFrontCount, maxDiff)
+
+                    maxDiff < 0 -> notifyItemRangeRemoved(newCount, -maxDiff)
+                }
+            }
         }
+
+        notifyAllPages(Payload.updateEnabledRange())
     }
 
     fun clearHoverAt(ym: YearMonth) {
