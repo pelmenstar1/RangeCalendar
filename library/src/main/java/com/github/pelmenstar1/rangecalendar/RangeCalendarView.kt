@@ -390,7 +390,8 @@ class RangeCalendarView @JvmOverloads constructor(
                 int(R.styleable.RangeCalendarView_rangeCalendar_selectionFillGradientBoundsType) { SELECTION_FILL_GRADIENT_BOUNDS_TYPE }
                 int(R.styleable.RangeCalendarView_rangeCalendar_cellAnimationType) { CELL_ANIMATION_TYPE }
                 boolean(R.styleable.RangeCalendarView_rangeCalendar_showAdjacentMonths) { SHOW_ADJACENT_MONTHS }
-
+                boolean(R.styleable.RangeCalendarView_rangeCalendar_isSelectionAnimatedByDefault) { IS_SELECTION_ANIMATED_BY_DEFAULT }
+                boolean(R.styleable.RangeCalendarView_rangeCalendar_isHoverAnimationEnabled) { IS_HOVER_ANIMATION_ENABLED }
 
                 // cellSize, cellWidth, cellHeight require special logic.
                 // If cellSize exists, it's written to both cellWidth and cellHeight, but
@@ -1142,6 +1143,28 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
+     * Gets or sets whether selection animations is enabled by default.
+     * There's some cases when it can't really be controlled to animate selection or not, for example, selection by user.
+     * This property specifies whether to animate selection in such situations.
+     *
+     * It is also a default value of `withAnimation` parameter of 'select' methods: [selectDay], [selectWeek], [selectMonth], [selectRange]
+     */
+    var isSelectionAnimatedByDefault: Boolean
+        get() = adapter.getStyleBool { IS_SELECTION_ANIMATED_BY_DEFAULT }
+        set(value) {
+            adapter.setStyleBool({ IS_SELECTION_ANIMATED_BY_DEFAULT }, value)
+        }
+
+    /**
+     * Gets or sets whether hover animations is enabled.
+     */
+    var isHoverAnimationEnabled: Boolean
+        get() = adapter.getStyleBool { IS_HOVER_ANIMATION_ENABLED }
+        set(value) {
+            adapter.setStyleBool({ IS_HOVER_ANIMATION_ENABLED }, value)
+        }
+
+    /**
      * Changes calendar page to the previous one. If it's not possible, nothing will happen.
      *
      * @param withAnimation whether to do it with slide animation or not
@@ -1175,7 +1198,7 @@ class RangeCalendarView @JvmOverloads constructor(
     /**
      * Selects page with specified year & month.
      *
-     * @param year  year, should be in range `[1970; 32767]`
+     * @param year  year, should be in range `[0; 65535]`
      * @param month month, 1-based
      * @param smoothScroll whether to do it with slide animation or not
      * @throws IllegalArgumentException if year and month are out of their valid ranges
@@ -1202,13 +1225,13 @@ class RangeCalendarView @JvmOverloads constructor(
      *
      * @param date a date to be selected
      * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
-     * @param withAnimation whether to do it with animation or not
+     * @param withAnimation whether to do it with animation or not. Default value is [isSelectionAnimatedByDefault]
      */
     @JvmOverloads
     fun selectDay(
         date: LocalDate,
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-        withAnimation: Boolean = true
+        withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
         selectRangeInternal(
             YearMonth(date.year, date.monthValue),
@@ -1221,18 +1244,18 @@ class RangeCalendarView @JvmOverloads constructor(
     /**
      * Selects a week.
      *
-     * @param year          year, should be in range `[1970; 32767]`
+     * @param year          year, should be in range `[0; 65535]`
      * @param month         month, 1-based
      * @param weekIndex     index of week, 0-based
      * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
-     * @param withAnimation whether to do it with animation or not
+     * @param withAnimation whether to do it with animation or not. Default value is [isSelectionAnimatedByDefault]
      */
     @JvmOverloads
     fun selectWeek(
         year: Int, month: Int,
         weekIndex: Int,
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-        withAnimation: Boolean = true
+        withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
         val ym = YearMonth(year, month)
 
@@ -1244,16 +1267,16 @@ class RangeCalendarView @JvmOverloads constructor(
     /**
      * Selects a month.
      *
-     * @param year          year, should be in range `[1970; 32767]`
+     * @param year          year, should be in range `[0; 65535]`
      * @param month         month, 1-based
      * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
-     * @param withAnimation whether to do it with animation or not
+     * @param withAnimation whether to do it with animation or not. Default value is [isSelectionAnimatedByDefault]
      */
     @JvmOverloads
     fun selectMonth(
         year: Int, month: Int,
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-        withAnimation: Boolean = true
+        withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
         selectMonth(YearMonth(year, month), selectionRequestRejectedBehaviour, withAnimation)
     }
@@ -1274,13 +1297,14 @@ class RangeCalendarView @JvmOverloads constructor(
      * @param startDate start of the range, inclusive
      * @param endDate end of the range, inclusive
      * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
-     * @param withAnimation whether to do it with animation of not
+     * @param withAnimation whether to do it with animation of not. Default value is [isSelectionAnimatedByDefault]
      */
+    @JvmOverloads
     fun selectRange(
         startDate: LocalDate,
         endDate: LocalDate,
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-        withAnimation: Boolean = true
+        withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
         requireDateRangeOnSameYearMonth(startDate, endDate)
 
@@ -1323,9 +1347,11 @@ class RangeCalendarView @JvmOverloads constructor(
 
     /**
      * Clears a selection.
+     *
+     * @param withAnimation whether to clear selection with animation of not. Default value is [isSelectionAnimatedByDefault]
      */
     @JvmOverloads
-    fun clearSelection(withAnimation: Boolean = true) {
+    fun clearSelection(withAnimation: Boolean = isSelectionAnimatedByDefault) {
         adapter.clearSelection(withAnimation)
     }
 

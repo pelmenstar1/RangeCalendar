@@ -34,6 +34,8 @@
             <enum name="bubble" value="1"/>
         </attr>
         <attr name="rangeCalendar_showAdjacentMonths" format="boolean"/>
+        <attr name="rangeCalendar_isSelectionAnimatedByDefault" format="boolean"/>
+        <attr name="rangeCalendar_isHoverAnimationEnabled" format="boolean"/>
     </declare-styleable>
 
 </resources>

@@ -59,7 +59,7 @@ internal class RangeCalendarStyleData {
     }
 
     companion object {
-        const val INT_PROPS_COUNT = 20
+        const val INT_PROPS_COUNT = 22
         const val OBJECT_PROPS_COUNT = 8
 
         const val OBJECT_PROP_START = 32
@@ -85,6 +85,8 @@ internal class RangeCalendarStyleData {
         const val HOVER_COLOR = 17
         const val HOVER_ON_SELECTION_COLOR = 18
         const val SHOW_ADJACENT_MONTHS = 19
+        const val IS_SELECTION_ANIMATED_BY_DEFAULT = 20
+        const val IS_HOVER_ANIMATION_ENABLED = 21
 
         // These are properties that can be stored as an object
         const val COMMON_ANIMATION_INTERPOLATOR = 32
@@ -145,6 +147,8 @@ internal class RangeCalendarStyleData {
                     CLICK_ON_CELL_SELECTION_BEHAVIOR,
                     ClickOnCellSelectionBehavior.NONE
                 )
+                set(IS_SELECTION_ANIMATED_BY_DEFAULT, true)
+                set(IS_HOVER_ANIMATION_ENABLED, true)
             }
         }
     }

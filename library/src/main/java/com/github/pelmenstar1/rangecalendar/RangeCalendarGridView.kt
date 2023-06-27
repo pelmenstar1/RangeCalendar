@@ -103,7 +103,7 @@ internal class RangeCalendarGridView(
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                     isCellSelectionByUser = true,
                     isUserStartSelection = false,
-                    doAnimation = false
+                    withAnimation = false
                 )
 
                 true
@@ -277,10 +277,19 @@ internal class RangeCalendarGridView(
     private fun commonAnimationDuration() = style.getInt { COMMON_ANIMATION_DURATION }
     private fun hoverAnimationDuration() = style.getInt { HOVER_ANIMATION_DURATION }
 
-    private fun commonAnimationInterpolator() = style.getObject<TimeInterpolator> { COMMON_ANIMATION_INTERPOLATOR }
-    private fun hoverAnimationInterpolator() = style.getObject<TimeInterpolator> { HOVER_ANIMATION_INTERPOLATOR }
+    private fun commonAnimationInterpolator() =
+        style.getObject<TimeInterpolator> { COMMON_ANIMATION_INTERPOLATOR }
 
-    private fun decorDefaultLayoutOptions() = style.getObject<DecorLayoutOptions> { DECOR_DEFAULT_LAYOUT_OPTIONS }
+    private fun hoverAnimationInterpolator() =
+        style.getObject<TimeInterpolator> { HOVER_ANIMATION_INTERPOLATOR }
+
+    private fun decorDefaultLayoutOptions() =
+        style.getObject<DecorLayoutOptions> { DECOR_DEFAULT_LAYOUT_OPTIONS }
+
+    private fun isSelectionAnimatedByDefault() =
+        style.getBoolean { IS_SELECTION_ANIMATED_BY_DEFAULT }
+
+    private fun isHoverAnimationEnabled() = style.getBoolean { IS_HOVER_ANIMATION_ENABLED }
 
     private fun updateSelectionRenderOptions() {
         selectionRenderOptions = SelectionRenderOptions(
@@ -426,7 +435,7 @@ internal class RangeCalendarGridView(
         requestLayout()
     }
 
-    fun onCellRoundRadiusChanged()  {
+    fun onCellRoundRadiusChanged() {
         refreshAllDecorVisualStates()
         updateSelectionRenderOptions()
 
@@ -554,6 +563,8 @@ internal class RangeCalendarGridView(
                         val touchTime = e.downTime
 
                         if (isSelectableCell(cell)) {
+                            val withAnimation = isSelectionAnimatedByDefault()
+
                             if (lastTouchTime > 0 &&
                                 touchTime - lastTouchTime < DOUBLE_TOUCH_MAX_MILLIS &&
                                 lastTouchCell == cell
@@ -563,15 +574,15 @@ internal class RangeCalendarGridView(
                                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                                     isCellSelectionByUser = false,
                                     isUserStartSelection = false,
-                                    doAnimation = true
+                                    withAnimation
                                 )
                             } else {
                                 selectRange(
-                                    CellRange.single(cell),
+                                    range = CellRange.single(cell),
                                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                                     isCellSelectionByUser = true,
                                     isUserStartSelection = false,
-                                    doAnimation = true
+                                    withAnimation
                                 )
 
                                 sendClickEventToAccessibility(cell)
@@ -585,7 +596,7 @@ internal class RangeCalendarGridView(
                     // Delete all messages from queue, long-press or hover may already happened or not.
                     pressTimeoutHandler.removeCallbacksAndMessages(null)
 
-                    // Don't call clearHoverIndex() because it will start animation,
+                    // Don't call clearHoverCell() because it will start animation,
                     // but we don't need it, because we selected something else.
                     // Or we selected nothing, but in that hover won't happen and we don't need animation too.
                     hoverCell = Cell.Undefined
@@ -601,7 +612,7 @@ internal class RangeCalendarGridView(
                     pressTimeoutHandler.removeCallbacksAndMessages(null)
 
                     // If event is cancelled, then we don't select anything and animation is necessary.
-                    clearHoverCellWithAnimation()
+                    clearHoverCell()
                     stopSelectingCustomRange()
 
                     invalidate()
@@ -619,7 +630,7 @@ internal class RangeCalendarGridView(
                             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                             isCellSelectionByUser = false,
                             isUserStartSelection = false,
-                            doAnimation = true
+                            withAnimation = isSelectionAnimatedByDefault()
                         )
                     }
                 }
@@ -640,7 +651,7 @@ internal class RangeCalendarGridView(
             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
             isCellSelectionByUser = false,
             isUserStartSelection = true,
-            doAnimation = true
+            withAnimation = isSelectionAnimatedByDefault()
         )
     }
 
@@ -672,7 +683,7 @@ internal class RangeCalendarGridView(
             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
             isCellSelectionByUser = false,
             isUserStartSelection = false,
-            doAnimation = true
+            withAnimation = isSelectionAnimatedByDefault()
         )
     }
 
@@ -686,7 +697,7 @@ internal class RangeCalendarGridView(
             requestRejectedBehaviour,
             isCellSelectionByUser = false,
             isUserStartSelection = false,
-            doAnimation = withAnimation
+            withAnimation
         )
     }
 
@@ -695,7 +706,7 @@ internal class RangeCalendarGridView(
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         isCellSelectionByUser: Boolean,
         isUserStartSelection: Boolean,
-        doAnimation: Boolean
+        withAnimation: Boolean
     ) {
         val selState = selectionManager.currentState
         val rangeStart = range.start
@@ -705,14 +716,14 @@ internal class RangeCalendarGridView(
         // That's done because if the gate rejects the request and behaviour is PRESERVE, the cell won't be cleared but
         // it should be.
         if (isCellSelectionByUser && isSameCellSelection && clickOnCellSelectionBehavior() == ClickOnCellSelectionBehavior.CLEAR) {
-            clearSelection(fireEvent = true, doAnimation = true)
+            clearSelection(fireEvent = true, withAnimation)
             return
         }
 
         val gate = selectionGate
         if (gate != null) {
             if (!gate.range(range)) {
-                clearSelectionToMatchBehaviour(requestRejectedBehaviour)
+                clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
                 return
             }
@@ -720,7 +731,7 @@ internal class RangeCalendarGridView(
 
         // Clear hover here and not in onCellLongPress() because custom range might be disallowed and
         // hover will be cleared but it shouldn't.
-        clearHoverCellWithAnimation()
+        clearHoverCell()
 
         var intersection = range.intersectionWith(enabledCellRange)
         if (!showAdjacentMonths()) {
@@ -728,7 +739,7 @@ internal class RangeCalendarGridView(
         }
 
         if (intersection == CellRange.Invalid) {
-            clearSelectionToMatchBehaviour(requestRejectedBehaviour)
+            clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
             return
         } else if (!isUserStartSelection && selState.range == intersection) {
@@ -744,15 +755,11 @@ internal class RangeCalendarGridView(
 
         onSelectionListener?.onSelection(intersection)
 
-        if (hoverCell.isDefined) {
-            clearHoverCellWithAnimation()
-        }
-
         if (vibrateOnSelectingRange() && isUserStartSelection) {
             vibrateOnUserSelection()
         }
 
-        if (doAnimation && selectionManager.hasTransition()) {
+        if (withAnimation && selectionManager.hasTransition()) {
             startSelectionTransition()
         } else {
             invalidate()
@@ -763,9 +770,12 @@ internal class RangeCalendarGridView(
         vibrator.vibrateTick()
     }
 
-    private fun clearSelectionToMatchBehaviour(value: SelectionRequestRejectedBehaviour) {
+    private fun clearSelectionToMatchBehaviour(
+        value: SelectionRequestRejectedBehaviour,
+        withAnimation: Boolean
+    ) {
         if (value == SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION) {
-            clearSelection(fireEvent = true, doAnimation = true)
+            clearSelection(fireEvent = true, withAnimation)
         }
     }
 
@@ -808,18 +818,26 @@ internal class RangeCalendarGridView(
         animationHoverCell = cell
         hoverCell = cell
 
-        startCalendarAnimation(HOVER_ANIMATION)
-    }
-
-    fun clearHoverCellWithAnimation() {
-        if (hoverCell.isDefined) {
-            hoverCell = Cell.Undefined
-
-            startCalendarAnimation(HOVER_ANIMATION or ANIMATION_REVERSE_BIT)
+        if (isHoverAnimationEnabled()) {
+            startCalendarAnimation(HOVER_ANIMATION)
+        } else {
+            invalidate()
         }
     }
 
-    fun clearSelection(fireEvent: Boolean, doAnimation: Boolean) {
+    fun clearHoverCell() {
+        if (hoverCell.isDefined) {
+            hoverCell = Cell.Undefined
+
+            if (isHoverAnimationEnabled()) {
+                startCalendarAnimation(HOVER_ANIMATION or ANIMATION_REVERSE_BIT)
+            } else {
+                invalidate()
+            }
+        }
+    }
+
+    fun clearSelection(fireEvent: Boolean, withAnimation: Boolean) {
         // No sense to clear selection if there's none.
         if (selectionManager.currentState.isNone) {
             return
@@ -833,7 +851,7 @@ internal class RangeCalendarGridView(
             listener.onSelectionCleared()
         }
 
-        if (doAnimation) {
+        if (withAnimation) {
             startSelectionTransition()
         } else {
             invalidate()
@@ -1197,7 +1215,7 @@ internal class RangeCalendarGridView(
             endIndex = end.index
         }
 
-        for (i in startIndex .. endIndex) {
+        for (i in startIndex..endIndex) {
             val cell = Cell(i)
 
             val centerX = getCellCenterLeft(cell)
@@ -1241,7 +1259,7 @@ internal class RangeCalendarGridView(
 
     private fun drawCell(c: Canvas, centerX: Float, centerY: Float, day: Int, cellType: Int) {
         if (day > 0) {
-            val propIndex = when(cellType and CELL_DATA_MASK) {
+            val propIndex = when (cellType and CELL_DATA_MASK) {
                 CELL_SELECTED, CELL_IN_MONTH -> RangeCalendarStyleData.IN_MONTH_TEXT_COLOR
                 CELL_OUT_MONTH -> RangeCalendarStyleData.OUT_MONTH_TEXT_COLOR
                 CELL_TODAY -> if ((cellType and CELL_HOVER_BIT) != 0) {
@@ -1249,6 +1267,7 @@ internal class RangeCalendarGridView(
                 } else {
                     RangeCalendarStyleData.TODAY_TEXT_COLOR
                 }
+
                 else -> throw IllegalArgumentException("type")
             }
 
@@ -1420,7 +1439,8 @@ internal class RangeCalendarGridView(
     }
 
     private fun isSelectableCell(cell: Cell): Boolean {
-        return enabledCellRange.contains(cell) && (showAdjacentMonths() || inMonthRange.contains(cell))
+        return enabledCellRange.contains(cell) &&
+                (showAdjacentMonths() || inMonthRange.contains(cell))
     }
 
     // Checks whether x in active (touchable) zone

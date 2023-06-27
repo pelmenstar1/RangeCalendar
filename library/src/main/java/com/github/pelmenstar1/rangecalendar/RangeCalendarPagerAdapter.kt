@@ -8,7 +8,6 @@ import com.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInt
 import com.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import com.github.pelmenstar1.rangecalendar.selection.*
-import kotlin.math.min
 
 // TODO: Audit isFirstDaySunday
 internal class RangeCalendarPagerAdapter(
@@ -794,7 +793,7 @@ internal class RangeCalendarPagerAdapter(
                 withAnimation = false
             )
         } else {
-            gridView.clearSelection(fireEvent = false, doAnimation = false)
+            gridView.clearSelection(fireEvent = false, withAnimation = false)
         }
 
         initDecorations(gridView, ym)
@@ -840,7 +839,7 @@ internal class RangeCalendarPagerAdapter(
                 }
 
                 Payload.CLEAR_HOVER -> {
-                    gridView.clearHoverCellWithAnimation()
+                    gridView.clearHoverCell()
                 }
 
                 Payload.CLEAR_SELECTION -> {
