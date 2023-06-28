@@ -511,10 +511,11 @@ class RangeCalendarView @JvmOverloads constructor(
             _infoFormatter.let {
                 if (it is LocalizedInfoFormatter) {
                     it.onLocaleChanged(newLocale)
-
-                    onInfoFormatterOptionsChanged()
                 }
             }
+
+            // updateInfoPattern() will invalidate info text and also updates _infoPattern in case best-format is used.
+            updateInfoPattern()
         }
 
         toolbarManager.onLocaleChanged()
@@ -806,7 +807,7 @@ class RangeCalendarView @JvmOverloads constructor(
         set(value) {
             field = value
 
-            setInfoPatternInternal(originInfoFormat)
+            updateInfoPattern()
         }
 
     /**
@@ -814,6 +815,10 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     fun setDefaultInfoFormatter() {
         infoFormatter = DefaultLocalizedInfoFormatter(context, _infoPattern)
+    }
+
+    private fun updateInfoPattern() {
+        setInfoPatternInternal(originInfoFormat)
     }
 
     private fun setInfoPatternInternal(pattern: String) {
