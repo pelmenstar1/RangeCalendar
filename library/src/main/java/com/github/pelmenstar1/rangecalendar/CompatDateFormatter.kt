@@ -8,11 +8,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-internal class CompatDateFormatter(context: Context, private val pattern: String) {
-    // If API >= 24, the type should be android.icu.text.SimpleDateFormat,
+internal class CompatDateFormatter(context: Context, initialPattern: String) {
+    // If API level >= 24, the type is android.icu.text.SimpleDateFormat,
     // otherwise java.text.SimpleDateFormat.
     private var dateFormatter: Any? = null
 
+    // On API levels >= 24, android.icu.text.SimpleDateFormat is used whose format method accepts android.icu.util.Calendar
+    // and uses it without any transformations. Meanwhile, on older API levels, java.text.SimpleDateFormat is used whose
+    // format method accepts java.util.Date and uses it without any transformations.
     private val calendarOrDate: Any = if (Build.VERSION.SDK_INT >= 24) {
         android.icu.util.Calendar.getInstance()
     } else {
@@ -21,33 +24,38 @@ internal class CompatDateFormatter(context: Context, private val pattern: String
 
     private val stringBuffer = StringBuffer(32)
 
+    var locale: Locale = context.getLocaleCompat()
+        set(value) {
+            field = value
+
+            refreshFormatter()
+        }
+
+    var pattern = initialPattern
+        set(value) {
+            field = value
+
+            refreshFormatter()
+        }
+
     init {
-        refreshFormatter(context.getLocaleCompat())
+        refreshFormatter()
     }
 
-    private fun refreshFormatter(currentLocale: Locale) {
-        // Find the best format if we can
-        val bestFormat = if (Build.VERSION.SDK_INT >= 18) {
-            android.text.format.DateFormat.getBestDateTimePattern(currentLocale, pattern)
-        } else {
-            pattern
-        }
-
+    private fun refreshFormatter() {
         dateFormatter = if (Build.VERSION.SDK_INT >= 24) {
-            android.icu.text.SimpleDateFormat(bestFormat, currentLocale)
+            android.icu.text.SimpleDateFormat(pattern, locale)
         } else {
-            SimpleDateFormat(bestFormat, currentLocale)
+            SimpleDateFormat(pattern, locale)
         }
-    }
-
-    fun onLocaleChanged(newLocale: Locale) {
-        refreshFormatter(newLocale)
     }
 
     fun format(date: PackedDate): String {
         val millis = date.toEpochDay() * PackedDate.MILLIS_IN_DAY
 
         val buffer = stringBuffer
+
+        // Setting length to 0, moves cursor to the beginning but doesn't invalidate internal char array.
         buffer.setLength(0)
 
         // Use the appropriate formatter

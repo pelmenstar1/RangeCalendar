@@ -29,12 +29,14 @@ import com.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInt
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import com.github.pelmenstar1.rangecalendar.selection.CellAnimationType
 import com.github.pelmenstar1.rangecalendar.selection.SelectionManager
+import com.github.pelmenstar1.rangecalendar.utils.getBestDatePatternCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import com.github.pelmenstar1.rangecalendar.utils.getSelectableItemBackground
 import java.time.LocalDate
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
+import android.text.format.DateFormat
 import kotlin.math.max
 
 /**
@@ -115,6 +117,44 @@ class RangeCalendarView @JvmOverloads constructor(
         fun onPageChanged(year: Int, month: Int)
     }
 
+    /**
+     * The interface is responsible for formatting year and month to user-friendly string.
+     */
+    interface InfoFormatter {
+        /**
+         * Returns user-friendly representation of [year] and [month] values.
+         *
+         * @param year year, in range `[0; 65535]`
+         * @param month month, 1-based.
+         */
+        fun format(year: Int, month: Int): CharSequence
+    }
+
+    /**
+     * The interface has same purpose as [InfoFormatter] but also depends on current configuration's locale.
+     */
+    interface LocalizedInfoFormatter : InfoFormatter {
+        /**
+         * It's called when current configuration's locale is changed.
+         */
+        fun onLocaleChanged(newLocale: Locale)
+    }
+
+    internal class DefaultLocalizedInfoFormatter(
+        context: Context,
+        pattern: String
+    ) : LocalizedInfoFormatter {
+        val dateFormatter = CompatDateFormatter(context, pattern)
+
+        override fun format(year: Int, month: Int): CharSequence {
+            return dateFormatter.format(PackedDate(year, month, 1))
+        }
+
+        override fun onLocaleChanged(newLocale: Locale) {
+            dateFormatter.locale = newLocale
+        }
+    }
+
     private class ExtractAttributesScope(
         private val calendarView: RangeCalendarView,
         private val attrs: TypedArray
@@ -188,14 +228,30 @@ class RangeCalendarView @JvmOverloads constructor(
     private val pager: ViewPager2
     private val prevButton: ImageButton
     private val nextOrClearButton: ImageButton
-    private val infoView: TextView
+
+    /**
+     * Gets the [TextView] instance on which information about year and month of selected page is shown.
+     *
+     * In general, you can change any of its properties except the text. It will be overwritten any time it's necessary, for example, when the page is changed.
+     * If you want to customize the text, use [infoFormatter].
+     *
+     * There are some properties that you may change but it's undesirable:
+     * - On-click-listener. If you change it, clicks on the view won't select current month.
+     * Though, it can be implemented even without the library support by using [selectMonth] and [selectedCalendarYear], [selectedCalendarMonth].
+     * - Translation Y. It's used for 'selection view' transitions. Changing it to a custom value may lead to unexpected results if [selectionView] is used.
+     *
+     * The [RangeCalendarView] uses a custom layout to reduce usage of additional containers. Layout params of the [infoTextView] doesn't affect the layout.
+     */
+    val infoTextView: TextView
 
     private var _timeZone: TimeZone
 
     private var _minDate = PackedDate.MIN_DATE
     private var _maxDate = PackedDate.MAX_DATE
+    private var _infoPattern: String
+    private var originInfoFormat: String = DEFAULT_INFO_FORMAT
+    private var _infoFormatter: InfoFormatter
 
-    private var infoViewYm = YearMonth(0)
     private var currentCalendarYm = YearMonth(0)
 
     @JvmField // used in tests
@@ -207,7 +263,6 @@ class RangeCalendarView @JvmOverloads constructor(
 
     private val toolbarManager: CalendarToolbarManager
 
-    private val dateFormatter: CompatDateFormatter
     private var isFirstDaySunday = false
     private var currentLocale: Locale? = null
 
@@ -220,7 +275,6 @@ class RangeCalendarView @JvmOverloads constructor(
         buttonSize = res.getDimensionPixelSize(R.dimen.rangeCalendar_actionButtonSize)
         topContainerMarginBottom =
             res.getDimensionPixelOffset(R.dimen.rangeCalendar_topContainerMarginBottom)
-        dateFormatter = CompatDateFormatter(context, DATE_FORMAT)
 
         val selectableBg = context.getSelectableItemBackground()
         val cr = CalendarResources(context)
@@ -256,7 +310,7 @@ class RangeCalendarView @JvmOverloads constructor(
             nextOrClearButton.setBackground(selectableBg.constantState!!.newDrawable(res))
         }
 
-        infoView = AppCompatTextView(context).apply {
+        infoTextView = AppCompatTextView(context).apply {
             setTextColor(cr.textColor)
             setOnClickListener {
                 val (year, month) = currentCalendarYm
@@ -268,7 +322,7 @@ class RangeCalendarView @JvmOverloads constructor(
         toolbarManager = CalendarToolbarManager(
             context,
             cr.colorControlNormal,
-            prevButton, nextOrClearButton, infoView
+            prevButton, nextOrClearButton, infoTextView
         )
 
         pager = ViewPager2(context).apply {
@@ -314,12 +368,16 @@ class RangeCalendarView @JvmOverloads constructor(
         addView(pager)
         addView(prevButton)
         addView(nextOrClearButton)
-        addView(infoView)
-
-        setYearAndMonthInternal(YearMonth.forDate(today), false)
+        addView(infoTextView)
 
         // It should be called after the toolbarManager is initialized.
         initLocaleDependentValues()
+
+        _infoPattern = getBestDatePatternCompat(currentLocale!!, DEFAULT_INFO_FORMAT)
+        _infoFormatter = DefaultLocalizedInfoFormatter(context, _infoPattern)
+
+        // It should be called after _infoFormatter is initialized
+        setYearAndMonthInternal(YearMonth.forDate(today), false)
 
         attrs?.let { initFromAttributes(context, it, defStyleAttr) }
     }
@@ -394,8 +452,10 @@ class RangeCalendarView @JvmOverloads constructor(
                 // cellSize, cellWidth, cellHeight require special logic.
                 // If cellSize exists, it's written to both cellWidth and cellHeight, but
                 // if either of cellWidth or cellHeight exist, they take precedence over cellSize.
-                var cellWidth =
-                    a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_cellWidth, Float.NaN)
+                var cellWidth = a.getDimension(
+                    R.styleable.RangeCalendarView_rangeCalendar_cellWidth,
+                    Float.NaN
+                )
                 var cellHeight = a.getDimension(
                     R.styleable.RangeCalendarView_rangeCalendar_cellHeight,
                     Float.NaN
@@ -424,9 +484,23 @@ class RangeCalendarView @JvmOverloads constructor(
 
                 // weekdays should be set via setter because additional checks should be made.
                 if (a.hasValue(R.styleable.RangeCalendarView_rangeCalendar_weekdays)) {
-                    val resId = a.getResourceId(R.styleable.RangeCalendarView_rangeCalendar_weekdays, 0)
+                    val resId =
+                        a.getResourceId(R.styleable.RangeCalendarView_rangeCalendar_weekdays, 0)
 
                     weekdays = resources.getStringArray(resId)
+                }
+
+                useBestPatternForInfoPattern = a.getBoolean(
+                    R.styleable.RangeCalendarView_rangeCalendar_useBestPatternForInfoPattern,
+                    true
+                )
+
+                a.getString(R.styleable.RangeCalendarView_rangeCalendar_infoPattern)?.also { infoPattern = it }
+
+                a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_infoTextSize, Float.NaN).also {
+                    if (!it.isNaN()) {
+                        infoTextSize = it
+                    }
                 }
             }
         } finally {
@@ -442,19 +516,26 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun initLocaleDependentValues() {
-        // dateFormatter is initialized on creation. No need in double creating the underlying models.
+        // infoFormatter is initialized on creation. No need in double creating the underlying models.
         refreshLocaleDependentValues(
             newLocale = context.getLocaleCompat(),
-            updateDateFormatter = false
+            updateInfoFormatter = false
         )
     }
 
-    private fun refreshLocaleDependentValues(newLocale: Locale, updateDateFormatter: Boolean) {
+    private fun refreshLocaleDependentValues(newLocale: Locale, updateInfoFormatter: Boolean) {
         currentLocale = newLocale
 
         refreshIsFirstDaySunday(newLocale)
-        if (updateDateFormatter) {
-            dateFormatter.onLocaleChanged(newLocale)
+        if (updateInfoFormatter) {
+            _infoFormatter.let {
+                if (it is LocalizedInfoFormatter) {
+                    it.onLocaleChanged(newLocale)
+                }
+            }
+
+            // updateInfoPattern() will invalidate info text and also updates _infoPattern in case best-format is used.
+            updateInfoPattern()
         }
 
         toolbarManager.onLocaleChanged()
@@ -479,7 +560,7 @@ class RangeCalendarView @JvmOverloads constructor(
         val newLocale = newConfig.getLocaleCompat()
         if (currentLocale != newLocale) {
             // Do a full update.
-            refreshLocaleDependentValues(newLocale, updateDateFormatter = true)
+            refreshLocaleDependentValues(newLocale, updateInfoFormatter = true)
         }
     }
 
@@ -524,11 +605,11 @@ class RangeCalendarView @JvmOverloads constructor(
         val infoWidthSpec = MeasureSpec.makeMeasureSpec(maxInfoWidth, MeasureSpec.AT_MOST)
         val infoHeightSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
 
-        infoView.measure(infoWidthSpec, infoHeightSpec)
+        infoTextView.measure(infoWidthSpec, infoHeightSpec)
         prevButton.measure(buttonSpec, buttonSpec)
         nextOrClearButton.measure(buttonSpec, buttonSpec)
 
-        val toolbarHeight = max(infoView.measuredHeight, buttonSize)
+        val toolbarHeight = max(infoTextView.measuredHeight, buttonSize)
 
         toolbarManager.selectionView?.also { sv ->
             var maxWidth = pagerWidth - 2 * hPadding - buttonSize
@@ -562,8 +643,8 @@ class RangeCalendarView @JvmOverloads constructor(
         val prevRight = hPadding + buttonSize
         val nextLeft = width - prevRight
 
-        val infoWidth = infoView.measuredWidth
-        val infoHeight = infoView.measuredHeight
+        val infoWidth = infoTextView.measuredWidth
+        val infoHeight = infoTextView.measuredHeight
 
         val toolbarHeight = max(buttonSize, infoHeight)
 
@@ -575,7 +656,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
         prevButton.layout(hPadding, buttonTop, prevRight, buttonBottom)
         nextOrClearButton.layout(nextLeft, buttonTop, nextLeft + buttonSize, buttonBottom)
-        infoView.layout(infoLeft, infoTop, infoLeft + infoWidth, infoTop + infoHeight)
+        infoTextView.layout(infoLeft, infoTop, infoLeft + infoWidth, infoTop + infoHeight)
 
         pager.layout(0, pagerTop, pager.measuredWidth, pagerTop + pager.measuredHeight)
 
@@ -701,6 +782,107 @@ class RangeCalendarView @JvmOverloads constructor(
 
             toolbarManager.hasSelectionViewClearButton = value
             requestLayout()
+        }
+
+    /**
+     * Gets or sets formatter used for creating a text for info text view (where current year and month is shown).
+     * If you changed it to another formatter and want to use default one, call [setDefaultInfoFormatter].
+     */
+    var infoFormatter: InfoFormatter
+        get() = _infoFormatter
+        set(value) {
+            _infoFormatter = value
+
+            onInfoFormatterOptionsChanged()
+        }
+
+    /**
+     * Gets or sets date-time pattern for [infoFormatter]. The pattern should be suitable with [java.text.SimpleDateFormat].
+     * It actually changes the format only if [infoFormatter] is a default one.
+     * Although, if it's not, it won't throw an exception and will save the value in case [setDefaultInfoFormatter] is called.
+     *
+     * The pattern is affected by [useBestPatternForInfoPattern] that specifies whether [DateFormat.getBestDateTimePattern] should be called on given pattern.
+     * By default, [useBestPatternForInfoPattern] is true. The motivation for that is described in [useBestPatternForInfoPattern] documentation.
+     *
+     * The only important components of the pattern are year and month ones.
+     * Anyway, the datetime passed to the formatter is `01.mm.yyyy 00:00:00.000` where `mm` is month value and `yyyy` is year value.
+     */
+    var infoPattern: String
+        get() = _infoPattern
+        set(value) {
+            setInfoPatternInternal(value)
+        }
+
+    /**
+     * Gets or sets whether [DateFormat.getBestDateTimePattern] should be called on patterns set via [infoPattern].
+     *
+     * As noted above, the property depends on [DateFormat.getBestDateTimePattern] that is available from API level 18. On older versions, this property changes nothing.
+     *
+     * This behaviour is enabled by default because of locale changes that directly affect the resulting string and it's better to use the best format for locale when possible.
+     * When the value is `true`, it may lead to unexpected effects when [infoPattern] is set to the one value and getter returns another value (processed by [DateFormat.getBestDateTimePattern])
+     *
+     * If the [infoPattern] is set when [useBestPatternForInfoPattern] is `true` and then [useBestPatternForInfoPattern] is changed to `false`, the final format will be value set to [infoPattern] without additional processing.
+     */
+    var useBestPatternForInfoPattern: Boolean = true
+        set(value) {
+            field = value
+
+            updateInfoPattern()
+        }
+
+    /**
+     * Sets [infoFormatter] to the default one.
+     */
+    fun setDefaultInfoFormatter() {
+        infoFormatter = DefaultLocalizedInfoFormatter(context, _infoPattern)
+    }
+
+    private fun updateInfoPattern() {
+        setInfoPatternInternal(originInfoFormat)
+    }
+
+    private fun setInfoPatternInternal(pattern: String) {
+        _infoPattern = if (useBestPatternForInfoPattern) {
+            getBestDatePatternCompat(currentLocale!!, pattern)
+        } else {
+            pattern
+        }
+
+        originInfoFormat = pattern
+
+        infoFormatter.let {
+            if (it is DefaultLocalizedInfoFormatter) {
+                it.dateFormatter.pattern = _infoPattern
+
+                onInfoFormatterOptionsChanged()
+            }
+        }
+    }
+
+    private fun onInfoFormatterOptionsChanged() {
+        setInfoViewYearMonth(currentCalendarYm)
+    }
+
+    private fun setInfoViewYearMonth(ym: YearMonth) {
+        infoTextView.text = _infoFormatter.format(ym.year, ym.month)
+    }
+
+    /**
+     * Gets or sets text size (in pixels) of [infoTextView].
+     */
+    var infoTextSize: Float
+        get() = infoTextView.textSize
+        set(value) {
+            infoTextView.textSize = value
+        }
+
+    /**
+     * Gets or sets typeface of [infoTextView].
+     */
+    var infoTypeface: Typeface?
+        get() = infoTextView.typeface
+        set(value) {
+            infoTextView.typeface = value
         }
 
     /**
@@ -1484,18 +1666,10 @@ class RangeCalendarView @JvmOverloads constructor(
         nextOrClearButton.isEnabled = toolbarManager.isNextButtonActClear || position != count - 1
     }
 
-    private fun setInfoViewYearMonth(ym: YearMonth) {
-        if (infoViewYm != ym) {
-            infoViewYm = ym
-
-            infoView.text = dateFormatter.format(PackedDate(ym, 1))
-        }
-    }
-
     companion object {
         private val TAG = RangeCalendarView::class.java.simpleName
 
-        private const val DATE_FORMAT = "MMMM y"
+        private const val DEFAULT_INFO_FORMAT = "MMMM y"
 
         private const val INVALID_DURATION_MSG = "Duration should be non-negative"
 

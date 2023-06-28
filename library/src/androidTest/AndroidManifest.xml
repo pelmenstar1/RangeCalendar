@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:theme="@style/Theme.AppCompat">
         <activity android:name="com.github.pelmenstar1.rangecalendar.RangeCalendarConfigObserverTests$TestActivity"/>
+        <activity android:name="com.github.pelmenstar1.rangecalendar.RangeCalendarViewTests$TestActivity"/>
     </application>
 </manifest>
