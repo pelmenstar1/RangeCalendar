@@ -61,13 +61,14 @@ internal class SelectionShape {
             // If there are more than 1 row, then the shape will always occupy space between first and last cells on a row.
             bounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
 
-            path.rewind()
+            val startGridX = start.gridX
+            val endGridX = end.gridX
 
             Radii.withRadius(rr) {
                 leftTop()
                 rightTop()
-                leftBottom(condition = start.gridX != 0)
-                rightBottom(condition = gridYDiff == 1 && end.gridX != 6)
+                leftBottom(condition = startGridX != 0)
+                rightBottom(condition = gridYDiff == 1 && endGridX != 6)
 
                 path.addRoundRectCompat(startLeft, startTop, lastCellRight, startBottom, radii())
             }
@@ -75,16 +76,16 @@ internal class SelectionShape {
             Radii.withRadius(rr) {
                 rightBottom()
                 leftBottom()
-                rightTop(condition = end.gridX != 6)
-                leftTop(condition = gridYDiff == 1 && start.gridX != 0)
+                rightTop(condition = endGridX != 6)
+                leftTop(condition = gridYDiff == 1 && startGridX != 0)
 
-                path.addRoundRectCompat(firstCellLeft, startBottom, endRight, endBottom, radii())
+                path.addRoundRectCompat(firstCellLeft, endTop, endRight, endBottom, radii())
             }
 
             if (gridYDiff > 1) {
                 Radii.withRadius(rr) {
-                    leftTop(condition = start.gridX != 0)
-                    rightBottom(condition = end.gridX != 6)
+                    leftTop(condition = startGridX != 0)
+                    rightBottom(condition = endGridX != 6)
 
                     path.addRoundRectCompat(
                         firstCellLeft, startBottom,

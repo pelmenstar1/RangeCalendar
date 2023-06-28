@@ -1228,20 +1228,15 @@ internal class RangeCalendarGridView(
     }
 
     private fun resolveCellType(cell: Cell): Int {
-        val selState = selectionManager.currentState
-        val start = selState.rangeStart
-        val end = selState.rangeEnd
+        val isSelectionOverlaysCell = selectionTransitiveState?.overlaysCell(cell.index)
+            ?: selectionManager.currentState.contains(cell)
 
-        var cellType = if (start == cell.index && end == cell.index) { // Is a single cell
+        var cellType = if (isSelectionOverlaysCell) {
             CELL_SELECTED
         } else if (enabledCellRange.contains(cell)) {
             if (inMonthRange.contains(cell)) {
                 if (cell == todayCell) {
-                    if (cell.index in start..end) {
-                        CELL_IN_MONTH
-                    } else {
-                        CELL_TODAY
-                    }
+                    CELL_TODAY
                 } else {
                     CELL_IN_MONTH
                 }
