@@ -801,7 +801,7 @@ class RangeCalendarView @JvmOverloads constructor(
      * It actually changes the format only if [infoFormatter] is a default one.
      * Although, if it's not, it won't throw an exception and will save the value in case [setDefaultInfoFormatter] is called.
      *
-     * The pattern is affected by [useBestPatternForInfoPattern] that specifies whether [android.text.format.DateFormat.getBestDateTimePattern] should be called on given pattern.
+     * The pattern is affected by [useBestPatternForInfoPattern] that specifies whether [DateFormat.getBestDateTimePattern] should be called on given pattern.
      * By default, [useBestPatternForInfoPattern] is true. The motivation for that is described in [useBestPatternForInfoPattern] documentation.
      *
      * The only important components of the pattern are year and month ones.

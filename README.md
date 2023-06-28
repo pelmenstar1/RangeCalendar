@@ -9,7 +9,7 @@
   <a href="https://jitpack.io/#pelmenstar1/RangeCalendar">
     <img src="https://jitpack.io/v/pelmenstar1/RangeCalendar.svg" height="22">
   </a>
-  
+
   <img src="https://img.shields.io/badge/API-16%2B-brightgreen.svg?style=flat" height="22">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" height="22">
 </div>
@@ -44,7 +44,7 @@ Define `RangeCalendarView` in your XML layout:
 
 ```xml
 <com.github.pelmenstar1.rangecalendar.RangeCalendarView
-    android:id="@+id/picker" 
+    android:id="@+id/picker"
     android:layout_width="match_parent"
     android:layout_height="wrap_content" />
 ```
@@ -53,7 +53,7 @@ Get notified when the date or range are selected:
 <br/>
 
 ```kotlin
-onSelectionListener = object : RangeCalendarView.OnSelectionListener { 
+onSelectionListener = object : RangeCalendarView.OnSelectionListener {
     override fun onSelectionCleared() {
     }
 
@@ -196,7 +196,7 @@ This can be done manually by registering an `BroadcastReceiver` and updating tim
 Or `RangeCalendarConfigObserver` can be used that, basically, does the same thing. The class is also lifecycle-aware.
 Example:
 ```kotlin
-val observer = RangeCalendarConfigObserver(rangeCalendar).apply { 
+val observer = RangeCalendarConfigObserver(rangeCalendar).apply {
     observeDateChanges = false // if we don't want rangeCalendar to be notified about these changes.
     observeTimeZoneChanges = true // by default, it's true. But can also be disabled.
 }
@@ -218,6 +218,30 @@ rangeCalendarView.weekdays = arrayOf("0", "1", "2", "3", "4", "5", "6")
 ```
 
 If you want back to using localized weekdays, pass null to `weekdays`.
+
+## Info textview
+
+Info textview is in red rectangle:
+
+[Info textview](art/info_text_view.png)
+
+Information about year and month of selected page is on that textview. The text can be changed by specifying custom `infoFormatter`:
+
+```kotlin
+rangeCalendar.infoFormatter = object : RangeCalendarView.InfoFormatter {
+    override fun format(year: Int, month: Int): CharSequence {
+        return "Year: $year Month: $month"
+    }
+}
+```
+
+If your implementation depends on current configuration's locale, use `RangeCalendarView.LocalizedInfoFormatter`.
+
+If you want to use default localized implementation with custom datetime pattern, use `infoPattern`. **Note**: by default, specified format will be additionally processed by `android.text.format.DateFormat.getBestDateTimePattern` to find pattern most suitable for current locale. If it's undesirable, set `useBestPatternForInfoPattern` to `false`.
+
+`useBestPatternForInfoPattern` property depends on `android.text.format.DateFormat.getBestDateTimePattern` that is available from API level 18. On older versions, this property changes nothing.
+
+You can directly access info textview via `infoTextView` property.
 
 ## Other
 
