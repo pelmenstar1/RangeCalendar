@@ -665,15 +665,17 @@ internal class RangeCalendarGridView(
     }
 
     private fun updateSelectionRange() {
-        val selState = selectionManager.currentState
+        val selRange = selectionManager.currentState.range
 
-        selectRange(
-            selState.range,
-            requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-            isCellSelectionByUser = false,
-            isUserStartSelection = false,
-            withAnimation = isSelectionAnimatedByDefault()
-        )
+        if (selRange.isValid) {
+            selectRange(
+                selRange,
+                requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                isCellSelectionByUser = false,
+                isUserStartSelection = false,
+                withAnimation = isSelectionAnimatedByDefault()
+            )
+        }
     }
 
     fun select(

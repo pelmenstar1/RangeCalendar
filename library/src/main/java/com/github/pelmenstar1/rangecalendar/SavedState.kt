@@ -19,7 +19,6 @@ internal class SavedState : AbsSavedState {
             selectionYm = YearMonth(readInt())
             selectionRange = CellRange(readInt())
         }
-
     }
 
     override fun writeToParcel(dest: Parcel, flags: Int) {

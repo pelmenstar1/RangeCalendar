@@ -584,9 +584,11 @@ class RangeCalendarView @JvmOverloads constructor(
             // previous selected page when you rotate the screen.
             setYearAndMonthInternal(ym, smoothScroll = false)
 
+            val selRange = state.selectionRange
+
             // Restore selection if there's one.
-            if (state.selectionRange.isValid) {
-                adapter.selectOnRestore(state.selectionYm, state.selectionRange)
+            if (selRange.isValid) {
+                adapter.selectOnRestore(state.selectionYm, selRange)
             }
         } else {
             super.onRestoreInstanceState(state)

@@ -442,6 +442,8 @@ internal class RangeCalendarPagerAdapter(
             withAnimation = false
         )
 
+        setSelectionValues(cellRange, ym)
+
         notifyPageChanged(ym, payload)
     }
 
