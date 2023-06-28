@@ -237,7 +237,7 @@ rangeCalendar.infoFormatter = object : RangeCalendarView.InfoFormatter {
 
 If your implementation depends on current configuration's locale, use `RangeCalendarView.LocalizedInfoFormatter`.
 
-If you want to use default localized implementation with custom datetime pattern, use `infoPattern`. **Note**: by default, specified format will be additionally processed by `android.text.format.DateFormat.getBestDateTimePattern` to find pattern most suitable for current locale. If it's undesirable, set `useBestPatternForInfoPattern` to `false`.
+If you want to use default localized implementation with custom datetime pattern, use `infoPattern`. **Note**: by default, specified format will be additionally processed by `android.text.format.DateFormat.getBestDateTimePattern` to find most suitable pattern for current locale. If it's undesirable, set `useBestPatternForInfoPattern` to `false`.
 
 `useBestPatternForInfoPattern` property depends on `android.text.format.DateFormat.getBestDateTimePattern` that is available from API level 18. On older versions, this property changes nothing.
 
