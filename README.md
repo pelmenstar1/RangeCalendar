@@ -257,6 +257,7 @@ If you want back to using localized weekdays, pass null to `weekdays`.
 | rangeCalendar_isHoverAnimationEnabled         | Specifies whether hover animations is enabled.                                                                                                                                                                                                                                                       |
 | rangeCalendar_infoPattern                     | Specifies date-time pattern for info text view (where current year and month is shown). The pattern should be suitable with `java.text.SimpleDateFormat`.                                                                                                                                            |
 | rangeCalendar_useBestPatternForInfoPattern    | Specifies whether `android.text.format.DateFormat.getBestDateTimePattern` should be called on patterns set via `infoPattern` using the code or specified rangeCalendar_infoPattern in XML. By default, it's `true`.                                                                                  |
+| rangeCalendar_infoTextSize                    | Text size of info text view                                                                                                                                                                                                                                                                          |
 
 ## Library status
 

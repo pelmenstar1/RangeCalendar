@@ -38,6 +38,7 @@
         <attr name="rangeCalendar_isHoverAnimationEnabled" format="boolean"/>
         <attr name="rangeCalendar_infoPattern" format="string"/>
         <attr name="rangeCalendar_useBestPatternForInfoPattern" format="boolean"/>
+        <attr name="rangeCalendar_infoTextSize" format="dimension"/>
     </declare-styleable>
 
 </resources>

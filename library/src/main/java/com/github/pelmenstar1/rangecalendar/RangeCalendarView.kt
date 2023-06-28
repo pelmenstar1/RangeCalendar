@@ -496,6 +496,12 @@ class RangeCalendarView @JvmOverloads constructor(
                 )
 
                 a.getString(R.styleable.RangeCalendarView_rangeCalendar_infoPattern)?.also { infoPattern = it }
+
+                a.getDimension(R.styleable.RangeCalendarView_rangeCalendar_infoTextSize, Float.NaN).also {
+                    if (!it.isNaN()) {
+                        infoTextSize = it
+                    }
+                }
             }
         } finally {
             a.recycle()
@@ -860,6 +866,24 @@ class RangeCalendarView @JvmOverloads constructor(
     private fun setInfoViewYearMonth(ym: YearMonth) {
         infoTextView.text = _infoFormatter.format(ym.year, ym.month)
     }
+
+    /**
+     * Gets or sets text size (in pixels) of [infoTextView].
+     */
+    var infoTextSize: Float
+        get() = infoTextView.textSize
+        set(value) {
+            infoTextView.textSize = value
+        }
+
+    /**
+     * Gets or sets typeface of [infoTextView].
+     */
+    var infoTypeface: Typeface?
+        get() = infoTextView.typeface
+        set(value) {
+            infoTextView.typeface = value
+        }
 
     /**
      * Gets or sets minimum date.
