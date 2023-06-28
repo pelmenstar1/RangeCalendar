@@ -33,20 +33,6 @@ internal class DecorGroupedList {
         return elements.indexOf(value)
     }
 
-    inline fun forEach(block: (CellDecor) -> Unit) {
-        elements.forEach(block)
-    }
-
-    inline fun forEachBreakable(block: (CellDecor) -> Boolean) {
-        for (element in elements) {
-            val toBreak = block(element)
-
-            if (toBreak) {
-                break
-            }
-        }
-    }
-
     fun add(value: CellDecor): PackedIntRange {
         val index = findIndexForNewElement(value)
 
@@ -73,7 +59,7 @@ internal class DecorGroupedList {
         val resolvedIndex = if (region.isDefined) {
             val subregion = getSubregion(region, instance.cell)
 
-            if(subregion.isDefined) {
+            if (subregion.isDefined) {
                 val length = subregion.endInclusive - subregion.start + 1
 
                 subregion.start + indexInRegion.coerceIn(0, length)
@@ -121,7 +107,7 @@ internal class DecorGroupedList {
     }
 
     fun getSubregion(region: PackedIntRange, cell: Cell): PackedIntRange {
-        if(region.isUndefined) {
+        if (region.isUndefined) {
             return PackedIntRange.Undefined
         }
 
@@ -133,7 +119,7 @@ internal class DecorGroupedList {
 
     fun getSubregion(ym: YearMonth, cell: Cell): PackedIntRange {
         val region = getRegion(ym)
-        if(region.isUndefined) {
+        if (region.isUndefined) {
             return PackedIntRange.Undefined
         }
 
@@ -192,18 +178,21 @@ internal class DecorGroupedList {
         return size - 1
     }
 
-    inline fun iterateSubregions(region: PackedIntRange, block: (subregion: PackedIntRange) -> Unit) {
-        if(size == 0 || region.isUndefined) {
+    inline fun iterateSubregions(
+        region: PackedIntRange,
+        block: (subregion: PackedIntRange) -> Unit
+    ) {
+        if (size == 0 || region.isUndefined) {
             return
         }
 
         var startIndex = 0
 
-        while(startIndex < size) {
+        while (startIndex < size) {
             val endIndex = getSubregionEndInclusive(region, startIndex)
 
             // If there's no end of region found, then it's the last region and end of region is the last item.
-            val resolvedEndIndex = if(endIndex == -1) size - 1 else endIndex
+            val resolvedEndIndex = if (endIndex == -1) size - 1 else endIndex
 
             block(PackedIntRange(startIndex, resolvedEndIndex))
 
@@ -226,7 +215,7 @@ internal class DecorGroupedList {
     }
 
     fun remove(index: Int) {
-        if(size > 0) {
+        if (size > 0) {
             val newElements = unsafeNewArray(size - 1)
 
             System.arraycopy(elements, 0, newElements, 0, index)

@@ -49,7 +49,6 @@ internal class RangeCalendarGridView(
 
     private class TouchHelper(private val grid: RangeCalendarGridView) :
         ExploreByTouchHelper(grid) {
-        private val tempCalendar = Calendar.getInstance()
         private val tempRect = Rect()
 
         override fun getVirtualViewAt(x: Float, y: Float): Int {
@@ -234,7 +233,6 @@ internal class RangeCalendarGridView(
     private var decorAnimatedCell = Cell.Undefined
     private var decorAnimatedRange = PackedIntRange(0)
     private var decorAnimationHandler: (() -> Unit)? = null
-    private var decorTransitiveState: CellDecor.VisualState.Transitive? = null
 
     private val pressTimeoutHandler = PressTimeoutHandler(this)
 
@@ -1360,10 +1358,6 @@ internal class RangeCalendarGridView(
 
     private fun columnWidth(): Float {
         return rowWidth() / 7f
-    }
-
-    private fun firstCellLeft(): Float {
-        return cr.hPadding + (columnWidth() - cellWidth()) * 0.5f
     }
 
     private fun getCellCenterX(cell: Cell) = getCellCenterX(cell, columnWidth())

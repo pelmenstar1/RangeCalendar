@@ -20,18 +20,20 @@ internal fun Border.doDrawPreparation(
     val animatedBorderWidth: Float
     val outRectArray: FloatArray
 
-    when(borderAnimationType) {
+    when (borderAnimationType) {
         BorderAnimationType.ONLY_SHAPE -> {
             animatedBorderWidth = width
 
             outRectArray = animatedBoundsArray
         }
+
         BorderAnimationType.ONLY_WIDTH -> {
             animatedBorderWidth = width * animationFraction
             paint.strokeWidth = animatedBorderWidth
 
             outRectArray = endBoundsArray
         }
+
         BorderAnimationType.SHAPE_AND_WIDTH -> {
             animatedBorderWidth = width * animationFraction
             paint.strokeWidth = animatedBorderWidth

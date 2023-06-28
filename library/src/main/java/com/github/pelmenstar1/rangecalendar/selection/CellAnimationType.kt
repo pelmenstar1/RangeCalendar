@@ -15,7 +15,7 @@ enum class CellAnimationType {
     BUBBLE;
 
     companion object {
-        fun ofOrdinal(index: Int) = when(index) {
+        fun ofOrdinal(index: Int) = when (index) {
             0 -> ALPHA
             1 -> BUBBLE
             else -> throw IndexOutOfBoundsException("index=$index; length=2")

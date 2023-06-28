@@ -48,7 +48,7 @@ internal object Radii {
     }
 
     private fun initCorner(shift: Int) {
-        val cornerRadius = if((flags and (1 shl shift)) != 0) currentRadius else 0f
+        val cornerRadius = if ((flags and (1 shl shift)) != 0) currentRadius else 0f
         val offset = shift * 2
 
         array[offset] = cornerRadius

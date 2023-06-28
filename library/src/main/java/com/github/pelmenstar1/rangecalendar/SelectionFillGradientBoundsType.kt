@@ -27,7 +27,7 @@ enum class SelectionFillGradientBoundsType {
          *
          * @param ordinal position of the value
          */
-        fun ofOrdinal(ordinal: Int) = when(ordinal) {
+        fun ofOrdinal(ordinal: Int) = when (ordinal) {
             0 -> SHAPE
             1 -> GRID
             else -> throw IndexOutOfBoundsException("ordinal is out of bounds. ordinal=$ordinal; size of enum = 2")

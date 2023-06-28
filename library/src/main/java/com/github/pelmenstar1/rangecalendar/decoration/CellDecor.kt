@@ -56,7 +56,7 @@ abstract class CellDecor {
          * [VisualState.Transitive] is expected to be the same.
          * Example:
          * ```
-        *  class SomeDecor : CellDecor() {
+         *  class SomeDecor : CellDecor() {
          *     open class SomeDecorVisualState : VisualState {
          *         ...
          *
@@ -73,7 +73,7 @@ abstract class CellDecor {
          * }
          * ```
          */
-        interface Transitive: VisualState {
+        interface Transitive : VisualState {
             /**
              * The state from which the transition is started
              */
@@ -240,4 +240,4 @@ abstract class CellDecor {
  * otherwise 1
  */
 val CellDecor.VisualState.animationFraction: Float
-    get() = if(this is CellDecor.VisualState.Transitive) animationFraction else 1f
+    get() = if (this is CellDecor.VisualState.Transitive) animationFraction else 1f

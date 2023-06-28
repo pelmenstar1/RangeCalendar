@@ -22,11 +22,6 @@ internal fun Int.withAlpha(alpha: Byte): Int {
 }
 
 @ColorInt
-internal fun Int.withAlpha(@FloatRange(from = 0.0, to = 1.0) alpha: Float): Int {
-    return withAlpha((alpha * 255f + 0.5f).toInt())
-}
-
-@ColorInt
 internal fun Int.withCombinedAlpha(
     @FloatRange(from = 0.0, to = 1.0) newAlpha: Float,
     @IntRange(from = 0, to = 255) originAlpha: Int = alpha

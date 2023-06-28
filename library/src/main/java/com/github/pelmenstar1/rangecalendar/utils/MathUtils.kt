@@ -48,7 +48,7 @@ internal fun lerpFloatArray(
     fraction: Float,
     startOffset: Int = 0, endOffset: Int = 0
 ) {
-    for(i in startIndex until endIndexExclusive) {
+    for (i in startIndex until endIndexExclusive) {
         outArray[i] = lerp(start[i - startOffset], end[i - endOffset], fraction)
     }
 }

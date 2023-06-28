@@ -17,7 +17,7 @@ interface DecorAnimationFractionInterpolator {
         /**
          * The interpolator is such that all items has the same fraction as total fraction.
          */
-        val Simultaneous = object: DecorAnimationFractionInterpolator {
+        val Simultaneous = object : DecorAnimationFractionInterpolator {
             override fun getItemFraction(index: Int, itemCount: Int, totalFraction: Float): Float {
                 return totalFraction
             }
@@ -26,9 +26,9 @@ interface DecorAnimationFractionInterpolator {
         /**
          * The interpolator is such next item gets its share of fraction only when previous item's fraction is 1
          */
-        val Sequential = object: DecorAnimationFractionInterpolator {
+        val Sequential = object : DecorAnimationFractionInterpolator {
             override fun getItemFraction(index: Int, itemCount: Int, totalFraction: Float): Float {
-                if(totalFraction == 1f) {
+                if (totalFraction == 1f) {
                     return 1f
                 }
 

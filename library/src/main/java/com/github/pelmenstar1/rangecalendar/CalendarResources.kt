@@ -63,7 +63,6 @@ internal class CalendarResources(context: Context) {
             "31"
         )
 
-        private val SINGLE_INT_ARRAY = IntArray(1)
         private val HOVER_STATE =
             intArrayOf(android.R.attr.state_hovered, android.R.attr.state_enabled)
         private val ENABLED_STATE = intArrayOf(android.R.attr.state_enabled)
@@ -80,7 +79,8 @@ internal class CalendarResources(context: Context) {
             )
 
             try {
-                val colorList = array.getColorStateList(androidx.appcompat.R.styleable.TextAppearance_android_textColor)
+                val colorList =
+                    array.getColorStateList(androidx.appcompat.R.styleable.TextAppearance_android_textColor)
 
                 return colorList!!.getColorForState(ENABLED_STATE, 0)
             } finally {
@@ -89,7 +89,8 @@ internal class CalendarResources(context: Context) {
         }
 
         private fun getHoverColor(context: Context): Int {
-            val hoverList = context.getColorStateListFromAttribute(androidx.appcompat.R.attr.colorControlHighlight)
+            val hoverList =
+                context.getColorStateListFromAttribute(androidx.appcompat.R.attr.colorControlHighlight)
 
             return hoverList.getColorForState(HOVER_STATE, 0)
         }

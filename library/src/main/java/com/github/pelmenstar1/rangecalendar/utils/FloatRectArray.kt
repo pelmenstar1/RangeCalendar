@@ -7,7 +7,14 @@ internal const val RECT_ARRAY_TOP = 1
 internal const val RECT_ARRAY_RIGHT = 2
 internal const val RECT_ARRAY_BOTTOM = 3
 
-internal fun setRectFromValues(array: FloatArray, absIndex: Int, left: Float, top: Float, right: Float, bottom: Float) {
+internal fun setRectFromValues(
+    array: FloatArray,
+    absIndex: Int,
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float
+) {
     array[absIndex + RECT_ARRAY_LEFT] = left
     array[absIndex + RECT_ARRAY_TOP] = top
     array[absIndex + RECT_ARRAY_RIGHT] = right

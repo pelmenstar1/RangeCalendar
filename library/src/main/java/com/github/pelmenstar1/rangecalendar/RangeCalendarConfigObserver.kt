@@ -114,16 +114,18 @@ class RangeCalendarConfigObserver(private val calendarView: RangeCalendarView) {
     }
 
     internal fun onBroadcastReceived(intent: Intent) {
-        when(intent.action) {
+        when (intent.action) {
             Intent.ACTION_TIMEZONE_CHANGED -> {
                 if (observeTimeZoneChanges) {
                     val tzId = if (Build.VERSION.SDK_INT >= 30) {
                         intent.getStringExtra(Intent.EXTRA_TIMEZONE)
                     } else null
 
-                    calendarView.timeZone = tzId?.let(TimeZone::getTimeZone) ?: TimeZone.getDefault()
+                    val tz = tzId?.let(TimeZone::getTimeZone) ?: TimeZone.getDefault()
+                    calendarView.timeZone = tz
                 }
             }
+
             Intent.ACTION_DATE_CHANGED -> {
                 if (observeDateChanges) {
                     calendarView.notifyTodayChanged()

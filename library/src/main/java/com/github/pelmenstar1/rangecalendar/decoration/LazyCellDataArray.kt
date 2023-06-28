@@ -34,7 +34,7 @@ internal class LazyCellDataArray<T : Any> {
     operator fun get(cell: Cell): T? {
         // If notNullBits is 0, it means that all elements are null
         // Thus there's no sense in making an access even if the 'elements' isn't empty.
-        return if(notNullBits == 0L) null else elements[cell.index] as T?
+        return if (notNullBits == 0L) null else elements[cell.index] as T?
     }
 
     fun clear() {
@@ -48,7 +48,7 @@ internal class LazyCellDataArray<T : Any> {
     operator fun set(cell: Cell, value: T?) {
         var elements = elements
 
-        if(elements.isEmpty()) {
+        if (elements.isEmpty()) {
             elements = arrayOfNulls(42)
             this.elements = elements
         }

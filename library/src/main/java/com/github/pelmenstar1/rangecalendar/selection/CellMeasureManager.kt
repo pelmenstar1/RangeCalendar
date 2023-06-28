@@ -76,6 +76,3 @@ fun CellMeasureManager.getCellRight(cellIndex: Int): Float {
 fun CellMeasureManager.getCellBottom(cellIndex: Int): Float {
     return getCellTop(cellIndex) + cellHeight
 }
-
-internal fun CellMeasureManager.getCellLeft(cell: Cell) = getCellLeft(cell.index)
-internal fun CellMeasureManager.getCellTop(cell: Cell) = getCellTop(cell.index)

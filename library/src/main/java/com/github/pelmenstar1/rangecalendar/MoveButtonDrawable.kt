@@ -95,10 +95,10 @@ class MoveButtonDrawable(
         val anchorX: Float
         val invAnchorX: Float
 
-        if (direction == DIRECTION_LEFT)  {
+        if (direction == DIRECTION_LEFT) {
             anchorX = actualRight
             invAnchorX = actualLeft
-        }  else {
+        } else {
             anchorX = actualLeft
             invAnchorX = actualRight
         }

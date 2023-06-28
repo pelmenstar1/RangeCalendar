@@ -38,9 +38,6 @@ internal value class PackedDate(val bits: Int) {
     val month: Int
         get() = (bits shr MONTH_SHIFT) and 0xff
 
-    val yearMonth: YearMonth
-        get() = YearMonth(year, month)
-
     val dayOfMonth: Int
         get() = bits and 0xff
 

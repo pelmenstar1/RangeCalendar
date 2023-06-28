@@ -6,14 +6,14 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.os.Build
 
-private val tempRect: RectF? = if(Build.VERSION.SDK_INT < 21) RectF() else null
+private val tempRect: RectF? = if (Build.VERSION.SDK_INT < 21) RectF() else null
 
 internal fun Canvas.drawRoundRectCompat(
     left: Float, top: Float, right: Float, bottom: Float,
     radius: Float,
     paint: Paint
 ) {
-    if(Build.VERSION.SDK_INT >= 21) {
+    if (Build.VERSION.SDK_INT >= 21) {
         drawRoundRect(left, top, right, bottom, radius, radius, paint)
     } else {
         val rect = tempRect!!
@@ -27,7 +27,7 @@ internal fun Path.addRoundRectCompat(
     left: Float, top: Float, right: Float, bottom: Float,
     radii: FloatArray
 ) {
-    if(Build.VERSION.SDK_INT >= 21) {
+    if (Build.VERSION.SDK_INT >= 21) {
         addRoundRect(left, top, right, bottom, radii, Path.Direction.CW)
     } else {
         val rect = tempRect!!

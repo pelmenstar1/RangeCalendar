@@ -38,8 +38,9 @@ internal fun Context.getSelectableItemBackground(): Drawable? {
     val theme = theme
 
     val value = TypedValue()
+    val attr = androidx.appcompat.R.attr.selectableItemBackgroundBorderless
 
-    if (theme.resolveAttribute(androidx.appcompat.R.attr.selectableItemBackgroundBorderless, value, true)) {
+    if (theme.resolveAttribute(attr, value, true)) {
         return ResourcesCompat.getDrawable(resources, value.resourceId, theme)
     }
 

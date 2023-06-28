@@ -15,7 +15,7 @@ enum class SelectionRequestRejectedBehaviour {
     CLEAR_CURRENT_SELECTION;
 
     companion object {
-        fun fromOrdinal(value: Int) = when(value) {
+        fun fromOrdinal(value: Int) = when (value) {
             0 -> PRESERVE_CURRENT_SELECTION
             1 -> CLEAR_CURRENT_SELECTION
             else -> throw IllegalArgumentException("value")

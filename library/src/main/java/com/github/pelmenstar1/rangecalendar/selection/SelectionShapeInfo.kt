@@ -12,7 +12,7 @@ internal data class SelectionShapeInfo(
     var cellHeight: Float,
     var roundRadius: Float,
 ) {
-    constructor(): this(CellRange.Invalid, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+    constructor() : this(CellRange.Invalid, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
 
     fun set(other: SelectionShapeInfo) {
         range = other.range

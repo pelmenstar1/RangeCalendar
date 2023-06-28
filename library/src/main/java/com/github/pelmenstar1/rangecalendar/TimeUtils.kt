@@ -1,9 +1,5 @@
 package com.github.pelmenstar1.rangecalendar
 
-internal fun getDaysInMonth(ym: YearMonth): Int {
-    return getDaysInMonth(ym.year, ym.month)
-}
-
 internal fun getDaysInMonth(year: Int, month: Int): Int {
     return when (month) {
         2 -> if (isLeapYear(year)) 29 else 28
