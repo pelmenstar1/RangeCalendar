@@ -228,7 +228,21 @@ class RangeCalendarView @JvmOverloads constructor(
     private val pager: ViewPager2
     private val prevButton: ImageButton
     private val nextOrClearButton: ImageButton
-    internal val infoView: TextView
+
+    /**
+     * Gets the [TextView] instance on which information about year and month of selected page is shown.
+     *
+     * In general, you can change any of its properties except the text. It will be overwritten any time it's necessary, for example, when the page is changed.
+     * If you want to customize the text, use [infoFormatter].
+     *
+     * There are some properties that you may change but it's undesirable:
+     * - On-click-listener. If you change it, clicks on the view won't select current month.
+     * Though, it can be implemented even without the library support by using [selectMonth] and [selectedCalendarYear], [selectedCalendarMonth].
+     * - Translation Y. It's used for 'selection view' transitions. Changing it to a custom value may lead to unexpected results if [selectionView] is used.
+     *
+     * The [RangeCalendarView] uses a custom layout to reduce usage of additional containers. Layout params of the [infoTextView] doesn't affect the layout.
+     */
+    val infoTextView: TextView
 
     private var _timeZone: TimeZone
 
@@ -296,7 +310,7 @@ class RangeCalendarView @JvmOverloads constructor(
             nextOrClearButton.setBackground(selectableBg.constantState!!.newDrawable(res))
         }
 
-        infoView = AppCompatTextView(context).apply {
+        infoTextView = AppCompatTextView(context).apply {
             setTextColor(cr.textColor)
             setOnClickListener {
                 val (year, month) = currentCalendarYm
@@ -308,7 +322,7 @@ class RangeCalendarView @JvmOverloads constructor(
         toolbarManager = CalendarToolbarManager(
             context,
             cr.colorControlNormal,
-            prevButton, nextOrClearButton, infoView
+            prevButton, nextOrClearButton, infoTextView
         )
 
         pager = ViewPager2(context).apply {
@@ -354,7 +368,7 @@ class RangeCalendarView @JvmOverloads constructor(
         addView(pager)
         addView(prevButton)
         addView(nextOrClearButton)
-        addView(infoView)
+        addView(infoTextView)
 
         // It should be called after the toolbarManager is initialized.
         initLocaleDependentValues()
@@ -585,11 +599,11 @@ class RangeCalendarView @JvmOverloads constructor(
         val infoWidthSpec = MeasureSpec.makeMeasureSpec(maxInfoWidth, MeasureSpec.AT_MOST)
         val infoHeightSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
 
-        infoView.measure(infoWidthSpec, infoHeightSpec)
+        infoTextView.measure(infoWidthSpec, infoHeightSpec)
         prevButton.measure(buttonSpec, buttonSpec)
         nextOrClearButton.measure(buttonSpec, buttonSpec)
 
-        val toolbarHeight = max(infoView.measuredHeight, buttonSize)
+        val toolbarHeight = max(infoTextView.measuredHeight, buttonSize)
 
         toolbarManager.selectionView?.also { sv ->
             var maxWidth = pagerWidth - 2 * hPadding - buttonSize
@@ -623,8 +637,8 @@ class RangeCalendarView @JvmOverloads constructor(
         val prevRight = hPadding + buttonSize
         val nextLeft = width - prevRight
 
-        val infoWidth = infoView.measuredWidth
-        val infoHeight = infoView.measuredHeight
+        val infoWidth = infoTextView.measuredWidth
+        val infoHeight = infoTextView.measuredHeight
 
         val toolbarHeight = max(buttonSize, infoHeight)
 
@@ -636,7 +650,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
         prevButton.layout(hPadding, buttonTop, prevRight, buttonBottom)
         nextOrClearButton.layout(nextLeft, buttonTop, nextLeft + buttonSize, buttonBottom)
-        infoView.layout(infoLeft, infoTop, infoLeft + infoWidth, infoTop + infoHeight)
+        infoTextView.layout(infoLeft, infoTop, infoLeft + infoWidth, infoTop + infoHeight)
 
         pager.layout(0, pagerTop, pager.measuredWidth, pagerTop + pager.measuredHeight)
 
@@ -844,7 +858,7 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun setInfoViewYearMonth(ym: YearMonth) {
-        infoView.text = _infoFormatter.format(ym.year, ym.month)
+        infoTextView.text = _infoFormatter.format(ym.year, ym.month)
     }
 
     /**

@@ -80,7 +80,7 @@ class RangeCalendarViewTests {
         // Setting custom infoFormatter should trigger re-formatting year and month
         rangeCalendar.infoFormatter = formatter
 
-        val actualText = rangeCalendar.infoView.text.toString()
+        val actualText = rangeCalendar.infoTextView.text.toString()
 
         assertEquals(expectedText, actualText)
         assertEquals(1, formatter.formatCallCount)
@@ -99,7 +99,7 @@ class RangeCalendarViewTests {
 
         rangeCalendar.infoFormatter = formatter
 
-        val actualText = rangeCalendar.infoView.text.toString()
+        val actualText = rangeCalendar.infoTextView.text.toString()
 
         assertEquals(expectedText, actualText)
         assertEquals(1, formatter.formatCallCount)
