@@ -661,6 +661,8 @@ class RangeCalendarView @JvmOverloads constructor(
     var selectionViewTransitionDuration: Long
         get() = toolbarManager.selectionViewTransitionDuration
         set(duration) {
+            validateAnimationDuration(duration)
+
             toolbarManager.selectionViewTransitionDuration = duration
         }
 
@@ -833,6 +835,8 @@ class RangeCalendarView @JvmOverloads constructor(
     var dayNumberTextSize: Float
         get() = adapter.getStyleFloat { DAY_NUMBER_TEXT_SIZE }
         set(size) {
+            validateTextSize(size)
+
             adapter.setStyleFloat({ DAY_NUMBER_TEXT_SIZE }, size)
         }
 
@@ -895,6 +899,8 @@ class RangeCalendarView @JvmOverloads constructor(
     var weekdayTextSize: Float
         get() = adapter.getStyleFloat { WEEKDAY_TEXT_SIZE }
         set(size) {
+            validateTextSize(size)
+
             adapter.setStyleFloat({ WEEKDAY_TEXT_SIZE }, size)
         }
 
@@ -958,8 +964,10 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     var cellRoundRadius: Float
         get() = adapter.getStyleFloat { CELL_ROUND_RADIUS }
-        set(ratio) {
-            adapter.setStyleFloat({ CELL_ROUND_RADIUS }, ratio)
+        set(value) {
+            require(value >= 0) { "Round radius should be non-negative" }
+
+            adapter.setStyleFloat({ CELL_ROUND_RADIUS }, value)
         }
 
     /**
@@ -1040,7 +1048,8 @@ class RangeCalendarView @JvmOverloads constructor(
     var commonAnimationDuration: Int
         get() = adapter.getStyleInt { COMMON_ANIMATION_DURATION }
         set(duration) {
-            require(duration >= 0) { "duration" }
+            validateAnimationDuration(duration)
+
             adapter.setStyleInt({ COMMON_ANIMATION_DURATION }, duration)
         }
 
@@ -1062,7 +1071,7 @@ class RangeCalendarView @JvmOverloads constructor(
     var hoverAnimationDuration: Int
         get() = adapter.getStyleInt { HOVER_ANIMATION_DURATION }
         set(duration) {
-            require(duration >= 0) { "duration" }
+            validateAnimationDuration(duration)
 
             adapter.setStyleInt({ HOVER_ANIMATION_DURATION }, duration)
         }
@@ -1203,8 +1212,7 @@ class RangeCalendarView @JvmOverloads constructor(
      */
     @JvmOverloads
     fun setYearAndMonth(year: Int, month: Int, smoothScroll: Boolean = true) {
-        require(year in 0..PackedDate.MAX_YEAR) { "Invalid year ($year)" }
-        require(month in 1..12) { "Invalid month ($month)" }
+        validateYearMonth(year, month)
 
         setYearAndMonthInternal(YearMonth(year, month), smoothScroll)
     }
@@ -1231,6 +1239,7 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
+        // PackedDateRange.fromSingleDate will check whether date meets requirements
         selectRangeInternal(
             YearMonth(date.year, date.monthValue),
             PackedDateRange.fromSingleDate(date),
@@ -1255,6 +1264,9 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
+        validateYearMonth(year, month)
+        require(weekIndex in 0 until 5) { "Invalid week index" }
+
         selectRangeInternal(
             ym = YearMonth(year, month),
             range = PackedDateRange.week(year, month, weekIndex),
@@ -1277,6 +1289,8 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
+        validateYearMonth(year, month)
+
         selectRangeInternal(
             YearMonth(year, month),
             range = PackedDateRange.month(year, month),
@@ -1300,7 +1314,7 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        requireDateRangeOnSameYearMonth(startDate, endDate)
+        validateDateRange(startDate, endDate)
 
         selectRangeInternal(
             YearMonth(startDate.year, startDate.monthValue),
@@ -1483,8 +1497,28 @@ class RangeCalendarView @JvmOverloads constructor(
 
         private const val DATE_FORMAT = "MMMM y"
 
-        private fun requireDateRangeOnSameYearMonth(start: LocalDate, end: LocalDate): Boolean {
-            return start.year == end.year && start.monthValue == end.monthValue
+        private const val INVALID_DURATION_MSG = "Duration should be non-negative"
+
+        private fun validateDateRange(start: LocalDate, end: LocalDate) {
+            require(start.year == end.year && start.monthValue == end.monthValue) { "Date range should have same year and month" }
+            require(start <= end) { "Start date is greater than end date" }
+        }
+
+        private fun validateTextSize(value: Float) {
+            require(value > 0) { "Text size should be positive" }
+        }
+
+        private fun validateAnimationDuration(value: Int) {
+            require(value >= 0) { INVALID_DURATION_MSG }
+        }
+
+        private fun validateAnimationDuration(value: Long) {
+            require(value >= 0) { INVALID_DURATION_MSG }
+        }
+
+        private fun validateYearMonth(year: Int, month: Int) {
+            PackedDate.checkYear(year)
+            PackedDate.checkMonth(month)
         }
     }
 }

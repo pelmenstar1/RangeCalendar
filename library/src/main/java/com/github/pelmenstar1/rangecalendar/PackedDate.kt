@@ -174,15 +174,15 @@ internal value class PackedDate(val bits: Int) {
         private const val DAYS_0000_TO_1970 = DAYS_PER_CYCLE * 5 - (30 * 365 + 7)
 
         internal fun checkYear(year: Int) {
-            require(year in 0..MAX_YEAR) { "year" }
+            require(year in 0..MAX_YEAR) { "Invalid year value ($year)" }
         }
 
         internal fun checkMonth(month: Int) {
-            require(month in 1..12) { "month" }
+            require(month in 1..12) { "Invalid month value ($month)" }
         }
 
         internal fun checkDayOfMonth(day: Int, daysInMonth: Int) {
-            require(day in 1..daysInMonth) { "dayOfMonth" }
+            require(day in 1..daysInMonth) { "Invalid day of month value ($day)" }
         }
 
         internal fun createUnchecked(year: Int, month: Int, dayOfMonth: Int): PackedDate {
