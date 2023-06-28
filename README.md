@@ -223,7 +223,7 @@ If you want back to using localized weekdays, pass null to `weekdays`.
 
 Info textview is in red rectangle:
 
-[Info textview](art/info_text_view.png)
+![Info textview](art/info_text_view.png)
 
 Information about year and month of selected page is on that textview. The text can be changed by specifying custom `infoFormatter`:
 
