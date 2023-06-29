@@ -44,6 +44,7 @@ class Fill private constructor(
     private val solidColor: Int,
     private val gradientColors: IntArray?,
     private val gradientPositions: FloatArray?,
+    private val shaderFactory: ShaderFactory?,
     private val orientation: Orientation
 ) {
     /**
@@ -71,6 +72,20 @@ class Fill private constructor(
         RIGHT_LEFT
     }
 
+    /**
+     * Responsible for creating [Shader] instance.
+     */
+    fun interface ShaderFactory {
+        /**
+         * Creates a [Shader] instance. The shader is expected to be created relative to the zero point.
+         *
+         * @param width current width of the fill instance.
+         * @param height current height of the fill instance.
+         * @param shape current shape of the fill instance. May be used for more precise shader's properties calculation.
+         */
+        fun create(width: Float, height: Float, shape: Shape): Shader
+    }
+
     private var shader: Shader? = null
 
     private var _width = 0f
@@ -96,11 +111,10 @@ class Fill private constructor(
             set(0f, 0f, _width, _height)
         }
 
-        val gradColors = gradientColors!!
-        val isZeroOnePositions = isZeroOneArray(gradientPositions)
-
         return when (type) {
             TYPE_LINEAR_GRADIENT -> {
+                val gradColors = gradientColors!!
+
                 shape.narrowBox(tempBox)
 
                 createLinearShader(orientation, tempBox) { x0, y0, x1, y1 ->
@@ -108,7 +122,7 @@ class Fill private constructor(
                     // that allows to create the shader with two colors, that are distributed along
                     // the gradient line, more efficiently
                     // by using LinearGradient(x0, y0, x1, y1, color0, color1, Shader.TileMode) constructor
-                    if (Build.VERSION.SDK_INT < 29 && isZeroOnePositions) {
+                    if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(gradientPositions)) {
                         LinearGradient(
                             x0, y0, x1, y1,
                             gradColors[0], gradColors[1],
@@ -125,12 +139,14 @@ class Fill private constructor(
             }
 
             TYPE_RADIAL_GRADIENT -> {
+                val gradColors = gradientColors!!
+
                 val tempPoint = getTempPoint()
                 val radius = shape.computeCircumcircle(tempBox, tempPoint)
                 val (cx, cy) = tempPoint
 
                 // Same motivation as in linear gradients.
-                if (Build.VERSION.SDK_INT < 29 && isZeroOnePositions) {
+                if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(gradientPositions)) {
                     RadialGradient(
                         cx, cy, radius,
                         gradColors[0], gradColors[1],
@@ -145,6 +161,10 @@ class Fill private constructor(
                 }
             }
 
+            TYPE_SHADER -> {
+                shaderFactory!!.create(_width, _height, shape)
+            }
+
             else -> throw RuntimeException("Invalid type of Fill")
         }
     }
@@ -156,13 +176,18 @@ class Fill private constructor(
         _width = width
         _height = height
 
+        // Other types require shaders to work.
         if (type != TYPE_SOLID) {
-            val needToUpdateShader = when (orientation) {
-                Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT ->
-                    abs(oldWidth - width) >= EPSILON
+            var needToUpdateShader = true
 
-                Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP ->
-                    abs(oldHeight - height) >= EPSILON
+            if (type == TYPE_LINEAR_GRADIENT) {
+                needToUpdateShader = when (orientation) {
+                    Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT ->
+                        abs(oldWidth - width) >= EPSILON
+
+                    Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP ->
+                        abs(oldHeight - height) >= EPSILON
+                }
             }
 
             if (needToUpdateShader) {
@@ -262,67 +287,61 @@ class Fill private constructor(
 
         if (type != other.type) return false
 
-        val gradColors = gradientColors
-
-        // gradColors == null means that the fill is solid
-        return if (gradColors == null) {
-            solidColor == other.solidColor
-        } else {
-            orientation == other.orientation &&
-                    gradientPositions.contentEquals(other.gradientPositions) &&
-                    gradColors.contentEquals(other.gradientColors)
-
+        return when(type) {
+            TYPE_SOLID -> solidColor == other.solidColor
+            TYPE_LINEAR_GRADIENT, TYPE_RADIAL_GRADIENT -> {
+                orientation == other.orientation &&
+                        gradientPositions.contentEquals(other.gradientPositions) &&
+                        gradientColors.contentEquals(other.gradientColors)
+            }
+            TYPE_SHADER -> shaderFactory == other.shaderFactory
+            else -> throw IllegalStateException("Invalid type")
         }
     }
 
     override fun hashCode(): Int {
-        var result = type
+        return when (type) {
+            TYPE_SOLID -> solidColor
+            TYPE_LINEAR_GRADIENT, TYPE_RADIAL_GRADIENT -> {
+                var result = gradientColors.contentHashCode()
+                result = result * 31 + gradientPositions.contentHashCode()
+                result = result * 31 + orientation.ordinal
 
-        val gradColors = gradientColors
+                result
+            }
 
-        // gradColors == null means that the fill is solid.
-        if (gradColors == null) {
-            result = result * 31 + solidColor
-        } else {
-            result = result * 31 + gradColors.contentHashCode()
-            result = result * 31 + gradientPositions.contentHashCode()
-            result = result * 31 + orientation.ordinal
+            TYPE_SHADER -> shaderFactory.hashCode()
+            else -> throw IllegalStateException("Invalid type")
         }
-
-        return result
     }
 
     override fun toString(): String {
         val type = type
 
         return buildString(64) {
-            append("Fill(type=")
+            when (type) {
+                TYPE_SOLID -> {
+                    append("Fill(type=SOLID, color=")
+                    appendColor(solidColor)
+                }
 
-            val typeStr = when (type) {
-                TYPE_SOLID -> "SOLID"
-                TYPE_LINEAR_GRADIENT -> "LINEAR_GRADIENT"
-                TYPE_RADIAL_GRADIENT -> "RADIAL_GRADIENT"
-                else -> throw RuntimeException("Invalid type of Fill")
-            }
+                TYPE_LINEAR_GRADIENT, TYPE_RADIAL_GRADIENT -> {
+                    append("Fill(type=")
+                    append(if (type == TYPE_LINEAR_GRADIENT) "LINEAR" else "RADIAL")
+                    append("_GRADIENT, colors=")
+                    appendColors(gradientColors!!)
+                    append(", positions=")
+                    append(gradientPositions.contentToString())
 
-            append(typeStr)
+                    if (type == TYPE_LINEAR_GRADIENT) {
+                        append(", orientation=")
+                        append(orientation.name)
+                    }
+                }
 
-            val gradColors = gradientColors
-
-            // gradColors == null means that the fill is solid
-            if (gradColors == null) {
-                append(", color=")
-                appendColor(solidColor)
-            } else {
-                append(", colors=")
-                appendColors(gradColors)
-
-                append(", positions=")
-                append(gradientPositions!!.contentToString())
-
-                if (type == TYPE_LINEAR_GRADIENT) {
-                    append(", orientation=")
-                    append(orientation.name)
+                TYPE_SHADER -> {
+                    append("Fill(type=SHADER, factory=")
+                    append(shaderFactory)
                 }
             }
 
@@ -336,6 +355,7 @@ class Fill private constructor(
         const val TYPE_SOLID = 0
         const val TYPE_LINEAR_GRADIENT = 1
         const val TYPE_RADIAL_GRADIENT = 2
+        const val TYPE_SHADER = 3
 
         private val zeroOneArray = floatArrayOf(0f, 1f)
 
@@ -362,6 +382,7 @@ class Fill private constructor(
             solidColor = color,
             gradientColors = null,
             gradientPositions = null,
+            shaderFactory = null,
             orientation = Orientation.LEFT_RIGHT
         )
 
@@ -414,6 +435,7 @@ class Fill private constructor(
                 solidColor = 0,
                 gradientColors = intArrayOf(startColor, endColor),
                 gradientPositions = zeroOneArray,
+                shaderFactory = null,
                 orientation = orientation
             )
         }
@@ -437,6 +459,7 @@ class Fill private constructor(
                 solidColor = 0,
                 gradientColors = colors.copyOf(),
                 gradientPositions = positions ?: zeroOneArray,
+                shaderFactory = null,
                 orientation = orientation
             )
         }
@@ -497,6 +520,22 @@ class Fill private constructor(
         @JvmStatic
         fun radialGradient(colors: IntArray, positions: FloatArray?): Fill {
             return createGradient(TYPE_RADIAL_GRADIENT, colors, positions, Orientation.LEFT_RIGHT)
+        }
+
+        /**
+         * Creates a shader fill. As desired size of gradient may change, single [Shader] instance can't be used.
+         * Instead, [ShaderFactory] is used that creates new instances of [Shader] using current `width` and `height` values.
+         */
+        @JvmStatic
+        fun shader(factory: ShaderFactory): Fill {
+            return Fill(
+                TYPE_SHADER,
+                solidColor = 0,
+                gradientColors = null,
+                gradientPositions = null,
+                shaderFactory = factory,
+                orientation = Orientation.LEFT_RIGHT
+            )
         }
     }
 }
