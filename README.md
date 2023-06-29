@@ -151,7 +151,7 @@ There are two main abstractions in selection management:
 - 'selection state' - saves type of selection, its range (rangeStart and rangeEnd) and other data required to draw it on
   canvas.
 - 'selection manager' - responsible for creating selection state, accessing to it.
-- 'selection renderer' - responsible for rendering the selection state on `Canvas`. The implementation is not expected to have any public visible state, but it's acceptable to cache some information in order to make the rendering faster.
+- 'selection renderer' - responsible for rendering the selection state on `Canvas`. The implementation is not expected to be stateful, but it's acceptable to cache some information in order to make the rendering faster.
 - 'selection transition controller' - responsible for mutating `SelectionState.Transition` internal data to make a transition.
 
 There's a description of methods of `SelectionManager` and what they are expected to do:
@@ -170,9 +170,11 @@ There's a description of methods of `SelectionManager` and what they are expecte
   only called if hasTransition() returns true.
 - `options` is used to stylize the selection as selection state shouldn't contain any style-related information.
 
+Selection renderer is responsible for drawing simple selection state or transitive state, that is created to save information about transition between two selection states. When selection is to be drawn, the canvas' matrix is translated in such way that coordinates will be relative to the grid's leftmost point on top.
+
 To use the custom implementation of `SelectionManager` is the calendar view,
 use `RangeCalendarView.setSelectionManager()`
-To use default implementation, call setSelectionManager() with `null` as the selection manager.
+To use default implementation, pass `null` to setSelectionManager().
 
 There's also a `CellMeasureManager` class which returns position and size of specified cell. It's passed as an argument
 to some methods of `SelectionManager`. Although it's a public interface and it can be implemented on your own, you

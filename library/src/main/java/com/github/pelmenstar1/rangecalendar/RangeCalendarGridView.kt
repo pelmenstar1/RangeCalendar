@@ -16,6 +16,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.accessibility.AccessibilityEvent
+import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
@@ -162,14 +163,17 @@ internal class RangeCalendarGridView(
         override val roundRadius: Float
             get() = view.cellRoundRadius()
 
-        override fun getCellLeft(cellIndex: Int): Float = view.getCellLeft(Cell(cellIndex))
-        override fun getCellTop(cellIndex: Int): Float = view.getCellTop(Cell(cellIndex))
+        override fun getCellLeft(cellIndex: Int): Float =
+            view.getCellLeftRelativeToGrid(Cell(cellIndex))
+
+        override fun getCellTop(cellIndex: Int): Float =
+            view.getCellTopRelativeToGrid(Cell(cellIndex))
 
         override fun getCellDistance(cellIndex: Int): Float =
             view.getCellDistance(Cell(cellIndex))
 
         override fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int =
-            view.getCellAndPointByCellDistance(distance, outPoint)
+            view.getCellAndPointByCellDistanceRelativeToGrid(distance, outPoint)
     }
 
     val cells = ByteArray(42)
@@ -495,15 +499,21 @@ internal class RangeCalendarGridView(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         updateGradientBoundsIfNeeded()
+
+        // Selection state relies on measurements that might be changed with different width or height.
+        // For example, getCellLeft() gives different results with various view's width.
         updateSelectionStateConfiguration()
     }
 
     private fun updateGradientBoundsIfNeeded() {
         if (selectionFillGradientBoundsType() == SelectionFillGradientBoundsType.GRID) {
-            val hPadding = cr.hPadding
-
+            // selectionFill() is used to set fill for the selection which is drawn using a translation from view's local coordinates
+            // to the point (x = cr.hPadding, y = gridTop()). We need to take it into account and set bounds accordingly.
             selectionFill().setBounds(
-                hPadding, gridTop(), width - hPadding, height.toFloat()
+                left = 0f,
+                top = 0f,
+                right = width - 2 * cr.hPadding,
+                bottom = height - gridTop()
             )
         }
     }
@@ -1147,12 +1157,14 @@ internal class RangeCalendarGridView(
         val renderer = selectionRenderer
         val options = selectionRenderOptions!!
 
-        if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
-            selectionTransitiveState?.let {
-                renderer.drawTransition(c, it, options)
+        c.withTranslation(x = cr.hPadding, y = gridTop()) {
+            if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
+                selectionTransitiveState?.let {
+                    renderer.drawTransition(c, it, options)
+                }
+            } else {
+                renderer.draw(c, selectionManager.currentState, options)
             }
-        } else {
-            renderer.draw(c, selectionManager.currentState, options)
         }
     }
 
@@ -1334,9 +1346,6 @@ internal class RangeCalendarGridView(
         // Gradient bounds if gradient bounds type is GRID, depends on gridTop()
         updateGradientBoundsIfNeeded()
 
-        // Selection state's internal measurements depend on coordinates of cells that depend on gridTop()
-        updateSelectionStateConfiguration()
-
         // Height of the view depends on gridTop()
         requestLayout()
 
@@ -1390,6 +1399,18 @@ internal class RangeCalendarGridView(
         return getCellTopByGridY(cell.gridY, cellHeight)
     }
 
+    private fun getCellLeftRelativeToGrid(cell: Cell): Float {
+        return columnWidth() * (cell.gridX + 0.5f) - cellWidth() * 0.5f
+    }
+
+    private fun getCellTopRelativeToGridByGridY(gridY: Int): Float {
+        return cellHeight() * gridY
+    }
+
+    private fun getCellTopRelativeToGrid(cell: Cell): Float {
+        return getCellTopRelativeToGridByGridY(cell.gridY)
+    }
+
     private fun fillCellBounds(cell: Cell, bounds: Rect) {
         val halfCw = cellWidth() * 0.5f
         val ch = cellHeight()
@@ -1430,11 +1451,11 @@ internal class RangeCalendarGridView(
         return distance
     }
 
-    private fun getCellAndPointByCellDistance(distance: Float, outPoint: PointF): Int {
+    private fun getCellAndPointByCellDistanceRelativeToGrid(distance: Float, outPoint: PointF): Int {
         val rw = rowWidth()
 
         val gridY = (distance / rw).toInt()
-        val cellTop = getCellTopByGridY(gridY)
+        val cellTop = getCellTopRelativeToGridByGridY(gridY)
 
         val xOnRow = distance - gridY * rw
 
@@ -1442,7 +1463,7 @@ internal class RangeCalendarGridView(
         // we rewrite xOnRow / (rw / 7f) as (7f * xOnRow) / rw
         val gridX = ((7f * xOnRow) / rw).toInt()
 
-        outPoint.x = cr.hPadding + xOnRow
+        outPoint.x = xOnRow
         outPoint.y = cellTop
 
         return gridY * 7 + gridX
