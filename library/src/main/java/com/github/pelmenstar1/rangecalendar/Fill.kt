@@ -73,8 +73,6 @@ class Fill private constructor(
 
     private var shader: Shader? = null
 
-    private val isZeroOnePositions = isZeroOneArray(gradientPositions)
-
     private var _width = 0f
     private var _height = 0f
 
@@ -95,11 +93,11 @@ class Fill private constructor(
 
     private fun createShader(): Shader {
         val tempBox = getTempRect().apply {
-            right = _width
-            bottom = _height
+            set(0f, 0f, _width, _height)
         }
 
         val gradColors = gradientColors!!
+        val isZeroOnePositions = isZeroOneArray(gradientPositions)
 
         return when (type) {
             TYPE_LINEAR_GRADIENT -> {
@@ -160,13 +158,11 @@ class Fill private constructor(
 
         if (type != TYPE_SOLID) {
             val needToUpdateShader = when (orientation) {
-                Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT -> {
+                Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT ->
                     abs(oldWidth - width) >= EPSILON
-                }
 
-                Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP -> {
+                Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP ->
                     abs(oldHeight - height) >= EPSILON
-                }
             }
 
             if (needToUpdateShader) {
@@ -190,11 +186,13 @@ class Fill private constructor(
         paint.style = Paint.Style.FILL
 
         if (type == TYPE_SOLID) {
+            // Combine alphas.
             paint.color = solidColor.withCombinedAlpha(alpha)
-            paint.shader = null
-        } else {
-            paint.shader = shader
         }
+
+        // If shader is null, it means either type is SOLID or type is gradient but setSize() hasn't been called.
+        // In the latter case, it's illegal thing to do. We don't force it though.
+        paint.shader = shader
     }
 
     /**
@@ -219,6 +217,12 @@ class Fill private constructor(
      * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
      */
     inline fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
+        // If alpha is 0, there's no sense in drawing. If the value is less than 0, that's illegal
+        // and better to return from the method.
+        if (alpha <= 0f) {
+            return
+        }
+
         applyToPaint(paint, alpha)
 
         var count = -1
@@ -226,13 +230,14 @@ class Fill private constructor(
         // alpha doesn't work in applyToPaint() if fill is not solid. We need
         // to use a layer with different alpha to draw gradient. However, we don't need
         // it in case alpha is 1 (we can draw it as is), or 0 (we don't need to draw anything)
-        if (type != TYPE_SOLID && (alpha > 0f && alpha < 1f)) {
-            val alpha255 = (alpha * 255f + 0.5f).toInt()
+        if (type != TYPE_SOLID && alpha < 1f) {
+            // Convert float alpha [0; 1] to int alpha [0; 255]
+            val iAlpha = (alpha * 255f + 0.5f).toInt()
 
             count = if (Build.VERSION.SDK_INT >= 21) {
-                canvas.saveLayerAlpha(shapeBounds, alpha255)
+                canvas.saveLayerAlpha(shapeBounds, iAlpha)
             } else {
-                paint.alpha = alpha255
+                paint.alpha = iAlpha
 
                 // Use deprecated method because it's the only available method when API < 21
                 @Suppress("DEPRECATION")
@@ -241,9 +246,7 @@ class Fill private constructor(
         }
 
         try {
-            if (alpha > 0) {
-                canvas.block()
-            }
+            canvas.block()
         } finally {
             if (count >= 0) {
                 canvas.restoreToCount(count)
@@ -339,9 +342,7 @@ class Fill private constructor(
         private var tempRectHolder: RectF? = null
         private var tempPointHolder: PointF? = null
 
-        @PublishedApi
-        @JvmSynthetic
-        internal fun getTempRect(): RectF =
+        private fun getTempRect(): RectF =
             getLazyValue(tempRectHolder, ::RectF) { tempRectHolder = it }
 
         private fun getTempPoint(): PointF =

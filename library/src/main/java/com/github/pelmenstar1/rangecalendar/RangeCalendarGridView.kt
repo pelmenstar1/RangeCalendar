@@ -1148,7 +1148,12 @@ internal class RangeCalendarGridView(
                 renderer.drawTransition(c, it, options)
             }
         } else {
-            renderer.draw(c, selectionManager.currentState, options)
+            val currentState = selectionManager.currentState
+
+            // Draw selection state if there's actually the state to draw.
+            if (!currentState.isNone) {
+                renderer.draw(c, currentState, options)
+            }
         }
     }
 

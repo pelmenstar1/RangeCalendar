@@ -8,10 +8,11 @@ import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
-import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
+
+private typealias CanvasWithBoundsLambda = Canvas.(left: Float, top: Float, right: Float, bottom: Float) -> Unit
 
 internal class DefaultSelectionRenderer : SelectionRenderer {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -23,6 +24,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private var primaryCellNode: CellRenderNode? = null
     private var secondaryCellNode: CellRenderNode? = null
+
+    private val tempRect = RectF()
 
     private fun getOrCreatePrimaryCellNode() =
         getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
@@ -156,11 +159,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        useSelectionFill(canvas, options, left, top, width, height, alpha) {
-            canvas.drawRoundRectCompat(
-                0f, 0f, width, height,
-                options.roundRadius, paint
-            )
+        useSelectionFill(canvas, options, left, top, width, height, alpha) { l, t, r, b ->
+            canvas.drawRoundRectCompat(l, t, r, b, options.roundRadius, paint)
         }
     }
 
@@ -177,51 +177,103 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             secondaryShape
         }
 
-        shape.updateShapeIfNecessary(shapeInfo)
+        val boundsType = options.fillGradientBoundsType
 
-        useSelectionFill(canvas, options, shape.bounds, alpha) {
-            shape.draw(canvas, paint)
+        val origin = if (options.fillGradientBoundsType == SelectionFillGradientBoundsType.GRID) {
+            SelectionShape.ORIGIN_LOCAL
+        } else {
+            SelectionShape.ORIGIN_BOUNDS
+        }
+
+        shape.update(shapeInfo, origin)
+
+        val fill = options.fill
+
+        val bounds = shape.bounds
+        val actualBounds: RectF
+
+        var count = -1
+
+        if (boundsType == SelectionFillGradientBoundsType.SHAPE) {
+            val (left, top, right, bottom) = bounds
+            val width = right - left
+            val height = bottom - top
+
+            fill.setSize(width, height)
+
+            count = canvas.save()
+            canvas.translate(left, top)
+
+            actualBounds = tempRect.apply {
+                set(0f, 0f, width, height)
+            }
+        } else {
+            actualBounds = bounds
+        }
+
+        try {
+            fill.drawWith(canvas, actualBounds, paint, alpha) {
+                shape.draw(canvas, paint)
+            }
+        } finally {
+            if (count >= 0) {
+                canvas.restoreToCount(count)
+            }
         }
     }
 
     private inline fun useSelectionFill(
         canvas: Canvas,
         options: SelectionRenderOptions,
-        left: Float, top: Float,
-        width: Float, height: Float,
+        left: Float, top: Float, width: Float, height: Float,
         alpha: Float,
-        block: Canvas.() -> Unit
-    ) = useSelectionFill(canvas, options, left, top, { setSize(width, height) }, alpha, block)
-
-    private inline fun useSelectionFill(
-        canvas: Canvas,
-        options: SelectionRenderOptions,
-        bounds: RectF,
-        alpha: Float,
-        block: Canvas.() -> Unit
-    ) = useSelectionFill(
-        canvas,
-        options,
-        bounds.left, bounds.top,
-        { setSize(bounds.width(), bounds.height()) },
-        alpha,
-        block
-    )
-
-    private inline fun useSelectionFill(
-        canvas: Canvas,
-        options: SelectionRenderOptions,
-        left: Float, top: Float,
-        setSize: Fill.() -> Unit,
-        alpha: Float,
-        block: Canvas.() -> Unit
+        crossinline block: CanvasWithBoundsLambda
     ) {
         val fill = options.fill
+        val boundsType = options.fillGradientBoundsType
+        val rect = tempRect
 
-        if (options.fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
-            fill.setSize()
+        val right = left + width
+        val bottom = top + height
+
+        var count = -1
+
+        if (boundsType == SelectionFillGradientBoundsType.SHAPE) {
+            fill.setSize(width, height)
+
+            count = canvas.save()
+            canvas.translate(left, top)
+
+            rect.set(0f, 0f, width, height)
+        } else {
+            rect.set(left, top, right, bottom)
         }
 
-        fill.drawWith(canvas, left, top, paint, alpha, block)
+        try {
+            fill.drawWith(canvas, rect, paint, alpha) {
+                val l: Float
+                val t: Float
+                val r: Float
+                val b: Float
+
+                if (boundsType == SelectionFillGradientBoundsType.SHAPE) {
+                    l = 0f
+                    t = 0f
+                    r = width
+                    b = height
+                } else {
+                    l = left
+                    t = top
+                    r = right
+                    b = bottom
+                }
+
+                block(this, l, t, r, b)
+            }
+        } finally {
+            if (count >= 0) {
+                canvas.restoreToCount(count)
+            }
+        }
     }
 }
