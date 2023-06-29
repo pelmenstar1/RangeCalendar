@@ -228,6 +228,31 @@ class TriangleShape(
         return radius
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (other === this) return true
+        if (other == null || javaClass != other.javaClass) return false
+
+        other as TriangleShape
+
+        return p1x == other.p1x && p2x == other.p2x && p3x == other.p3x &&
+                p1y == other.p1y && p2y == other.p2y && p3x == other.p3y
+    }
+
+    override fun hashCode(): Int {
+        var result = p1x.toBits()
+        result = result * 31 + p2x.toBits()
+        result = result * 31 + p3x.toBits()
+        result = result * 31 + p1y.toBits()
+        result = result * 31 + p2y.toBits()
+        result = result * 31 + p3y.toBits()
+
+        return result
+    }
+
+    override fun toString(): String {
+        return "TriangleShape(p1=($p1x, $p1y), p2=($p2x, $p2y), p3=($p3x, $p3y))"
+    }
+
     companion object {
         private fun requireValidRelativePoint(x: Float, y: Float) {
             requireValidRelativePointAxis(x)

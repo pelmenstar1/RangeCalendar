@@ -10,6 +10,7 @@ import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
+import androidx.core.graphics.withTranslation
 import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.BorderAnimationType
 import com.github.pelmenstar1.rangecalendar.Fill
@@ -322,7 +323,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
                     boundsArray, i * 4,
                     left, decorTop, right, bottom
                 )
-                style.fill.setBounds(left, decorTop, right, bottom, style.shape)
+
+                style.fill.setSize(size, size)
 
                 left += size
                 if (i < decorCount - 1) {
@@ -399,10 +401,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 val absIndex = i * 4
                 val shape = style.shape
 
-                style.fill.applyToPaint(paint)
-
                 arrayRectToObject(boundsArray, absIndex, rect)
-                drawShape(canvas, shape)
+                drawFilledShape(canvas, shape, style.fill)
 
                 val border = style.border
                 if (border != null) {
@@ -413,6 +413,9 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
                         else -> boundsArray
                     }
+
+                    // Need to call it again as drawFilledShape mutates rect.
+                    arrayRectToObject(boundsArray, absIndex, rect)
 
                     border.doDrawPreparation(
                         animatedBoundsArray = boundsArray,
@@ -444,6 +447,20 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 path.reset()
             } else {
                 shape.draw(canvas, rect, null, paint)
+            }
+        }
+
+        private fun drawFilledShape(canvas: Canvas, shape: Shape, fill: Fill) {
+            val (left, top, right, bottom) = rect
+            val width = right - left
+            val height = bottom - top
+
+            rect.set(0f, 0f, width, height)
+
+            canvas.withTranslation(left, top) {
+                fill.drawWith(canvas, rect, paint, alpha = 1f) {
+                    drawShape(canvas, shape)
+                }
             }
         }
     }

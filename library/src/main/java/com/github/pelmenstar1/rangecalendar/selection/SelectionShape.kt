@@ -49,7 +49,6 @@ internal class SelectionShape {
         val cellHeight = shapeInfo.cellHeight
         val rr = shapeInfo.roundRadius
 
-        val startBottom = startTop + cellHeight
         val endBottom = endTop + cellHeight
 
         val gridYDiff = end.gridY - start.gridY
@@ -61,6 +60,11 @@ internal class SelectionShape {
             // If there are more than 1 row, then the shape will always occupy space between first and last cells on a row.
             bounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
 
+            // Path is created relative to the bounds left-top corner coordinates.
+
+            val rowWidth = lastCellRight - firstCellLeft
+            val lastRowTop = endTop - startTop
+
             val startGridX = start.gridX
             val endGridX = end.gridX
 
@@ -70,7 +74,11 @@ internal class SelectionShape {
                 leftBottom(condition = startGridX != 0)
                 rightBottom(condition = gridYDiff == 1 && endGridX != 6)
 
-                path.addRoundRectCompat(startLeft, startTop, lastCellRight, startBottom, radii())
+                path.addRoundRectCompat(
+                    left = startLeft - firstCellLeft, top = 0f,
+                    right = rowWidth, bottom = cellHeight,
+                    radii()
+                )
             }
 
             Radii.withRadius(rr) {
@@ -79,7 +87,11 @@ internal class SelectionShape {
                 rightTop(condition = endGridX != 6)
                 leftTop(condition = gridYDiff == 1 && startGridX != 0)
 
-                path.addRoundRectCompat(firstCellLeft, endTop, endRight, endBottom, radii())
+                path.addRoundRectCompat(
+                    left = 0f, top = lastRowTop,
+                    right = endRight - firstCellLeft, bottom = lastRowTop + cellHeight,
+                    radii()
+                )
             }
 
             if (gridYDiff > 1) {
@@ -88,8 +100,8 @@ internal class SelectionShape {
                     rightBottom(condition = endGridX != 6)
 
                     path.addRoundRectCompat(
-                        firstCellLeft, startBottom,
-                        lastCellRight, endTop,
+                        left = 0f, top = cellHeight,
+                        right = rowWidth, bottom = lastRowTop,
                         radii()
                     )
                 }
@@ -99,15 +111,18 @@ internal class SelectionShape {
         }
     }
 
+    /**
+     * Draws the selection shape on [canvas] using [paint]. The shape will be drawn relative to the [bounds].
+     */
     fun draw(canvas: Canvas, paint: Paint) {
         val (startCell, endCell) = shapeInfo.range
 
         if (startCell.sameY(endCell)) {
-            val startTop = shapeInfo.startTop
-            val startBottom = startTop + shapeInfo.cellHeight
+            val width = bounds.width()
+            val height = shapeInfo.cellHeight
 
             canvas.drawRoundRectCompat(
-                shapeInfo.startLeft, startTop, shapeInfo.endRight, startBottom,
+                0f, 0f, width, height,
                 shapeInfo.roundRadius,
                 paint
             )

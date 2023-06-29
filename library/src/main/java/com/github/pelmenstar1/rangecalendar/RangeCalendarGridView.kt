@@ -500,11 +500,7 @@ internal class RangeCalendarGridView(
 
     private fun updateGradientBoundsIfNeeded() {
         if (selectionFillGradientBoundsType() == SelectionFillGradientBoundsType.GRID) {
-            val hPadding = cr.hPadding
-
-            selectionFill().setBounds(
-                hPadding, gridTop(), width - hPadding, height.toFloat()
-            )
+            selectionFill().setSize(rowWidth(), height = height - gridTop())
         }
     }
 

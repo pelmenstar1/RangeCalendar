@@ -34,13 +34,8 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
                 val start = state.start.shapeInfo
                 val end = state.end.shapeInfo
 
-                state.bounds.apply {
-                    left = lerp(start.startLeft, end.startLeft, fraction)
-                    top = lerp(start.startTop, end.startTop, fraction)
-
-                    right = left + start.cellWidth
-                    bottom = top + start.cellHeight
-                }
+                state.left = lerp(start.startLeft, end.startLeft, fraction)
+                state.top = lerp(start.startTop, end.startTop, fraction)
             }
 
             is DefaultSelectionState.RangeToRange -> {

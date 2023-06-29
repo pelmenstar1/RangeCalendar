@@ -7,6 +7,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.annotation.ColorInt
+import androidx.core.graphics.withClip
 import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.BorderAnimationType
 import com.github.pelmenstar1.rangecalendar.Fill
@@ -334,7 +335,7 @@ class LineDecor(val style: Style) : CellDecor() {
                 rect.right = right
 
                 setRectFromObject(linesAndTextBoundsArray, i * 4, rect)
-                style.fill.setBounds(rect)
+                style.fill.setSize(rect.width(), rect.height())
 
                 if (style.text != null) {
                     val textSize = getTextBounds(style.text, style.textSize, style.textTypeface)
@@ -486,10 +487,9 @@ class LineDecor(val style: Style) : CellDecor() {
                     textIndex++
 
                     if (style.clipTextToBounds) {
-                        canvas.save()
-                        canvas.clipRect(textLeft, textTop, textRight, textBottom)
-                        canvas.drawText(text, textLeft, textBottom, paint)
-                        canvas.restore()
+                        canvas.withClip(textLeft, textTop, textRight, textBottom) {
+                            drawText(text, textLeft, textBottom, paint)
+                        }
                     } else {
                         canvas.drawText(text, textLeft, textBottom, paint)
                     }

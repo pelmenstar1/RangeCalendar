@@ -7,18 +7,12 @@ internal fun StringBuilder.appendColor(@ColorInt color: Int) {
     append(String.format("%08X", color))
 }
 
-internal fun StringBuilder.appendColors(colors: IntArray, originAlphas: ByteArray?) {
+internal fun StringBuilder.appendColors(colors: IntArray) {
     append('[')
 
     val size = colors.size
     for (i in 0 until size) {
-        var color = colors[i]
-
-        if (originAlphas != null) {
-            color = color.withAlpha(originAlphas[i])
-        }
-
-        appendColor(color)
+        appendColor(colors[i])
 
         if (i < size - 1) {
             append(", ")

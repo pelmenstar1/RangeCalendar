@@ -9,7 +9,6 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.os.Build
 import androidx.annotation.ColorInt
-import androidx.core.graphics.alpha
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
@@ -17,7 +16,6 @@ import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.utils.appendColor
 import com.github.pelmenstar1.rangecalendar.utils.appendColors
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
-import com.github.pelmenstar1.rangecalendar.utils.withAlpha
 import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 import kotlin.math.abs
 
@@ -34,7 +32,7 @@ import kotlin.math.abs
  *
  * Example:
  * ```
- * val f1 = Fill.radialGradient(intArrayOf(1, 2), floatArrayOf(1, 0))
+ * val f1 = Fill.radialGradient(intArrayOf(1, 2), floatArrayOf(0, 1))
  * val f2 = Fill.radialGradient(intArrayOf(1, 2), null)
  *
  * val isEqual = f1 == f2 // true
@@ -73,40 +71,35 @@ class Fill private constructor(
         RIGHT_LEFT
     }
 
-    private var boundsLeft = 0f
-    private var boundsTop = 0f
-    private var boundsRight = 0f
-    private var boundsBottom = 0f
-
-    private var boundsShape: Shape? = null
-
     private var shader: Shader? = null
-    private var shaderAlpha = 1f
-
-    // Initialized when needed.
-    private var originGradientColorsAlphas: ByteArray? = null
 
     private val isZeroOnePositions = isZeroOneArray(gradientPositions)
 
-    private fun createShader(alpha: Float): Shader {
-        val shape = boundsShape
-            ?: throw IllegalStateException("setBounds() must be called before calling applyToPaint()")
+    private var _width = 0f
+    private var _height = 0f
 
-        val tempBox = getTempBox()
-        getBounds(tempBox)
+    val width: Float
+        get() = _width
+
+    val height: Float
+        get() = _height
+
+    var shape: Shape = RectangleShape
+        set(value) {
+            if (field != value) {
+                field = value
+
+                updateShader()
+            }
+        }
+
+    private fun createShader(): Shader {
+        val tempBox = getTempRect().apply {
+            right = _width
+            bottom = _height
+        }
 
         val gradColors = gradientColors!!
-
-        if (shaderAlpha != alpha) {
-            shaderAlpha = alpha
-
-            val originAlphas = getLazyValue(
-                originGradientColorsAlphas,
-                { extractAlphas(gradColors) }
-            ) { originGradientColorsAlphas = it }
-
-            combineAlphas(alpha, originAlphas, gradColors)
-        }
 
         return when (type) {
             TYPE_LINEAR_GRADIENT -> {
@@ -158,65 +151,39 @@ class Fill private constructor(
         }
     }
 
-    fun getBounds(outRect: RectF) {
-        outRect.set(boundsLeft, boundsTop, boundsRight, boundsBottom)
-    }
+    fun setSize(width: Float, height: Float) {
+        val oldWidth = _width
+        val oldHeight = _height
 
-    /**
-     * Sets bounds in which the fill is applied
-     */
-    @JvmOverloads
-    fun setBounds(bounds: RectF, shape: Shape = RectangleShape) {
-        setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom, shape)
-    }
+        _width = width
+        _height = height
 
-    /**
-     * Sets bounds in which the fill is applied.
-     */
-    @JvmOverloads
-    fun setBounds(
-        left: Float,
-        top: Float,
-        right: Float,
-        bottom: Float,
-        shape: Shape = RectangleShape
-    ) {
-        val oldLeft = boundsLeft
-        val oldTop = boundsTop
-        val oldRight = boundsRight
-        val oldBottom = boundsBottom
-        val oldShape = boundsShape
-
-        boundsLeft = left
-        boundsTop = top
-        boundsRight = right
-        boundsBottom = bottom
-        boundsShape = shape
-
-        if (type != TYPE_SOLID && (oldLeft != left || oldTop != top || oldRight != right || oldBottom != bottom || oldShape != shape)) {
-            val updateShader = when (orientation) {
+        if (type != TYPE_SOLID) {
+            val needToUpdateShader = when (orientation) {
                 Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT -> {
-                    abs(oldLeft - left) >= EPSILON || abs(oldRight - right) >= EPSILON
+                    abs(oldWidth - width) >= EPSILON
                 }
 
                 Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP -> {
-                    abs(oldTop - top) >= EPSILON || abs(oldBottom - bottom) >= EPSILON
+                    abs(oldHeight - height) >= EPSILON
                 }
             }
 
-            if (updateShader) {
-                shader = createShader(alpha = 1f)
+            if (needToUpdateShader) {
+                updateShader()
             }
         }
     }
 
+    private fun updateShader() {
+        shader = createShader()
+    }
+
     /**
-     * Applies options of [Fill] to specified paint.
+     * Applies options of [Fill] to specified [paint].
      *
-     * If [Fill] is gradient-like (created by [linearGradient] or [radialGradient]) and [alpha] is less than 1,
-     * this method shouldn't be used to apply the options to the paint and draw something with the paint.
-     * For this purpose, there's [drawWith] method. In Kotlin, `inline` version of the method can be used, which
-     * makes it more performant than version with [Runnable] lambda.
+     * [alpha] parameter specifies with what `alpha` value solid color should be applied to the [paint]. If the fill is not solid,
+     * [alpha] parameter doesn't change anything.
      */
     @JvmOverloads
     fun applyToPaint(paint: Paint, alpha: Float = 1f) {
@@ -226,13 +193,7 @@ class Fill private constructor(
             paint.color = solidColor.withCombinedAlpha(alpha)
             paint.shader = null
         } else {
-            var sh = shader
-            if (shaderAlpha != alpha) {
-                sh = createShader(alpha)
-                shader = sh
-            }
-
-            paint.shader = sh
+            paint.shader = shader
         }
     }
 
@@ -245,8 +206,8 @@ class Fill private constructor(
      * Implementation notes: internally it uses [Canvas.saveLayerAlpha] to override alpha of the layer.
      * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
      */
-    fun drawWith(canvas: Canvas, paint: Paint, alpha: Float, block: Runnable) {
-        drawWith(canvas, paint, alpha) { block.run() }
+    fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Runnable) {
+        drawWith(canvas, shapeBounds, paint, alpha) { block.run() }
     }
 
     /**
@@ -257,35 +218,34 @@ class Fill private constructor(
      * Implementation notes: internally it uses [Canvas.saveLayerAlpha] to override alpha of the layer.
      * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
      */
-    inline fun drawWith(canvas: Canvas, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
-        if (type == TYPE_SOLID || alpha == 1f) {
-            applyToPaint(paint, alpha)
+    inline fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
+        applyToPaint(paint, alpha)
 
-            canvas.block()
-        } else {
-            val box = getTempBox()
-            getBounds(box)
+        var count = -1
 
-            // Create shader with normal colors (alpha=1)
-            // Then change alpha using saveLayerAlpha/saveLayer instead of
-            // recreating the shader every time.
-            applyToPaint(paint, alpha = 1f)
-
+        // alpha doesn't work in applyToPaint() if fill is not solid. We need
+        // to use a layer with different alpha to draw gradient. However, we don't need
+        // it in case alpha is 1 (we can draw it as is), or 0 (we don't need to draw anything)
+        if (type != TYPE_SOLID && (alpha > 0f && alpha < 1f)) {
             val alpha255 = (alpha * 255f + 0.5f).toInt()
 
-            val count = if (Build.VERSION.SDK_INT >= 21) {
-                canvas.saveLayerAlpha(box, alpha255)
+            count = if (Build.VERSION.SDK_INT >= 21) {
+                canvas.saveLayerAlpha(shapeBounds, alpha255)
             } else {
                 paint.alpha = alpha255
 
-                // Use deprecated method because it's the only method available when API < 21
+                // Use deprecated method because it's the only available method when API < 21
                 @Suppress("DEPRECATION")
-                canvas.saveLayer(box, paint, Canvas.ALL_SAVE_FLAG)
+                canvas.saveLayer(shapeBounds, paint, Canvas.ALL_SAVE_FLAG)
             }
+        }
 
-            try {
+        try {
+            if (alpha > 0) {
                 canvas.block()
-            } finally {
+            }
+        } finally {
+            if (count >= 0) {
                 canvas.restoreToCount(count)
             }
         }
@@ -306,11 +266,8 @@ class Fill private constructor(
             solidColor == other.solidColor
         } else {
             orientation == other.orientation &&
-                    positionsEquals(gradientPositions, other.gradientPositions) &&
-                    colorsEquals(
-                        gradColors, originGradientColorsAlphas,
-                        other.gradientColors!!, other.originGradientColorsAlphas
-                    )
+                    gradientPositions.contentEquals(other.gradientPositions) &&
+                    gradColors.contentEquals(other.gradientColors)
 
         }
     }
@@ -324,8 +281,8 @@ class Fill private constructor(
         if (gradColors == null) {
             result = result * 31 + solidColor
         } else {
-            result = result * 31 + colorsHashCode(gradColors, originGradientColorsAlphas)
-            result = result * 31 + positionsHashCode(gradientPositions)
+            result = result * 31 + gradColors.contentHashCode()
+            result = result * 31 + gradientPositions.contentHashCode()
             result = result * 31 + orientation.ordinal
         }
 
@@ -355,10 +312,10 @@ class Fill private constructor(
                 appendColor(solidColor)
             } else {
                 append(", colors=")
-                appendColors(gradColors, originGradientColorsAlphas)
+                appendColors(gradColors)
 
                 append(", positions=")
-                append(gradientPositions?.contentToString() ?: "[0.0, 1.0]")
+                append(gradientPositions!!.contentToString())
 
                 if (type == TYPE_LINEAR_GRADIENT) {
                     append(", orientation=")
@@ -377,92 +334,21 @@ class Fill private constructor(
         const val TYPE_LINEAR_GRADIENT = 1
         const val TYPE_RADIAL_GRADIENT = 2
 
-        private var tempBoxHolder: RectF? = null
+        private val zeroOneArray = floatArrayOf(0f, 1f)
+
+        private var tempRectHolder: RectF? = null
         private var tempPointHolder: PointF? = null
 
         @PublishedApi
         @JvmSynthetic
-        internal fun getTempBox(): RectF =
-            getLazyValue(tempBoxHolder, ::RectF) { tempBoxHolder = it }
+        internal fun getTempRect(): RectF =
+            getLazyValue(tempRectHolder, ::RectF) { tempRectHolder = it }
 
         private fun getTempPoint(): PointF =
             getLazyValue(tempPointHolder, ::PointF) { tempPointHolder = it }
 
-        private fun combineAlphas(alpha: Float, originAlphas: ByteArray, colors: IntArray) {
-            for (i in colors.indices) {
-                val originAlpha = originAlphas[i].toInt() and 0xFF
-
-                colors[i] = colors[i].withCombinedAlpha(alpha, originAlpha)
-            }
-        }
-
-        private fun colorsEquals(
-            a: IntArray, aAlphas: ByteArray?,
-            b: IntArray, bAlphas: ByteArray?
-        ): Boolean {
-            // Use optimized Arrays.equals() if both aAlphas and bAlphas are null which
-            // means that alphas weren't changed.
-            if (aAlphas == null && bAlphas == null) {
-                return a.contentEquals(b)
-            }
-
-            val size = a.size
-            if (size != b.size) return false
-
-            for (i in 0 until size) {
-                var aElement = a[i]
-                if (aAlphas != null) {
-                    aElement = aElement.withAlpha(aAlphas[i])
-                }
-
-                var bElement = b[i]
-                if (bAlphas != null) {
-                    bElement = bElement.withAlpha(bAlphas[i])
-                }
-
-                if (aElement != bElement) {
-                    return false
-                }
-            }
-
-            return true
-        }
-
-        private fun colorsHashCode(colors: IntArray, originAlphas: ByteArray?): Int {
-            // Use optimized Arrays.hashCode() if originAlphas is null which means
-            // that alphas of colors weren't changed.
-            if (originAlphas == null) {
-                return colors.contentHashCode()
-            }
-
-            var result = 1
-
-            for (i in colors.indices) {
-                val color = colors[i].withAlpha(originAlphas[i])
-
-                result = result * 31 + color
-            }
-
-            return result
-        }
-
         private fun isZeroOneArray(arr: FloatArray?) =
-            arr == null || (arr.size == 2 && arr[0] == 0f && arr[1] == 1f)
-
-        private fun positionsEquals(a: FloatArray?, b: FloatArray?): Boolean {
-            if (a == null) return isZeroOneArray(b)
-            if (b == null) return isZeroOneArray(a)
-
-            return a.contentEquals(b)
-        }
-
-        private fun positionsHashCode(arr: FloatArray?): Int {
-            return if (arr == null || isZeroOneArray(arr)) 0 else arr.contentHashCode()
-        }
-
-        private fun extractAlphas(colors: IntArray): ByteArray {
-            return ByteArray(colors.size) { i -> colors[i].alpha.toByte() }
-        }
+            arr != null && (arr.size == 2 && arr[0] == 0f && arr[1] == 1f)
 
         /**
          * Creates a solid fill.
@@ -526,7 +412,7 @@ class Fill private constructor(
                 type,
                 solidColor = 0,
                 gradientColors = intArrayOf(startColor, endColor),
-                gradientPositions = null,
+                gradientPositions = zeroOneArray,
                 orientation = orientation
             )
         }
@@ -549,7 +435,7 @@ class Fill private constructor(
                 type,
                 solidColor = 0,
                 gradientColors = colors.copyOf(),
-                gradientPositions = positions,
+                gradientPositions = positions ?: zeroOneArray,
                 orientation = orientation
             )
         }

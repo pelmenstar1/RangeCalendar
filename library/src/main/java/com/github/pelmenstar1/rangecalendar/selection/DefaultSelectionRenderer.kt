@@ -61,9 +61,14 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
-                val (left, top, right, bottom) = state.bounds
+                val left = state.left
+                val top = state.top
 
-                drawCell(canvas, left, top, right, bottom, options, alpha = 1f, isPrimary = true)
+                val shapeInfo = state.start.shapeInfo
+                val width = shapeInfo.cellWidth
+                val height = shapeInfo.cellHeight
+
+                drawCell(canvas, left, top, width, height, options, alpha = 1f, isPrimary = true)
             }
 
             is DefaultSelectionState.RangeToRange -> {
@@ -86,13 +91,13 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         if (rangeStart.sameY(rangeEnd)) {
             val left = shapeInfo.startLeft
             val top = shapeInfo.startTop
-            val right = shapeInfo.endRight
-            val bottom = top + shapeInfo.cellHeight
+            val width = shapeInfo.endRight - left
+            val height = shapeInfo.cellHeight
 
             if (rangeStart == rangeEnd) {
-                drawCell(canvas, left, top, right, bottom, options, alpha, isPrimary)
+                drawCell(canvas, left, top, width, height, options, alpha, isPrimary)
             } else {
-                drawRect(canvas, left, top, right, bottom, options, alpha)
+                drawRect(canvas, left, top, width, height, options, alpha)
             }
         } else {
             drawGeneralRange(canvas, shapeInfo, options, alpha, isPrimary)
@@ -111,7 +116,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private fun drawCell(
         canvas: Canvas,
-        left: Float, top: Float, right: Float, bottom: Float,
+        left: Float, top: Float,
+        width: Float, height: Float,
         options: SelectionRenderOptions,
         alpha: Float,
         isPrimary: Boolean
@@ -123,15 +129,12 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 getOrCreateSecondaryCellNode()
             }
 
-            val width = right - left
-            val height = bottom - top
-
             node.setSize(width, height)
             node.setRenderOptions(options)
 
             node.draw(canvas, left, top, alpha)
         } else {
-            drawRect(canvas, left, top, right, bottom, options, alpha)
+            drawRect(canvas, left, top, width, height, options, alpha)
         }
     }
 
@@ -148,13 +151,14 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private fun drawRect(
         canvas: Canvas,
-        left: Float, top: Float, right: Float, bottom: Float,
+        left: Float, top: Float,
+        width: Float, height: Float,
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        useSelectionFill(canvas, options, left, top, right, bottom, alpha) {
+        useSelectionFill(canvas, options, left, top, width, height, alpha) {
             canvas.drawRoundRectCompat(
-                left, top, right, bottom,
+                0f, 0f, width, height,
                 options.roundRadius, paint
             )
         }
@@ -183,13 +187,11 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private inline fun useSelectionFill(
         canvas: Canvas,
         options: SelectionRenderOptions,
-        left: Float,
-        top: Float,
-        right: Float,
-        bottom: Float,
+        left: Float, top: Float,
+        width: Float, height: Float,
         alpha: Float,
         block: Canvas.() -> Unit
-    ) = useSelectionFill(canvas, options, { setBounds(left, top, right, bottom) }, alpha, block)
+    ) = useSelectionFill(canvas, options, left, top, { setSize(width, height) }, alpha, block)
 
     private inline fun useSelectionFill(
         canvas: Canvas,
@@ -197,21 +199,29 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         bounds: RectF,
         alpha: Float,
         block: Canvas.() -> Unit
-    ) = useSelectionFill(canvas, options, { setBounds(bounds) }, alpha, block)
+    ) = useSelectionFill(
+        canvas,
+        options,
+        bounds.left, bounds.top,
+        { setSize(bounds.width(), bounds.height()) },
+        alpha,
+        block
+    )
 
     private inline fun useSelectionFill(
         canvas: Canvas,
         options: SelectionRenderOptions,
-        setBounds: Fill.() -> Unit,
+        left: Float, top: Float,
+        setSize: Fill.() -> Unit,
         alpha: Float,
         block: Canvas.() -> Unit
     ) {
         val fill = options.fill
 
         if (options.fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
-            fill.setBounds()
+            fill.setSize()
         }
 
-        fill.drawWith(canvas, paint, alpha, block)
+        fill.drawWith(canvas, left, top, paint, alpha, block)
     }
 }
