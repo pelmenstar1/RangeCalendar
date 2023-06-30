@@ -2,17 +2,16 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.os.Build
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
+import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
-import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
-
-private typealias CanvasWithBoundsLambda = Canvas.(left: Float, top: Float, right: Float, bottom: Float) -> Unit
 
 internal class DefaultSelectionRenderer : SelectionRenderer {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -26,12 +25,26 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private var secondaryCellNode: CellRenderNode? = null
 
     private val tempRect = RectF()
+    private var shapeOnRowPath: Path? = null
+    private var shapeOnRowPathBounds: RectF? = null
 
     private fun getOrCreatePrimaryCellNode() =
         getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
 
     private fun getOrCreateSecondaryCellNode() =
         getLazyValue(secondaryCellNode, ::CellRenderNode) { secondaryCellNode = it }
+
+    private fun getShapeOnRowPath(): Path {
+        var path = shapeOnRowPath
+
+        if (path == null) {
+            path = Path()
+            shapeOnRowPathBounds = RectF()
+            shapeOnRowPath = path
+        }
+
+        return path
+    }
 
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
         state as DefaultSelectionState
@@ -159,8 +172,50 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        useSelectionFill(canvas, options, left, top, width, height, alpha) { l, t, r, b ->
-            canvas.drawRoundRectCompat(l, t, r, b, options.roundRadius, paint)
+        val fill = options.fill
+        val rr = options.roundRadius
+        val shapeBounds = tempRect
+
+        var count = -1
+
+        if (useTranslationToBounds(fill, options.fillGradientBoundsType)) {
+            fill.setSize(width, height)
+
+            count = canvas.save()
+            canvas.translate(left, top)
+
+            shapeBounds.set(0f, 0f, width, height)
+        } else {
+            shapeBounds.set(left, top, left + width, top + height)
+        }
+
+        try {
+            if (fill.type == Fill.TYPE_DRAWABLE) {
+                val path = getShapeOnRowPath()
+                val pathBounds = shapeOnRowPathBounds!!
+
+                // If sizes are changed, we need to update the path to have correct round-rect on it.
+                if (width != pathBounds.width() || height != pathBounds.height()) {
+                    // Rewind path in case it was used before. We need only one rect on the path.
+                    path.rewind()
+                    path.addRoundRect(shapeBounds, rr, rr, Path.Direction.CW)
+
+                    // Update pathBounds' properties to the latest values.
+                    pathBounds.set(shapeBounds)
+                }
+
+                canvas.clipPath(path)
+
+                drawFillDrawable(canvas, fill, alpha)
+            } else {
+                fill.drawWith(canvas, shapeBounds, paint, alpha) {
+                    drawRoundRect(shapeBounds, rr, rr, paint)
+                }
+            }
+        } finally {
+            if (count >= 0) {
+                canvas.restoreToCount(count)
+            }
         }
     }
 
@@ -177,24 +232,29 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             secondaryShape
         }
 
-        val boundsType = options.fillGradientBoundsType
+        val fill = options.fill
+        val isDrawableFill = fill.type == Fill.TYPE_DRAWABLE
 
-        val origin = if (options.fillGradientBoundsType == SelectionFillGradientBoundsType.GRID) {
-            SelectionShape.ORIGIN_LOCAL
+        var forcePath = false
+        val origin: Int
+
+        val useTranslationToBounds = useTranslationToBounds(fill, options.fillGradientBoundsType)
+
+        if (useTranslationToBounds) {
+            origin = SelectionShape.ORIGIN_BOUNDS
+            forcePath = isDrawableFill
         } else {
-            SelectionShape.ORIGIN_BOUNDS
+            origin = SelectionShape.ORIGIN_LOCAL
         }
 
-        shape.update(shapeInfo, origin)
-
-        val fill = options.fill
+        shape.update(shapeInfo, origin, forcePath)
 
         val bounds = shape.bounds
-        val actualBounds: RectF
+        val translatedBounds: RectF
 
         var count = -1
 
-        if (boundsType == SelectionFillGradientBoundsType.SHAPE) {
+        if (useTranslationToBounds) {
             val (left, top, right, bottom) = bounds
             val width = right - left
             val height = bottom - top
@@ -204,16 +264,24 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             count = canvas.save()
             canvas.translate(left, top)
 
-            actualBounds = tempRect.apply {
+            translatedBounds = tempRect.apply {
                 set(0f, 0f, width, height)
             }
         } else {
-            actualBounds = bounds
+            translatedBounds = bounds
         }
 
         try {
-            fill.drawWith(canvas, actualBounds, paint, alpha) {
-                shape.draw(canvas, paint)
+            // We use a different approach of drawing if type is TYPE_DRAWABLE.
+            // In that case, we draw a drawable with clipping over the shape.
+            if (isDrawableFill) {
+                // As isDrawableFill is true, it means that SelectionShape.update() was called with forcePath=true,
+                // that makes the logic to create a path.
+                canvas.clipPath(shape.path!!)
+
+                drawFillDrawable(canvas, fill, alpha)
+            } else {
+                fill.drawWith(canvas, translatedBounds, paint, alpha) { shape.draw(canvas, paint) }
             }
         } finally {
             if (count >= 0) {
@@ -222,58 +290,18 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         }
     }
 
-    private inline fun useSelectionFill(
-        canvas: Canvas,
-        options: SelectionRenderOptions,
-        left: Float, top: Float, width: Float, height: Float,
-        alpha: Float,
-        crossinline block: CanvasWithBoundsLambda
-    ) {
-        val fill = options.fill
-        val boundsType = options.fillGradientBoundsType
-        val rect = tempRect
+    private fun useTranslationToBounds(fill: Fill, boundsType: SelectionFillGradientBoundsType): Boolean {
+        // In case of a shader-like fill, we need to use additional translation
+        // only if it's wanted to be so -- shader should be applied relative to the shape's local coordinates
+        // We also need a translation if fill has TYPE_DRAWABLE type.
+        // It's not yet customizable to use whole grid bounds as with shader-like fill.
+        return (fill.isShaderLike && boundsType == SelectionFillGradientBoundsType.SHAPE) || fill.isDrawableType
+    }
 
-        val right = left + width
-        val bottom = top + height
-
-        var count = -1
-
-        if (boundsType == SelectionFillGradientBoundsType.SHAPE) {
-            fill.setSize(width, height)
-
-            count = canvas.save()
-            canvas.translate(left, top)
-
-            rect.set(0f, 0f, width, height)
-        } else {
-            rect.set(left, top, right, bottom)
-        }
-
-        try {
-            fill.drawWith(canvas, rect, paint, alpha) {
-                val l: Float
-                val t: Float
-                val r: Float
-                val b: Float
-
-                if (boundsType == SelectionFillGradientBoundsType.SHAPE) {
-                    l = 0f
-                    t = 0f
-                    r = width
-                    b = height
-                } else {
-                    l = left
-                    t = top
-                    r = right
-                    b = bottom
-                }
-
-                block(this, l, t, r, b)
-            }
-        } finally {
-            if (count >= 0) {
-                canvas.restoreToCount(count)
-            }
+    private fun drawFillDrawable(canvas: Canvas, fill: Fill, alpha: Float) {
+        fill.drawable?.also {
+            it.alpha = (alpha * 255f + 0.5f).toInt()
+            it.draw(canvas)
         }
     }
 }

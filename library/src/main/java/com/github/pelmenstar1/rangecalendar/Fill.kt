@@ -7,6 +7,7 @@ import android.graphics.PointF
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.drawable.Drawable
 import android.os.Build
 import androidx.annotation.ColorInt
 import androidx.core.graphics.component1
@@ -15,6 +16,7 @@ import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.utils.appendColor
 import com.github.pelmenstar1.rangecalendar.utils.appendColors
+import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 import kotlin.math.abs
@@ -41,11 +43,13 @@ import kotlin.math.abs
 class Fill private constructor(
     val type: Int,
 
-    private val solidColor: Int,
-    private val gradientColors: IntArray?,
-    private val gradientPositions: FloatArray?,
-    private val shaderFactory: ShaderFactory?,
-    private val orientation: Orientation
+    private val solidColor: Int = 0,
+    private val gradientColors: IntArray? = null,
+    private val gradientPositions: FloatArray? = null,
+    private val gradientOrientation: Orientation = Orientation.LEFT_RIGHT,
+
+    private val shaderFactory: ShaderFactory? = null,
+    val drawable: Drawable? = null,
 ) {
     /**
      * Represents orientations for gradients.
@@ -102,9 +106,17 @@ class Fill private constructor(
             if (field != value) {
                 field = value
 
-                updateShader()
+                if (isShaderLike) {
+                    updateShader()
+                }
             }
         }
+
+    val isShaderLike: Boolean
+        get() = (type and TYPE_SHADER_LIKE_BIT) != 0
+
+    val isDrawableType: Boolean
+        get() = type == TYPE_DRAWABLE
 
     private fun createShader(): Shader {
         val tempBox = getTempRect().apply {
@@ -117,7 +129,7 @@ class Fill private constructor(
 
                 shape.narrowBox(tempBox)
 
-                createLinearShader(orientation, tempBox) { x0, y0, x1, y1 ->
+                createLinearShader(gradientOrientation, tempBox) { x0, y0, x1, y1 ->
                     // Prior to API 29 there was an optimization around creating a shader
                     // that allows to create the shader with two colors, that are distributed along
                     // the gradient line, more efficiently
@@ -165,7 +177,7 @@ class Fill private constructor(
                 shaderFactory!!.create(_width, _height, shape)
             }
 
-            else -> throw RuntimeException("Invalid type of Fill")
+            else -> throwInvalidType(type)
         }
     }
 
@@ -176,12 +188,11 @@ class Fill private constructor(
         _width = width
         _height = height
 
-        // Other types require shaders to work.
-        if (type != TYPE_SOLID) {
+        if (isShaderLike) {
             var needToUpdateShader = true
 
             if (type == TYPE_LINEAR_GRADIENT) {
-                needToUpdateShader = when (orientation) {
+                needToUpdateShader = when (gradientOrientation) {
                     Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT ->
                         abs(oldWidth - width) >= EPSILON
 
@@ -193,6 +204,8 @@ class Fill private constructor(
             if (needToUpdateShader) {
                 updateShader()
             }
+        } else if (type == TYPE_DRAWABLE) {
+            drawable!!.setBounds(0, 0, ceilToInt(width), ceilToInt(height))
         }
     }
 
@@ -208,6 +221,10 @@ class Fill private constructor(
      */
     @JvmOverloads
     fun applyToPaint(paint: Paint, alpha: Float = 1f) {
+        if (type == TYPE_DRAWABLE) {
+            throw IllegalStateException("The method can't be called when Fill's type is TYPE_DRAWABLE")
+        }
+
         paint.style = Paint.Style.FILL
 
         if (type == TYPE_SOLID) {
@@ -215,7 +232,7 @@ class Fill private constructor(
             paint.color = solidColor.withCombinedAlpha(alpha)
         }
 
-        // If shader is null, it means either type is SOLID or type is gradient but setSize() hasn't been called.
+        // If shader is null, it means either type is SOLID or type is shader-like but setSize() hasn't been called.
         // In the latter case, it's illegal thing to do. We don't force it though.
         paint.shader = shader
     }
@@ -248,14 +265,15 @@ class Fill private constructor(
             return
         }
 
+        // applyToPaint() will check whether type is not TYPE_DRAWABLE.
         applyToPaint(paint, alpha)
 
         var count = -1
 
         // alpha doesn't work in applyToPaint() if fill is not solid. We need
-        // to use a layer with different alpha to draw gradient. However, we don't need
-        // it in case alpha is 1 (we can draw it as is), or 0 (we don't need to draw anything)
-        if (type != TYPE_SOLID && alpha < 1f) {
+        // to use a layer with different alpha to draw a shape using shader. However, we don't need
+        // it in case alpha is 1 -- we can draw it as is
+        if (isShaderLike && alpha < 1f) {
             // Convert float alpha [0; 1] to int alpha [0; 255]
             val iAlpha = (alpha * 255f + 0.5f).toInt()
 
@@ -290,12 +308,14 @@ class Fill private constructor(
         return when(type) {
             TYPE_SOLID -> solidColor == other.solidColor
             TYPE_LINEAR_GRADIENT, TYPE_RADIAL_GRADIENT -> {
-                orientation == other.orientation &&
+                gradientOrientation == other.gradientOrientation &&
                         gradientPositions.contentEquals(other.gradientPositions) &&
                         gradientColors.contentEquals(other.gradientColors)
             }
             TYPE_SHADER -> shaderFactory == other.shaderFactory
-            else -> throw IllegalStateException("Invalid type")
+            TYPE_DRAWABLE -> drawable == other.drawable
+
+            else -> throwInvalidType(type)
         }
     }
 
@@ -305,13 +325,14 @@ class Fill private constructor(
             TYPE_LINEAR_GRADIENT, TYPE_RADIAL_GRADIENT -> {
                 var result = gradientColors.contentHashCode()
                 result = result * 31 + gradientPositions.contentHashCode()
-                result = result * 31 + orientation.ordinal
+                result = result * 31 + gradientOrientation.ordinal
 
                 result
             }
 
             TYPE_SHADER -> shaderFactory.hashCode()
-            else -> throw IllegalStateException("Invalid type")
+            TYPE_DRAWABLE -> drawable.hashCode()
+            else -> throwInvalidType(type)
         }
     }
 
@@ -335,7 +356,7 @@ class Fill private constructor(
 
                     if (type == TYPE_LINEAR_GRADIENT) {
                         append(", orientation=")
-                        append(orientation.name)
+                        append(gradientOrientation.name)
                     }
                 }
 
@@ -343,6 +364,13 @@ class Fill private constructor(
                     append("Fill(type=SHADER, factory=")
                     append(shaderFactory)
                 }
+
+                TYPE_DRAWABLE -> {
+                    append("Fill(type=DRAWABLE, drawable=")
+                    append(drawable)
+                }
+
+                else -> throwInvalidType(type)
             }
 
             append(')')
@@ -352,10 +380,13 @@ class Fill private constructor(
     companion object {
         private const val EPSILON = 0.1f
 
+        private const val TYPE_SHADER_LIKE_BIT = 1 shl 31
+
         const val TYPE_SOLID = 0
-        const val TYPE_LINEAR_GRADIENT = 1
-        const val TYPE_RADIAL_GRADIENT = 2
-        const val TYPE_SHADER = 3
+        const val TYPE_SHADER = TYPE_SHADER_LIKE_BIT
+        const val TYPE_LINEAR_GRADIENT = 1 or TYPE_SHADER_LIKE_BIT
+        const val TYPE_RADIAL_GRADIENT = 2 or TYPE_SHADER_LIKE_BIT
+        const val TYPE_DRAWABLE = 4
 
         private val zeroOneArray = floatArrayOf(0f, 1f)
 
@@ -371,27 +402,24 @@ class Fill private constructor(
         private fun isZeroOneArray(arr: FloatArray?) =
             arr != null && (arr.size == 2 && arr[0] == 0f && arr[1] == 1f)
 
+        private fun throwInvalidType(type: Int): Nothing {
+            throw RuntimeException("Invalid Fill type ($type)")
+        }
+
         /**
          * Creates a solid fill.
          *
          * @param color color of fill.
          */
         @JvmStatic
-        fun solid(@ColorInt color: Int) = Fill(
-            type = TYPE_SOLID,
-            solidColor = color,
-            gradientColors = null,
-            gradientPositions = null,
-            shaderFactory = null,
-            orientation = Orientation.LEFT_RIGHT
-        )
+        fun solid(@ColorInt color: Int) = Fill(TYPE_SOLID, solidColor = color)
 
         // Places bounds' components in appropriate order to achieve the desired effect of using Orientation.
-        private inline fun <T : Shader> createLinearShader(
+        private inline fun createLinearShader(
             orientation: Orientation,
             bounds: RectF,
-            create: (x0: Float, y0: Float, x1: Float, y1: Float) -> T
-        ): T {
+            create: (x0: Float, y0: Float, x1: Float, y1: Float) -> LinearGradient
+        ): LinearGradient {
             val (left, top, right, bottom) = bounds
 
             val x0: Float
@@ -432,11 +460,9 @@ class Fill private constructor(
         ): Fill {
             return Fill(
                 type,
-                solidColor = 0,
                 gradientColors = intArrayOf(startColor, endColor),
                 gradientPositions = zeroOneArray,
-                shaderFactory = null,
-                orientation = orientation
+                gradientOrientation = orientation
             )
         }
 
@@ -456,11 +482,9 @@ class Fill private constructor(
 
             return Fill(
                 type,
-                solidColor = 0,
                 gradientColors = colors.copyOf(),
                 gradientPositions = positions ?: zeroOneArray,
-                shaderFactory = null,
-                orientation = orientation
+                gradientOrientation = orientation
             )
         }
 
@@ -528,14 +552,12 @@ class Fill private constructor(
          */
         @JvmStatic
         fun shader(factory: ShaderFactory): Fill {
-            return Fill(
-                TYPE_SHADER,
-                solidColor = 0,
-                gradientColors = null,
-                gradientPositions = null,
-                shaderFactory = factory,
-                orientation = Orientation.LEFT_RIGHT
-            )
+            return Fill(TYPE_SHADER, shaderFactory = factory)
+        }
+
+        @JvmStatic
+        fun drawable(value: Drawable): Fill {
+            return Fill(TYPE_DRAWABLE, drawable = value)
         }
     }
 }
