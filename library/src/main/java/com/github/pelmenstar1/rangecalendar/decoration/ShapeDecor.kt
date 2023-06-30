@@ -17,13 +17,14 @@ import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.HorizontalAlignment
 import com.github.pelmenstar1.rangecalendar.Padding
 import com.github.pelmenstar1.rangecalendar.R
+import com.github.pelmenstar1.rangecalendar.RectangleShape
 import com.github.pelmenstar1.rangecalendar.Shape
 import com.github.pelmenstar1.rangecalendar.VerticalAlignment
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_BOTTOM
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_LEFT
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_RIGHT
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_TOP
-import com.github.pelmenstar1.rangecalendar.utils.arrayRectToObject
+import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.lerpFloatArray
 import com.github.pelmenstar1.rangecalendar.utils.setRectFromValues
 
@@ -376,14 +377,17 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
     private object ShapeRenderer : Renderer {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var tempPath: Path? = null
 
-        private val rect = RectF()
+        private var tempPath: Path? = null
+        private val tempRect = RectF()
+
+        private fun getOrCreateTempPath(): Path {
+            return getLazyValue(tempPath, ::Path) { tempPath = it }
+        }
 
         override fun renderState(canvas: Canvas, state: VisualState) {
             val shapeState = state as ShapeVisualState
-            val rect = rect
-            val paint = paint
+            val rect = tempRect
             val boundsArray = shapeState.boundsArray
             val styles = shapeState.styles
             val decorCount = styles.size
@@ -401,8 +405,12 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 val absIndex = i * 4
                 val shape = style.shape
 
-                arrayRectToObject(boundsArray, absIndex, rect)
-                drawFilledShape(canvas, shape, style.fill)
+                val left = boundsArray[absIndex + RECT_ARRAY_LEFT]
+                val top = boundsArray[absIndex + RECT_ARRAY_TOP]
+                val right = boundsArray[absIndex + RECT_ARRAY_RIGHT]
+                val bottom = boundsArray[absIndex + RECT_ARRAY_BOTTOM]
+
+                drawFilledShape(canvas, left, top, right, bottom, shape, style.fill)
 
                 val border = style.border
                 if (border != null) {
@@ -414,9 +422,6 @@ class ShapeDecor(val style: Style) : CellDecor() {
                         else -> boundsArray
                     }
 
-                    // Need to call it again as drawFilledShape mutates rect.
-                    arrayRectToObject(boundsArray, absIndex, rect)
-
                     border.doDrawPreparation(
                         animatedBoundsArray = boundsArray,
                         endBoundsArray,
@@ -425,41 +430,54 @@ class ShapeDecor(val style: Style) : CellDecor() {
                         paint, rect
                     )
 
-                    drawShape(canvas, shape)
+                    drawShape(canvas, rect, shape)
                 }
             }
 
             canvas.restore()
         }
 
-        private fun drawShape(canvas: Canvas, shape: Shape) {
-            val rect = rect
-
+        private fun drawShape(canvas: Canvas, bounds: RectF, shape: Shape) {
             if (shape.needsPathToDraw) {
-                var path = tempPath
-                if (path == null) {
-                    path = Path()
-                    tempPath = path
-                }
+                val path = getOrCreateTempPath()
+                shape.draw(canvas, bounds, path, paint)
 
-                shape.draw(canvas, rect, path, paint)
-
-                path.reset()
+                path.rewind()
             } else {
-                shape.draw(canvas, rect, null, paint)
+                shape.draw(canvas, bounds, null, paint)
             }
         }
 
-        private fun drawFilledShape(canvas: Canvas, shape: Shape, fill: Fill) {
-            val (left, top, right, bottom) = rect
+        private fun drawFilledShape(
+            canvas: Canvas,
+            left: Float, top: Float, right: Float, bottom: Float,
+            shape: Shape,
+            fill: Fill
+        ) {
             val width = right - left
             val height = bottom - top
 
+            val rect = tempRect
             rect.set(0f, 0f, width, height)
 
             canvas.withTranslation(left, top) {
-                fill.drawWith(canvas, rect, paint, alpha = 1f) {
-                    drawShape(canvas, shape)
+                if (fill.isDrawableType) {
+                    // If shape is rectangle, there's nothing to clip.
+                    // The drawable is expected to be drawn exactly at the applied bounds.
+                    if (shape !is RectangleShape) {
+                        val path = getOrCreateTempPath()
+                        shape.addToPath(path, rect)
+
+                        canvas.clipPath(path)
+                        path.rewind()
+                    }
+
+                    // fill.drawable should not be null when fill.isDrawableType is true
+                    fill.drawable?.also { it.draw(canvas) }
+                } else {
+                    fill.drawWith(canvas, rect, paint, alpha = 1f) {
+                        drawShape(canvas, rect, shape)
+                    }
                 }
             }
         }

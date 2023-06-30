@@ -28,6 +28,8 @@ interface Shape {
      */
     fun validateBox(box: RectF)
 
+    fun addToPath(path: Path, box: RectF)
+
     /**
      * Draws a shape on [Canvas].
      *
@@ -74,6 +76,10 @@ object RectangleShape : Shape {
     }
 
     override fun narrowBox(box: RectF) {
+    }
+
+    override fun addToPath(path: Path, box: RectF) {
+        path.addRect(box, Path.Direction.CW)
     }
 
     override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
@@ -123,6 +129,10 @@ object CircleShape : Shape {
         canvas.drawOval(box, paint)
     }
 
+    override fun addToPath(path: Path, box: RectF) {
+        path.addOval(box, Path.Direction.CW)
+    }
+
     override fun computeCircumcircle(box: RectF, outCenter: PointF): Float {
         outCenter.x = box.centerX()
         outCenter.y = box.centerY()
@@ -162,12 +172,17 @@ class TriangleShape(
     }
 
     override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
-        requireNotNull(path) { "'path' argument is null" }
+        requireNotNull(path) { "path" }
+
+        addToPath(path, box)
+        canvas.drawPath(path, paint)
+    }
+
+    override fun addToPath(path: Path, box: RectF) {
+        val (left, top) = box
 
         val width = box.width()
         val height = box.height()
-
-        val (left, top) = box
 
         path.run {
             moveTo(left + width * p1x, top + height * p1y)
@@ -175,8 +190,6 @@ class TriangleShape(
             lineTo(left + width * p3x, top + height * p3y)
             close()
         }
-
-        canvas.drawPath(path, paint)
     }
 
     override fun narrowBox(box: RectF) {

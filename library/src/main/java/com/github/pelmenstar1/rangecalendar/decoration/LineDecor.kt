@@ -7,7 +7,12 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.annotation.ColorInt
+import androidx.core.graphics.component1
+import androidx.core.graphics.component2
+import androidx.core.graphics.component3
+import androidx.core.graphics.component4
 import androidx.core.graphics.withClip
+import androidx.core.graphics.withTranslation
 import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.BorderAnimationType
 import com.github.pelmenstar1.rangecalendar.Fill
@@ -19,13 +24,15 @@ import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_BOTTOM
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_LEFT
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_RIGHT
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_TOP
-import com.github.pelmenstar1.rangecalendar.utils.arrayRectToObject
+import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
+import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBounds
 import com.github.pelmenstar1.rangecalendar.utils.lerp
 import com.github.pelmenstar1.rangecalendar.utils.lerpFloatArray
 import com.github.pelmenstar1.rangecalendar.utils.setRectFromObject
 import com.github.pelmenstar1.rangecalendar.utils.setRectFromValues
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Represents a line decoration.
@@ -419,9 +426,13 @@ class LineDecor(val style: Style) : CellDecor() {
             style = Paint.Style.FILL
         }
 
-        private var cachedPath: Path? = null
-        private var tempRadii = FloatArray(8)
-        private val rect = RectF()
+        private var tempPath: Path? = null
+        private val tempRadii = FloatArray(8)
+        private val tempRect = RectF()
+
+        private fun getOrCreateTempPath(): Path {
+            return getLazyValue(tempPath, ::Path) { tempPath = it }
+        }
 
         override fun renderState(
             canvas: Canvas,
@@ -429,7 +440,7 @@ class LineDecor(val style: Style) : CellDecor() {
         ) {
             val lineState = state as LineVisualState
             val linesAndTextBoundsArray = lineState.linesAndTextBoundsArray
-            val rect = rect
+            val rect = tempRect
             val paint = paint
 
             val styles = lineState.styles
@@ -440,11 +451,12 @@ class LineDecor(val style: Style) : CellDecor() {
                 val style = styles[i]
                 val absIndex = i * 4
 
-                style.fill.applyToPaint(paint)
+                val left = linesAndTextBoundsArray[absIndex + RECT_ARRAY_LEFT]
+                val top = linesAndTextBoundsArray[absIndex + RECT_ARRAY_TOP]
+                val right = linesAndTextBoundsArray[absIndex + RECT_ARRAY_RIGHT]
+                val bottom = linesAndTextBoundsArray[absIndex + RECT_ARRAY_BOTTOM]
 
-                arrayRectToObject(linesAndTextBoundsArray, absIndex, rect)
-
-                drawRect(canvas, style)
+                drawFilledRect(canvas, left, top, right, bottom, style)
 
                 val border = style.border
                 if (border != null) {
@@ -464,7 +476,7 @@ class LineDecor(val style: Style) : CellDecor() {
                         paint, rect
                     )
 
-                    drawRect(canvas, style)
+                    drawRect(canvas, rect, style)
                 }
 
                 val text = style.text
@@ -497,38 +509,81 @@ class LineDecor(val style: Style) : CellDecor() {
             }
         }
 
-        private fun drawRect(canvas: Canvas, style: Style) {
-            val lineHeight = rect.height()
+        private fun drawRect(canvas: Canvas, bounds: RectF, style: Style) {
+            val maxRoundRadius = bounds.height() * 0.5f
             val radii = style.roundRadii
 
             if (radii != null) {
-                var path = cachedPath
-                if (path == null) {
-                    path = Path()
-                    cachedPath = path
-                } else {
-                    path.rewind()
-                }
+                val path = getOrCreateTempPath()
 
-                val tempRadii = tempRadii
-                for (i in radii.indices) {
-                    tempRadii[i] = radii[i].resolveRoundRadius(lineHeight)
-                }
-
-                path.addRoundRect(rect, tempRadii, Path.Direction.CW)
-
+                path.addRoundRect(bounds, normalizedRadii(radii, maxRoundRadius), Path.Direction.CW)
                 canvas.drawPath(path, paint)
+                path.rewind()
             } else {
-                val roundRadius = style.roundRadius.resolveRoundRadius(lineHeight)
+                val rr = min(style.roundRadius, maxRoundRadius)
 
-                canvas.drawRoundRect(rect, roundRadius, roundRadius, paint)
+                canvas.drawRoundRect(bounds, rr, rr, paint)
             }
         }
 
-        private fun Float.resolveRoundRadius(alternative: Float): Float {
-            val half = alternative * 0.5f
+        private fun clipRoundRect(canvas: Canvas, width: Float, height: Float, style: Style) {
+            val radii = style.roundRadii
+            var rr = style.roundRadius
 
-            return if (this > half) half else this
+            if (radii != null || rr > 0f) {
+                val maxRoundRadius = height * 0.5f
+                val path = getOrCreateTempPath()
+
+                if (radii != null) {
+                    val normRadii = normalizedRadii(radii, maxRoundRadius)
+
+                    path.addRoundRectCompat(0f, 0f, width, height, normRadii)
+                } else {
+                    rr = min(rr, maxRoundRadius)
+
+                    path.addRoundRectCompat(0f, 0f, width, height, rr)
+                }
+
+                canvas.clipPath(path)
+                path.rewind()
+            }
+        }
+
+        private fun drawFilledRect(canvas: Canvas, bounds: RectF, style: Style) {
+            val (left, top, right, bottom) = bounds
+
+            drawFilledRect(canvas, left, top, right, bottom, style)
+        }
+
+        private fun drawFilledRect(canvas: Canvas, left: Float, top: Float, right: Float, bottom: Float, style: Style) {
+            val fill = style.fill
+
+            val width = right - left
+            val height = bottom - top
+
+            canvas.withTranslation(left, top) {
+                if (fill.isDrawableType) {
+                    clipRoundRect(canvas, width, height, style)
+
+                    fill.drawable?.also { it.draw(canvas) }
+                } else {
+                    val rect = tempRect
+                    rect.set(0f, 0f, width, height)
+
+                    fill.drawWith(canvas, rect, paint, alpha = 1f) {
+                        drawRect(canvas, rect, style)
+                    }
+                }
+            }
+        }
+
+        private fun normalizedRadii(radii: FloatArray, maxRoundRadius: Float): FloatArray {
+            val tempRadii = tempRadii
+            for (i in radii.indices) {
+                tempRadii[i] = min(radii[i], maxRoundRadius)
+            }
+
+            return tempRadii
         }
     }
 
