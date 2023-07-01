@@ -12,8 +12,6 @@ import android.os.Build
 import androidx.annotation.ColorInt
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
-import androidx.core.graphics.component3
-import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.utils.appendColor
 import com.github.pelmenstar1.rangecalendar.utils.appendColors
 import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
@@ -134,22 +132,20 @@ class Fill private constructor(
         get() = type == TYPE_DRAWABLE
 
     private fun createShader(): Shader {
-        val tempBox = getTempRect().apply {
-            set(0f, 0f, _width, _height)
-        }
+        val width = _width
+        val height = _height
+        val positions = gradientPositions
 
         return when (type) {
             TYPE_LINEAR_GRADIENT -> {
                 val gradColors = gradientColors!!
 
-                shape.narrowBox(tempBox)
-
-                createLinearShader(gradientOrientation, tempBox) { x0, y0, x1, y1 ->
+                createLinearShader(gradientOrientation, width, height) { x0, y0, x1, y1 ->
                     // Prior to API 29 there was an optimization around creating a shader
                     // that allows to create the shader with two colors, that are distributed along
                     // the gradient line, more efficiently
                     // by using LinearGradient(x0, y0, x1, y1, color0, color1, Shader.TileMode) constructor
-                    if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(gradientPositions)) {
+                    if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(positions)) {
                         LinearGradient(
                             x0, y0, x1, y1,
                             gradColors[0], gradColors[1],
@@ -158,7 +154,7 @@ class Fill private constructor(
                     } else {
                         LinearGradient(
                             x0, y0, x1, y1,
-                            gradColors, gradientPositions,
+                            gradColors, positions,
                             Shader.TileMode.MIRROR
                         )
                     }
@@ -168,12 +164,19 @@ class Fill private constructor(
             TYPE_RADIAL_GRADIENT -> {
                 val gradColors = gradientColors!!
 
+                val tempBox = getTempBox().apply {
+                    // left and top are always zero.
+                    right = width
+                    bottom = height
+                }
+
                 val tempPoint = getTempPoint()
+
                 val radius = shape.computeCircumcircle(tempBox, tempPoint)
                 val (cx, cy) = tempPoint
 
                 // Same motivation as in linear gradients.
-                if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(gradientPositions)) {
+                if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(positions)) {
                     RadialGradient(
                         cx, cy, radius,
                         gradColors[0], gradColors[1],
@@ -182,14 +185,14 @@ class Fill private constructor(
                 } else {
                     RadialGradient(
                         cx, cy, radius,
-                        gradColors, gradientPositions,
+                        gradColors, positions,
                         Shader.TileMode.MIRROR
                     )
                 }
             }
 
             TYPE_SHADER -> {
-                shaderFactory!!.create(_width, _height, shape)
+                shaderFactory!!.create(width, height, shape)
             }
 
             else -> throwInvalidType(type)
@@ -419,11 +422,11 @@ class Fill private constructor(
 
         private val zeroOneArray = floatArrayOf(0f, 1f)
 
-        private var tempRectHolder: RectF? = null
+        private var tempBoxHolder: RectF? = null
         private var tempPointHolder: PointF? = null
 
-        private fun getTempRect(): RectF =
-            getLazyValue(tempRectHolder, ::RectF) { tempRectHolder = it }
+        private fun getTempBox(): RectF =
+            getLazyValue(tempBoxHolder, ::RectF) { tempBoxHolder = it }
 
         private fun getTempPoint(): PointF =
             getLazyValue(tempPointHolder, ::PointF) { tempPointHolder = it }
@@ -446,36 +449,20 @@ class Fill private constructor(
         // Places bounds' components in appropriate order to achieve the desired effect of using Orientation.
         private inline fun createLinearShader(
             orientation: Orientation,
-            bounds: RectF,
+            width: Float,
+            height: Float,
             create: (x0: Float, y0: Float, x1: Float, y1: Float) -> LinearGradient
         ): LinearGradient {
-            val (left, top, right, bottom) = bounds
-
-            val x0: Float
-            val y0: Float
-            val x1: Float
-            val y1: Float
+            var x0 = 0f
+            var y0 = 0f
+            var x1 = 0f
+            var y1 = 0f
 
             when (orientation) {
-                Orientation.LEFT_RIGHT -> {
-                    x0 = left; y0 = top
-                    x1 = right; y1 = top
-                }
-
-                Orientation.RIGHT_LEFT -> {
-                    x0 = right; y0 = top
-                    x1 = left; y1 = top
-                }
-
-                Orientation.TOP_BOTTOM -> {
-                    x0 = left; y0 = top
-                    x1 = left; y1 = bottom
-                }
-
-                Orientation.BOTTOM_TOP -> {
-                    x0 = left; y0 = bottom
-                    x1 = left; y1 = top
-                }
+                Orientation.LEFT_RIGHT -> x1 = width
+                Orientation.RIGHT_LEFT -> x0 = width
+                Orientation.TOP_BOTTOM -> y1 = height
+                Orientation.BOTTOM_TOP -> y0 = height
             }
 
             return create(x0, y0, x1, y1)

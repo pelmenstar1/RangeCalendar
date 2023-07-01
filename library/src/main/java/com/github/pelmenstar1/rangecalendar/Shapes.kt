@@ -22,25 +22,28 @@ interface Shape {
         get
 
     /**
-     * Throws an exception if a box is invalid.
+     * Throws an exception if [box] is invalid.
      *
-     * @param box rectangle in which a shape in located.
+     * @param box rectangle in which shape in located.
      */
     fun validateBox(box: RectF)
 
+    /**
+     * Adds a shape to specified [path].
+     *
+     * @param path a path instance where shape is added to
+     * @param box rectangle in which shape is located.
+     */
     fun addToPath(path: Path, box: RectF)
 
     /**
      * Draws a shape on [Canvas].
      *
      * @param canvas canvas to draw on.
-     * @param box rectangle in which a shape should be located. In other words,
-     * entire shape should be within this rectangle.
-     * @param path path which should be used to initialize a shape and draw it on [canvas].
-     * This path is empty and may not be restored again.
-     * May be null if [needsPathToDraw] is false.
-     * @param paint paint which should be used to draw a shape.
-     * It shouldn't be mutated, it should remain untouched.
+     * @param box rectangle in which shape is located.
+     * @param path path which is used to initialize a shape and draw it on [canvas].
+     * This path is empty. It's `null` if [needsPathToDraw] is `false`.
+     * @param paint paint which should be used to draw a shape. It shouldn't be mutated.
      */
     fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint)
 
@@ -48,7 +51,6 @@ interface Shape {
      * Computes properties of a circle in which shape is inscribed.
      *
      * If such circle does not exist, then, as workaround, finds center of mass of a shape.
-     * And radius is maximum distance to a point containing a shape.
      *
      * @param box rectangle in which a shape is located.
      * @param outCenter a point which is mutated to be center point of the circle.
@@ -56,13 +58,6 @@ interface Shape {
      * @return radius of the circle.
      */
     fun computeCircumcircle(box: RectF, outCenter: PointF): Float
-
-    /**
-     * Narrows a box (if needed) to make a rectangle circumscribed.
-     * In other words, if a shape is polygonal, mutates [box] to be the smallest rectangle that can be drawn
-     * around a set of points such that all the points are inside it, or exactly on one of its sides.
-     */
-    fun narrowBox(box: RectF)
 }
 
 /**
@@ -73,9 +68,6 @@ object RectangleShape : Shape {
         get() = false
 
     override fun validateBox(box: RectF) {
-    }
-
-    override fun narrowBox(box: RectF) {
     }
 
     override fun addToPath(path: Path, box: RectF) {
@@ -120,9 +112,6 @@ object CircleShape : Shape {
         require(box.width() == box.height()) {
             "Width and shape of a box should be equal"
         }
-    }
-
-    override fun narrowBox(box: RectF) {
     }
 
     override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
@@ -190,21 +179,6 @@ class TriangleShape(
             lineTo(left + width * p3x, top + height * p3y)
             close()
         }
-    }
-
-    override fun narrowBox(box: RectF) {
-        val (left, top) = box
-
-        val width = box.width()
-        val height = box.height()
-
-        // Find leftmost and rightmost points
-        box.left = left + minOf(p1x, p2x, p3x) * width
-        box.right = left + maxOf(p1x, p2x, p3x) * width
-
-        // Find topmost and bottom-most points
-        box.top = top + minOf(p1y, p2y, p3y) * height
-        box.bottom = top + maxOf(p1y, p2y, p3y) * height
     }
 
     override fun computeCircumcircle(box: RectF, outCenter: PointF): Float {
