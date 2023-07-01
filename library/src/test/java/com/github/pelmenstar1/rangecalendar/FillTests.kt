@@ -1,12 +1,36 @@
 package com.github.pelmenstar1.rangecalendar
 
 import android.graphics.Color
+import android.graphics.Shader
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FillTests {
+    class ShaderFactoryImpl(private val startColor: Int, private val endColor: Int): Fill.ShaderFactory {
+        override fun create(width: Float, height: Float, shape: Shape): Shader {
+            throw NotImplementedError()
+        }
+
+        override fun equals(other: Any?): Boolean {
+            if (other === this) return true
+            if (other == null || javaClass != other.javaClass) return false
+
+            other as ShaderFactoryImpl
+
+            return startColor == other.startColor && endColor == other.endColor
+        }
+
+        override fun hashCode(): Int {
+            return startColor * 31 + endColor
+        }
+
+        override fun toString(): String {
+            return "ShaderFactoryImpl(startColor=$startColor, endColor=$endColor)"
+        }
+    }
+
     @Test
     fun equalsSolidTest() {
         fun testCase(thisColor: Int, otherColor: Int, expectedResult: Boolean) {
@@ -202,5 +226,39 @@ class FillTests {
             positions = floatArrayOf(0f, 0.5f),
             expectedResult = "Fill(type=RADIAL_GRADIENT, colors=[#FFFF0000, #FF00FF00], positions=[0.0, 0.5])"
         )
+    }
+
+    @Test
+    fun equalsShaderTest() {
+        // Fill.equals() should use structured equality instead of reference one when fill is shader.
+        val factory1 = ShaderFactoryImpl(0, 1)
+        val factory2 = ShaderFactoryImpl(0, 1)
+
+        val fill1 = Fill.shader(factory1)
+        val fill2 = Fill.shader(factory2)
+
+        assertEquals(fill1, fill2)
+    }
+
+    @Test
+    fun hashCodeShaderTest() {
+        // Fill.hashCode() should call hashCode() on ShaderFactory.
+
+        val fill1 = Fill.shader(ShaderFactoryImpl(0, 1))
+        val fill2 = Fill.shader( ShaderFactoryImpl(0, 1))
+
+        val hash1 = fill1.hashCode()
+        val hash2 = fill2.hashCode()
+
+        assertEquals(hash1, hash2)
+    }
+
+    @Test
+    fun toStringShaderTest() {
+        val fill = Fill.shader(ShaderFactoryImpl(1, 2))
+
+        val actualResult = fill.toString()
+
+        assertEquals("Fill(type=SHADER, factory=ShaderFactoryImpl(startColor=1, endColor=2))", actualResult)
     }
 }

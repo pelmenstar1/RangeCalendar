@@ -112,7 +112,7 @@ internal class CellRenderNode {
 
         try {
             if (options.fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
-                fill.setBounds(0f, 0f, w, h)
+                fill.setSize(w, h)
             }
 
             fill.applyToPaint(paint)

@@ -73,11 +73,14 @@ internal class DefaultSelectionManager : SelectionManager {
         val firstCellOnRowLeft = measureManager.getCellLeft(0)
         val lastCellOnRowRight = measureManager.getCellLeft(6) + cellWidth
 
+        val gridTop = measureManager.getCellTop(0)
+
         val pathInfo = SelectionShapeInfo(
             range = CellRange(rangeStart, rangeEnd),
             startLeft, startTop,
             endRight, endTop,
             firstCellOnRowLeft, lastCellOnRowRight,
+            gridTop,
             cellWidth, cellHeight,
             measureManager.roundRadius
         )
@@ -194,9 +197,10 @@ internal class DefaultSelectionManager : SelectionManager {
             val prevShapeInfo = prevState.shapeInfo
 
             val shapeInfo = SelectionShapeInfo().apply {
-                // These are supposed to be changed during the animation. Init them now.
+                // These are not supposed to be changed during the animation. Init them now.
                 firstCellOnRowLeft = prevShapeInfo.firstCellOnRowLeft
                 lastCellOnRowRight = prevShapeInfo.lastCellOnRowRight
+                gridTop = prevShapeInfo.gridTop
 
                 cellWidth = cw
                 cellHeight = measureManager.cellHeight

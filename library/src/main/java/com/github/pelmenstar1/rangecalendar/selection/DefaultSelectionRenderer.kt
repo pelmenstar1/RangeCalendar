@@ -3,14 +3,15 @@ package com.github.pelmenstar1.rangecalendar.selection
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import android.os.Build
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.Fill
+import com.github.pelmenstar1.rangecalendar.RoundRectVisualInfo
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
-import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 internal class DefaultSelectionRenderer : SelectionRenderer {
@@ -24,11 +25,18 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private var primaryCellNode: CellRenderNode? = null
     private var secondaryCellNode: CellRenderNode? = null
 
+    private val tempRect = RectF()
+
+    private var roundRectPathInfo: RoundRectVisualInfo? = null
+
     private fun getOrCreatePrimaryCellNode() =
         getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
 
     private fun getOrCreateSecondaryCellNode() =
         getLazyValue(secondaryCellNode, ::CellRenderNode) { secondaryCellNode = it }
+
+    private fun getRoundRectPathInfo(): RoundRectVisualInfo =
+        getLazyValue(roundRectPathInfo, ::RoundRectVisualInfo) { roundRectPathInfo = it }
 
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
         state as DefaultSelectionState
@@ -61,9 +69,14 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
-                val (left, top, right, bottom) = state.bounds
+                val left = state.left
+                val top = state.top
 
-                drawCell(canvas, left, top, right, bottom, options, alpha = 1f, isPrimary = true)
+                val shapeInfo = state.start.shapeInfo
+                val width = shapeInfo.cellWidth
+                val height = shapeInfo.cellHeight
+
+                drawCell(canvas, left, top, width, height, options, alpha = 1f, isPrimary = true)
             }
 
             is DefaultSelectionState.RangeToRange -> {
@@ -86,13 +99,13 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         if (rangeStart.sameY(rangeEnd)) {
             val left = shapeInfo.startLeft
             val top = shapeInfo.startTop
-            val right = shapeInfo.endRight
-            val bottom = top + shapeInfo.cellHeight
+            val width = shapeInfo.endRight - left
+            val height = shapeInfo.cellHeight
 
             if (rangeStart == rangeEnd) {
-                drawCell(canvas, left, top, right, bottom, options, alpha, isPrimary)
+                drawCell(canvas, left, top, width, height, options, alpha, isPrimary)
             } else {
-                drawRect(canvas, left, top, right, bottom, options, alpha)
+                drawRect(canvas, left, top, width, height, options, alpha)
             }
         } else {
             drawGeneralRange(canvas, shapeInfo, options, alpha, isPrimary)
@@ -111,7 +124,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private fun drawCell(
         canvas: Canvas,
-        left: Float, top: Float, right: Float, bottom: Float,
+        left: Float, top: Float,
+        width: Float, height: Float,
         options: SelectionRenderOptions,
         alpha: Float,
         isPrimary: Boolean
@@ -123,15 +137,12 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 getOrCreateSecondaryCellNode()
             }
 
-            val width = right - left
-            val height = bottom - top
-
             node.setSize(width, height)
             node.setRenderOptions(options)
 
             node.draw(canvas, left, top, alpha)
         } else {
-            drawRect(canvas, left, top, right, bottom, options, alpha)
+            drawRect(canvas, left, top, width, height, options, alpha)
         }
     }
 
@@ -148,15 +159,56 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private fun drawRect(
         canvas: Canvas,
-        left: Float, top: Float, right: Float, bottom: Float,
+        left: Float, top: Float,
+        width: Float, height: Float,
         options: SelectionRenderOptions,
         alpha: Float = 1f
     ) {
-        useSelectionFill(canvas, options, left, top, right, bottom, alpha) {
-            canvas.drawRoundRectCompat(
-                left, top, right, bottom,
-                options.roundRadius, paint
-            )
+        val fill = options.fill
+        val rr = options.roundRadius
+        val shapeBounds = tempRect
+
+        var count = -1
+
+        if (useTranslationToBounds(fill, options.fillGradientBoundsType)) {
+            fill.setSize(width, height)
+
+            count = canvas.save()
+            canvas.translate(left, top)
+
+            shapeBounds.set(0f, 0f, width, height)
+        } else {
+            shapeBounds.set(left, top, left + width, top + height)
+        }
+
+        try {
+            val drawable = fill.drawable
+
+            if (drawable != null) {
+                val info = getRoundRectPathInfo()
+
+                info.setBounds(0f, 0f, width, height)
+                info.setRoundedCorners(rr)
+
+                info.getPath()?.also {
+                    // Clip path if info.getPath() is not null. It returns null if round radius is 0.
+                    //
+                    // We can clip without an additional save because we already have a save for translation that is always used
+                    // for drawable fills
+                    canvas.clipPath(it)
+                }
+
+                setDrawableAlpha(drawable, alpha)
+                drawable.draw(canvas)
+            } else {
+                fill.drawWith(canvas, shapeBounds, paint, alpha) {
+                    drawRoundRect(shapeBounds, rr, rr, paint)
+                }
+            }
+        } finally {
+            if (count >= 0) {
+                canvas.restoreToCount(count)
+            }
         }
     }
 
@@ -173,45 +225,75 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             secondaryShape
         }
 
-        shape.updateShapeIfNecessary(shapeInfo)
+        val fill = options.fill
 
-        useSelectionFill(canvas, options, shape.bounds, alpha) {
-            shape.draw(canvas, paint)
+        var forcePath = false
+        val origin: Int
+
+        val useTranslationToBounds = useTranslationToBounds(fill, options.fillGradientBoundsType)
+
+        if (useTranslationToBounds) {
+            origin = SelectionShape.ORIGIN_BOUNDS
+            forcePath = fill.isDrawableType
+        } else {
+            origin = SelectionShape.ORIGIN_LOCAL
+        }
+
+        shape.update(shapeInfo, origin, forcePath)
+
+        val bounds = shape.bounds
+        val translatedBounds: RectF
+
+        var count = -1
+
+        if (useTranslationToBounds) {
+            val (left, top, right, bottom) = bounds
+            val width = right - left
+            val height = bottom - top
+
+            fill.setSize(width, height)
+
+            count = canvas.save()
+            canvas.translate(left, top)
+
+            translatedBounds = tempRect.apply {
+                set(0f, 0f, width, height)
+            }
+        } else {
+            translatedBounds = bounds
+        }
+
+        try {
+            val drawable = fill.drawable
+
+            // We use a different approach of drawing if fill is drawable-type.
+            // In that case, we draw a drawable with clipping over the shape.
+            if (drawable != null) {
+                // As isDrawableFill is true, it means that SelectionShape.update() was called with forcePath=true,
+                // that makes the logic to create a path.
+                canvas.clipPath(shape.path!!)
+
+                setDrawableAlpha(drawable, alpha)
+                drawable.draw(canvas)
+            } else {
+                fill.drawWith(canvas, translatedBounds, paint, alpha) { shape.draw(canvas, paint) }
+            }
+        } finally {
+            if (count >= 0) {
+                canvas.restoreToCount(count)
+            }
         }
     }
 
-    private inline fun useSelectionFill(
-        canvas: Canvas,
-        options: SelectionRenderOptions,
-        left: Float,
-        top: Float,
-        right: Float,
-        bottom: Float,
-        alpha: Float,
-        block: Canvas.() -> Unit
-    ) = useSelectionFill(canvas, options, { setBounds(left, top, right, bottom) }, alpha, block)
+    private fun useTranslationToBounds(fill: Fill, boundsType: SelectionFillGradientBoundsType): Boolean {
+        // In case of a shader-like fill, we need to use additional translation
+        // only if it's wanted to be so -- shader should be applied relative to the shape's local coordinates
+        // We also need a translation if fill has TYPE_DRAWABLE type.
+        // It's not yet customizable to use whole grid bounds as with shader-like fill.
+        return (fill.isShaderLike && boundsType == SelectionFillGradientBoundsType.SHAPE) || fill.isDrawableType
+    }
 
-    private inline fun useSelectionFill(
-        canvas: Canvas,
-        options: SelectionRenderOptions,
-        bounds: RectF,
-        alpha: Float,
-        block: Canvas.() -> Unit
-    ) = useSelectionFill(canvas, options, { setBounds(bounds) }, alpha, block)
-
-    private inline fun useSelectionFill(
-        canvas: Canvas,
-        options: SelectionRenderOptions,
-        setBounds: Fill.() -> Unit,
-        alpha: Float,
-        block: Canvas.() -> Unit
-    ) {
-        val fill = options.fill
-
-        if (options.fillGradientBoundsType == SelectionFillGradientBoundsType.SHAPE) {
-            fill.setBounds()
-        }
-
-        fill.drawWith(canvas, paint, alpha, block)
+    private fun setDrawableAlpha(drawable: Drawable, alpha: Float) {
+        drawable.alpha = (alpha * 255f + 0.5f).toInt()
     }
 }

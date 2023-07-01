@@ -3,26 +3,27 @@ package com.github.pelmenstar1.rangecalendar.decoration
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.RectF
 import androidx.annotation.ColorInt
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
+import androidx.core.graphics.withTranslation
 import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.BorderAnimationType
 import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.HorizontalAlignment
 import com.github.pelmenstar1.rangecalendar.Padding
 import com.github.pelmenstar1.rangecalendar.R
+import com.github.pelmenstar1.rangecalendar.RectangleShape
 import com.github.pelmenstar1.rangecalendar.Shape
+import com.github.pelmenstar1.rangecalendar.ShapeVisualInfo
 import com.github.pelmenstar1.rangecalendar.VerticalAlignment
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_BOTTOM
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_LEFT
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_RIGHT
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_TOP
-import com.github.pelmenstar1.rangecalendar.utils.arrayRectToObject
 import com.github.pelmenstar1.rangecalendar.utils.lerpFloatArray
 import com.github.pelmenstar1.rangecalendar.utils.setRectFromValues
 
@@ -322,7 +323,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
                     boundsArray, i * 4,
                     left, decorTop, right, bottom
                 )
-                style.fill.setBounds(left, decorTop, right, bottom, style.shape)
+
+                style.fill.setSize(size, size)
 
                 left += size
                 if (i < decorCount - 1) {
@@ -374,14 +376,13 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
     private object ShapeRenderer : Renderer {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var tempPath: Path? = null
 
-        private val rect = RectF()
+        private val shapeInfo = ShapeVisualInfo()
+        private val tempRect = RectF()
 
         override fun renderState(canvas: Canvas, state: VisualState) {
             val shapeState = state as ShapeVisualState
-            val rect = rect
-            val paint = paint
+            val rect = tempRect
             val boundsArray = shapeState.boundsArray
             val styles = shapeState.styles
             val decorCount = styles.size
@@ -399,10 +400,12 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 val absIndex = i * 4
                 val shape = style.shape
 
-                style.fill.applyToPaint(paint)
+                val left = boundsArray[absIndex + RECT_ARRAY_LEFT]
+                val top = boundsArray[absIndex + RECT_ARRAY_TOP]
+                val right = boundsArray[absIndex + RECT_ARRAY_RIGHT]
+                val bottom = boundsArray[absIndex + RECT_ARRAY_BOTTOM]
 
-                arrayRectToObject(boundsArray, absIndex, rect)
-                drawShape(canvas, shape)
+                drawFilledShape(canvas, left, top, right, bottom, shape, style.fill)
 
                 val border = style.border
                 if (border != null) {
@@ -422,28 +425,55 @@ class ShapeDecor(val style: Style) : CellDecor() {
                         paint, rect
                     )
 
-                    drawShape(canvas, shape)
+                    drawShape(canvas, rect, shape)
                 }
             }
 
             canvas.restore()
         }
 
-        private fun drawShape(canvas: Canvas, shape: Shape) {
-            val rect = rect
+        private fun drawShape(canvas: Canvas, bounds: RectF, shape: Shape) {
+            shapeInfo.run {
+                setBounds(bounds)
+                setShape(shape)
 
-            if (shape.needsPathToDraw) {
-                var path = tempPath
-                if (path == null) {
-                    path = Path()
-                    tempPath = path
+                draw(canvas, paint)
+            }
+        }
+
+        private fun drawFilledShape(
+            canvas: Canvas,
+            left: Float, top: Float, right: Float, bottom: Float,
+            shape: Shape,
+            fill: Fill
+        ) {
+            val width = right - left
+            val height = bottom - top
+
+            val rect = tempRect
+            rect.set(0f, 0f, width, height)
+
+            canvas.withTranslation(left, top) {
+                val drawable = fill.drawable
+
+                if (drawable != null) {
+                    // If shape is rectangle, there's nothing to clip.
+                    // The drawable is expected to be drawn exactly at the applied bounds.
+                    if (shape !is RectangleShape) {
+                        shapeInfo.run {
+                            setBounds(rect)
+                            setShape(shape)
+
+                            canvas.clipPath(getPath())
+                        }
+                    }
+
+                    drawable.draw(canvas)
+                } else {
+                    fill.applyToPaint(paint)
+
+                    drawShape(canvas, rect, shape)
                 }
-
-                shape.draw(canvas, rect, path, paint)
-
-                path.reset()
-            } else {
-                shape.draw(canvas, rect, null, paint)
             }
         }
     }
