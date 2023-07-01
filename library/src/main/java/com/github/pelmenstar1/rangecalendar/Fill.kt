@@ -25,16 +25,16 @@ import kotlin.math.abs
  * Represents either a solid fill or gradient fill.
  *
  * This class is declared as `sealed` which means classes outside the library module cannot extend [Fill].
- * To create an instance of [Fill], use [Fill.solid], [Fill.linearGradient], [Fill.radialGradient] methods.
+ * To create an instance of [Fill], use [Fill.solid], [Fill.linearGradient], [Fill.radialGradient], [Fill.shader], [Fill.drawable] methods.
  *
  * **Comparison and representation**
  *
- * Gradient positions `null` and `[0, 1]` are visually the same and Fill's logic makes it same too.
+ * Gradient positions `null` and `[0, 1]` are visually the same in [LinearGradient] and [RadialGradient] and Fill's logic makes it same too.
  * It impacts [equals], [hashCode], [toString] that return the same results on [Fill] instances with same properties, except gradient positions.
  *
  * Example:
  * ```
- * val f1 = Fill.radialGradient(intArrayOf(1, 2), floatArrayOf(0, 1))
+ * val f1 = Fill.radialGradient(intArrayOf(1, 2), floatArrayOf(0f, 1f))
  * val f2 = Fill.radialGradient(intArrayOf(1, 2), null)
  *
  * val isEqual = f1 == f2 // true
@@ -95,12 +95,22 @@ class Fill private constructor(
     private var _width = 0f
     private var _height = 0f
 
+    /**
+     * Gets width of the size of the shape, fill is used to draw.
+     */
     val width: Float
         get() = _width
 
+    /**
+     * Gets height of the size of the shape, fill is used to draw.
+     */
     val height: Float
         get() = _height
 
+    /**
+     * Gets or sets shape, fill is used to draw.
+     * If fill is shader-like, shader is updated (re-created) as shader properties depend on type of shape.
+     */
     var shape: Shape = RectangleShape
         set(value) {
             if (field != value) {
@@ -112,9 +122,15 @@ class Fill private constructor(
             }
         }
 
+    /**
+     * Gets whether fill is shader-like, i.e. created by [linearGradient], [radialGradient], [shader].
+     */
     val isShaderLike: Boolean
         get() = (type and TYPE_SHADER_LIKE_BIT) != 0
 
+    /**
+     * Gets whether fill's type is [TYPE_DRAWABLE].
+     */
     val isDrawableType: Boolean
         get() = type == TYPE_DRAWABLE
 
@@ -181,6 +197,13 @@ class Fill private constructor(
         }
     }
 
+    /**
+     * Sets size of the shape, fill is used to draw.
+     *
+     * The size only matters when fill is shader-like or drawable.
+     * If fill is drawable, the drawable's bounds are set relative to the origin.
+     * In other words bounds are `(left=0, top=0, right=width, bottom=height)`
+     */
     fun setSize(width: Float, height: Float) {
         val oldWidth = _width
         val oldHeight = _height
@@ -204,7 +227,7 @@ class Fill private constructor(
             if (needToUpdateShader) {
                 updateShader()
             }
-        } else if (type == TYPE_DRAWABLE) {
+        } else if (isDrawableType) {
             drawable!!.setBounds(0, 0, ceilToInt(width), ceilToInt(height))
         }
     }
@@ -216,12 +239,16 @@ class Fill private constructor(
     /**
      * Applies options of [Fill] to specified [paint].
      *
-     * [alpha] parameter specifies with what `alpha` value solid color should be applied to the [paint]. If the fill is not solid,
-     * [alpha] parameter doesn't change anything.
+     * If the fill is solid, [alpha] parameter specifies with what `alpha` value solid color is applied to the [paint].
+     * Note that alpha of the solid color and alpha of the parameter are combined.
+     *
+     * If the fill is solid, [alpha] is ignored. Shader is set to the [paint].
+     *
+     * **The method can't be used for drawable fills**
      */
     @JvmOverloads
     fun applyToPaint(paint: Paint, alpha: Float = 1f) {
-        if (type == TYPE_DRAWABLE) {
+        if (isDrawableType) {
             throw IllegalStateException("The method can't be called when Fill's type is TYPE_DRAWABLE")
         }
 
@@ -240,11 +267,12 @@ class Fill private constructor(
     /**
      * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
      *
-     * It should be used to draw something on [canvas] using a [Fill] instance which might be gradient-like.
+     * It's indented to be used when a shape is drawn using shader-like fill and alpha can vary.
+     * In other words, the shape is not always opaque. It can be used for solid fills but it's same as calling [applyToPaint] with specified alpha and drawing the shape.
+     *
      * For Kotlin, there's `inline` version of the method which makes it more performant.
      *
-     * Implementation notes: internally it uses [Canvas.saveLayerAlpha] to override alpha of the layer.
-     * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
+     * **The method can't be used for drawable fills**
      */
     fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Runnable) {
         drawWith(canvas, shapeBounds, paint, alpha) { block.run() }
@@ -253,10 +281,10 @@ class Fill private constructor(
     /**
      * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
      *
-     * It should be used to draw something on [canvas] using a [Fill] instance which might be gradient-like.
+     * It's indented to be used when a shape is drawn using shader-like fill and alpha can vary.
+     * In other words, the shape is not always opaque. It can be used for solid fills but it's same as calling [applyToPaint] with specified alpha and drawing the shape.
      *
-     * Implementation notes: internally it uses [Canvas.saveLayerAlpha] to override alpha of the layer.
-     * So, [block] lambda **can** create new layers, but it **should** balance them in the end of the [block].
+     * **The method can't be used for drawable fills**
      */
     inline fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
         // If alpha is 0, there's no sense in drawing. If the value is less than 0, that's illegal
@@ -489,7 +517,8 @@ class Fill private constructor(
         }
 
         /**
-         * Creates a linear gradient fill using start and end color specified by color int.
+         * Creates a linear gradient fill using start and end colors.
+         * Two colors are distributed evenly along the gradient line.
          *
          * @param startColor start color of gradient.
          * @param endColor end color of gradient.
@@ -508,7 +537,8 @@ class Fill private constructor(
          * Creates a linear gradient fill using array of colors specified by color ints and relative positions for colors.
          *
          * @param colors colors of gradient
-         * @param positions relative positions of each color, each element should be in range `[0; 1]`
+         * @param positions relative positions of each color, each element should be in range `[0; 1]`.
+         * If null, colors are distributed evenly along the gradient line.
          * @param orientation orientation of gradient.
          */
         @JvmStatic
@@ -521,7 +551,8 @@ class Fill private constructor(
         }
 
         /**
-         * Creates a radial gradient fill using start and end color specified by color int.
+         * Creates a radial gradient fill using start and end colors.
+         * Two colors are distributed evenly along the gradient line.
          *
          * @param startColor start color of gradient.
          * @param endColor end color of gradient.
@@ -539,7 +570,8 @@ class Fill private constructor(
          * Creates a radial gradient fill.
          *
          * @param colors colors of gradient
-         * @param positions relative positions of each color, each element should be in range `[0; 1]`
+         * @param positions relative positions of each color, each element should be in range `[0; 1]`.
+         * If null, colors are distributed evenly along the gradient line.
          */
         @JvmStatic
         fun radialGradient(colors: IntArray, positions: FloatArray?): Fill {
@@ -547,14 +579,28 @@ class Fill private constructor(
         }
 
         /**
-         * Creates a shader fill. As desired size of gradient may change, single [Shader] instance can't be used.
-         * Instead, [ShaderFactory] is used that creates new instances of [Shader] using current `width` and `height` values.
+         * Creates a shader fill.
+         *
+         * As desired size of gradient may change, single [Shader] instance can't be used.
+         * Instead, [ShaderFactory] is used that creates new instances of [Shader] when the size is changed.
          */
         @JvmStatic
         fun shader(factory: ShaderFactory): Fill {
             return Fill(TYPE_SHADER, shaderFactory = factory)
         }
 
+        /**
+         * Creates a fill based on [Drawable] instance.
+         *
+         * When a shape needs to be drawn using this fill, a [Drawable] is simply drawn in desired bounds,
+         * but only intersection with the shape is visible.
+         *
+         * If you want a solid fill or a shader fill (gradient fills are also shader-like),
+         * use [solid], [shader], [linearGradient], [radialGradient].
+         * Although these fills can be replicated using this method,
+         * using fills created by the specialized methods is more performant as their properties are known
+         * unlike [Drawable] where the way it's drawn is left to the implementation.
+         */
         @JvmStatic
         fun drawable(value: Drawable): Fill {
             return Fill(TYPE_DRAWABLE, drawable = value)
