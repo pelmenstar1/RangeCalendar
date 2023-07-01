@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import android.os.Build
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
@@ -25,8 +26,9 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private var secondaryCellNode: CellRenderNode? = null
 
     private val tempRect = RectF()
+
     private var shapeOnRowPath: Path? = null
-    private var shapeOnRowPathBounds: RectF? = null
+    private val shapeOnRowPathBounds = RectF()
 
     private fun getOrCreatePrimaryCellNode() =
         getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
@@ -39,7 +41,6 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
         if (path == null) {
             path = Path()
-            shapeOnRowPathBounds = RectF()
             shapeOnRowPath = path
         }
 
@@ -190,9 +191,11 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         }
 
         try {
-            if (fill.type == Fill.TYPE_DRAWABLE) {
+            val drawable = fill.drawable
+
+            if (drawable != null) {
                 val path = getShapeOnRowPath()
-                val pathBounds = shapeOnRowPathBounds!!
+                val pathBounds = shapeOnRowPathBounds
 
                 // If sizes are changed, we need to update the path to have correct round-rect on it.
                 if (width != pathBounds.width() || height != pathBounds.height()) {
@@ -206,7 +209,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
                 canvas.clipPath(path)
 
-                drawFillDrawable(canvas, fill, alpha)
+                setDrawableAlpha(drawable, alpha)
+                drawable.draw(canvas)
             } else {
                 fill.drawWith(canvas, shapeBounds, paint, alpha) {
                     drawRoundRect(shapeBounds, rr, rr, paint)
@@ -233,7 +237,6 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         }
 
         val fill = options.fill
-        val isDrawableFill = fill.type == Fill.TYPE_DRAWABLE
 
         var forcePath = false
         val origin: Int
@@ -242,7 +245,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
         if (useTranslationToBounds) {
             origin = SelectionShape.ORIGIN_BOUNDS
-            forcePath = isDrawableFill
+            forcePath = fill.isDrawableType
         } else {
             origin = SelectionShape.ORIGIN_LOCAL
         }
@@ -272,14 +275,17 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         }
 
         try {
-            // We use a different approach of drawing if type is TYPE_DRAWABLE.
+            val drawable = fill.drawable
+
+            // We use a different approach of drawing if fill is drawable-type.
             // In that case, we draw a drawable with clipping over the shape.
-            if (isDrawableFill) {
+            if (drawable != null) {
                 // As isDrawableFill is true, it means that SelectionShape.update() was called with forcePath=true,
                 // that makes the logic to create a path.
                 canvas.clipPath(shape.path!!)
 
-                drawFillDrawable(canvas, fill, alpha)
+                setDrawableAlpha(drawable, alpha)
+                drawable.draw(canvas)
             } else {
                 fill.drawWith(canvas, translatedBounds, paint, alpha) { shape.draw(canvas, paint) }
             }
@@ -298,10 +304,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         return (fill.isShaderLike && boundsType == SelectionFillGradientBoundsType.SHAPE) || fill.isDrawableType
     }
 
-    private fun drawFillDrawable(canvas: Canvas, fill: Fill, alpha: Float) {
-        fill.drawable?.also {
-            it.alpha = (alpha * 255f + 0.5f).toInt()
-            it.draw(canvas)
-        }
+    private fun setDrawableAlpha(drawable: Drawable, alpha: Float) {
+        drawable.alpha = (alpha * 255f + 0.5f).toInt()
     }
 }

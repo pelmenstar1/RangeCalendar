@@ -461,7 +461,9 @@ class ShapeDecor(val style: Style) : CellDecor() {
             rect.set(0f, 0f, width, height)
 
             canvas.withTranslation(left, top) {
-                if (fill.isDrawableType) {
+                val drawable = fill.drawable
+
+                if (drawable != null) {
                     // If shape is rectangle, there's nothing to clip.
                     // The drawable is expected to be drawn exactly at the applied bounds.
                     if (shape !is RectangleShape) {
@@ -472,8 +474,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
                         path.rewind()
                     }
 
-                    // fill.drawable should not be null when fill.isDrawableType is true
-                    fill.drawable?.also { it.draw(canvas) }
+                    drawable.draw(canvas)
                 } else {
                     fill.drawWith(canvas, rect, paint, alpha = 1f) {
                         drawShape(canvas, rect, shape)

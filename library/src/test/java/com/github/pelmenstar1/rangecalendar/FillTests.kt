@@ -1,7 +1,6 @@
 package com.github.pelmenstar1.rangecalendar
 
 import android.graphics.Color
-import android.graphics.LinearGradient
 import android.graphics.Shader
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -12,7 +11,6 @@ class FillTests {
     class ShaderFactoryImpl(private val startColor: Int, private val endColor: Int): Fill.ShaderFactory {
         override fun create(width: Float, height: Float, shape: Shape): Shader {
             throw NotImplementedError()
-
         }
 
         override fun equals(other: Any?): Boolean {

@@ -562,10 +562,12 @@ class LineDecor(val style: Style) : CellDecor() {
             val height = bottom - top
 
             canvas.withTranslation(left, top) {
-                if (fill.isDrawableType) {
+                val drawable = fill.drawable
+
+                if (drawable != null) {
                     clipRoundRect(canvas, width, height, style)
 
-                    fill.drawable?.also { it.draw(canvas) }
+                    drawable.draw(canvas)
                 } else {
                     val rect = tempRect
                     rect.set(0f, 0f, width, height)
