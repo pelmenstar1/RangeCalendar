@@ -2,7 +2,6 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -11,6 +10,7 @@ import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.Fill
+import com.github.pelmenstar1.rangecalendar.RoundRectVisualInfo
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
@@ -27,8 +27,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private val tempRect = RectF()
 
-    private var shapeOnRowPath: Path? = null
-    private val shapeOnRowPathBounds = RectF()
+    private var roundRectPathInfo: RoundRectVisualInfo? = null
 
     private fun getOrCreatePrimaryCellNode() =
         getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
@@ -36,16 +35,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private fun getOrCreateSecondaryCellNode() =
         getLazyValue(secondaryCellNode, ::CellRenderNode) { secondaryCellNode = it }
 
-    private fun getShapeOnRowPath(): Path {
-        var path = shapeOnRowPath
-
-        if (path == null) {
-            path = Path()
-            shapeOnRowPath = path
-        }
-
-        return path
-    }
+    private fun getRoundRectPathInfo(): RoundRectVisualInfo =
+        getLazyValue(roundRectPathInfo, ::RoundRectVisualInfo) { roundRectPathInfo = it }
 
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
         state as DefaultSelectionState
@@ -194,20 +185,18 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             val drawable = fill.drawable
 
             if (drawable != null) {
-                val path = getShapeOnRowPath()
-                val pathBounds = shapeOnRowPathBounds
+                val info = getRoundRectPathInfo()
 
-                // If sizes are changed, we need to update the path to have correct round-rect on it.
-                if (width != pathBounds.width() || height != pathBounds.height()) {
-                    // Rewind path in case it was used before. We need only one rect on the path.
-                    path.rewind()
-                    path.addRoundRect(shapeBounds, rr, rr, Path.Direction.CW)
+                info.setBounds(0f, 0f, width, height)
+                info.setRoundedCorners(rr)
 
-                    // Update pathBounds' properties to the latest values.
-                    pathBounds.set(shapeBounds)
+                info.getPath()?.also {
+                    // Clip path if info.getPath() is not null. It returns null if round radius is 0.
+                    //
+                    // We can clip without an additional save because we already have a save for translation that is always used
+                    // for drawable fills
+                    canvas.clipPath(it)
                 }
-
-                canvas.clipPath(path)
 
                 setDrawableAlpha(drawable, alpha)
                 drawable.draw(canvas)

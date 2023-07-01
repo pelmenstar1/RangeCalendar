@@ -3,7 +3,6 @@ package com.github.pelmenstar1.rangecalendar.decoration
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.RectF
 import androidx.annotation.ColorInt
 import androidx.core.graphics.component1
@@ -19,12 +18,12 @@ import com.github.pelmenstar1.rangecalendar.Padding
 import com.github.pelmenstar1.rangecalendar.R
 import com.github.pelmenstar1.rangecalendar.RectangleShape
 import com.github.pelmenstar1.rangecalendar.Shape
+import com.github.pelmenstar1.rangecalendar.ShapeVisualInfo
 import com.github.pelmenstar1.rangecalendar.VerticalAlignment
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_BOTTOM
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_LEFT
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_RIGHT
 import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_TOP
-import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.lerpFloatArray
 import com.github.pelmenstar1.rangecalendar.utils.setRectFromValues
 
@@ -378,12 +377,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
     private object ShapeRenderer : Renderer {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-        private var tempPath: Path? = null
+        private val shapeInfo = ShapeVisualInfo()
         private val tempRect = RectF()
-
-        private fun getOrCreateTempPath(): Path {
-            return getLazyValue(tempPath, ::Path) { tempPath = it }
-        }
 
         override fun renderState(canvas: Canvas, state: VisualState) {
             val shapeState = state as ShapeVisualState
@@ -438,13 +433,11 @@ class ShapeDecor(val style: Style) : CellDecor() {
         }
 
         private fun drawShape(canvas: Canvas, bounds: RectF, shape: Shape) {
-            if (shape.needsPathToDraw) {
-                val path = getOrCreateTempPath()
-                shape.draw(canvas, bounds, path, paint)
+            shapeInfo.run {
+                setBounds(bounds)
+                setShape(shape)
 
-                path.rewind()
-            } else {
-                shape.draw(canvas, bounds, null, paint)
+                draw(canvas, paint)
             }
         }
 
@@ -467,11 +460,12 @@ class ShapeDecor(val style: Style) : CellDecor() {
                     // If shape is rectangle, there's nothing to clip.
                     // The drawable is expected to be drawn exactly at the applied bounds.
                     if (shape !is RectangleShape) {
-                        val path = getOrCreateTempPath()
-                        shape.addToPath(path, rect)
+                        shapeInfo.run {
+                            setBounds(rect)
+                            setShape(shape)
 
-                        canvas.clipPath(path)
-                        path.rewind()
+                            canvas.clipPath(getPath())
+                        }
                     }
 
                     drawable.draw(canvas)

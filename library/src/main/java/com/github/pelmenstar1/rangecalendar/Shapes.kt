@@ -8,10 +8,13 @@ import kotlin.math.sqrt
 
 /**
  * Defines geometrical properties of a shape and way to draw it on [Canvas].
+ *
+ * Custom instances of [Shape] **must** be immutable and implement [equals], [hashCode], [toString] methods.
  */
 interface Shape {
     /**
-     * Gets whether a [Path] instance is needed to draw a shape.
+     * Gets whether a [Path] instance is needed to draw a shape. If it's `true`, [draw] method should never be called.
+     * Instead, a caller should use [addToPath] and then draw this path.
      *
      * @see draw
      */
@@ -37,15 +40,13 @@ interface Shape {
     fun addToPath(path: Path, box: RectF)
 
     /**
-     * Draws a shape on [Canvas].
+     * Draws a shape on [Canvas]. Fails when [needsPathToDraw] is `true`.
      *
      * @param canvas canvas to draw on.
      * @param box rectangle in which shape is located.
-     * @param path path which is used to initialize a shape and draw it on [canvas].
-     * This path is empty. It's `null` if [needsPathToDraw] is `false`.
      * @param paint paint which should be used to draw a shape. It shouldn't be mutated.
      */
-    fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint)
+    fun draw(canvas: Canvas, box: RectF, paint: Paint)
 
     /**
      * Computes properties of a circle in which shape is inscribed.
@@ -74,7 +75,7 @@ object RectangleShape : Shape {
         path.addRect(box, Path.Direction.CW)
     }
 
-    override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
+    override fun draw(canvas: Canvas, box: RectF, paint: Paint) {
         canvas.drawRect(box, paint)
     }
 
@@ -114,7 +115,7 @@ object CircleShape : Shape {
         }
     }
 
-    override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
+    override fun draw(canvas: Canvas, box: RectF, paint: Paint) {
         canvas.drawOval(box, paint)
     }
 
@@ -160,11 +161,8 @@ class TriangleShape(
     override fun validateBox(box: RectF) {
     }
 
-    override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
-        requireNotNull(path) { "path" }
-
-        addToPath(path, box)
-        canvas.drawPath(path, paint)
+    override fun draw(canvas: Canvas, box: RectF, paint: Paint) {
+        throw IllegalStateException("TriangleShape requires a Path to draw")
     }
 
     override fun addToPath(path: Path, box: RectF) {
