@@ -569,12 +569,12 @@ class LineDecor(val style: Style) : CellDecor() {
 
                     drawable.draw(canvas)
                 } else {
-                    val rect = tempRect
-                    rect.set(0f, 0f, width, height)
+                    fill.applyToPaint(paint)
 
-                    fill.drawWith(canvas, rect, paint, alpha = 1f) {
-                        drawRect(canvas, rect, style)
-                    }
+                    val bounds = tempRect
+                    bounds.set(0f, 0f, width, height)
+
+                    drawRect(canvas, bounds, style)
                 }
             }
         }

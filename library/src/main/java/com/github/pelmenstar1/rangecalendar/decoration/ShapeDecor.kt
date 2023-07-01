@@ -476,9 +476,9 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
                     drawable.draw(canvas)
                 } else {
-                    fill.drawWith(canvas, rect, paint, alpha = 1f) {
-                        drawShape(canvas, rect, shape)
-                    }
+                    fill.applyToPaint(paint)
+
+                    drawShape(canvas, rect, shape)
                 }
             }
         }
