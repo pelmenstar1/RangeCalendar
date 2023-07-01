@@ -8,10 +8,13 @@ import kotlin.math.sqrt
 
 /**
  * Defines geometrical properties of a shape and way to draw it on [Canvas].
+ *
+ * Custom instances of [Shape] **must** be immutable and implement [equals], [hashCode], [toString] methods.
  */
 interface Shape {
     /**
-     * Gets whether a [Path] instance is needed to draw a shape.
+     * Gets whether a [Path] instance is needed to draw a shape. If it's `true`, [draw] method should never be called.
+     * Instead, a caller should use [addToPath] and then draw this path.
      *
      * @see draw
      */
@@ -22,31 +25,33 @@ interface Shape {
         get
 
     /**
-     * Throws an exception if a box is invalid.
+     * Throws an exception if [box] is invalid.
      *
-     * @param box rectangle in which a shape in located.
+     * @param box rectangle in which shape in located.
      */
     fun validateBox(box: RectF)
 
     /**
-     * Draws a shape on [Canvas].
+     * Adds a shape to specified [path].
+     *
+     * @param path a path instance where shape is added to
+     * @param box rectangle in which shape is located.
+     */
+    fun addToPath(path: Path, box: RectF)
+
+    /**
+     * Draws a shape on [Canvas]. Fails when [needsPathToDraw] is `true`.
      *
      * @param canvas canvas to draw on.
-     * @param box rectangle in which a shape should be located. In other words,
-     * entire shape should be within this rectangle.
-     * @param path path which should be used to initialize a shape and draw it on [canvas].
-     * This path is empty and may not be restored again.
-     * May be null if [needsPathToDraw] is false.
-     * @param paint paint which should be used to draw a shape.
-     * It shouldn't be mutated, it should remain untouched.
+     * @param box rectangle in which shape is located.
+     * @param paint paint which should be used to draw a shape. It shouldn't be mutated.
      */
-    fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint)
+    fun draw(canvas: Canvas, box: RectF, paint: Paint)
 
     /**
      * Computes properties of a circle in which shape is inscribed.
      *
      * If such circle does not exist, then, as workaround, finds center of mass of a shape.
-     * And radius is maximum distance to a point containing a shape.
      *
      * @param box rectangle in which a shape is located.
      * @param outCenter a point which is mutated to be center point of the circle.
@@ -54,13 +59,6 @@ interface Shape {
      * @return radius of the circle.
      */
     fun computeCircumcircle(box: RectF, outCenter: PointF): Float
-
-    /**
-     * Narrows a box (if needed) to make a rectangle circumscribed.
-     * In other words, if a shape is polygonal, mutates [box] to be the smallest rectangle that can be drawn
-     * around a set of points such that all the points are inside it, or exactly on one of its sides.
-     */
-    fun narrowBox(box: RectF)
 }
 
 /**
@@ -73,10 +71,11 @@ object RectangleShape : Shape {
     override fun validateBox(box: RectF) {
     }
 
-    override fun narrowBox(box: RectF) {
+    override fun addToPath(path: Path, box: RectF) {
+        path.addRect(box, Path.Direction.CW)
     }
 
-    override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
+    override fun draw(canvas: Canvas, box: RectF, paint: Paint) {
         canvas.drawRect(box, paint)
     }
 
@@ -116,11 +115,12 @@ object CircleShape : Shape {
         }
     }
 
-    override fun narrowBox(box: RectF) {
+    override fun draw(canvas: Canvas, box: RectF, paint: Paint) {
+        canvas.drawOval(box, paint)
     }
 
-    override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
-        canvas.drawOval(box, paint)
+    override fun addToPath(path: Path, box: RectF) {
+        path.addOval(box, Path.Direction.CW)
     }
 
     override fun computeCircumcircle(box: RectF, outCenter: PointF): Float {
@@ -161,13 +161,15 @@ class TriangleShape(
     override fun validateBox(box: RectF) {
     }
 
-    override fun draw(canvas: Canvas, box: RectF, path: Path?, paint: Paint) {
-        requireNotNull(path) { "'path' argument is null" }
+    override fun draw(canvas: Canvas, box: RectF, paint: Paint) {
+        throw IllegalStateException("TriangleShape requires a Path to draw")
+    }
+
+    override fun addToPath(path: Path, box: RectF) {
+        val (left, top) = box
 
         val width = box.width()
         val height = box.height()
-
-        val (left, top) = box
 
         path.run {
             moveTo(left + width * p1x, top + height * p1y)
@@ -175,23 +177,6 @@ class TriangleShape(
             lineTo(left + width * p3x, top + height * p3y)
             close()
         }
-
-        canvas.drawPath(path, paint)
-    }
-
-    override fun narrowBox(box: RectF) {
-        val (left, top) = box
-
-        val width = box.width()
-        val height = box.height()
-
-        // Find leftmost and rightmost points
-        box.left = left + minOf(p1x, p2x, p3x) * width
-        box.right = left + maxOf(p1x, p2x, p3x) * width
-
-        // Find topmost and bottom-most points
-        box.top = top + minOf(p1y, p2y, p3y) * height
-        box.bottom = top + maxOf(p1y, p2y, p3y) * height
     }
 
     override fun computeCircumcircle(box: RectF, outCenter: PointF): Float {
@@ -226,6 +211,31 @@ class TriangleShape(
         outCenter.y = ty + ay
 
         return radius
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other === this) return true
+        if (other == null || javaClass != other.javaClass) return false
+
+        other as TriangleShape
+
+        return p1x == other.p1x && p2x == other.p2x && p3x == other.p3x &&
+                p1y == other.p1y && p2y == other.p2y && p3x == other.p3y
+    }
+
+    override fun hashCode(): Int {
+        var result = p1x.toBits()
+        result = result * 31 + p2x.toBits()
+        result = result * 31 + p3x.toBits()
+        result = result * 31 + p1y.toBits()
+        result = result * 31 + p2y.toBits()
+        result = result * 31 + p3y.toBits()
+
+        return result
+    }
+
+    override fun toString(): String {
+        return "TriangleShape(p1=($p1x, $p1y), p2=($p2x, $p2y), p3=($p3x, $p3y))"
     }
 
     companion object {

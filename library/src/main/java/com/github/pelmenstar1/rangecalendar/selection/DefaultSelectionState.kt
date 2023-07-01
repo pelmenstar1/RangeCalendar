@@ -56,12 +56,14 @@ internal class DefaultSelectionState(val shapeInfo: SelectionShapeInfo) : Select
     class CellAppearBubble(
         val baseState: DefaultSelectionState,
         val isReversed: Boolean
-    ) : BoundsTransitionBase() {
+    ) : SelectionState.Transitive {
         override val start: SelectionState
             get() = baseState
 
         override val end: SelectionState
             get() = baseState
+
+        val bounds = RectF()
 
         override fun overlaysCell(cellIndex: Int): Boolean {
             return baseState.rangeStart == cellIndex
@@ -83,7 +85,10 @@ internal class DefaultSelectionState(val shapeInfo: SelectionShapeInfo) : Select
     class CellMoveToCell(
         override val start: DefaultSelectionState,
         override val end: DefaultSelectionState
-    ) : BoundsTransitionBase() {
+    ) : SelectionState.Transitive {
+        var left: Float = Float.NaN
+        var top: Float = Float.NaN
+
         override fun overlaysCell(cellIndex: Int): Boolean {
             val startCell = start.startCell
             val endCell = end.startCell
@@ -104,10 +109,6 @@ internal class DefaultSelectionState(val shapeInfo: SelectionShapeInfo) : Select
                 cellX == startX && rangeContains(startY, endY, cellY)
             }
         }
-    }
-
-    abstract class BoundsTransitionBase : SelectionState.Transitive {
-        val bounds = RectF()
     }
 
     override fun equals(other: Any?): Boolean {

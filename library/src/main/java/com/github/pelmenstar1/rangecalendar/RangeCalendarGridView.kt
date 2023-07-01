@@ -16,7 +16,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.accessibility.AccessibilityEvent
-import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
@@ -507,14 +506,7 @@ internal class RangeCalendarGridView(
 
     private fun updateGradientBoundsIfNeeded() {
         if (selectionFillGradientBoundsType() == SelectionFillGradientBoundsType.GRID) {
-            // selectionFill() is used to set fill for the selection which is drawn using a translation from view's local coordinates
-            // to the point (x = cr.hPadding, y = gridTop()). We need to take it into account and set bounds accordingly.
-            selectionFill().setBounds(
-                left = 0f,
-                top = 0f,
-                right = width - 2 * cr.hPadding,
-                bottom = height - gridTop()
-            )
+            selectionFill().setSize(rowWidth(), height = height - gridTop())
         }
     }
 
@@ -1157,13 +1149,16 @@ internal class RangeCalendarGridView(
         val renderer = selectionRenderer
         val options = selectionRenderOptions!!
 
-        c.withTranslation(x = cr.hPadding, y = gridTop()) {
-            if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
-                selectionTransitiveState?.let {
-                    renderer.drawTransition(c, it, options)
-                }
-            } else {
-                renderer.draw(c, selectionManager.currentState, options)
+        if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
+            selectionTransitiveState?.let {
+                renderer.drawTransition(c, it, options)
+            }
+        } else {
+            val currentState = selectionManager.currentState
+
+            // Draw selection state if there's actually the state to draw.
+            if (!currentState.isNone) {
+                renderer.draw(c, currentState, options)
             }
         }
     }
