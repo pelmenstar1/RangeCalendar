@@ -19,7 +19,6 @@ import com.github.pelmenstar1.rangecalendar.utils.appendColors
 import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
-import kotlin.math.abs
 
 /**
  * Represents either a solid fill or gradient fill.
@@ -211,16 +210,20 @@ class Fill private constructor(
         _width = width
         _height = height
 
+        if (oldWidth == width && oldHeight == height) {
+            return
+        }
+
         if (isShaderLike) {
             var needToUpdateShader = true
 
             if (type == TYPE_LINEAR_GRADIENT) {
                 needToUpdateShader = when (gradientOrientation) {
-                    Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT ->
-                        abs(oldWidth - width) >= EPSILON
+                    // If the gradient line is horizontal, it changes visually only when width is changed.
+                    Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT -> oldWidth != width
 
-                    Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP ->
-                        abs(oldHeight - height) >= EPSILON
+                    // If the gradient line is vertical, it changes visually only when height is changed.
+                    Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP -> oldHeight != height
                 }
             }
 
@@ -406,8 +409,6 @@ class Fill private constructor(
     }
 
     companion object {
-        private const val EPSILON = 0.1f
-
         private const val TYPE_SHADER_LIKE_BIT = 1 shl 31
 
         const val TYPE_SOLID = 0
