@@ -234,7 +234,7 @@ rangeCalendarView.firstDayOfWeek = java.time.DayOfWeek.SATURDAY
 rangeCalendarView.intFirstDayOfWeek = java.util.Calendar.SATURDAY
 ```
 
-Changing the first day of the week via these properties makes the first day of the week fixed, i.e it will be no longer updated on configuration updates. It also clears the selection if present. **Note**: If values of the first day of the week on the time of saving view's state and restoring it are different, the saved selection is not restored.
+Changing the first day of the week via these properties makes the first day of the week fixed, i.e it will be no longer updated on configuration updates. It also clears the selection if present. **NOTE: if values of the first day of the week on the time of saving view's state and restoring it are different, the saved selection is not restored.**
 
 ## Info textview
 
