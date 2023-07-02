@@ -206,7 +206,7 @@ observer.setLifecycle(lifecycle) // If we want to unregister the observer on des
 observer.register() // The observer should be registered manually.
 ```
 
-## Weekdays
+## Weekday names
 
 By default, the calendar will use localized weekdays in 'short' format. The format of localized weekdays can be changed via `weekdayType`. Currently there's only two options:
 
@@ -220,6 +220,21 @@ rangeCalendarView.weekdays = arrayOf("0", "1", "2", "3", "4", "5", "6")
 ```
 
 If you want back to using localized weekdays, pass null to `weekdays`.
+
+# The first day of the week
+
+By default, information about the first day of the week is extracted from current locale's data. If the locale is changed, the first day of the week is re-computed.
+
+If you want to use custom the first day of the week, use can change it via `firstDayOfWeek` or `intFirstDayOfWeek`:
+```kotlin
+rangeCalendarView.firstDayOfWeek = java.time.DayOfWeek.SATURDAY
+
+// or
+
+rangeCalendarView.intFirstDayOfWeek = java.util.Calendar.SATURDAY
+```
+
+Changing the first day of the week via these properties makes the first day of the week fixed, i.e it will be no longer updated on configuration updates. It also clears the selection if present. **Note**: If values of the first day of the week on the time of saving view's state and restoring it are different, the saved selection is not restored.
 
 ## Info textview
 
@@ -284,6 +299,7 @@ You can directly access info textview via `infoTextView` property.
 | rangeCalendar_infoPattern                     | Specifies date-time pattern for info text view (where current year and month is shown). The pattern should be suitable with `java.text.SimpleDateFormat`.                                                                                                                                            |
 | rangeCalendar_useBestPatternForInfoPattern    | Specifies whether `android.text.format.DateFormat.getBestDateTimePattern` should be called on patterns set via `infoPattern` using the code or specified rangeCalendar_infoPattern in XML. By default, it's `true`.                                                                                  |
 | rangeCalendar_infoTextSize                    | Text size of info text view                                                                                                                                                                                                                                                                          |
+| rangeCalendar_firstDayOfWeek                  | Specifies custom first day of the week                                                                                                                                                                                                                                                               |
 
 ## Library status
 
