@@ -326,12 +326,25 @@ internal class RangeCalendarPagerAdapter(
         if (this.firstDayOfWeek != firstDayOfWeek) {
             this.firstDayOfWeek = firstDayOfWeek
 
+            if (selectionRange.isValid) {
+                discardSelectionValues()
+
+                onSelectionListener?.onSelectionCleared()
+            }
+
             notifyAllPages(Payload.onFirstDayOfWeekChanged())
         }
     }
 
-    private fun onFirstDayOfWeekChanged(gridView: RangeCalendarGridView) {
+    private fun onFirstDayOfWeekChanged(gridView: RangeCalendarGridView, position: Int) {
         updateGrid(gridView)
+        updateToday(gridView, position)
+
+        gridView.clearSelection(
+            fireEvent = false,
+            withAnimation = style.getBoolean { IS_SELECTION_ANIMATED_BY_DEFAULT }
+        )
+
         gridView.setFirstDayOfWeek(firstDayOfWeek)
     }
 
@@ -470,7 +483,7 @@ internal class RangeCalendarPagerAdapter(
     }
 
     // Expects that the gridInfo is initialized to the right year-month.
-    private fun updateTodayIndex(gridView: RangeCalendarGridView, position: Int) {
+    private fun updateToday(gridView: RangeCalendarGridView, position: Int) {
         val cell = if (getItemPositionForDate(today) == position) {
             gridInfo.getCellByDate(today)
         } else {
@@ -774,7 +787,7 @@ internal class RangeCalendarPagerAdapter(
         updateGrid(gridView)
         updateEnabledRange(gridView)
         gridView.setInMonthRange(gridInfo.inMonthRange)
-        updateTodayIndex(gridView, position)
+        updateToday(gridView, position)
 
         gridView.setFirstDayOfWeek(firstDayOfWeek)
 
@@ -824,7 +837,7 @@ internal class RangeCalendarPagerAdapter(
                 Payload.UPDATE_TODAY_INDEX -> {
                     updateGridInfo(getYearMonthForCalendar(position))
 
-                    updateTodayIndex(gridView, position)
+                    updateToday(gridView, position)
                 }
 
                 Payload.ON_STYLE_PROP_CHANGED -> {
@@ -884,7 +897,7 @@ internal class RangeCalendarPagerAdapter(
                 Payload.ON_FIRST_DAY_OF_WEEK_CHANGED -> {
                     updateGridInfo(getYearMonthForCalendar(position))
 
-                    onFirstDayOfWeekChanged(gridView)
+                    onFirstDayOfWeekChanged(gridView, position)
                 }
             }
         }

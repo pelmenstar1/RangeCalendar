@@ -11,6 +11,11 @@ internal class SavedState : AbsSavedState {
     var selectionYm = YearMonth(0)
     var selectionRange = CellRange.Invalid
 
+    // First day of week is also saved. If when we restore state, first day of week is different than this one,
+    // we don't do anything. We could save date range instead of cell range but it won't fix the problem as
+    // date range may happen to be on different pages that is currently illegal.
+    var firstDayOfWeek = CompatDayOfWeek.Undefined
+
     constructor(superState: Parcelable) : super(superState)
 
     constructor(source: Parcel) : super(source) {
@@ -18,6 +23,7 @@ internal class SavedState : AbsSavedState {
             ym = YearMonth(readInt())
             selectionYm = YearMonth(readInt())
             selectionRange = CellRange(readInt())
+            firstDayOfWeek = CompatDayOfWeek(readInt())
         }
     }
 
@@ -28,6 +34,7 @@ internal class SavedState : AbsSavedState {
             writeInt(ym.totalMonths)
             writeInt(selectionYm.totalMonths)
             writeInt(selectionRange.bits)
+            writeInt(firstDayOfWeek.value)
         }
     }
 

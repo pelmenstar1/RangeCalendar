@@ -576,6 +576,7 @@ class RangeCalendarView @JvmOverloads constructor(
             selectionYm = adapter.selectionYm
             selectionRange = adapter.selectionRange
             ym = currentCalendarYm
+            firstDayOfWeek = _firstDayOfWeek
         }
     }
 
@@ -593,8 +594,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
             val selRange = state.selectionRange
 
-            // Restore selection if there's one.
-            if (selRange.isValid) {
+            // Restore selection if one is present and first day of week is the same.
+            if (selRange.isValid && _firstDayOfWeek == state.firstDayOfWeek) {
                 adapter.selectOnRestore(state.selectionYm, selRange)
             }
         } else {
