@@ -1123,12 +1123,26 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleObject({ WEEKDAYS }, value?.copyOf())
         }
 
+    /**
+     * Gets or sets first day of week using [DayOfWeek] enum.
+     *
+     * By default, information about first day of week is extracted from current locale's data. If locale is changed, first day of week is re-computed.
+     * However, if you change value of the property (even to the same value), first day of week will no longer be updated from locale's data.
+     * It will also clear selection, if one is present.
+     */
     var firstDayOfWeek: DayOfWeek
         get() = _firstDayOfWeek.toEnumValue()
         set(value) {
             setFirstDayOfWeekInternal(CompatDayOfWeek.fromEnumValue(value))
         }
 
+    /**
+     * Gets or sets first day of week using int values from [Calendar]. For example, [Calendar.MONDAY] or [Calendar.SUNDAY]
+     *
+     * By default, information about first day of week is extracted from current locale's data. If locale is changed, first day of week is re-computed.
+     * However, if you change value of the property (even to the same value), first day of week will no longer be updated from locale's data.
+     * It will also clear selection, if one is present.
+     */
     var intFirstDayOfWeek: Int
         get() = _firstDayOfWeek.toCalendarValue()
         set(value) {
@@ -1145,7 +1159,6 @@ class RangeCalendarView @JvmOverloads constructor(
 
         adapter.setFirstDayOfWeek(_firstDayOfWeek)
     }
-
 
     /**
      * Gets or sets a background color of cell which appears when user hovers under a cell
