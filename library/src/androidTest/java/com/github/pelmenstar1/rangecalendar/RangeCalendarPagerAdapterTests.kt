@@ -396,7 +396,9 @@ class RangeCalendarPagerAdapterTests {
             changed(ym, payload)
         }.toArray()
 
-        val adapter = RangeCalendarPagerAdapter(cr)
+        val adapter = RangeCalendarPagerAdapter(cr).apply {
+            setFirstDayOfWeek(CompatDayOfWeek.Monday)
+        }
         val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
 
         val isSelected =
@@ -412,7 +414,10 @@ class RangeCalendarPagerAdapterTests {
 
     @Test
     fun selectRangeShouldClearOtherSelectionTest() {
-        val adapter = RangeCalendarPagerAdapter(cr)
+        val adapter = RangeCalendarPagerAdapter(cr).apply {
+            setFirstDayOfWeek(CompatDayOfWeek.Monday)
+        }
+
         val oldYm = YearMonth(year = 2023, month = 5)
         val newYm = YearMonth(year = 2023, month = 6)
 
