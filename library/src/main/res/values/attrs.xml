@@ -40,13 +40,13 @@
         <attr name="rangeCalendar_useBestPatternForInfoPattern" format="boolean"/>
         <attr name="rangeCalendar_infoTextSize" format="dimension"/>
         <attr name="rangeCalendar_firstDayOfWeek" format="enum">
-            <enum>monday</enum>
-            <enum>tuesday</enum>
-            <enum>wednesday</enum>
-            <enum>thursday</enum>
-            <enum>friday</enum>
-            <enum>saturday</enum>
-            <enum>sunday</enum>
+            <enum name="monday" value="0"/>
+            <enum name="tuesday" value="1"/>
+            <enum name="wednesday" value="2"/>
+            <enum name="thursday" value="3"/>
+            <enum name="friday" value="4"/>
+            <enum name="saturday" value="5"/>
+            <enum name="sunday" value="6"/>
         </attr>
     </declare-styleable>
 

@@ -16,6 +16,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.accessibility.AccessibilityEvent
+import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
@@ -1151,20 +1152,24 @@ internal class RangeCalendarGridView(
         drawCells(c)
     }
 
-    private fun drawSelection(c: Canvas) {
+    private fun drawSelection(canvas: Canvas) {
         val renderer = selectionRenderer
         val options = selectionRenderOptions!!
 
         if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
             selectionTransitiveState?.let {
-                renderer.drawTransition(c, it, options)
+                canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
+                    renderer.drawTransition(canvas, it, options)
+                }
             }
         } else {
             val currentState = selectionManager.currentState
 
-            // Draw selection state if there's actually the state to draw.
+            // Draw selection state if there's actually a state to draw.
             if (!currentState.isNone) {
-                renderer.draw(c, currentState, options)
+                canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
+                    renderer.draw(canvas, currentState, options)
+                }
             }
         }
     }
