@@ -506,6 +506,14 @@ class RangeCalendarView @JvmOverloads constructor(
                         infoTextSize = it
                     }
                 }
+
+                a.getInt(R.styleable.RangeCalendarView_rangeCalendar_firstDayOfWeek, -1).also {
+                    if (it >= 0) {
+                        val firstDow = CompatDayOfWeek(it)
+
+                        setFirstDayOfWeekInternal(firstDow, isCustom = true)
+                    }
+                }
             }
         } finally {
             a.recycle()
@@ -531,7 +539,9 @@ class RangeCalendarView @JvmOverloads constructor(
         currentLocale = newLocale
 
         if (!isCustomFirstDayOfWeek) {
-            _firstDayOfWeek = newLocale.getFirstDayOfWeek()
+            val firstDow = newLocale.getFirstDayOfWeek()
+
+            setFirstDayOfWeekInternal(firstDow, isCustom = false)
         }
 
         if (updateInfoFormatter) {
@@ -1134,7 +1144,7 @@ class RangeCalendarView @JvmOverloads constructor(
     var firstDayOfWeek: DayOfWeek
         get() = _firstDayOfWeek.toEnumValue()
         set(value) {
-            setFirstDayOfWeekInternal(CompatDayOfWeek.fromEnumValue(value))
+            setFirstDayOfWeekInternal(CompatDayOfWeek.fromEnumValue(value), isCustom = true)
         }
 
     /**
@@ -1151,12 +1161,12 @@ class RangeCalendarView @JvmOverloads constructor(
                 throw IllegalArgumentException("Invalid day of week")
             }
 
-            setFirstDayOfWeekInternal(CompatDayOfWeek.fromCalendarDayOfWeek(value))
+            setFirstDayOfWeekInternal(CompatDayOfWeek.fromCalendarDayOfWeek(value), isCustom = true)
         }
 
-    private fun setFirstDayOfWeekInternal(value: CompatDayOfWeek) {
+    private fun setFirstDayOfWeekInternal(value: CompatDayOfWeek, isCustom: Boolean) {
         _firstDayOfWeek = value
-        isCustomFirstDayOfWeek = true
+        isCustomFirstDayOfWeek = isCustom
 
         adapter.setFirstDayOfWeek(_firstDayOfWeek)
     }
