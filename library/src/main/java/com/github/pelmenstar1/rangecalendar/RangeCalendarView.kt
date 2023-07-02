@@ -37,6 +37,7 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import android.text.format.DateFormat
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetectorFactory
 import com.github.pelmenstar1.rangecalendar.utils.getFirstDayOfWeek
 import java.time.DayOfWeek
 import kotlin.math.max
@@ -1408,6 +1409,12 @@ class RangeCalendarView @JvmOverloads constructor(
         get() = adapter.getStyleBool { IS_HOVER_ANIMATION_ENABLED }
         set(value) {
             adapter.setStyleBool({ IS_HOVER_ANIMATION_ENABLED }, value)
+        }
+
+    var gestureDetectorFactory: RangeCalendarGestureDetectorFactory
+        get() = adapter.getStyleObject { GESTURE_DETECTOR_FACTORY }
+        set(value) {
+            adapter.setStyleObject({ GESTURE_DETECTOR_FACTORY }, value)
         }
 
     /**
