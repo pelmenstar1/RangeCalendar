@@ -186,7 +186,7 @@ internal class RangeCalendarGridView(
         }
 
         override fun reportStartSelectingRange() {
-            view.vibrator.vibrateTick()
+            view.onStartSelectingRange()
         }
 
         override fun reportStartHovering(cell: Int) {
@@ -584,6 +584,12 @@ internal class RangeCalendarGridView(
         }
     }
 
+    fun onStartSelectingRange() {
+        if (vibrateOnSelectingRange()) {
+            vibrator.vibrateTick()
+        }
+    }
+
     fun select(
         range: CellRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
@@ -607,9 +613,7 @@ internal class RangeCalendarGridView(
         val rangeStart = range.start
         val isSameCellSelection = rangeStart == range.end && selState.isSingleCell(rangeStart)
 
-        // We don't do gate validation if the request come from user and it's the same selection and specified behaviour is CLEAR.
-        // That's done because if the gate rejects the request and behaviour is PRESERVE, the cell won't be cleared but
-        // it should be.
+        // Check if user clicks on the same cell and clear selection if necessary.
         if (gestureType == SelectionByGestureType.SINGLE_CELL_ON_CLICK && isSameCellSelection && clickOnCellSelectionBehavior() == ClickOnCellSelectionBehavior.CLEAR) {
             clearSelection(fireEvent = true, withAnimation)
 
