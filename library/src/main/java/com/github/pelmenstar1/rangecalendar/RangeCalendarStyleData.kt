@@ -1,6 +1,7 @@
 package com.github.pelmenstar1.rangecalendar
 
 import android.graphics.Typeface
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetectorImpl
 import com.github.pelmenstar1.rangecalendar.selection.CellAnimationType
 import com.github.pelmenstar1.rangecalendar.selection.DefaultSelectionManager
 
@@ -60,7 +61,7 @@ internal class RangeCalendarStyleData {
 
     companion object {
         const val INT_PROPS_COUNT = 22
-        const val OBJECT_PROPS_COUNT = 8
+        const val OBJECT_PROPS_COUNT = 9
 
         const val OBJECT_PROP_START = 32
 
@@ -97,6 +98,7 @@ internal class RangeCalendarStyleData {
         const val CELL_ACCESSIBILITY_INFO_PROVIDER = 37
         const val WEEKDAY_TYPEFACE = 38
         const val WEEKDAYS = 39
+        const val GESTURE_DETECTOR_FACTORY = 40
 
         fun isObjectProperty(propIndex: Int) = propIndex >= OBJECT_PROP_START
 
@@ -149,6 +151,8 @@ internal class RangeCalendarStyleData {
                 )
                 set(IS_SELECTION_ANIMATED_BY_DEFAULT, true)
                 set(IS_HOVER_ANIMATION_ENABLED, true)
+
+                set(GESTURE_DETECTOR_FACTORY, RangeCalendarGestureDetectorImpl.Factory)
             }
         }
     }

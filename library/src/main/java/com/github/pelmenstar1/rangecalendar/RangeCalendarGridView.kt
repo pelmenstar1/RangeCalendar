@@ -14,13 +14,16 @@ import android.graphics.Typeface
 import android.os.*
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
 import com.github.pelmenstar1.rangecalendar.decoration.*
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetector
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetectorFactory
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureEventHandler
+import com.github.pelmenstar1.rangecalendar.gesture.SelectionByGestureType
 import com.github.pelmenstar1.rangecalendar.selection.*
 import com.github.pelmenstar1.rangecalendar.utils.VibratorCompat
 import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
@@ -28,7 +31,6 @@ import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
-import java.lang.ref.WeakReference
 import java.util.*
 import kotlin.math.min
 
@@ -101,8 +103,7 @@ internal class RangeCalendarGridView(
                 grid.selectRange(
                     range = CellRange.single(virtualViewId),
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                    isCellSelectionByUser = true,
-                    isUserStartSelection = false,
+                    gestureType = SelectionByGestureType.SINGLE_CELL_ON_CLICK,
                     withAnimation = false
                 )
 
@@ -135,23 +136,6 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private class PressTimeoutHandler(
-        gridView: RangeCalendarGridView
-    ) : Handler(Looper.getMainLooper()) {
-        private val ref = WeakReference(gridView)
-
-        override fun handleMessage(msg: Message) {
-            val obj = ref.get() ?: return
-
-            val cell = Cell(msg.arg1)
-
-            when (msg.what) {
-                MSG_LONG_PRESS -> obj.onCellLongPress(cell)
-                MSG_HOVER_PRESS -> obj.setHoverCell(cell)
-            }
-        }
-    }
-
     private class CellMeasureManagerImpl(private val view: RangeCalendarGridView) :
         CellMeasureManager {
         override val cellWidth: Float
@@ -174,6 +158,44 @@ internal class RangeCalendarGridView(
 
         override fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int =
             view.getCellAndPointByCellDistanceRelativeToGrid(distance, outPoint)
+
+        override fun getCellAt(x: Float, y: Float): Int =
+            view.getCellByPointOnScreen(x, y).index
+    }
+
+    private class CellPropertiesProviderImpl(
+        private val view: RangeCalendarGridView
+    ) : RangeCalendarCellPropertiesProvider {
+        override fun isSelectableCell(cell: Int) =
+            view.isSelectableCell(Cell(cell))
+    }
+
+    private class GestureEventHandlerImpl(
+        private val view: RangeCalendarGridView
+    ) : RangeCalendarGestureEventHandler {
+        override fun selectRange(start: Int, end: Int, gestureType: SelectionByGestureType): SelectionAcceptanceStatus {
+            return view.selectRange(
+                range = CellRange(start, end),
+                requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                gestureType
+            )
+        }
+
+        override fun disallowParentInterceptEvent() {
+            view.parent?.requestDisallowInterceptTouchEvent(true)
+        }
+
+        override fun reportStartSelectingRange() {
+            view.vibrator.vibrateTick()
+        }
+
+        override fun reportStartHovering(cell: Int) {
+            view.setHoverCell(Cell(cell))
+        }
+
+        override fun reportStopHovering() {
+            view.clearHoverCell()
+        }
     }
 
     val cells = ByteArray(42)
@@ -182,9 +204,6 @@ internal class RangeCalendarGridView(
     private val weekdayPaint: Paint
     private val selectionPaint: Paint
     private val cellHoverPaint: Paint
-
-    private var lastTouchTime: Long = -1
-    private var lastTouchCell = Cell.Undefined
 
     private var inMonthRange = CellRange.Invalid
     private var enabledCellRange = ALL_SELECTED
@@ -207,9 +226,10 @@ internal class RangeCalendarGridView(
     private var selectionRenderOptions: SelectionRenderOptions? = null
 
     private val cellMeasureManager = CellMeasureManagerImpl(this)
+    private val cellPropertiesProvider = CellPropertiesProviderImpl(this)
+    private val gestureEventHandler = GestureEventHandlerImpl(this)
 
-    private var customRangeStartCell = Cell.Undefined
-    private var isSelectingCustomRange = false
+    private var gestureDetector: RangeCalendarGestureDetector? = null
 
     private var animType = 0
     private var animFraction = 0f
@@ -237,8 +257,6 @@ internal class RangeCalendarGridView(
     private var decorAnimatedCell = Cell.Undefined
     private var decorAnimatedRange = PackedIntRange(0)
     private var decorAnimationHandler: (() -> Unit)? = null
-
-    private val pressTimeoutHandler = PressTimeoutHandler(this)
 
     init {
         ViewCompat.setAccessibilityDelegate(this, touchHelper)
@@ -347,6 +365,7 @@ internal class RangeCalendarGridView(
                 CELL_ACCESSIBILITY_INFO_PROVIDER -> onCellAccessibilityInfoProviderChanged()
                 WEEKDAY_TYPEFACE -> onWeekdayTypefaceChanged(data.value())
                 WEEKDAYS -> onWeekdaysChanged(data.value())
+                GESTURE_DETECTOR_FACTORY -> onGestureDetectorFactoryChanged(data.value())
             }
         }
     }
@@ -466,6 +485,16 @@ internal class RangeCalendarGridView(
         touchHelper.invalidateRoot()
     }
 
+    private fun onGestureDetectorFactoryChanged(factory: RangeCalendarGestureDetectorFactory) {
+        setGestureDetector(factory.create())
+    }
+
+    private fun setGestureDetector(detector: RangeCalendarGestureDetector) {
+        gestureDetector = detector
+
+        detector.bind(cellMeasureManager, cellPropertiesProvider, gestureEventHandler)
+    }
+
     fun setInMonthRange(range: CellRange) {
         inMonthRange = range
 
@@ -523,138 +552,9 @@ internal class RangeCalendarGridView(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
-        val action = e.actionMasked
-        val x = e.x
-        val y = e.y
+        val detector = gestureDetector ?: throw RuntimeException("gesture detector is null")
 
-        if (y > gridTop()) {
-            when (action) {
-                MotionEvent.ACTION_DOWN -> if (isXInActiveZone(x)) {
-                    val cell = getCellByPointOnScreen(x, y)
-
-                    if (isSelectableCell(cell)) {
-                        val eTime = e.eventTime
-
-                        val longPressTime = eTime + ViewConfiguration.getLongPressTimeout()
-                        val hoverTime = eTime + ViewConfiguration.getTapTimeout()
-
-                        val msg1 = Message.obtain().apply {
-                            what = MSG_LONG_PRESS
-                            arg1 = cell.index
-                        }
-                        val msg2 = Message.obtain().apply {
-                            what = MSG_HOVER_PRESS
-                            arg1 = cell.index
-                        }
-
-                        // Send messages in future to detect long-press or hover.
-                        // If MotionEvent.ACTION_UP event happens, these messages will be cancelled.
-                        //
-                        // In other words, if these messages aren't cancelled (when pointer is up),
-                        // then pointer is down long enough to treat this touch as long-press or
-                        // to start hover.
-                        // In pressTimeoutHandler.handleMessage we start long-press or hover,
-                        // but pressTimeoutHandler.handleMessage won't be invoked we messages are cancelled
-                        // (removed from queue).
-                        pressTimeoutHandler.sendMessageAtTime(msg1, longPressTime)
-                        pressTimeoutHandler.sendMessageAtTime(msg2, hoverTime)
-                    }
-                }
-
-                MotionEvent.ACTION_UP -> {
-                    performClick()
-
-                    if (!isSelectingCustomRange && isXInActiveZone(x)) {
-                        val cell = getCellByPointOnScreen(x, y)
-                        val touchTime = e.downTime
-
-                        if (isSelectableCell(cell)) {
-                            val withAnimation = isSelectionAnimatedByDefault()
-                            val timeout = ViewConfiguration.getDoubleTapTimeout()
-
-                            if (touchTime - lastTouchTime < timeout && lastTouchCell == cell) {
-                                selectRange(
-                                    range = CellRange.week(cell.gridY),
-                                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                                    isCellSelectionByUser = false,
-                                    isUserStartSelection = false,
-                                    withAnimation
-                                )
-                            } else {
-                                selectRange(
-                                    range = CellRange.single(cell),
-                                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                                    isCellSelectionByUser = true,
-                                    isUserStartSelection = false,
-                                    withAnimation
-                                )
-
-                                sendClickEventToAccessibility(cell)
-
-                                lastTouchCell = cell
-                                lastTouchTime = touchTime
-                            }
-                        }
-                    }
-
-                    // Delete all messages from queue, long-press or hover may already happened or not.
-                    pressTimeoutHandler.removeCallbacksAndMessages(null)
-
-                    // Don't call clearHoverCell() because it will start animation,
-                    // but we don't need it, because we selected something else.
-                    // Or we selected nothing, but in that hover won't happen and we don't need animation too.
-                    hoverCell = Cell.Undefined
-
-                    stopSelectingCustomRange()
-
-                    // There's something to update.
-                    invalidate()
-                }
-
-                MotionEvent.ACTION_CANCEL -> {
-                    // Delete all messages from queue, long-press or hover may already happened or not.
-                    pressTimeoutHandler.removeCallbacksAndMessages(null)
-
-                    // If event is cancelled, then we don't select anything and animation is necessary.
-                    clearHoverCell()
-                    stopSelectingCustomRange()
-                }
-
-                MotionEvent.ACTION_MOVE -> {
-                    if (isSelectingCustomRange && isXInActiveZone(x)) {
-                        parent?.requestDisallowInterceptTouchEvent(true)
-
-                        val cell = getCellByPointOnScreen(x, y)
-                        val newRange = CellRange(customRangeStartCell, cell).normalize()
-
-                        selectRange(
-                            newRange,
-                            requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                            isCellSelectionByUser = false,
-                            isUserStartSelection = false,
-                            withAnimation = isSelectionAnimatedByDefault()
-                        )
-                    }
-                }
-            }
-        }
-
-        return true
-    }
-
-    private fun stopSelectingCustomRange() {
-        customRangeStartCell = Cell.Undefined
-        isSelectingCustomRange = false
-    }
-
-    private fun onCellLongPress(cell: Cell) {
-        selectRange(
-            CellRange.single(cell),
-            requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-            isCellSelectionByUser = false,
-            isUserStartSelection = true,
-            withAnimation = isSelectionAnimatedByDefault()
-        )
+        return detector.processEvent(e)
     }
 
     override fun getFocusedRect(r: Rect) {
@@ -680,9 +580,6 @@ internal class RangeCalendarGridView(
             selectRange(
                 selRange,
                 requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                isCellSelectionByUser = false,
-                isUserStartSelection = false,
-                withAnimation = isSelectionAnimatedByDefault()
             )
         }
     }
@@ -695,8 +592,7 @@ internal class RangeCalendarGridView(
         selectRange(
             range,
             requestRejectedBehaviour,
-            isCellSelectionByUser = false,
-            isUserStartSelection = false,
+            gestureType = null,
             withAnimation
         )
     }
@@ -704,10 +600,9 @@ internal class RangeCalendarGridView(
     private fun selectRange(
         range: CellRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        isCellSelectionByUser: Boolean,
-        isUserStartSelection: Boolean,
-        withAnimation: Boolean
-    ) {
+        gestureType: SelectionByGestureType? = null,
+        withAnimation: Boolean = isSelectionAnimatedByDefault()
+    ): SelectionAcceptanceStatus {
         val selState = selectionManager.currentState
         val rangeStart = range.start
         val isSameCellSelection = rangeStart == range.end && selState.isSingleCell(rangeStart)
@@ -715,18 +610,17 @@ internal class RangeCalendarGridView(
         // We don't do gate validation if the request come from user and it's the same selection and specified behaviour is CLEAR.
         // That's done because if the gate rejects the request and behaviour is PRESERVE, the cell won't be cleared but
         // it should be.
-        if (isCellSelectionByUser && isSameCellSelection && clickOnCellSelectionBehavior() == ClickOnCellSelectionBehavior.CLEAR) {
+        if (gestureType == SelectionByGestureType.SINGLE_CELL_ON_CLICK && isSameCellSelection && clickOnCellSelectionBehavior() == ClickOnCellSelectionBehavior.CLEAR) {
             clearSelection(fireEvent = true, withAnimation)
-            return
+
+            return SelectionAcceptanceStatus.REJECTED_ILLEGAL
         }
 
         val gate = selectionGate
-        if (gate != null) {
-            if (!gate.range(range)) {
-                clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
+        if (gate != null && !gate.range(range)) {
+            clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
-                return
-            }
+            return SelectionAcceptanceStatus.REJECTED_ILLEGAL
         }
 
         // Clear hover here and not in onCellLongPress() because custom range might be disallowed and
@@ -741,33 +635,21 @@ internal class RangeCalendarGridView(
         if (intersection == CellRange.Invalid) {
             clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
-            return
-        } else if (!isUserStartSelection && selState.range == intersection) {
-            return
-        }
-
-        if (isUserStartSelection) {
-            customRangeStartCell = range.start
-            isSelectingCustomRange = true
+            return SelectionAcceptanceStatus.REJECTED_ILLEGAL
+        } else if (selState.range == intersection) {
+            return SelectionAcceptanceStatus.REJECTED_SAME_RANGE
         }
 
         selectionManager.setState(intersection, cellMeasureManager)
-
         onSelectionListener?.onSelection(intersection)
-
-        if (vibrateOnSelectingRange() && isUserStartSelection) {
-            vibrateOnUserSelection()
-        }
 
         if (withAnimation && selectionManager.hasTransition()) {
             startSelectionTransition()
         } else {
             invalidate()
         }
-    }
 
-    private fun vibrateOnUserSelection() {
-        vibrator.vibrateTick()
+        return SelectionAcceptanceStatus.ACCEPTED
     }
 
     private fun clearSelectionToMatchBehaviour(
@@ -1476,8 +1358,15 @@ internal class RangeCalendarGridView(
     }
 
     private fun getCellByPointOnScreen(x: Float, y: Float): Cell {
-        val gridX = ((x - cr.hPadding) / columnWidth()).toInt()
-        val gridY = ((y - gridTop()) / cellHeight()).toInt()
+        val hPadding = cr.hPadding
+        val gridTop = gridTop()
+
+        if (x < hPadding || x > width - hPadding || y < gridTop) {
+            return Cell.Undefined
+        }
+
+        val gridX = ((x - hPadding) / columnWidth()).toInt()
+        val gridY = ((y - gridTop) / cellHeight()).toInt()
 
         return Cell(gridY * 7 + gridX)
     }

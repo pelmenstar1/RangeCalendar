@@ -4,6 +4,7 @@ import android.graphics.PointF
 import android.graphics.RectF
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
+import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 import com.github.pelmenstar1.rangecalendar.utils.lerp
 
 class DefaultSelectionTransitionController : SelectionTransitionController {

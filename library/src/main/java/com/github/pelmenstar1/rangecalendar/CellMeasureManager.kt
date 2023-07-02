@@ -1,4 +1,4 @@
-package com.github.pelmenstar1.rangecalendar.selection
+package com.github.pelmenstar1.rangecalendar
 
 import android.graphics.PointF
 
@@ -57,6 +57,8 @@ interface CellMeasureManager {
      * @return index of the cell nearest to the point
      */
     fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int
+
+    fun getCellAt(x: Float, y: Float): Int
 }
 
 /**
