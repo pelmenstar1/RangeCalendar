@@ -93,8 +93,8 @@ class PackedDateTests {
     @Test
     fun getDayOfWeekTest() {
         forEachValidDate { year, month, dayOfMonth ->
-            val expectedValue = LocalDate.of(year, month, dayOfMonth).dayOfWeek.value
-            val actualValue = PackedDate(year, month, dayOfMonth).dayOfWeek
+            val expectedValue = LocalDate.of(year, month, dayOfMonth).dayOfWeek.ordinal
+            val actualValue = PackedDate(year, month, dayOfMonth).dayOfWeek.value
 
             assertEquals(expectedValue, actualValue)
         }

@@ -7,30 +7,30 @@ internal class YearMonthGridInfo {
     var year = 0
     var month = 0
 
-    var firstCellInMonthIndex = 0
-    var firstCellInGridDate = PackedDate(0, 1, 1)
-    var lastCellInGridDate = PackedDate(0, 1, 1)
+    var firstDayOfMonthCellIndex = 0
+    var firstCellInGridDate = PackedDate.INVALID
+    var lastCellInGridDate = PackedDate.INVALID
 
     var daysInMonth = 0
     var daysInPrevMonth = 0
 
     val inMonthRange: CellRange
         get() {
-            val start = firstCellInMonthIndex
+            val start = firstDayOfMonthCellIndex
 
             return CellRange(start, start + daysInMonth - 1)
         }
 
-    fun set(year: Int, month: Int) {
+    fun set(year: Int, month: Int, firstDayOfWeek: CompatDayOfWeek) {
         this.year = year
         this.month = month
 
         daysInMonth = getDaysInMonth(year, month)
 
         val firstDayInMonthDate = PackedDate(year, month, dayOfMonth = 1)
-        val firstDayInMonthDayOfWeek = firstDayInMonthDate.dayOfWeek
+        val firstDayInMonthDayOfWeekMondayBased = firstDayInMonthDate.dayOfWeek
 
-        firstCellInMonthIndex = firstDayInMonthDayOfWeek - 1
+        firstDayOfMonthCellIndex = CompatDayOfWeek.daysBetween(firstDayOfWeek, firstDayInMonthDayOfWeekMondayBased)
 
         var prevYear = year
         var prevMonth = month - 1
@@ -48,20 +48,20 @@ internal class YearMonthGridInfo {
 
         daysInPrevMonth = getDaysInMonth(prevYear, prevMonth)
 
-        firstCellInGridDate = if (firstDayInMonthDayOfWeek != 1) {
-            val firstCellInGridDay = daysInPrevMonth - firstDayInMonthDayOfWeek + 2
+        firstCellInGridDate = if (firstDayOfMonthCellIndex != 0) {
+            val firstCellInGridDay = daysInPrevMonth - firstDayOfMonthCellIndex + 1
 
             PackedDate(prevYear, prevMonth, firstCellInGridDay)
         } else {
             firstDayInMonthDate
         }
 
-        val lastCellInGridDay = CELLS_IN_GRID - (firstDayInMonthDayOfWeek + daysInMonth) + 1
+        val lastCellInGridDay = CELLS_IN_GRID - (firstDayOfMonthCellIndex + daysInMonth)
         lastCellInGridDate = PackedDate(nextYear, nextMonth, lastCellInGridDay)
     }
 
-    fun set(ym: YearMonth) {
-        set(ym.year, ym.month)
+    fun set(ym: YearMonth, firstDayOfWeek: CompatDayOfWeek) {
+        set(ym.year, ym.month, firstDayOfWeek)
     }
 
     fun getCellByDate(date: PackedDate): Cell {
@@ -91,7 +91,7 @@ internal class YearMonthGridInfo {
     fun getDateAtCell(cell: Cell): PackedDate {
         val index = cell.index
 
-        val start = firstCellInMonthIndex
+        val start = firstDayOfMonthCellIndex
         val monthEnd = start + daysInMonth - 1
 
         return when {
@@ -136,7 +136,7 @@ internal class YearMonthGridInfo {
     }
 
     fun fillGrid(cells: ByteArray) {
-        val start = firstCellInMonthIndex
+        val start = firstDayOfMonthCellIndex
         val daysInMonth = daysInMonth
 
         val daysInPrevMonth = daysInPrevMonth

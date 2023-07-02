@@ -37,6 +37,8 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import android.text.format.DateFormat
+import com.github.pelmenstar1.rangecalendar.utils.getFirstDayOfWeek
+import java.time.DayOfWeek
 import kotlin.math.max
 
 /**
@@ -263,7 +265,9 @@ class RangeCalendarView @JvmOverloads constructor(
 
     private val toolbarManager: CalendarToolbarManager
 
-    private var isFirstDaySunday = false
+    private var isCustomFirstDayOfWeek = false
+    private var _firstDayOfWeek = CompatDayOfWeek.Monday
+
     private var currentLocale: Locale? = null
 
     private val layoutRect = Rect()
@@ -502,6 +506,14 @@ class RangeCalendarView @JvmOverloads constructor(
                         infoTextSize = it
                     }
                 }
+
+                a.getInt(R.styleable.RangeCalendarView_rangeCalendar_firstDayOfWeek, -1).also {
+                    if (it >= 0) {
+                        val firstDow = CompatDayOfWeek(it)
+
+                        setFirstDayOfWeekInternal(firstDow, isCustom = true)
+                    }
+                }
             }
         } finally {
             a.recycle()
@@ -526,25 +538,30 @@ class RangeCalendarView @JvmOverloads constructor(
     private fun refreshLocaleDependentValues(newLocale: Locale, updateInfoFormatter: Boolean) {
         currentLocale = newLocale
 
-        refreshIsFirstDaySunday(newLocale)
+        if (!isCustomFirstDayOfWeek) {
+            val firstDow = newLocale.getFirstDayOfWeek()
+
+            setFirstDayOfWeekInternal(firstDow, isCustom = false)
+        }
+
         if (updateInfoFormatter) {
             _infoFormatter.let {
                 if (it is LocalizedInfoFormatter) {
                     it.onLocaleChanged(newLocale)
+
+                    // If format is the default one, we should call updateInfoPattern() as it finds best-pattern if
+                    // useBestPatternForInfoPattern is true. Otherwise, simply update infoTextView's text by using
+                    // onInfoFormatterOptionsChanged() as changing locale probably changes the text.
+                    if (it is DefaultLocalizedInfoFormatter) {
+                        updateInfoPattern()
+                    } else {
+                        onInfoFormatterOptionsChanged()
+                    }
                 }
             }
-
-            // updateInfoPattern() will invalidate info text and also updates _infoPattern in case best-format is used.
-            updateInfoPattern()
         }
 
         toolbarManager.onLocaleChanged()
-    }
-
-    private fun refreshIsFirstDaySunday(locale: Locale) {
-        isFirstDaySunday = Calendar
-            .getInstance(locale)
-            .firstDayOfWeek == Calendar.SUNDAY
     }
 
     /**
@@ -569,6 +586,7 @@ class RangeCalendarView @JvmOverloads constructor(
             selectionYm = adapter.selectionYm
             selectionRange = adapter.selectionRange
             ym = currentCalendarYm
+            firstDayOfWeek = _firstDayOfWeek
         }
     }
 
@@ -586,8 +604,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
             val selRange = state.selectionRange
 
-            // Restore selection if there's one.
-            if (selRange.isValid) {
+            // Restore selection if one is present and first day of week is the same.
+            if (selRange.isValid && _firstDayOfWeek == state.firstDayOfWeek) {
                 adapter.selectOnRestore(state.selectionYm, selRange)
             }
         } else {
@@ -1117,6 +1135,43 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
+     * Gets or sets first day of week using [DayOfWeek] enum.
+     *
+     * By default, information about first day of week is extracted from current locale's data. If locale is changed, first day of week is re-computed.
+     * However, if you change value of the property (even to the same value), first day of week will no longer be updated from locale's data.
+     * It will also clear selection, if one is present.
+     */
+    var firstDayOfWeek: DayOfWeek
+        get() = _firstDayOfWeek.toEnumValue()
+        set(value) {
+            setFirstDayOfWeekInternal(CompatDayOfWeek.fromEnumValue(value), isCustom = true)
+        }
+
+    /**
+     * Gets or sets first day of week using int values from [Calendar]. For example, [Calendar.MONDAY] or [Calendar.SUNDAY]
+     *
+     * By default, information about first day of week is extracted from current locale's data. If locale is changed, first day of week is re-computed.
+     * However, if you change value of the property (even to the same value), first day of week will no longer be updated from locale's data.
+     * It will also clear selection, if one is present.
+     */
+    var intFirstDayOfWeek: Int
+        get() = _firstDayOfWeek.toCalendarValue()
+        set(value) {
+            if (value !in Calendar.SUNDAY..Calendar.SATURDAY) {
+                throw IllegalArgumentException("Invalid day of week")
+            }
+
+            setFirstDayOfWeekInternal(CompatDayOfWeek.fromCalendarDayOfWeek(value), isCustom = true)
+        }
+
+    private fun setFirstDayOfWeekInternal(value: CompatDayOfWeek, isCustom: Boolean) {
+        _firstDayOfWeek = value
+        isCustomFirstDayOfWeek = isCustom
+
+        adapter.setFirstDayOfWeek(_firstDayOfWeek)
+    }
+
+    /**
      * Gets or sets a background color of cell which appears when user hovers under a cell
      * (when a pointer is registered to be down).
      *
@@ -1453,7 +1508,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
         selectRangeInternal(
             ym = YearMonth(year, month),
-            range = PackedDateRange.week(year, month, weekIndex),
+            range = PackedDateRange.week(year, month, weekIndex, _firstDayOfWeek),
             selectionRequestRejectedBehaviour,
             withAnimation
         )

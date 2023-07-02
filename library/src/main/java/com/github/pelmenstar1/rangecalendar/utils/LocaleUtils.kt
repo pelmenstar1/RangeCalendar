@@ -2,8 +2,11 @@ package com.github.pelmenstar1.rangecalendar.utils
 
 import android.content.Context
 import android.content.res.Configuration
+import android.icu.util.ULocale
 import android.os.Build
 import android.text.format.DateFormat
+import android.util.Log
+import com.github.pelmenstar1.rangecalendar.CompatDayOfWeek
 import java.util.*
 
 internal fun Configuration.getLocaleCompat(): Locale {
@@ -25,4 +28,10 @@ internal fun getBestDatePatternCompat(locale: Locale, pattern: String): String {
     } else {
         pattern
     }
+}
+
+internal fun Locale.getFirstDayOfWeek(): CompatDayOfWeek {
+    val dow = Calendar.getInstance(this).firstDayOfWeek
+
+    return CompatDayOfWeek.fromCalendarDayOfWeek(dow)
 }

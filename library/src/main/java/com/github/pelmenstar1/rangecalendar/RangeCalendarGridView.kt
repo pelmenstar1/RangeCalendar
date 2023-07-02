@@ -486,6 +486,12 @@ internal class RangeCalendarGridView(
         }
     }
 
+    fun setFirstDayOfWeek(firstDayOfWeek: CompatDayOfWeek) {
+        weekdayRow.firstDayOfWeek = firstDayOfWeek
+
+        invalidate()
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val preferredWidth = ceilToInt(cellWidth() * 7)
         val preferredHeight = ceilToInt(gridTop() + (cellHeight() * 6))

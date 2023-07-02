@@ -39,6 +39,15 @@
         <attr name="rangeCalendar_infoPattern" format="string"/>
         <attr name="rangeCalendar_useBestPatternForInfoPattern" format="boolean"/>
         <attr name="rangeCalendar_infoTextSize" format="dimension"/>
+        <attr name="rangeCalendar_firstDayOfWeek" format="enum">
+            <enum>monday</enum>
+            <enum>tuesday</enum>
+            <enum>wednesday</enum>
+            <enum>thursday</enum>
+            <enum>friday</enum>
+            <enum>saturday</enum>
+            <enum>sunday</enum>
+        </attr>
     </declare-styleable>
 
 </resources>

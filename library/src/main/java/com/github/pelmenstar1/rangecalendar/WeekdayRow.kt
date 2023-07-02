@@ -46,6 +46,8 @@ internal class WeekdayRow(
             onMeasurementsChanged()
         }
 
+    var firstDayOfWeek = CompatDayOfWeek.Monday
+
     init {
         onMeasurementsChanged()
     }
@@ -62,20 +64,29 @@ internal class WeekdayRow(
         height = maxHeight.toFloat()
     }
 
-    fun draw(c: Canvas, x: Float, columnWidth: Float) {
+    fun draw(canvas: Canvas, x: Float, columnWidth: Float) {
         var midX = x + columnWidth * 0.5f
+        val firstDow = firstDayOfWeek.value
 
-        val textY = height
-
-        for (i in 0 until 7) {
-            val text = _weekdays[i]
-            val width = currentWidths[i]
-
-            val textX = midX - width * 0.5f
-
-            c.drawText(text, textX, textY, textPaint)
+        for (i in firstDow until 7) {
+            drawWeekday(canvas, midX, i)
 
             midX += columnWidth
         }
+
+        for (i in 0 until firstDow) {
+            drawWeekday(canvas, midX, i)
+
+            midX += columnWidth
+        }
+    }
+
+    private fun drawWeekday(canvas: Canvas,  midX: Float, index: Int) {
+        val text = _weekdays[index]
+        val width = currentWidths[index]
+
+        val textX = midX - width * 0.5f
+
+        canvas.drawText(text, textX, height, textPaint)
     }
 }
