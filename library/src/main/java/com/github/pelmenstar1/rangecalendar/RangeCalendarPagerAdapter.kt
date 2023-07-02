@@ -9,10 +9,8 @@ import com.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import com.github.pelmenstar1.rangecalendar.selection.*
 
-// TODO: Audit isFirstDaySunday
 internal class RangeCalendarPagerAdapter(
-    private val cr: CalendarResources,
-    //private val isFirstDaySunday: Boolean
+    private val cr: CalendarResources
 ) : RecyclerView.Adapter<RangeCalendarPagerAdapter.ViewHolder>() {
     class ViewHolder(val calendar: RangeCalendarGridView) : RecyclerView.ViewHolder(calendar)
 
@@ -35,22 +33,23 @@ internal class RangeCalendarPagerAdapter(
             const val ON_DECOR_ADDED = 7
             const val ON_DECOR_REMOVED = 8
             const val SET_DECOR_LAYOUT_OPTIONS = 9
+            const val ON_FIRST_DAY_OF_WEEK_CHANGED = 10
 
             private val CLEAR_HOVER_PAYLOAD = Payload(CLEAR_HOVER)
             private val UPDATE_ENABLED_RANGE_PAYLOAD = Payload(UPDATE_ENABLED_RANGE)
             private val UPDATE_TODAY_INDEX_PAYLOAD = Payload(UPDATE_TODAY_INDEX)
+            private val ON_FIRST_DAY_OF_WEEK_CHANGED_PAYLOAD = Payload(ON_FIRST_DAY_OF_WEEK_CHANGED)
+            private val ON_CELL_SIZE_CHANGED_PAYLOAD = Payload(ON_CELL_SIZE_CHANGED)
 
             fun clearHover() = CLEAR_HOVER_PAYLOAD
 
             fun updateEnabledRange() = UPDATE_ENABLED_RANGE_PAYLOAD
             fun updateTodayIndex() = UPDATE_TODAY_INDEX_PAYLOAD
+            fun onCellSizeChanged() = ON_CELL_SIZE_CHANGED_PAYLOAD
+            fun onFirstDayOfWeekChanged() = ON_FIRST_DAY_OF_WEEK_CHANGED_PAYLOAD
 
             fun onStylePropertyChanged(styleIndex: Int): Payload {
                 return Payload(ON_STYLE_PROP_CHANGED, arg1 = styleIndex.toLong())
-            }
-
-            fun onCellSizeChanged(): Payload {
-                return Payload(ON_CELL_SIZE_CHANGED)
             }
 
             fun clearSelection(withAnimation: Boolean): Payload {
@@ -125,6 +124,8 @@ internal class RangeCalendarPagerAdapter(
 
     // internal as used in tests
     internal var today = PackedDate.INVALID
+
+    private var firstDayOfWeek = CompatDayOfWeek.Undefined
 
     private val gridInfo = YearMonthGridInfo()
     private val style = RangeCalendarStyleData.default(cr)
@@ -290,6 +291,14 @@ internal class RangeCalendarPagerAdapter(
         notifyPageChanged(getItemPositionForYearMonth(ym), payload)
     }
 
+    private fun updateGridInfo(ym: YearMonth) {
+        gridInfo.set(ym, firstDayOfWeek)
+    }
+
+    private fun updateGridInfo(year: Int, month: Int) {
+        gridInfo.set(year, month, firstDayOfWeek)
+    }
+
     private fun updateEnabledRange(gridView: RangeCalendarGridView) {
         gridView.setEnabledCellRange(createEnabledRange())
     }
@@ -313,6 +322,19 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
+    fun setFirstDayOfWeek(firstDayOfWeek: CompatDayOfWeek) {
+        if (this.firstDayOfWeek != firstDayOfWeek) {
+            this.firstDayOfWeek = firstDayOfWeek
+
+            notifyAllPages(Payload.onFirstDayOfWeekChanged())
+        }
+    }
+
+    private fun onFirstDayOfWeekChanged(gridView: RangeCalendarGridView) {
+        updateGrid(gridView)
+        gridView.setFirstDayOfWeek(firstDayOfWeek)
+    }
+
     private fun updateGrid(gridView: RangeCalendarGridView) {
         gridInfo.fillGrid(gridView.cells)
 
@@ -323,7 +345,7 @@ internal class RangeCalendarPagerAdapter(
         return object : RangeCalendarGridView.SelectionGate {
             override fun range(range: CellRange): Boolean {
                 return selectionGate?.let {
-                    gridInfo.set(ym)
+                    updateGridInfo(ym)
 
                     val (startDate, endDate) = gridInfo.getDateRangeByCellRange(range)
 
@@ -349,7 +371,7 @@ internal class RangeCalendarPagerAdapter(
                 setSelectionValues(range, ym)
 
                 onSelectionListener?.let {
-                    gridInfo.set(ym)
+                    updateGridInfo(ym)
 
                     val (startDate, endDate) = gridInfo.getDateRangeByCellRange(range)
 
@@ -412,7 +434,7 @@ internal class RangeCalendarPagerAdapter(
         val position = getItemPositionForYearMonth(ym)
 
         if (isValidPosition(position) && isSelectionAllowed(dateRange)) {
-            gridInfo.set(ym)
+            updateGridInfo(ym)
 
             // Clear selection on the page with selection if it's not the page we're changing selection of.
             clearSelectionOnAnotherPage(ym)
@@ -484,7 +506,7 @@ internal class RangeCalendarPagerAdapter(
         val position = getItemPositionForDate(date)
 
         if (isValidPosition(position)) {
-            gridInfo.set(date.year, date.month)
+            updateGridInfo(date.year, date.month)
             val cell = gridInfo.getCellByDate(date)
 
             notifyItemChanged(position, Payload.setDecorLayoutOptions(cell, value, withAnimation))
@@ -602,7 +624,7 @@ internal class RangeCalendarPagerAdapter(
 
         if (isValidPosition(position)) {
             val ym = YearMonth.forDate(date)
-            gridInfo.set(date.year, date.month)
+            updateGridInfo(date.year, date.month)
 
             val cell = gridInfo.getCellByDate(date)
 
@@ -651,7 +673,7 @@ internal class RangeCalendarPagerAdapter(
         if (isValidPosition(position)) {
             val ym = getYearMonthForCalendar(position)
 
-            gridInfo.set(ym)
+            updateGridInfo(ym)
             val cell = gridInfo.getCellByDate(date)
 
             val subregion = decorations.getSubregion(ym, cell)
@@ -682,7 +704,7 @@ internal class RangeCalendarPagerAdapter(
 
         if (isValidPosition(position)) {
             val ym = YearMonth.forDate(date)
-            gridInfo.set(date.year, date.month)
+            updateGridInfo(date.year, date.month)
 
             val cell = gridInfo.getCellByDate(date)
 
@@ -707,7 +729,7 @@ internal class RangeCalendarPagerAdapter(
 
         val ym = getYearMonthForCalendar(position)
 
-        gridInfo.set(ym)
+        updateGridInfo(ym)
         val cell = gridInfo.getCellByDate(date)
 
         val visual = instance.visual()
@@ -741,7 +763,7 @@ internal class RangeCalendarPagerAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val ym = getYearMonthForCalendar(position)
-        gridInfo.set(ym)
+        updateGridInfo(ym)
 
         val gridView = holder.calendar
 
@@ -753,6 +775,8 @@ internal class RangeCalendarPagerAdapter(
         updateEnabledRange(gridView)
         gridView.setInMonthRange(gridInfo.inMonthRange)
         updateTodayIndex(gridView, position)
+
+        gridView.setFirstDayOfWeek(firstDayOfWeek)
 
         // Call onStylePropertyChanged to initialize the view with particular style data.
         style.forEachProperty { propIndex ->
@@ -782,7 +806,7 @@ internal class RangeCalendarPagerAdapter(
             val payload = payloads[0] as Payload
             when (payload.type) {
                 Payload.UPDATE_ENABLED_RANGE -> {
-                    gridInfo.set(getYearMonthForCalendar(position))
+                    updateGridInfo(getYearMonthForCalendar(position))
 
                     updateEnabledRange(gridView)
                 }
@@ -798,7 +822,7 @@ internal class RangeCalendarPagerAdapter(
                 }
 
                 Payload.UPDATE_TODAY_INDEX -> {
-                    gridInfo.set(getYearMonthForCalendar(position))
+                    updateGridInfo(getYearMonthForCalendar(position))
 
                     updateTodayIndex(gridView, position)
                 }
@@ -855,6 +879,12 @@ internal class RangeCalendarPagerAdapter(
                     val withAnimation = payload.arg2 == 1L
 
                     gridView.setDecorationLayoutOptions(cell, options, withAnimation)
+                }
+
+                Payload.ON_FIRST_DAY_OF_WEEK_CHANGED -> {
+                    updateGridInfo(getYearMonthForCalendar(position))
+
+                    onFirstDayOfWeekChanged(gridView)
                 }
             }
         }

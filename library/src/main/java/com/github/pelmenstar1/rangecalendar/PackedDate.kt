@@ -41,7 +41,7 @@ internal value class PackedDate(val bits: Int) {
     val dayOfMonth: Int
         get() = bits and 0xff
 
-    val dayOfWeek: Int
+    val dayOfWeek: CompatDayOfWeek
         get() = getDayOfWeek(toEpochDay())
 
     operator fun compareTo(other: PackedDate): Int {
@@ -240,8 +240,10 @@ internal value class PackedDate(val bits: Int) {
             return createUnchecked(year, date.monthValue, date.dayOfMonth)
         }
 
-        fun getDayOfWeek(epochDay: Long): Int {
-            return floorMod(epochDay + 3L, 7L).toInt() + 1
+        fun getDayOfWeek(epochDay: Long): CompatDayOfWeek {
+            val dow = floorMod(epochDay + 3L, 7L).toInt()
+
+            return CompatDayOfWeek(dow)
         }
     }
 }
@@ -276,29 +278,27 @@ internal value class PackedDateRange(val bits: Long) {
             return PackedDateRange(packed, packed)
         }
 
-        fun week(year: Int, month: Int, weekIndex: Int): PackedDateRange {
-            val firstDay = PackedDate(year, month, 1)
-            val firstDayEpochDay = firstDay.toEpochDay()
-            val dayOfWeek = PackedDate.getDayOfWeek(firstDayEpochDay)
+        fun week(year: Int, month: Int, weekIndex: Int, firstDayOfWeek: CompatDayOfWeek): PackedDateRange {
+            PackedDate.checkYear(year)
+            PackedDate.checkMonth(month)
 
-            var startEpochDay = firstDayEpochDay - dayOfWeek + 1
+            val firstDay = PackedDate.createUnchecked(year, month, 1)
 
-            // Integer multiplication with cast to long is intentional.
-            // weekIndex is always in [0; 5], so the value can't overflow.
-            startEpochDay += (weekIndex * 7).toLong()
+            val offset = weekIndex * 7 - CompatDayOfWeek.daysBetween(firstDayOfWeek, firstDay.dayOfWeek)
 
-            val endEpochDay = startEpochDay + 6
+            val startDate = firstDay.plusDays(offset)
+            val endDate = startDate.plusDays(6)
 
-            return PackedDateRange(
-                start = PackedDate.fromEpochDay(startEpochDay),
-                end = PackedDate.fromEpochDay(endEpochDay)
-            )
+            return PackedDateRange(startDate, endDate)
         }
 
         fun month(year: Int, month: Int): PackedDateRange {
+            PackedDate.checkYear(year)
+            PackedDate.checkMonth(month)
+
             return PackedDateRange(
-                start = PackedDate(year, month, dayOfMonth = 1),
-                end = PackedDate(year, month, dayOfMonth = getDaysInMonth(year, month))
+                start = PackedDate.createUnchecked(year, month, dayOfMonth = 1),
+                end = PackedDate.createUnchecked(year, month, dayOfMonth = getDaysInMonth(year, month))
             )
         }
     }

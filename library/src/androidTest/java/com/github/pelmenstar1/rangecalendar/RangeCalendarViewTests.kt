@@ -10,6 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.DayOfWeek
 import java.util.Locale
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -142,6 +143,25 @@ class RangeCalendarViewTests {
             assertEquals(originPattern, internalFormatterPattern)
         }
     }
+
+
+    @Test
+    fun firstDayOfWeekIsNotChangedOnLocaleChangesWhenSetToCustomValueTest() {
+        launchActivity { rangeCalendar ->
+            rangeCalendar.firstDayOfWeek = DayOfWeek.FRIDAY
+
+            val currentConfig = rangeCalendar.resources.configuration
+
+            val newConfig = Configuration(currentConfig).apply {
+                setLocale(getAnyLocaleExcept(currentConfig.getLocaleCompat()))
+            }
+
+            rangeCalendar.dispatchConfigurationChanged(newConfig)
+
+            assertEquals(DayOfWeek.FRIDAY, rangeCalendar.firstDayOfWeek)
+        }
+    }
+
     companion object {
         private const val TAG = "RangeCalendarViewTests"
     }
