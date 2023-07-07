@@ -485,7 +485,12 @@ internal class RangeCalendarGridView(
         touchHelper.invalidateRoot()
     }
 
-    private fun onGestureDetectorFactoryChanged(factory: RangeCalendarGestureDetectorFactory) {
+    private fun onGestureDetectorFactoryChanged(factory: RangeCalendarGestureDetectorFactory<*>) {
+        val gd = gestureDetector
+        if (gd != null && gd.javaClass == factory.detectorClass) {
+            return
+        }
+
         setGestureDetector(factory.create())
     }
 

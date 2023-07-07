@@ -9,10 +9,11 @@ import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 
 internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector() {
-    object Factory : RangeCalendarGestureDetectorFactory {
-        override fun create(): RangeCalendarGestureDetector {
-            return RangeCalendarGestureDetectorImpl()
-        }
+    object Factory : RangeCalendarGestureDetectorFactory<RangeCalendarGestureDetectorImpl> {
+        override val detectorClass: Class<RangeCalendarGestureDetectorImpl>
+            get() = RangeCalendarGestureDetectorImpl::class.java
+
+        override fun create() = RangeCalendarGestureDetectorImpl()
     }
 
     private class EventTimeoutHandler : Handler(Looper.getMainLooper()) {

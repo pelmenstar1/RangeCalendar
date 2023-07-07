@@ -332,7 +332,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
         pager = ViewPager2(context).apply {
             adapter = this@RangeCalendarView.adapter
-            offscreenPageLimit = 1
+
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -1411,7 +1411,7 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleBool({ IS_HOVER_ANIMATION_ENABLED }, value)
         }
 
-    var gestureDetectorFactory: RangeCalendarGestureDetectorFactory
+    var gestureDetectorFactory: RangeCalendarGestureDetectorFactory<*>
         get() = adapter.getStyleObject { GESTURE_DETECTOR_FACTORY }
         set(value) {
             adapter.setStyleObject({ GESTURE_DETECTOR_FACTORY }, value)
