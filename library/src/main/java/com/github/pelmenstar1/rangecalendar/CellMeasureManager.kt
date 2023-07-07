@@ -59,6 +59,8 @@ interface CellMeasureManager {
     fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int
 
     fun getCellAt(x: Float, y: Float): Int
+
+    fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float
 }
 
 /**

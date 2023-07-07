@@ -8,6 +8,7 @@ abstract class RangeCalendarGestureDetector {
     private var _measureManager: CellMeasureManager? = null
     private var _cellPropertiesProvider: RangeCalendarCellPropertiesProvider? = null
     private var _gestureEventHandler: RangeCalendarGestureEventHandler? = null
+    private var _configuration: RangeCalendarGestureConfiguration? = null
 
     val measureManager: CellMeasureManager
         get() = _measureManager ?: throwBindNotCalled()
@@ -18,6 +19,9 @@ abstract class RangeCalendarGestureDetector {
     val gestureEventHandler: RangeCalendarGestureEventHandler
         get() = _gestureEventHandler ?: throwBindNotCalled()
 
+    val configuration: RangeCalendarGestureConfiguration
+        get() = _configuration ?: throwBindNotCalled()
+
     private fun throwBindNotCalled(): Nothing {
         throw RuntimeException("bind() should be called before accessing the property")
     }
@@ -25,11 +29,13 @@ abstract class RangeCalendarGestureDetector {
     fun bind(
         measureManager: CellMeasureManager,
         cellPropertiesProvider: RangeCalendarCellPropertiesProvider,
-        gestureEventHandler: RangeCalendarGestureEventHandler
+        gestureEventHandler: RangeCalendarGestureEventHandler,
+        configuration: RangeCalendarGestureConfiguration
     ) {
         _measureManager = measureManager
         _cellPropertiesProvider = cellPropertiesProvider
         _gestureEventHandler = gestureEventHandler
+        _configuration = configuration
     }
 
     abstract fun processEvent(event: MotionEvent): Boolean

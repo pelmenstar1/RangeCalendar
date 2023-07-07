@@ -20,6 +20,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
 import com.github.pelmenstar1.rangecalendar.decoration.*
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureConfiguration
 import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetector
 import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetectorFactory
 import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureEventHandler
@@ -32,7 +33,9 @@ import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 import java.util.*
+import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 // It will never be XML layout, so there's no need to match conventions
 @SuppressLint("ViewConstructor")
@@ -161,6 +164,9 @@ internal class RangeCalendarGridView(
 
         override fun getCellAt(x: Float, y: Float): Int =
             view.getCellByPointOnScreen(x, y).index
+
+        override fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float =
+            view.getRelativeAnchorValue(anchor)
     }
 
     private class CellPropertiesProviderImpl(
@@ -315,6 +321,8 @@ internal class RangeCalendarGridView(
 
     private fun isHoverAnimationEnabled() = style.getBoolean { IS_HOVER_ANIMATION_ENABLED }
 
+    private fun gestureConfiguration() = style.getObject<RangeCalendarGestureConfiguration> { GESTURE_CONFIGURATION }
+
     private fun updateSelectionRenderOptions() {
         selectionRenderOptions = SelectionRenderOptions(
             selectionFill(),
@@ -370,6 +378,7 @@ internal class RangeCalendarGridView(
                 WEEKDAY_TYPEFACE -> onWeekdayTypefaceChanged(data.value())
                 WEEKDAYS -> onWeekdaysChanged(data.value())
                 GESTURE_DETECTOR_FACTORY -> onGestureDetectorFactoryChanged(data.value())
+                GESTURE_CONFIGURATION -> onGestureConfigurationChanged()
             }
         }
     }
@@ -501,7 +510,15 @@ internal class RangeCalendarGridView(
     private fun setGestureDetector(detector: RangeCalendarGestureDetector) {
         gestureDetector = detector
 
-        detector.bind(cellMeasureManager, cellPropertiesProvider, gestureEventHandler)
+        bindGestureDetector()
+    }
+
+    private fun onGestureConfigurationChanged() {
+        bindGestureDetector()
+    }
+
+    private fun bindGestureDetector() {
+        gestureDetector?.bind(cellMeasureManager, cellPropertiesProvider, gestureEventHandler, gestureConfiguration())
     }
 
     fun setInMonthRange(range: CellRange) {
@@ -1276,6 +1293,10 @@ internal class RangeCalendarGridView(
         return width - cr.hPadding * 2f
     }
 
+    private fun gridHeight(): Float {
+        return height - gridTop()
+    }
+
     private fun columnWidth(): Float {
         return rowWidth() / 7f
     }
@@ -1390,6 +1411,21 @@ internal class RangeCalendarGridView(
         val gridY = ((y - gridTop) / cellHeight()).toInt()
 
         return Cell(gridY * 7 + gridX)
+    }
+
+    private fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float {
+        return when (anchor) {
+            Distance.RelativeAnchor.WIDTH -> rowWidth()
+            Distance.RelativeAnchor.HEIGHT -> gridHeight()
+            Distance.RelativeAnchor.MIN_DIMENSION -> min(rowWidth(), gridHeight())
+            Distance.RelativeAnchor.MAX_DIMENSION -> max(rowWidth(), gridHeight())
+            Distance.RelativeAnchor.DIAGONAL -> {
+                val w = rowWidth()
+                val h = gridHeight()
+
+                sqrt(w * w + h * h)
+            }
+        }
     }
 
     private fun isSelectableCell(cell: Cell): Boolean {

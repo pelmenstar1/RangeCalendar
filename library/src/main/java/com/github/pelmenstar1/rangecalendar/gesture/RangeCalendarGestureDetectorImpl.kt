@@ -6,6 +6,7 @@ import android.os.Message
 import android.util.Log
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import com.github.pelmenstar1.rangecalendar.Distance
 import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getDistance
@@ -114,10 +115,15 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                         val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout()
 
                         if (lastDownTouchCell == cellIndex) {
-                            val elapsedFromLastUp = eventTime - lastUpTouchTime
+                            Log.i("GestureDetectorImpl", "isWeekEnabled = ${isEnabledGesture { doubleTapWeek }}")
 
-                            if (elapsedFromLastUp < doubleTapTimeout && lastUpTouchCell == cellIndex) {
-                                selectWeek(cellIndex)
+                            Log.i("GestureDetectorImpl", "diff: ${eventTime - lastUpTouchTime}")
+
+                            if (isEnabledGesture { doubleTapWeek } &&
+                                eventTime - lastUpTouchTime < doubleTapTimeout &&
+                                lastUpTouchCell == cellIndex
+                            ) {
+                                selectWeek(weekIndex = cellIndex / 7)
                             } else {
                                 selectRange(
                                     cellIndex, cellIndex,
@@ -180,15 +186,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
         if (cell >= 0 && isSelectableCell(cell)) {
             val eventTime = event.eventTime
-
-            val longPressTime = eventTime + ViewConfiguration.getLongPressTimeout()
             val hoverTime = eventTime + ViewConfiguration.getTapTimeout()
-
-            val msg1 = Message.obtain().apply {
-                what = MSG_LONG_PRESS
-                obj = this@RangeCalendarGestureDetectorImpl
-                arg1 = cell
-            }
 
             val msg2 = Message.obtain().apply {
                 what = MSG_HOVER_PRESS
@@ -200,8 +198,20 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
             // Send messages to future in order to detect long-presses or hovering.
             // If MotionEvent.ACTION_UP event happens, these messages will be cancelled.
-            timeoutHandler.sendMessageAtTime(msg1, longPressTime)
             timeoutHandler.sendMessageAtTime(msg2, hoverTime)
+
+            // Detect long presses only when the gesture is enabled.
+            if (isEnabledGesture { longPressRange }) {
+                val msg1 = Message.obtain().apply {
+                    what = MSG_LONG_PRESS
+                    obj = this@RangeCalendarGestureDetectorImpl
+                    arg1 = cell
+                }
+
+                val longPressTime = eventTime + ViewConfiguration.getLongPressTimeout()
+
+                timeoutHandler.sendMessageAtTime(msg1, longPressTime)
+            }
         }
     }
 
@@ -218,6 +228,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         val x1 = event.getX(1)
         val y1 = event.getY(1)
 
+        val conf = configuration
+
         if (!scaleInfo.isStarted) {
             cancelTimeoutMessages()
 
@@ -230,7 +242,9 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                 val angle = getLineAngle(x0, y0, x1, y1)
                 startAngle = angle
 
-                if (isWeekAngle(angle)) {
+                val enabledTypes = conf.enabledGestureTypes
+
+                if (enabledTypes.contains { horizontalSwipeWeek } && isWeekAngle(angle, conf)) {
                     val cell0 = getCellAt(x0, y0)
                     val cell1 = getCellAt(x1, y1)
 
@@ -241,9 +255,11 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
                     // Week can't be selected if the first gesture makes week index undefined (cells on different rows)
                     isFinished = weekIndex0 != weekIndex1
-                } else if (!isMonthAngle(angle)) {
+                } else  {
+                    val isMonthEnabled = enabledTypes.contains { diagonalSwipeMonth }
+
                     // Seems like this gesture is not defined. It's not week nor month.
-                    isFinished = true
+                    isFinished = !isMonthEnabled || !isMonthAngle(angle, conf)
                 }
             }
 
@@ -252,17 +268,14 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         }
 
         val angle = getLineAngle(x0, y0, x1, y1)
-
-        val minLength = 75
-
         val startAngle = scaleInfo.startAngle
 
         when {
-            isWeekAngle(startAngle) && isWeekAngle(angle) -> {
+            isWeekAngle(startAngle, conf) && isWeekAngle(angle, conf) -> {
                 val xDist0 = abs(scaleInfo.startX0 - x0)
                 val xDist1 = abs(scaleInfo.startX1 - x1)
 
-                if (min(xDist0, xDist1) >= minLength) {
+                if (min(xDist0, xDist1) >= getAbsoluteDistance(conf.horizontalWeekMinDistance)) {
                     val cell0 = getCellAt(x0, y0)
                     val cell1 = getCellAt(x1, y1)
 
@@ -277,11 +290,11 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                     scaleInfo.isFinished = true
                 }
             }
-            isMonthAngle(startAngle) && isMonthAngle(angle) -> {
+            isMonthAngle(startAngle, conf) && isMonthAngle(angle, conf) -> {
                 val dist0 = scaleInfo.getDistanceToStartPoint0(x0, y0)
                 val dist1 = scaleInfo.getDistanceToStartPoint1(x1, y1)
 
-                if (min(dist0, dist1) >= minLength) {
+                if (min(dist0, dist1) >= getAbsoluteDistance(conf.diagonalMonthMinDistance)) {
                     selectMonth()
 
                     scaleInfo.isFinished = true
@@ -292,6 +305,19 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                 scaleInfo.isFinished = true
             }
         }
+    }
+
+    private fun getAbsoluteDistance(distance: Distance): Float {
+        return when(distance) {
+            is Distance.Absolute -> distance.value
+            is Distance.Relative -> {
+                distance.fraction * measureManager.getRelativeAnchorValue(distance.anchor)
+            }
+        }
+    }
+
+    private inline fun isEnabledGesture(getType: RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType): Boolean {
+        return configuration.enabledGestureTypes.contains(getType)
     }
 
     private fun selectWeek(weekIndex: Int) {
@@ -314,18 +340,17 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         private const val MSG_LONG_PRESS = 0
         private const val MSG_HOVER_PRESS = 1
 
-        // in radians
-        private const val ANGLE_DEVIATION = (15 * (PI / 180)).toFloat()
-
         // 45 degrees
         private const val MONTH_ANGLE = (PI / 4).toFloat()
 
-        private fun isWeekAngle(angle: Float): Boolean {
-            return angle > PI.toFloat() - ANGLE_DEVIATION || angle < ANGLE_DEVIATION
+        private fun isWeekAngle(angle: Float, conf: RangeCalendarGestureConfiguration): Boolean {
+            val dev = conf.angleDeviation
+
+            return angle > PI.toFloat() - dev || angle < dev
         }
 
-        private fun isMonthAngle(angle: Float): Boolean {
-            return abs(angle - MONTH_ANGLE) < ANGLE_DEVIATION
+        private fun isMonthAngle(angle: Float, conf: RangeCalendarGestureConfiguration): Boolean {
+            return abs(angle - MONTH_ANGLE) < conf.angleDeviation
         }
 
         private fun getLineAngle(x0: Float, y0: Float, x1: Float, y1: Float): Float {
