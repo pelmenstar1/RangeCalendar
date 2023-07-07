@@ -15,8 +15,8 @@ data class RangeCalendarGestureConfiguration @JvmOverloads constructor(
             enabledGestureTypes = RangeCalendarDefaultGestureTypes.allEnabledSet,
             // 15 degrees
             angleDeviation = 15f * (PI.toFloat() / 180),
-            horizontalWeekMinDistance = Distance.Relative(fraction = 0.3f, anchor = Distance.RelativeAnchor.WIDTH),
-            diagonalMonthMinDistance = Distance.Relative(fraction = 0.3f, anchor = Distance.RelativeAnchor.HEIGHT)
+            horizontalWeekMinDistance = Distance.Relative(fraction = 0.15f, anchor = Distance.RelativeAnchor.WIDTH),
+            diagonalMonthMinDistance = Distance.Relative(fraction = 0.15f, anchor = Distance.RelativeAnchor.DIAGONAL)
         )
 
         fun default() = DEFAULT

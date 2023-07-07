@@ -115,10 +115,6 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                         val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout()
 
                         if (lastDownTouchCell == cellIndex) {
-                            Log.i("GestureDetectorImpl", "isWeekEnabled = ${isEnabledGesture { doubleTapWeek }}")
-
-                            Log.i("GestureDetectorImpl", "diff: ${eventTime - lastUpTouchTime}")
-
                             if (isEnabledGesture { doubleTapWeek } &&
                                 eventTime - lastUpTouchTime < doubleTapTimeout &&
                                 lastUpTouchCell == cellIndex
