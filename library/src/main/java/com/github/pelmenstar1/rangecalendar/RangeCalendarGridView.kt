@@ -181,6 +181,10 @@ internal class RangeCalendarGridView(
             )
         }
 
+        override fun selectMonth(): SelectionAcceptanceStatus {
+            return view.selectMonthByGesture()
+        }
+
         override fun disallowParentInterceptEvent() {
             view.parent?.requestDisallowInterceptTouchEvent(true)
         }
@@ -659,6 +663,14 @@ internal class RangeCalendarGridView(
         }
 
         return SelectionAcceptanceStatus.ACCEPTED
+    }
+
+    fun selectMonthByGesture(): SelectionAcceptanceStatus {
+        return selectRange(
+            range = inMonthRange,
+            requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+            gestureType = SelectionByGestureType.OTHER
+        )
     }
 
     private fun clearSelectionToMatchBehaviour(

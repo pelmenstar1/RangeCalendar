@@ -84,6 +84,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
     override fun processEvent(event: MotionEvent): Boolean {
         Log.i("GestureDetectorImpl", event.toString())
+        //Log.i("GestureDetectorImpl", "first pointer: minor = ${event.getAxisValue(MotionEvent.AXIS_TOUCH_MINOR)} major=${event.getAxisValue(MotionEvent.AXIS_TOUCH_MAJOR)}")
 
         val action = event.actionMasked
 
@@ -111,11 +112,6 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                     if (cellIndex >= 0 && isSelectableCell(cellIndex)) {
                         val eventTime = event.eventTime
                         val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout()
-
-                        Log.i(
-                            "GestureDetectorImpl",
-                            "UP -> lastDownTouchCell: $lastDownTouchCell doubleTapTimeout: $doubleTapTimeout cellIndex: $cellIndex"
-                        )
 
                         if (lastDownTouchCell == cellIndex) {
                             val elapsedFromLastUp = eventTime - lastUpTouchTime
@@ -245,6 +241,9 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
                     // Week can't be selected if the first gesture makes week index undefined (cells on different rows)
                     isFinished = weekIndex0 != weekIndex1
+                } else if (!isMonthAngle(angle)) {
+                    // Seems like this gesture is not defined. It's not week nor month.
+                    isFinished = true
                 }
             }
 
@@ -255,27 +254,43 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         val angle = getLineAngle(x0, y0, x1, y1)
 
         val minLength = 75
-        val xDist0 = abs(scaleInfo.startX0 - x0)
-        val xDist1 = abs(scaleInfo.startX1 - x1)
 
-        Log.i(
-            "GestureDetectorImpl",
-            "angle: ${angle * (180f / PI)} scaleStartAngle: ${scaleInfo.startAngle * (180f / PI)} length0: $xDist0 length1: $xDist1"
-        )
+        val startAngle = scaleInfo.startAngle
 
-        if (isWeekAngle(scaleInfo.startAngle) && isWeekAngle(angle) && min(xDist0, xDist1) >= minLength) {
-            val cell0 = getCellAt(x0, y0)
-            val cell1 = getCellAt(x1, y1)
+        when {
+            isWeekAngle(startAngle) && isWeekAngle(angle) -> {
+                val xDist0 = abs(scaleInfo.startX0 - x0)
+                val xDist1 = abs(scaleInfo.startX1 - x1)
 
-            val weekIndex0 = cell0 / 7
-            val weekIndex1 = cell1 / 7
+                if (min(xDist0, xDist1) >= minLength) {
+                    val cell0 = getCellAt(x0, y0)
+                    val cell1 = getCellAt(x1, y1)
 
-            if (weekIndex0 == weekIndex1) {
-                selectWeek(weekIndex0)
+                    val weekIndex0 = cell0 / 7
+                    val weekIndex1 = cell1 / 7
+
+                    if (scaleInfo.startWeekIndex == weekIndex0 && weekIndex0 == weekIndex1) {
+                        selectWeek(weekIndex0)
+                    }
+
+                    // Gesture is finished even if cells on different rows
+                    scaleInfo.isFinished = true
+                }
             }
+            isMonthAngle(startAngle) && isMonthAngle(angle) -> {
+                val dist0 = scaleInfo.getDistanceToStartPoint0(x0, y0)
+                val dist1 = scaleInfo.getDistanceToStartPoint1(x1, y1)
 
-            // Gesture is finished even if cells on different rows
-            scaleInfo.isFinished = true
+                if (min(dist0, dist1) >= minLength) {
+                    selectMonth()
+
+                    scaleInfo.isFinished = true
+                }
+            }
+            else -> {
+                // Seems like this gesture is not defined
+                scaleInfo.isFinished = true
+            }
         }
     }
 
@@ -300,10 +315,17 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         private const val MSG_HOVER_PRESS = 1
 
         // in radians
-        private const val ANGLE_ACCURACY = (15 * (PI / 180)).toFloat()
+        private const val ANGLE_DEVIATION = (15 * (PI / 180)).toFloat()
+
+        // 45 degrees
+        private const val MONTH_ANGLE = (PI / 4).toFloat()
 
         private fun isWeekAngle(angle: Float): Boolean {
-            return angle > PI.toFloat() - ANGLE_ACCURACY || angle < ANGLE_ACCURACY
+            return angle > PI.toFloat() - ANGLE_DEVIATION || angle < ANGLE_DEVIATION
+        }
+
+        private fun isMonthAngle(angle: Float): Boolean {
+            return abs(angle - MONTH_ANGLE) < ANGLE_DEVIATION
         }
 
         private fun getLineAngle(x0: Float, y0: Float, x1: Float, y1: Float): Float {

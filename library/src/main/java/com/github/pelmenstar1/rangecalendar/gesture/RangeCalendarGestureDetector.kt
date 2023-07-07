@@ -37,6 +37,9 @@ abstract class RangeCalendarGestureDetector {
     protected fun selectRange(start: Int, end: Int, gestureType: SelectionByGestureType) =
         gestureEventHandler.selectRange(start, end, gestureType)
 
+    protected fun selectMonth() =
+        gestureEventHandler.selectMonth()
+
     protected fun isSelectableCell(cell: Int): Boolean =
         cellPropertiesProvider.isSelectableCell(cell)
 

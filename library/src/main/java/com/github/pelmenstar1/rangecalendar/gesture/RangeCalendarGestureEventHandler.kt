@@ -4,6 +4,7 @@ import com.github.pelmenstar1.rangecalendar.SelectionAcceptanceStatus
 
 interface RangeCalendarGestureEventHandler {
     fun selectRange(start: Int, end: Int, gestureType: SelectionByGestureType): SelectionAcceptanceStatus
+    fun selectMonth(): SelectionAcceptanceStatus
 
     fun disallowParentInterceptEvent()
 
