@@ -48,4 +48,7 @@ abstract class RangeCalendarGestureDetector {
 
     protected fun reportStopHovering() =
         gestureEventHandler.reportStopHovering()
+
+    protected fun disallowParentInterceptEvent () =
+        gestureEventHandler.disallowParentInterceptEvent()
 }
