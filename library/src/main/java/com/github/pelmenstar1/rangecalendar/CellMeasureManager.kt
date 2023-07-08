@@ -58,8 +58,14 @@ interface CellMeasureManager {
      */
     fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int
 
+    /**
+     * Gets index of a cell nearest to a point with specified coordinates. If there's no such cell, returns `-1`
+     */
     fun getCellAt(x: Float, y: Float): Int
 
+    /**
+     * Returns the absolute value of a dimension specified by the [anchor].
+     */
     fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float
 }
 

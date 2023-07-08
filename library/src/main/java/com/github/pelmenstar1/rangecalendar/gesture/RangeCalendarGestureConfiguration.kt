@@ -3,7 +3,13 @@ package com.github.pelmenstar1.rangecalendar.gesture
 import com.github.pelmenstar1.rangecalendar.Distance
 import kotlin.math.PI
 
+/**
+ * Configuration of various touch gestures.
+ */
 data class RangeCalendarGestureConfiguration @JvmOverloads constructor(
+    /**
+     * The set of enabled (allowed) gesture types.
+     */
     val enabledGestureTypes: RangeCalendarGestureTypeSet,
     val angleDeviation: Float,
     val horizontalWeekMinDistance: Distance,
@@ -19,6 +25,9 @@ data class RangeCalendarGestureConfiguration @JvmOverloads constructor(
             diagonalMonthMinDistance = Distance.Relative(fraction = 0.15f, anchor = Distance.RelativeAnchor.DIAGONAL)
         )
 
+        /**
+         * Returns the default configuration.
+         */
         fun default() = DEFAULT
     }
 }
@@ -43,6 +52,9 @@ class RangeCalendarGestureConfigurationBuilder {
         enabledGestureTypes = builder.toSet()
     }
 
+    /**
+     * Builds new instance of [RangeCalendarGestureConfiguration].
+     */
     fun build(): RangeCalendarGestureConfiguration {
         val enabledGestureTypes = _enabledGestureTypes ?: throw IllegalStateException("enabledGestureTypes should be non-null")
 

@@ -1,6 +1,11 @@
 package com.github.pelmenstar1.rangecalendar.gesture
 
-class RangeCalendarGestureType(val ordinal: Int, val displayName: String) : Comparable<RangeCalendarGestureType> {
+/**
+ * A description of a gesture type.
+ *
+ * Note: [equals], [hashCode], [compareTo] are based on [ordinal] property. [displayName] is only used in [toString].
+ */
+class RangeCalendarGestureType(val ordinal: Int, private val displayName: String) : Comparable<RangeCalendarGestureType> {
     override fun equals(other: Any?): Boolean {
         if (other === this) return true
         if (other == null || javaClass != other.javaClass) return false

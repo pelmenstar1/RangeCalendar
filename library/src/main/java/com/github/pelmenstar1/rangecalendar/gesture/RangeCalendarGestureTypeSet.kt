@@ -2,11 +2,27 @@ package com.github.pelmenstar1.rangecalendar.gesture
 
 import androidx.collection.ArraySet
 
+/**
+ * Represents a set of [RangeCalendarGestureType] elements.
+ * Equality of gesture types is based on [RangeCalendarGestureType.ordinal] property.
+ * Reference equality is not used. It's expected that all items have different ordinal numbers.
+ * For the performance reasons it's better when ordinal number lies between 0 and 63 (inclusive).
+ */
 sealed class RangeCalendarGestureTypeSet {
+    /**
+     * Gets size of the set.
+     */
     abstract val size: Int
 
+    /**
+     * Determines whether the set contains specified [type].
+     */
     abstract fun contains(type: RangeCalendarGestureType): Boolean
 
+    /**
+     * Optimized implementation of the set that uses bits to store info whether the element is in the set or not.
+     * A bit position in [bits] represents ordinal number.
+     */
     internal class BitsImpl(
         @JvmField val bits: Long,
         @JvmField val elements: Array<RangeCalendarGestureType>
@@ -37,10 +53,14 @@ sealed class RangeCalendarGestureTypeSet {
         }
 
         override fun toString(): String {
+            // TODO: Fix when elements are repeated.
             return "RangeCalendarGestureTypeSet(elements=${elements.contentToString()})"
         }
     }
 
+    /**
+     * Fallback implementation based on [ArraySet] in case types have ordinal numbers out of 0..63
+     */
     internal class ArraySetBasedImpl(
         @JvmField val set: ArraySet<RangeCalendarGestureType>
     ) : RangeCalendarGestureTypeSet() {
@@ -80,6 +100,13 @@ sealed class RangeCalendarGestureTypeSet {
     }
 
     companion object {
+        /**
+         * Creates the set using specified gesture types.
+         *
+         * [types] array is expected to have elements with unique [RangeCalendarGestureType.ordinal] numbers.
+         * Otherwise, repeated elements are discarded. This behaviour can be observed in the [RangeCalendarGestureTypeSet.toString] method.
+         * Order of the elements may be different that can also be observed in the [RangeCalendarGestureTypeSet.toString] method.
+         */
         @JvmStatic
         fun create(types: Array<RangeCalendarGestureType>): RangeCalendarGestureTypeSet {
             var index = 0
@@ -93,8 +120,18 @@ sealed class RangeCalendarGestureTypeSet {
             )
         }
 
+        /**
+         * Creates the set using specified gesture types.
+         *
+         * [types] iterable is expected to have elements with unique [RangeCalendarGestureType.ordinal] numbers.
+         * Otherwise, repeated elements are discarded. This behaviour can be observed in the [RangeCalendarGestureTypeSet.toString] method.
+         * The order of the elements may be different that can also be observed in the [RangeCalendarGestureTypeSet.toString] method.
+         *
+         * The [types] iterable may be iterated more than one time.
+         */
         @JvmStatic
         fun create(types: Iterable<RangeCalendarGestureType>): RangeCalendarGestureTypeSet {
+            // If types is collection, the size is known.
             val size = if (types is Collection<*>) types.size else -1
             if (size == 0) {
                 return BitsImpl(0, emptyArray())

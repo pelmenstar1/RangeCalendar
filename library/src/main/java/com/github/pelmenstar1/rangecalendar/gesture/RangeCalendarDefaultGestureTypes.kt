@@ -1,15 +1,30 @@
 package com.github.pelmenstar1.rangecalendar.gesture
 
+/**
+ * Defines default gesture types.
+ */
 object RangeCalendarDefaultGestureTypes {
+    /**
+     * Double tap to select week range.
+     */
     @JvmField
     val doubleTapWeek = RangeCalendarGestureType(ordinal = 0, displayName = "doubleTapWeek")
 
+    /**
+     * Long press to start selecting custom range.
+     */
     @JvmField
     val longPressRange = RangeCalendarGestureType(ordinal = 1, displayName = "longPressRange")
 
+    /**
+     * Horizontal pinch to select week range.
+     */
     @JvmField
     val horizontalSwipeWeek = RangeCalendarGestureType(ordinal = 2, displayName = "horizontalSwipeWeek")
 
+    /**
+     * Diagonal pinch to select month range. The diagonal in this gesture is a one that runs from left bottom corner to right top corner.
+     */
     @JvmField
     val diagonalSwipeMonth = RangeCalendarGestureType(ordinal = 3, displayName = "diagonalSwipeMonth")
 
@@ -19,13 +34,31 @@ object RangeCalendarDefaultGestureTypes {
     internal val allEnabledSet = RangeCalendarGestureTypeSet.create(allTypes)
 }
 
+/**
+ * Builder for [RangeCalendarGestureTypeSet] using default gestures.
+ */
 class RangeCalendarDefaultGestureTypeSetBuilder {
     private val types = arrayOfNulls<RangeCalendarGestureType>(RangeCalendarDefaultGestureTypes.typeCount)
     private var bits = 0L
 
+    /**
+     * Adds [RangeCalendarDefaultGestureTypes.doubleTapWeek] to the set.
+     */
     fun doubleTapWeek() = addType { doubleTapWeek }
+
+    /**
+     * Adds [RangeCalendarDefaultGestureTypes.longPressRange] to the set.
+     */
     fun longPressRange() = addType { longPressRange }
+
+    /**
+     * Adds [RangeCalendarDefaultGestureTypes.horizontalSwipeWeek] to the set.
+     */
     fun horizontalSwipeWeek() = addType { horizontalSwipeWeek }
+
+    /**
+     * Adds [RangeCalendarDefaultGestureTypes.diagonalSwipeMonth] to the set.
+     */
     fun diagonalSwipeMonth() = addType { diagonalSwipeMonth }
 
     private inline fun addType(getType: RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType) {
@@ -39,6 +72,9 @@ class RangeCalendarDefaultGestureTypeSetBuilder {
         bits = bits or (1L shl ordinal)
     }
 
+    /**
+     * Creates the set.
+     */
     fun toSet(): RangeCalendarGestureTypeSet {
         val elements = createElements()
 

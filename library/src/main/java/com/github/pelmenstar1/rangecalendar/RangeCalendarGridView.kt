@@ -643,14 +643,14 @@ internal class RangeCalendarGridView(
         if (gestureType == SelectionByGestureType.SINGLE_CELL_ON_CLICK && isSameCellSelection && clickOnCellSelectionBehavior() == ClickOnCellSelectionBehavior.CLEAR) {
             clearSelection(fireEvent = true, withAnimation)
 
-            return SelectionAcceptanceStatus.REJECTED_ILLEGAL
+            return SelectionAcceptanceStatus.REJECTED
         }
 
         val gate = selectionGate
         if (gate != null && !gate.range(range)) {
             clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
-            return SelectionAcceptanceStatus.REJECTED_ILLEGAL
+            return SelectionAcceptanceStatus.REJECTED
         }
 
         // Clear hover here and not in onCellLongPress() because custom range might be disallowed and
@@ -665,9 +665,9 @@ internal class RangeCalendarGridView(
         if (intersection == CellRange.Invalid) {
             clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
-            return SelectionAcceptanceStatus.REJECTED_ILLEGAL
+            return SelectionAcceptanceStatus.REJECTED
         } else if (selState.range == intersection) {
-            return SelectionAcceptanceStatus.REJECTED_SAME_RANGE
+            return SelectionAcceptanceStatus.ACCEPTED_SAME_RANGE
         }
 
         selectionManager.setState(intersection, cellMeasureManager)

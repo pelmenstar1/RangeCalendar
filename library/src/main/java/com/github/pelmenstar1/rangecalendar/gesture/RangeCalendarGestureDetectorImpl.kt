@@ -84,9 +84,6 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
     private val scaleInfo = ScaleInfo()
 
     override fun processEvent(event: MotionEvent): Boolean {
-        Log.i("GestureDetectorImpl", event.toString())
-        //Log.i("GestureDetectorImpl", "first pointer: minor = ${event.getAxisValue(MotionEvent.AXIS_TOUCH_MINOR)} major=${event.getAxisValue(MotionEvent.AXIS_TOUCH_MAJOR)}")
-
         val action = event.actionMasked
 
         val x0 = event.x
@@ -193,7 +190,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             lastDownTouchCell = cell
 
             // Send messages to future in order to detect long-presses or hovering.
-            // If MotionEvent.ACTION_UP event happens, these messages will be cancelled.
+            // If MotionEvent.ACTION_UP/ACTION_CANCEL/ACTION_MOVE (when two pointers down) event happens,
+            // these messages are cancelled.
             timeoutHandler.sendMessageAtTime(msg2, hoverTime)
 
             // Detect long presses only when the gesture is enabled.
@@ -212,6 +210,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
     }
 
     private fun onTwoPointersDownOrMove(event: MotionEvent) {
+        // Disallow parent to "see" the event as even when two pointers are down, the move event causes horizontal scrolling
         disallowParentInterceptEvent()
 
         if (scaleInfo.isFinished) {
