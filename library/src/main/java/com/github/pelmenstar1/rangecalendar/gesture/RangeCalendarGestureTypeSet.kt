@@ -1,6 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.gesture
 
 import androidx.collection.ArraySet
+import com.github.pelmenstar1.rangecalendar.utils.iterateSetBits
 
 /**
  * Represents a set of [RangeCalendarGestureType] elements.
@@ -24,7 +25,13 @@ sealed class RangeCalendarGestureTypeSet {
      * A bit position in [bits] represents ordinal number.
      */
     internal class BitsImpl(
+        // If bit 'n' is set, it means that the gesture with ordinal number 'n' is in set.
         @JvmField val bits: Long,
+
+        // If bit 'n' is set, it means that element at index 'n' in elements is in the set.
+        // This exists only because elements may have elements with the same ordinal numbers which is not
+        // wrong but should be handled accordingly.
+        @JvmField val elementsMapBits: Long,
         @JvmField val elements: Array<RangeCalendarGestureType>
     ) : RangeCalendarGestureTypeSet() {
         override val size: Int
@@ -53,8 +60,25 @@ sealed class RangeCalendarGestureTypeSet {
         }
 
         override fun toString(): String {
-            // TODO: Fix when elements are repeated.
-            return "RangeCalendarGestureTypeSet(elements=${elements.contentToString()})"
+            return buildString(64) {
+                append("RangeCalendarGestureTypeSet(elements=[")
+
+                val elements = elements
+                var isFirst = true
+
+                elementsMapBits.iterateSetBits { index ->
+                    if (isFirst) {
+                        isFirst = false
+                    } else {
+                        // Do not append comma and space before the first element.
+                        append(", ")
+                    }
+
+                    append(elements[index].toString())
+                }
+
+                append("])")
+            }
         }
     }
 
@@ -85,11 +109,12 @@ sealed class RangeCalendarGestureTypeSet {
         override fun toString(): String {
             return buildString {
                 append("RangeCalendarGestureTypeSet(elements=[")
-                
+                val size = size
+
                 for ((index, element) in set.withIndex())  {
                     append(element)
 
-                    if (index < set.size - 1) {
+                    if (index < size - 1) {
                         append(", ")
                     }
                 }
@@ -134,7 +159,7 @@ sealed class RangeCalendarGestureTypeSet {
             // If types is collection, the size is known.
             val size = if (types is Collection<*>) types.size else -1
             if (size == 0) {
-                return BitsImpl(0, emptyArray())
+                return BitsImpl(0, 0, emptyArray())
             }
 
             val iterator = types.iterator()
@@ -200,6 +225,8 @@ sealed class RangeCalendarGestureTypeSet {
             }
 
             var bits = 0L
+            var elementsMapBits = 0L
+            var index = 0
 
             while (hasNextType()) {
                 val ordinal = getNextType().ordinal
@@ -208,10 +235,18 @@ sealed class RangeCalendarGestureTypeSet {
                     return null
                 }
 
-                bits = bits or (1L shl ordinal)
+                val mask = 1L shl ordinal
+
+                // Set the bit at 'index' only if the element with such ordinal number is the first in the array/collection.
+                if ((bits and mask) == 0L) {
+                    elementsMapBits = elementsMapBits or (1L shl index)
+                }
+
+                bits = bits or mask
+                index++
             }
 
-            return BitsImpl(bits, getArray())
+            return BitsImpl(bits, elementsMapBits, getArray())
         }
     }
 }

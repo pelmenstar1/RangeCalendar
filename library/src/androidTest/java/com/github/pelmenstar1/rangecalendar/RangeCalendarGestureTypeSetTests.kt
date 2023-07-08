@@ -19,6 +19,7 @@ class RangeCalendarGestureTypeSetTests {
     private val typeOrdinalMinusOne = RangeCalendarGestureType(ordinal = -1, displayName = "typeOrdinalMinusOne")
     private val typeOrdinal0 = RangeCalendarGestureType(ordinal = 0, displayName = "typeOrdinal0")
     private val typeOrdinal1 = RangeCalendarGestureType(ordinal = 1, displayName = "typeOrdinal1")
+    private val typeOrdinal5 = RangeCalendarGestureType(ordinal = 5, displayName = "typeOrdinal5")
     private val typeOrdinal64 = RangeCalendarGestureType(ordinal = -1, displayName = "typeOrdinal64")
 
     private fun createBitsTestHelper(
@@ -170,7 +171,17 @@ class RangeCalendarGestureTypeSetTests {
         )
 
         testHelper(
+            elements = arrayOf(typeOrdinal0, typeOrdinal0, typeOrdinal5, typeOrdinal5),
+            expectedResult = "RangeCalendarGestureTypeSet(elements=[typeOrdinal0, typeOrdinal5])"
+        )
+
+        testHelper(
             elements = arrayOf(typeOrdinalMinusOne),
+            expectedResult = "RangeCalendarGestureTypeSet(elements=[typeOrdinalMinusOne])"
+        )
+
+        testHelper(
+            elements = arrayOf(typeOrdinalMinusOne, typeOrdinalMinusOne),
             expectedResult = "RangeCalendarGestureTypeSet(elements=[typeOrdinalMinusOne])"
         )
     }

@@ -78,7 +78,10 @@ class RangeCalendarDefaultGestureTypeSetBuilder {
     fun toSet(): RangeCalendarGestureTypeSet {
         val elements = createElements()
 
-        return RangeCalendarGestureTypeSet.BitsImpl(bits, elements)
+        // Here, bits and elementsMapBits are the same
+        // because ordinal numbers of default gesture types rise sequentially from zero and
+        // 'elements' array has no repeated elements
+        return RangeCalendarGestureTypeSet.BitsImpl(bits, bits, elements)
     }
 
     @Suppress("UNCHECKED_CAST")

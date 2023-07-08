@@ -3,6 +3,7 @@
 package com.github.pelmenstar1.rangecalendar.decoration
 
 import com.github.pelmenstar1.rangecalendar.selection.Cell
+import com.github.pelmenstar1.rangecalendar.utils.iterateSetBits
 import java.util.*
 
 /**
@@ -15,20 +16,10 @@ internal class LazyCellDataArray<T : Any> {
     @JvmField
     internal var notNullBits = 0L
 
-    internal inline fun forEachNotNull(action: (cell: Cell, value: T) -> Unit) {
+    internal inline fun forEachNotNull(crossinline action: (cell: Cell, value: T) -> Unit) {
         val elems = elements
 
-        // Original source: https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
-        var bits = notNullBits
-
-        while (bits != 0L) {
-            val t = bits and (-bits)
-            val index = 63 - t.countLeadingZeroBits()
-
-            action(Cell(index), elems[index] as T)
-
-            bits = bits xor t
-        }
+        notNullBits.iterateSetBits { index -> action(Cell(index), elems[index] as T) }
     }
 
     operator fun get(cell: Cell): T? {
