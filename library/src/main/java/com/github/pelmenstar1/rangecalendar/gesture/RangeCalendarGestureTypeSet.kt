@@ -111,7 +111,7 @@ sealed class RangeCalendarGestureTypeSet {
                 append("RangeCalendarGestureTypeSet(elements=[")
                 val size = size
 
-                for ((index, element) in set.withIndex())  {
+                for ((index, element) in set.withIndex()) {
                     append(element)
 
                     if (index < size - 1) {
@@ -137,10 +137,12 @@ sealed class RangeCalendarGestureTypeSet {
             var index = 0
 
             return createInline(
-                types.size,
                 hasNextType = { index < types.size },
                 getNextType = { types[index++] },
-                getArray = { types },
+                getArray = {
+                    // Make a defensive copy of types
+                    types.copyOf()
+                },
                 toArraySet = { arrayToArraySet(types) },
             )
         }
@@ -156,16 +158,13 @@ sealed class RangeCalendarGestureTypeSet {
          */
         @JvmStatic
         fun create(types: Iterable<RangeCalendarGestureType>): RangeCalendarGestureTypeSet {
-            // If types is collection, the size is known.
-            val size = if (types is Collection<*>) types.size else -1
-            if (size == 0) {
+            if (types is Collection<*> && types.isEmpty()) {
                 return BitsImpl(0, 0, emptyArray())
             }
 
             val iterator = types.iterator()
 
             return createInline(
-                size,
                 hasNextType = iterator::hasNext,
                 getNextType = iterator::next,
                 getArray = { iterableToArray(types) },
@@ -177,7 +176,7 @@ sealed class RangeCalendarGestureTypeSet {
             val collection = if (types is Collection<RangeCalendarGestureType>) {
                 types
             } else {
-                types.toMutableList()
+                types.toCollection(ArrayList())
             }
 
             return collection.toTypedArray()
@@ -202,28 +201,22 @@ sealed class RangeCalendarGestureTypeSet {
         }
 
         private inline fun createInline(
-            size: Int,
             hasNextType: () -> Boolean,
             getNextType: () -> RangeCalendarGestureType,
             getArray: () -> Array<RangeCalendarGestureType>,
             toArraySet: () -> ArraySet<RangeCalendarGestureType>
         ): RangeCalendarGestureTypeSet {
-            tryCreateBitsVariant(size, hasNextType, getNextType, getArray)?.let { return it }
+            tryCreateBitsVariant(hasNextType, getNextType, getArray)?.let { return it }
 
             val set = toArraySet()
             return ArraySetBasedImpl(set)
         }
 
         private inline fun tryCreateBitsVariant(
-            size: Int,
             hasNextType: () -> Boolean,
             getNextType: () -> RangeCalendarGestureType,
             getArray: () -> Array<RangeCalendarGestureType>
         ): BitsImpl? {
-            if (size > 63) {
-                return null
-            }
-
             var bits = 0L
             var elementsMapBits = 0L
             var index = 0
