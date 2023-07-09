@@ -46,7 +46,7 @@ object RangeCalendarDefaultGestureTypes {
  * Builder for [RangeCalendarGestureTypeBitsSet] using default gestures.
  */
 class RangeCalendarDefaultGestureTypeSetBuilder {
-    private var bits = 0L
+    private var bits = 0
 
     /**
      * Adds [RangeCalendarDefaultGestureTypes.doubleTapWeek] to the set.
@@ -73,7 +73,7 @@ class RangeCalendarDefaultGestureTypeSetBuilder {
     }
 
     private fun addType(type: RangeCalendarGestureType<*>) {
-        bits = bits or (1L shl type.ordinal)
+        bits = bits or (1 shl type.ordinal)
     }
 
     /**
