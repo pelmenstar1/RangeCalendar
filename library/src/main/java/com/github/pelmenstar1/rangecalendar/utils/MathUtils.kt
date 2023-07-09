@@ -8,7 +8,7 @@ import kotlin.math.sqrt
 /**
  * sqrt(2)
  */
-internal const val SQRT_2 = 1.41421356237f
+internal const val SQRT_2 = 1.4142135f
 
 @Suppress("NOTHING_TO_INLINE")
 internal inline fun ceilToInt(value: Float): Int {

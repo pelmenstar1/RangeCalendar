@@ -1,12 +1,15 @@
 package com.github.pelmenstar1.rangecalendar.gesture
 
+import android.graphics.PointF
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
+import android.util.Log
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import androidx.core.graphics.component1
+import androidx.core.graphics.component2
 import com.github.pelmenstar1.rangecalendar.Distance
-import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getDistance
 import kotlin.math.PI
@@ -37,31 +40,25 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         var isStarted = false
         var isFinished = false
 
-        var startX0 = 0f
-        var startY0 = 0f
+        val startP0 = PointF()
+        val startP1 = PointF()
 
-        var startX1 = 0f
-        var startY1 = 0f
-
-        var startAngle = 0f
         var startWeekIndex = 0
 
-        fun setPoint0(x: Float, y: Float) {
-            startX0 = x
-            startY0 = y
-        }
+        var type = PINCH_TYPE_NONE
+        var firstPointerRole = ROLE_NONE
 
-        fun setPoint1(x: Float, y: Float) {
-            startX1 = x
-            startY1 = y
+        fun setStartLine(x0: Float, y0: Float, x1: Float, y1: Float) {
+            startP0.set(x0, y0)
+            startP1.set(x1, y1)
         }
 
         fun getDistanceToStartPoint0(x: Float, y: Float): Float {
-            return getDistance(startX0, startY0, x, y)
+            return getDistance(startP0.x, startP0.y, x, y)
         }
 
         fun getDistanceToStartPoint1(x: Float, y: Float): Float {
-            return getDistance(startX1, startY1, x, y)
+            return getDistance(startP1.x, startP1.y, x, y)
         }
 
         fun invalidate() {
@@ -83,6 +80,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
     private val pinchInfo = PinchInfo()
 
     override fun processEvent(event: MotionEvent): Boolean {
+        //Log.i("DetectorImpl", "$event")
+
         val action = event.actionMasked
 
         val x0 = event.x
@@ -90,7 +89,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         val pointerCount = event.pointerCount
 
         when (action) {
-            MotionEvent.ACTION_DOWN -> {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 if (pointerCount != 2) {
                     pinchInfo.invalidate()
                 }
@@ -102,7 +101,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                 }
             }
 
-            MotionEvent.ACTION_UP -> {
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 if (!isSelectingLongRange) {
                     val cellIndex = getCellAt(x0, y0)
 
@@ -161,7 +160,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
                         selectRange(start.index, end.index, SelectionByGestureType.LONG_SELECTION)
                     }
-                } else if (pointerCount == 2) {
+                } else if (!isSelectingLongRange && pointerCount == 2) {
                     onTwoPointersDownOrMove(event)
                 }
             }
@@ -234,18 +233,22 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             pinchInfo.apply {
                 isStarted = true
 
-                setPoint0(x0, y0)
-                setPoint1(x1, y1)
+                setStartLine(x0, y0, x1, y1)
 
-                val angle = getLineAngle(x0, y0, x1, y1)
-                startAngle = angle
+                val lineAngle = getLineAngle(x0, y0, x1, y1)
+
+                val cell0 = getCellAt(x0, y0)
+                val cell1 = getCellAt(x1, y1)
 
                 val enabledTypes = conf.enabledGestureTypes
 
-                if (enabledTypes.contains { horizontalPinchWeek } && isWeekAngle(angle, weekPinchConf)) {
-                    val cell0 = getCellAt(x0, y0)
-                    val cell1 = getCellAt(x1, y1)
+                // Currently, all supported pinch gestures require that two pointers to be on the grid.
+                if (cell0 < 0 || cell1 < 0) {
+                    isFinished = true
+                    return
+                }
 
+                if (enabledTypes.contains { horizontalPinchWeek } && isWeekAngle(lineAngle, weekPinchConf)) {
                     val weekIndex0 = cell0 / 7
                     val weekIndex1 = cell1 / 7
 
@@ -253,55 +256,94 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
                     // Week can't be selected if the first gesture makes week index undefined (cells on different rows)
                     isFinished = weekIndex0 != weekIndex1
-                } else {
-                    val isMonthEnabled = enabledTypes.contains { diagonalPinchMonth }
 
-                    // Seems like this gesture is not defined. It's not week nor month.
-                    isFinished = !isMonthEnabled || !isMonthAngle(angle, monthPinchConf)
+                    firstPointerRole = if (x0 < x1) ROLE_WEEK_LEFT else ROLE_WEEK_RIGHT
+
+                    type = PINCH_TYPE_WEEK
+                } else if (enabledTypes.contains { diagonalPinchMonth } && isMonthAngle(lineAngle, monthPinchConf)) {
+                    firstPointerRole = if (x0 < x1) ROLE_MONTH_LB else ROLE_MONTH_RT
+
+                    type = PINCH_TYPE_MONTH
+                } else {
+                    isFinished = true
+                    type = PINCH_TYPE_NONE
                 }
+
+                Log.i("DetectorImpl", "isFinished: $isFinished type: $type")
             }
 
             // Any selection can't be detected based on a single gesture.
             return
         }
 
+        val (startX0, startY0) = pinchInfo.startP0
+        val (startX1, startY1) = pinchInfo.startP1
+
         val angle = getLineAngle(x0, y0, x1, y1)
-        val startAngle = pinchInfo.startAngle
 
-        when {
-            isWeekAngle(startAngle, monthPinchConf) && isWeekAngle(angle, monthPinchConf) -> {
-                val xDist0 = abs(pinchInfo.startX0 - x0)
-                val xDist1 = abs(pinchInfo.startX1 - x1)
-
-                if (min(xDist0, xDist1) >= getAbsoluteDistance(weekPinchConf.minDistance)) {
-                    val cell0 = getCellAt(x0, y0)
-                    val cell1 = getCellAt(x1, y1)
-
-                    val weekIndex0 = cell0 / 7
-                    val weekIndex1 = cell1 / 7
-
-                    if (pinchInfo.startWeekIndex == weekIndex0 && weekIndex0 == weekIndex1) {
-                        selectWeek(weekIndex0)
-                    }
-
-                    // Gesture is finished even if cells on different rows
+        when (pinchInfo.type) {
+            PINCH_TYPE_WEEK -> {
+                if (!isWeekAngle(angle, weekPinchConf)) {
                     pinchInfo.isFinished = true
+                    return
+                }
+
+                val isValidGesture = if (pinchInfo.firstPointerRole == ROLE_WEEK_LEFT) {
+                    x0 < startX0 && x1 > startX1
+                } else {
+                    x0 > startX0 && x1 < startX1
+                }
+
+                // Do not finish the gesture if pointers are not acting the way they're expected to.
+                // It might happen sometimes but it doesn't make the gesture wrong.
+                if (isValidGesture) {
+                    val dist0 = pinchInfo.getDistanceToStartPoint0(x0, y0)
+                    val dist1 = pinchInfo.getDistanceToStartPoint1(x1, y1)
+
+                    if (min(dist0, dist1) >= getAbsoluteDistance(weekPinchConf.minDistance)) {
+                        val cell0 = getCellAt(x0, y0)
+                        val cell1 = getCellAt(x1, y1)
+
+                        val weekIndex0 = cell0 / 7
+                        val weekIndex1 = cell1 / 7
+
+                        if (pinchInfo.startWeekIndex == weekIndex0 && weekIndex0 == weekIndex1) {
+                            selectWeek(weekIndex0)
+                        }
+
+                        // Gesture is finished even if cells on different rows
+                        pinchInfo.isFinished = true
+                    }
                 }
             }
 
-            isMonthAngle(startAngle, monthPinchConf) && isMonthAngle(angle, monthPinchConf) -> {
-                val dist0 = pinchInfo.getDistanceToStartPoint0(x0, y0)
-                val dist1 = pinchInfo.getDistanceToStartPoint1(x1, y1)
-
-                if (min(dist0, dist1) >= getAbsoluteDistance(monthPinchConf.minDistance)) {
-                    selectMonth()
-
+            PINCH_TYPE_MONTH -> {
+                if (!isMonthAngle(angle, monthPinchConf)) {
                     pinchInfo.isFinished = true
+                    return
+                }
+
+                val isValidGesture = if (pinchInfo.firstPointerRole == ROLE_MONTH_RT) {
+                    (x0 > startX0 && y0 < startY0) && (x1 < startX1 && y1 > startY1)
+                } else {
+                    (x0 < startX0 && y0 > startY0) && (x1 > startX1 && y1 < startY1)
+                }
+
+                // Do not finish the gesture if pointers are not acting the way they're expected to.
+                // It might happen sometimes but it doesn't make the gesture wrong.
+                if (isValidGesture) {
+                    val dist0 = pinchInfo.getDistanceToStartPoint0(x0, y0)
+                    val dist1 = pinchInfo.getDistanceToStartPoint1(x1, y1)
+
+                    if (min(dist0, dist1) >= getAbsoluteDistance(monthPinchConf.minDistance)) {
+                        selectMonth()
+
+                        pinchInfo.isFinished = true
+                    }
                 }
             }
 
             else -> {
-                // Seems like this gesture is not defined
                 pinchInfo.isFinished = true
             }
         }
@@ -343,6 +385,16 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         // 45 degrees
         private const val MONTH_ANGLE = (PI / 4).toFloat()
 
+        private const val PINCH_TYPE_NONE = 0
+        private const val PINCH_TYPE_WEEK = 1
+        private const val PINCH_TYPE_MONTH = 2
+
+        private const val ROLE_NONE = 0
+        private const val ROLE_WEEK_LEFT = 1
+        private const val ROLE_WEEK_RIGHT = 2
+        private const val ROLE_MONTH_RT = 3
+        private const val ROLE_MONTH_LB = 4
+
         private fun isWeekAngle(angle: Float, conf: PinchConfiguration): Boolean {
             val dev = conf.angleDeviation
 
@@ -358,10 +410,6 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             val dy = abs(y0 - y1)
 
             return atan2(dy, dx)
-        }
-
-        private fun isCellsOnSameRow(cellIndex0: Int, cellIndex1: Int): Boolean {
-            return Cell(cellIndex0).gridY == Cell(cellIndex1).gridY
         }
     }
 }
