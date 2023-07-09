@@ -4,7 +4,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
-import android.os.Build
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
@@ -22,18 +21,9 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private val primaryShape = SelectionShape()
     private val secondaryShape = SelectionShape()
 
-    private var primaryCellNode: CellRenderNode? = null
-    private var secondaryCellNode: CellRenderNode? = null
-
     private val tempRect = RectF()
 
     private var roundRectPathInfo: RoundRectVisualInfo? = null
-
-    private fun getOrCreatePrimaryCellNode() =
-        getLazyValue(primaryCellNode, ::CellRenderNode) { primaryCellNode = it }
-
-    private fun getOrCreateSecondaryCellNode() =
-        getLazyValue(secondaryCellNode, ::CellRenderNode) { secondaryCellNode = it }
 
     private fun getRoundRectPathInfo(): RoundRectVisualInfo =
         getLazyValue(roundRectPathInfo, ::RoundRectVisualInfo) { roundRectPathInfo = it }
@@ -60,23 +50,20 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             }
 
             is DefaultSelectionState.CellAppearBubble -> {
-                drawRect(canvas, state.bounds, options)
+                drawOpaqueRect(canvas, state.bounds, options)
             }
 
             is DefaultSelectionState.CellDualBubble -> {
-                drawRect(canvas, state.startBounds, options)
-                drawRect(canvas, state.endBounds, options)
+                drawOpaqueRect(canvas, state.startBounds, options)
+                drawOpaqueRect(canvas, state.endBounds, options)
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
-                val left = state.left
-                val top = state.top
-
                 val shapeInfo = state.start.shapeInfo
                 val width = shapeInfo.cellWidth
                 val height = shapeInfo.cellHeight
 
-                drawCell(canvas, left, top, width, height, options, alpha = 1f, isPrimary = true)
+                drawRect(canvas, state.left, state.top, width, height, options, alpha = 1f)
             }
 
             is DefaultSelectionState.RangeToRange -> {
@@ -102,11 +89,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             val width = shapeInfo.endRight - left
             val height = shapeInfo.cellHeight
 
-            if (rangeStart == rangeEnd) {
-                drawCell(canvas, left, top, width, height, options, alpha, isPrimary)
-            } else {
-                drawRect(canvas, left, top, width, height, options, alpha)
-            }
+            drawRect(canvas, left, top, width, height, options, alpha)
         } else {
             drawGeneralRange(canvas, shapeInfo, options, alpha, isPrimary)
         }
@@ -122,39 +105,12 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         drawRange(canvas, state.shapeInfo, options, alpha, isPrimary)
     }
 
-    private fun drawCell(
-        canvas: Canvas,
-        left: Float, top: Float,
-        width: Float, height: Float,
-        options: SelectionRenderOptions,
-        alpha: Float,
-        isPrimary: Boolean
-    ) {
-        if (Build.VERSION.SDK_INT >= 29 && canvas.isHardwareAccelerated) {
-            val node = if (isPrimary) {
-                getOrCreatePrimaryCellNode()
-            } else {
-                getOrCreateSecondaryCellNode()
-            }
-
-            node.setSize(width, height)
-            node.setRenderOptions(options)
-
-            node.draw(canvas, left, top, alpha)
-        } else {
-            drawRect(canvas, left, top, width, height, options, alpha)
-        }
-    }
-
-    private fun drawRect(
+    private fun drawOpaqueRect(
         canvas: Canvas,
         bounds: RectF,
-        options: SelectionRenderOptions,
-        alpha: Float = 1f
+        options: SelectionRenderOptions
     ) {
-        val (left, top, right, bottom) = bounds
-
-        drawRect(canvas, left, top, right, bottom, options, alpha)
+        drawRect(canvas, bounds.left, bounds.top, bounds.right, bounds.bottom, options, alpha = 1f)
     }
 
     private fun drawRect(
@@ -162,7 +118,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         left: Float, top: Float,
         width: Float, height: Float,
         options: SelectionRenderOptions,
-        alpha: Float = 1f
+        alpha: Float
     ) {
         val fill = options.fill
         val rr = options.roundRadius
@@ -219,12 +175,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         alpha: Float,
         isPrimary: Boolean
     ) {
-        val shape = if (isPrimary) {
-            primaryShape
-        } else {
-            secondaryShape
-        }
-
+        val shape = if (isPrimary) primaryShape else secondaryShape
         val fill = options.fill
 
         var forcePath = false
