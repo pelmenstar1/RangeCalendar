@@ -23,7 +23,7 @@ data class RangeCalendarGestureConfiguration(
             enabledGestureTypes = RangeCalendarDefaultGestureTypes.allEnabledSet
 
             gestureTypeOptions {
-                // 15 degrees
+                // 17.5 degrees
                 val angleDeviation = 17.5f * (PI.toFloat() / 180)
 
                 val horizontalWeekMinDist = Distance.Relative(fraction = 0.1f, anchor = Distance.RelativeAnchor.WIDTH)
