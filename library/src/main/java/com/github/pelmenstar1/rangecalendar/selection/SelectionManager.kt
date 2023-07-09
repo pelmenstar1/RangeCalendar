@@ -1,5 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
+import com.github.pelmenstar1.rangecalendar.CellMeasureManager
+
 /**
  * Manages selection state and provides a way to draw a state and transition between them.
  */

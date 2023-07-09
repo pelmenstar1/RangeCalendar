@@ -180,11 +180,81 @@ There's also a `CellMeasureManager` class which returns position and size of spe
 to some methods of `SelectionManager`. Although it's a public interface and it can be implemented on your own, you
 cannot use your implementation in a calendar view. It's implemented inside the library.
 
-## Movement
+## Gestures
 
-- Double-touch to select a week
-- Long-press to start selecting a custom range.
-- Click on month information view (on top center) to select month
+The library allows to customize detecting gestures based on the `MotionEvent`s.
+You can do this by specifying custom implementation of `RangeCalendarGestureDetectorFactory` that creates your implementation of `RangeCalendarGestureDetector`
+
+```kotlin
+class DetectorImpl : RangeCalendarGestureDetector() {
+    override fun processEvent(event: MotionEvent): Boolean {
+        // ... your code
+    }
+}
+
+object DetectorImplFactory : RangeCalendarGestureDetectorFactory<DetectorImpl> {
+    val detectorClass: Class<DetectorImpl>
+        get() = DetectorImpl::class.java
+
+    override fun create(): DetectorImpl {
+        return DetectorImpl()
+    }
+}
+
+rangeCalendar.gestureDetectorFactory = DetectorImplFactory
+```
+
+The gesture detection is based on detecting specific gesture __types__ that can be defined for your implementation:
+```kotlin
+class MyTypeConfiguration(val configValue: Float)
+
+object DetectorImplGestureTypes {
+  // Ordinal number is the thing that defines the gesture type. It's used for equality, hashing and comparing.
+  val myType = RangeCalendarGestureType<MyTypeConfiguration>(ordinal = 0, displayName = "myType")
+}
+```
+
+Each gesture type is associated with some type of options that may be needed in your implementation.
+
+To create the configuration you can use builder method:
+```kotlin
+rangeCalendar.gestureConfiguration = RangeCalendarGestureConfiguration {
+    enabledGestureTypes = setOf(DetectorImplGestureTypes.myType)
+
+    gestureTypeOptions {
+        put(DetectorImplGestureTypes.myType, MyTypeConfiguration(configValue = 1f))
+    }
+}
+```
+
+The library provides default gesture detector that detects these gestures:
+- double tap to select week
+- long press to start selecting custom range
+- horizontal pinch to select week
+- diagonal pinch to select month
+
+The configuration of gesture detector can be changed when the detector is default:
+```kotlin
+rangeCalendar.gestureConfiguration = RangeCalendarGestureConfiguration {
+    enabledGestureTypes {
+        doubleTapWeek()
+        horizontalPinchWeek()
+        // other types are disabled
+    }
+    
+    gestureTypeOptions {
+        // horizontalPinchWeek is associated with PinchConfiguration
+        put(
+            RangeCalendarDefaultGestureTypes.horizontalPinchWeek,
+            PinchConfiguration(
+                // 10 degrees
+                angleDeviation = 10f * (180f / PI.toFloat()),
+                minDistance = Distance.Relative(fraction = 0.5f, anchor = Distance.RelativeAnchor.WIDTH)
+            )
+        )
+    }
+}
+```
 
 ## Time zone
 

@@ -1,5 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
+import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 internal class DefaultSelectionManager : SelectionManager {

@@ -37,6 +37,9 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import android.text.format.DateFormat
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureConfiguration
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetectorFactory
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetector
 import com.github.pelmenstar1.rangecalendar.utils.getFirstDayOfWeek
 import java.time.DayOfWeek
 import kotlin.math.max
@@ -331,7 +334,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
         pager = ViewPager2(context).apply {
             adapter = this@RangeCalendarView.adapter
-            offscreenPageLimit = 1
+
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -1408,6 +1411,27 @@ class RangeCalendarView @JvmOverloads constructor(
         get() = adapter.getStyleBool { IS_HOVER_ANIMATION_ENABLED }
         set(value) {
             adapter.setStyleBool({ IS_HOVER_ANIMATION_ENABLED }, value)
+        }
+
+    /**
+     * Gets or sets current gesture detector factory.
+     *
+     * Changing the factory causes creation of [RangeCalendarGestureDetector] instances on all available calendar pages.
+     * All the pages will use these gesture detectors.
+     */
+    var gestureDetectorFactory: RangeCalendarGestureDetectorFactory<*>
+        get() = adapter.getStyleObject { GESTURE_DETECTOR_FACTORY }
+        set(value) {
+            adapter.setStyleObject({ GESTURE_DETECTOR_FACTORY }, value)
+        }
+
+    /**
+     * Gets or sets current configuration for gesture detectors.
+     */
+    var gestureConfiguration: RangeCalendarGestureConfiguration
+        get() = adapter.getStyleObject { GESTURE_CONFIGURATION }
+        set(value) {
+            adapter.setStyleObject({ GESTURE_CONFIGURATION }, value)
         }
 
     /**
