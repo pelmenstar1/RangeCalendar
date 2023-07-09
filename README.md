@@ -182,7 +182,7 @@ cannot use your implementation in a calendar view. It's implemented inside the l
 
 ## Gestures
 
-The library allows customizing detecting of the gestures based on the `MotionEvent`s.
+The library allows to customize detecting gestures based on the `MotionEvent`s.
 You can do this by specifying custom implementation of `RangeCalendarGestureDetectorFactory` that creates your implementation of `RangeCalendarGestureDetector`
 
 ```kotlin
@@ -248,7 +248,7 @@ rangeCalendar.gestureConfiguration = RangeCalendarGestureConfiguration {
             RangeCalendarDefaultGestureTypes.horizontalPinchWeek,
             PinchConfiguration(
                 // 10 degrees
-                angleDeviation = 10f * (180 / PI.toFloat()),
+                angleDeviation = 10f * (180f / PI.toFloat()),
                 minDistance = Distance.Relative(fraction = 0.5f, anchor = Distance.RelativeAnchor.WIDTH)
             )
         )
