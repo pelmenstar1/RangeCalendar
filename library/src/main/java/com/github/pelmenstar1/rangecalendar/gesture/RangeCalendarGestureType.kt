@@ -1,7 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.gesture
 
 /**
- * A description of a gesture type.
+ * A descriptor of a gesture type.
  *
  * Note: [equals], [hashCode], [compareTo] are based on [ordinal] property. [displayName] is only used in [toString].
  */

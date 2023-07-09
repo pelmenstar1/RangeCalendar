@@ -1,5 +1,9 @@
 package com.github.pelmenstar1.rangecalendar.gesture
 
+import com.github.pelmenstar1.rangecalendar.utils.iterateSetBits
+
+private typealias GetDefaultGestureType = RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType
+
 /**
  * Defines default gesture types.
  */
@@ -20,25 +24,25 @@ object RangeCalendarDefaultGestureTypes {
      * Horizontal pinch to select week range.
      */
     @JvmField
-    val horizontalSwipeWeek = RangeCalendarGestureType(ordinal = 2, displayName = "horizontalSwipeWeek")
+    val horizontalPinchWeek = RangeCalendarGestureType(ordinal = 2, displayName = "horizontalSwipeWeek")
 
     /**
      * Diagonal pinch to select month range. The diagonal in this gesture is a one that runs from left bottom corner to right top corner.
      */
     @JvmField
-    val diagonalSwipeMonth = RangeCalendarGestureType(ordinal = 3, displayName = "diagonalSwipeMonth")
+    val diagonalPinchMonth = RangeCalendarGestureType(ordinal = 3, displayName = "diagonalSwipeMonth")
 
     internal const val typeCount = 4
-    internal val allTypes = arrayOf(doubleTapWeek, longPressRange, horizontalSwipeWeek, diagonalSwipeMonth)
+    internal val allTypes = arrayOf(doubleTapWeek, longPressRange, horizontalPinchWeek, diagonalPinchMonth)
 
-    internal val allEnabledSet = RangeCalendarGestureTypeSet.create(allTypes)
+    // bits is the number where lowest 'typeCount' bits are set.
+    internal val allEnabledSet = RangeCalendarGestureTypeBitsSet(bits = 0b1111, allTypes)
 }
 
 /**
- * Builder for [RangeCalendarGestureTypeSet] using default gestures.
+ * Builder for [RangeCalendarGestureTypeBitsSet] using default gestures.
  */
 class RangeCalendarDefaultGestureTypeSetBuilder {
-    private val types = arrayOfNulls<RangeCalendarGestureType>(RangeCalendarDefaultGestureTypes.typeCount)
     private var bits = 0L
 
     /**
@@ -52,60 +56,61 @@ class RangeCalendarDefaultGestureTypeSetBuilder {
     fun longPressRange() = addType { longPressRange }
 
     /**
-     * Adds [RangeCalendarDefaultGestureTypes.horizontalSwipeWeek] to the set.
+     * Adds [RangeCalendarDefaultGestureTypes.horizontalPinchWeek] to the set.
      */
-    fun horizontalSwipeWeek() = addType { horizontalSwipeWeek }
+    fun horizontalPinchWeek() = addType { horizontalPinchWeek }
 
     /**
-     * Adds [RangeCalendarDefaultGestureTypes.diagonalSwipeMonth] to the set.
+     * Adds [RangeCalendarDefaultGestureTypes.diagonalPinchMonth] to the set.
      */
-    fun diagonalSwipeMonth() = addType { diagonalSwipeMonth }
+    fun diagonalPinchMonth() = addType { diagonalPinchMonth }
 
     private inline fun addType(getType: RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType) {
         addType(RangeCalendarDefaultGestureTypes.getType())
     }
 
     private fun addType(type: RangeCalendarGestureType) {
-        val ordinal = type.ordinal
-
-        types[type.ordinal] = type
-        bits = bits or (1L shl ordinal)
+        bits = bits or (1L shl type.ordinal)
     }
 
     /**
      * Creates the set.
      */
-    fun toSet(): RangeCalendarGestureTypeSet {
+    fun build(): Set<RangeCalendarGestureType> {
         val elements = createElements()
 
-        // Here, bits and elementsMapBits are the same
-        // because ordinal numbers of default gesture types rise sequentially from zero and
-        // 'elements' array has no repeated elements
-        return RangeCalendarGestureTypeSet.BitsImpl(bits, bits, elements)
+        return RangeCalendarGestureTypeBitsSet(bits, elements)
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun createElements(): Array<RangeCalendarGestureType> {
-        val bitCount = bits.countOneBits()
-        if (bitCount == RangeCalendarDefaultGestureTypes.typeCount) {
-            return types as Array<RangeCalendarGestureType>
+        val elementCount = bits.countOneBits()
+        val allTypes = RangeCalendarDefaultGestureTypes.allTypes
+
+        if (elementCount == RangeCalendarDefaultGestureTypes.typeCount) {
+            return allTypes
         }
 
-        val elements = arrayOfNulls<RangeCalendarGestureType>(bitCount)
+        val elements = arrayOfNulls<RangeCalendarGestureType>(elementCount)
         var eIndex = 0
 
-        for (type in types) {
-            if (type != null) {
-                elements[eIndex++] = type
-            }
+        bits.iterateSetBits { ordinal ->
+            elements[eIndex++] = allTypes[ordinal]
         }
 
         return elements as Array<RangeCalendarGestureType>
     }
 }
 
-internal inline fun RangeCalendarGestureTypeSet.contains(
-    getType: RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType
-): Boolean {
+internal inline fun Set<RangeCalendarGestureType>.contains(getType: GetDefaultGestureType): Boolean {
     return contains(RangeCalendarDefaultGestureTypes.getType())
+}
+
+internal inline fun MutableMap<RangeCalendarGestureType, Any>.put(getType: GetDefaultGestureType, value: Any) {
+    put(RangeCalendarDefaultGestureTypes.getType(), value)
+}
+
+@Suppress("UNCHECKED_CAST")
+internal inline fun<T> Map<RangeCalendarGestureType, Any>.get(getType: GetDefaultGestureType): T {
+    return get(RangeCalendarDefaultGestureTypes.getType()) as T
 }
