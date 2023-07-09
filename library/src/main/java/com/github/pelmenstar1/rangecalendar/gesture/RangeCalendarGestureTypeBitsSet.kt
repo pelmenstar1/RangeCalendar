@@ -5,8 +5,8 @@ internal class RangeCalendarGestureTypeBitsSet(
     @JvmField val bits: Long,
 
     // Expected that elements array doesn't have items with the same ordinal
-    @JvmField val elements: Array<RangeCalendarGestureType>
-) : Set<RangeCalendarGestureType> {
+    @JvmField val elements: Array<RangeCalendarGestureType<*>>
+) : Set<RangeCalendarGestureType<*>> {
     override val size: Int
         get() = bits.countOneBits()
 
@@ -14,7 +14,7 @@ internal class RangeCalendarGestureTypeBitsSet(
         return bits == 0L
     }
 
-    override fun contains(element: RangeCalendarGestureType): Boolean {
+    override fun contains(element: RangeCalendarGestureType<*>): Boolean {
         val ordinal = element.ordinal
         if (ordinal !in 0 until 64) {
             return false
@@ -23,11 +23,11 @@ internal class RangeCalendarGestureTypeBitsSet(
         return (bits and (1L shl ordinal)) != 0L
     }
 
-    override fun containsAll(elements: Collection<RangeCalendarGestureType>): Boolean {
+    override fun containsAll(elements: Collection<RangeCalendarGestureType<*>>): Boolean {
         return elements.all(::contains)
     }
 
-    override fun iterator(): Iterator<RangeCalendarGestureType> {
+    override fun iterator(): Iterator<RangeCalendarGestureType<*>> {
         return elements.iterator()
     }
 

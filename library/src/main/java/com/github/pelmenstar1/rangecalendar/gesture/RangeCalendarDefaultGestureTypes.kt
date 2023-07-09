@@ -2,7 +2,7 @@ package com.github.pelmenstar1.rangecalendar.gesture
 
 import com.github.pelmenstar1.rangecalendar.utils.iterateSetBits
 
-private typealias GetDefaultGestureType = RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType
+internal typealias GetDefaultGestureType<T> = RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType<T>
 
 /**
  * Defines default gesture types.
@@ -12,28 +12,31 @@ object RangeCalendarDefaultGestureTypes {
      * Double tap to select week range.
      */
     @JvmField
-    val doubleTapWeek = RangeCalendarGestureType(ordinal = 0, displayName = "doubleTapWeek")
+    val doubleTapWeek = RangeCalendarGestureType<Nothing>(ordinal = 0, displayName = "doubleTapWeek")
 
     /**
      * Long press to start selecting custom range.
      */
     @JvmField
-    val longPressRange = RangeCalendarGestureType(ordinal = 1, displayName = "longPressRange")
+    val longPressRange = RangeCalendarGestureType<Nothing>(ordinal = 1, displayName = "longPressRange")
 
     /**
      * Horizontal pinch to select week range.
      */
     @JvmField
-    val horizontalPinchWeek = RangeCalendarGestureType(ordinal = 2, displayName = "horizontalSwipeWeek")
+    val horizontalPinchWeek =
+        RangeCalendarGestureType<PinchConfiguration>(ordinal = 2, displayName = "horizontalSwipeWeek")
 
     /**
      * Diagonal pinch to select month range. The diagonal in this gesture is a one that runs from left bottom corner to right top corner.
      */
     @JvmField
-    val diagonalPinchMonth = RangeCalendarGestureType(ordinal = 3, displayName = "diagonalSwipeMonth")
+    val diagonalPinchMonth =
+        RangeCalendarGestureType<PinchConfiguration>(ordinal = 3, displayName = "diagonalSwipeMonth")
 
     internal const val typeCount = 4
-    internal val allTypes = arrayOf(doubleTapWeek, longPressRange, horizontalPinchWeek, diagonalPinchMonth)
+    internal val allTypes: Array<RangeCalendarGestureType<*>> =
+        arrayOf(doubleTapWeek, longPressRange, horizontalPinchWeek, diagonalPinchMonth)
 
     // bits is the number where lowest 'typeCount' bits are set.
     internal val allEnabledSet = RangeCalendarGestureTypeBitsSet(bits = 0b1111, allTypes)
@@ -65,25 +68,25 @@ class RangeCalendarDefaultGestureTypeSetBuilder {
      */
     fun diagonalPinchMonth() = addType { diagonalPinchMonth }
 
-    private inline fun addType(getType: RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType) {
+    private inline fun addType(getType: RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType<*>) {
         addType(RangeCalendarDefaultGestureTypes.getType())
     }
 
-    private fun addType(type: RangeCalendarGestureType) {
+    private fun addType(type: RangeCalendarGestureType<*>) {
         bits = bits or (1L shl type.ordinal)
     }
 
     /**
      * Creates the set.
      */
-    fun build(): Set<RangeCalendarGestureType> {
+    fun build(): Set<RangeCalendarGestureType<*>> {
         val elements = createElements()
 
         return RangeCalendarGestureTypeBitsSet(bits, elements)
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun createElements(): Array<RangeCalendarGestureType> {
+    private fun createElements(): Array<RangeCalendarGestureType<*>> {
         val elementCount = bits.countOneBits()
         val allTypes = RangeCalendarDefaultGestureTypes.allTypes
 
@@ -91,26 +94,25 @@ class RangeCalendarDefaultGestureTypeSetBuilder {
             return allTypes
         }
 
-        val elements = arrayOfNulls<RangeCalendarGestureType>(elementCount)
+        val elements = arrayOfNulls<RangeCalendarGestureType<*>>(elementCount)
         var eIndex = 0
 
         bits.iterateSetBits { ordinal ->
             elements[eIndex++] = allTypes[ordinal]
         }
 
-        return elements as Array<RangeCalendarGestureType>
+        return elements as Array<RangeCalendarGestureType<*>>
     }
 }
 
-internal inline fun Set<RangeCalendarGestureType>.contains(getType: GetDefaultGestureType): Boolean {
+internal inline fun Set<RangeCalendarGestureType<*>>.contains(getType: GetDefaultGestureType<*>): Boolean {
     return contains(RangeCalendarDefaultGestureTypes.getType())
 }
 
-internal inline fun MutableMap<RangeCalendarGestureType, Any>.put(getType: GetDefaultGestureType, value: Any) {
+internal inline fun<T : Any> RangeCalendarGestureTypeMutableMap.put(getType: GetDefaultGestureType<T>, value: T) {
     put(RangeCalendarDefaultGestureTypes.getType(), value)
 }
 
-@Suppress("UNCHECKED_CAST")
-internal inline fun<T> Map<RangeCalendarGestureType, Any>.get(getType: GetDefaultGestureType): T {
-    return get(RangeCalendarDefaultGestureTypes.getType()) as T
+internal inline fun <T : Any> RangeCalendarGestureTypeMap.get(getType: GetDefaultGestureType<T>): T {
+    return get(RangeCalendarDefaultGestureTypes.getType())
 }

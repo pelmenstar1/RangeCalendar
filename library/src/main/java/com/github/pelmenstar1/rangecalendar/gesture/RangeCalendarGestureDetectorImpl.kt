@@ -222,8 +222,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         val conf = configuration
         val gestureTypeOptions = conf.gestureTypeOptions
 
-        val weekPinchConf = gestureTypeOptions.get<PinchConfiguration> { horizontalPinchWeek }
-        val monthPinchConf = gestureTypeOptions.get<PinchConfiguration> { diagonalPinchMonth }
+        val weekPinchConf = gestureTypeOptions.get { horizontalPinchWeek }
+        val monthPinchConf = gestureTypeOptions.get { diagonalPinchMonth }
 
         if (!pinchInfo.isStarted) {
             cancelTimeoutMessages()
@@ -356,7 +356,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         }
     }
 
-    private inline fun isEnabledGesture(getType: RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType): Boolean {
+    private inline fun isEnabledGesture(getType: GetDefaultGestureType<*>): Boolean {
         return configuration.enabledGestureTypes.contains(getType)
     }
 

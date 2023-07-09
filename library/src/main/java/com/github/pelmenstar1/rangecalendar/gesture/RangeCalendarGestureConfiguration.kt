@@ -11,12 +11,12 @@ data class RangeCalendarGestureConfiguration(
     /**
      * A set of enabled (allowed) gesture types.
      */
-    val enabledGestureTypes: Set<RangeCalendarGestureType>,
+    val enabledGestureTypes: Set<RangeCalendarGestureType<*>>,
 
     /**
      * A map that contains options for specific gesture types.
      */
-    val gestureTypeOptions: Map<RangeCalendarGestureType, Any>
+    val gestureTypeOptions: RangeCalendarGestureTypeMap
 ) {
     companion object {
         private val DEFAULT = RangeCalendarGestureConfiguration {
@@ -43,27 +43,27 @@ data class RangeCalendarGestureConfiguration(
 }
 
 class RangeCalendarGestureConfigurationBuilder {
-    private var _enabledGestureTypes: Set<RangeCalendarGestureType>? = null
+    private var _enabledGestureTypes: Set<RangeCalendarGestureType<*>>? = null
 
     /**
      * Gets or sets a set of enabled (allowed) gesture types.
      *
      * The getter throws [IllegalStateException] if the setter is not called at least once.
      */
-    var enabledGestureTypes: Set<RangeCalendarGestureType>
+    var enabledGestureTypes: Set<RangeCalendarGestureType<*>>
         get() = _enabledGestureTypes ?: throw IllegalStateException("No value set")
         set(value) {
             _enabledGestureTypes = value
         }
 
-    private var _gestureTypeOptions: Map<RangeCalendarGestureType, Any>? = null
+    private var _gestureTypeOptions: RangeCalendarGestureTypeMap? = null
 
     /**
      * Gets or sets a map that contains options for specific gesture types.
      *
      * The getter throws [IllegalStateException] if the setter is not called at least once.
      */
-    var gestureTypeOptions: Map<RangeCalendarGestureType, Any>
+    var gestureTypeOptions: RangeCalendarGestureTypeMap
         get() = _gestureTypeOptions ?: throw IllegalStateException("No value set")
         set(value) {
             _gestureTypeOptions = value
@@ -75,8 +75,8 @@ class RangeCalendarGestureConfigurationBuilder {
             .build()
     }
 
-    inline fun gestureTypeOptions(block: MutableMap<RangeCalendarGestureType, Any>.() -> Unit) {
-        val map = ArrayMap<RangeCalendarGestureType, Any>().also(block)
+    inline fun gestureTypeOptions(block: RangeCalendarGestureTypeMutableMap.() -> Unit) {
+        val map = RangeCalendarGestureTypeMutableMap(ArrayMap()).also(block)
 
         gestureTypeOptions = map
     }
@@ -88,7 +88,7 @@ class RangeCalendarGestureConfigurationBuilder {
      */
     fun build(): RangeCalendarGestureConfiguration {
         val enabledGestureTypes = _enabledGestureTypes ?: emptySet()
-        val gestureTypeOptions = _gestureTypeOptions ?: emptyMap()
+        val gestureTypeOptions = _gestureTypeOptions ?: RangeCalendarGestureTypeMap.empty()
 
         return RangeCalendarGestureConfiguration(enabledGestureTypes, gestureTypeOptions)
     }
