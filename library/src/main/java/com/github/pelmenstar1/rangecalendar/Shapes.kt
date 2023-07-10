@@ -4,6 +4,7 @@ import android.graphics.*
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import com.github.pelmenstar1.rangecalendar.utils.SQRT_2
+import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
@@ -23,13 +24,6 @@ interface Shape {
         @Suppress("INAPPLICABLE_JVM_NAME")
         @JvmName("needsPathToDraw")
         get
-
-    /**
-     * Throws an exception if [box] is invalid.
-     *
-     * @param box rectangle in which shape in located.
-     */
-    fun validateBox(box: RectF)
 
     /**
      * Adds a shape to specified [path].
@@ -68,9 +62,6 @@ object RectangleShape : Shape {
     override val needsPathToDraw: Boolean
         get() = false
 
-    override fun validateBox(box: RectF) {
-    }
-
     override fun addToPath(path: Path, box: RectF) {
         path.addRect(box, Path.Direction.CW)
     }
@@ -102,18 +93,11 @@ object RectangleShape : Shape {
 }
 
 /**
- * A circle shape.
- * Note, this is not ellipse, hence width and height of a box, in which a circle is drawn into, should be equal.
+ * Ellipse.
  */
-object CircleShape : Shape {
+object EllipseShape : Shape {
     override val needsPathToDraw: Boolean
         get() = false
-
-    override fun validateBox(box: RectF) {
-        require(box.width() == box.height()) {
-            "Width and shape of a box should be equal"
-        }
-    }
 
     override fun draw(canvas: Canvas, box: RectF, paint: Paint) {
         canvas.drawOval(box, paint)
@@ -127,13 +111,13 @@ object CircleShape : Shape {
         outCenter.x = box.centerX()
         outCenter.y = box.centerY()
 
-        return box.width() * 0.5f
+        return max(box.width(), box.height()) * 0.5f
     }
 }
 
 /**
- * A triangle with points defined by relative points(x and y are within range `[0; 1]`).
- * Such definition allows a triangle to be scalable.
+ * A triangle with points defined by relative points (x and y are within range `[0; 1]`).
+ * Such definition allows the triangle to be scalable.
  *
  * @param p1x x-axis of 1 relative point
  * @param p1y y-axis of 1 relative point
@@ -156,9 +140,6 @@ class TriangleShape(
         requireValidRelativePoint(p1x, p1y)
         requireValidRelativePoint(p2x, p2y)
         requireValidRelativePoint(p3x, p3y)
-    }
-
-    override fun validateBox(box: RectF) {
     }
 
     override fun draw(canvas: Canvas, box: RectF, paint: Paint) {
