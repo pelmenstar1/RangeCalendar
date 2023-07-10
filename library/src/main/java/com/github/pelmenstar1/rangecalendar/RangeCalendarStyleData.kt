@@ -61,7 +61,7 @@ internal class RangeCalendarStyleData {
     }
 
     companion object {
-        const val INT_PROPS_COUNT = 22
+        const val INT_PROPS_COUNT = 21
         const val OBJECT_PROPS_COUNT = 10
 
         const val OBJECT_PROP_START = 32
@@ -84,11 +84,10 @@ internal class RangeCalendarStyleData {
         const val DISABLED_TEXT_COLOR = 14
         const val TODAY_TEXT_COLOR = 15
         const val WEEKDAY_TEXT_COLOR = 16
-        const val HOVER_COLOR = 17
-        const val HOVER_ON_SELECTION_COLOR = 18
-        const val SHOW_ADJACENT_MONTHS = 19
-        const val IS_SELECTION_ANIMATED_BY_DEFAULT = 20
-        const val IS_HOVER_ANIMATION_ENABLED = 21
+        const val HOVER_ALPHA = 17
+        const val SHOW_ADJACENT_MONTHS = 18
+        const val IS_SELECTION_ANIMATED_BY_DEFAULT = 19
+        const val IS_HOVER_ANIMATION_ENABLED = 20
 
         // These are properties that can be stored as an object
         const val COMMON_ANIMATION_INTERPOLATOR = 32
@@ -112,8 +111,7 @@ internal class RangeCalendarStyleData {
                 set(DISABLED_TEXT_COLOR, cr.disabledTextColor)
                 set(TODAY_TEXT_COLOR, cr.colorPrimary)
                 set(WEEKDAY_TEXT_COLOR, cr.textColor)
-                set(HOVER_COLOR, cr.hoverColor)
-                set(HOVER_ON_SELECTION_COLOR, cr.colorPrimaryDark)
+                set(HOVER_ALPHA, cr.hoverAlpha)
 
                 // sizes
                 set(DAY_NUMBER_TEXT_SIZE, cr.dayNumberTextSize)

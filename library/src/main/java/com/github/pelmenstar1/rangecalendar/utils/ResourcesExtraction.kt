@@ -5,6 +5,8 @@ import android.content.res.ColorStateList
 import android.graphics.drawable.Drawable
 import android.util.TypedValue
 import androidx.annotation.AttrRes
+import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 
 internal fun Context.getColorFromAttribute(@AttrRes resId: Int): Int {
@@ -24,11 +26,11 @@ internal fun Context.getColorFromAttribute(@AttrRes resId: Int): Int {
     throw IllegalArgumentException("Attribute $resId isn't defined")
 }
 
-internal fun Context.getColorStateListFromAttribute(@AttrRes resId: Int): ColorStateList {
+internal fun Context.getColorStateListFromAttribute(@AttrRes resId: Int): ColorStateList? {
     val array = obtainStyledAttributes(intArrayOf(resId))
 
     try {
-        return array.getColorStateList(0)!!
+        return array.getColorStateList(0)
     } finally {
         array.recycle()
     }

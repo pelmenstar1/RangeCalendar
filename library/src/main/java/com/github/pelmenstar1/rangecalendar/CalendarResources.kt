@@ -3,19 +3,19 @@ package com.github.pelmenstar1.rangecalendar
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
-import com.github.pelmenstar1.rangecalendar.utils.darkerColor
+import androidx.core.graphics.alpha
 import com.github.pelmenstar1.rangecalendar.utils.getColorFromAttribute
 import com.github.pelmenstar1.rangecalendar.utils.getColorStateListFromAttribute
 import com.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
+import com.github.pelmenstar1.rangecalendar.utils.withoutAlpha
 
 internal class CalendarResources(context: Context) {
     val hPadding: Float
     val cellSize: Float
 
     val colorPrimary: Int
-    val colorPrimaryDark: Int
-    val hoverColor: Int
+    val hoverAlpha: Float
     val textColor: Int
     val outMonthTextColor: Int
     val disabledTextColor: Int
@@ -35,13 +35,13 @@ internal class CalendarResources(context: Context) {
         val res = context.resources
 
         colorPrimary = context.getColorFromAttribute(androidx.appcompat.R.attr.colorPrimary)
-        colorPrimaryDark = colorPrimary.darkerColor(0.4f)
         textColor = getTextColor(context)
         colorControlNormal =
-            context.getColorStateListFromAttribute(androidx.appcompat.R.attr.colorControlNormal)
-        outMonthTextColor = colorControlNormal.getColorForState(ENABLED_STATE, 0)
-        disabledTextColor = colorControlNormal.getColorForState(EMPTY_STATE, 0)
-        hoverColor = getHoverColor(context)
+            context.getColorStateListFromAttribute(androidx.appcompat.R.attr.colorControlNormal)!!
+
+        outMonthTextColor = colorControlNormal.getColorForState(ENABLED_STATE, textColor)
+        disabledTextColor = colorControlNormal.getColorForState(EMPTY_STATE, textColor)
+        hoverAlpha = getHoverAlpha(context)
 
         hPadding = res.getDimension(R.dimen.rangeCalendar_paddingH)
         weekdayTextSize = res.getDimension(R.dimen.rangeCalendar_weekdayTextSize)
@@ -68,6 +68,8 @@ internal class CalendarResources(context: Context) {
         private val ENABLED_STATE = intArrayOf(android.R.attr.state_enabled)
         private val EMPTY_STATE = IntArray(0)
 
+        private const val DEFAULT_HOVER_ALPHA = 0.12f
+
         fun getDayText(day: Int) = DAYS[day - 1]
 
         @SuppressLint("PrivateResource")
@@ -88,11 +90,20 @@ internal class CalendarResources(context: Context) {
             }
         }
 
-        private fun getHoverColor(context: Context): Int {
-            val hoverList =
-                context.getColorStateListFromAttribute(androidx.appcompat.R.attr.colorControlHighlight)
+        private fun getHoverAlpha(context: Context): Float {
+            val hoverList = context.getColorStateListFromAttribute(androidx.appcompat.R.attr.colorControlHighlight)
 
-            return hoverList.getColorForState(HOVER_STATE, 0)
+            if (hoverList != null) {
+                val hoverColor = hoverList.getColorForState(HOVER_STATE, hoverList.defaultColor)
+
+                // Check if the color is black without alpha channel. If it is, we use that value.
+                // Otherwise, use the default hover alpha.
+                if (hoverColor.withoutAlpha() == 0) {
+                    return hoverColor.alpha / 255f
+                }
+            }
+
+            return DEFAULT_HOVER_ALPHA
         }
     }
 }

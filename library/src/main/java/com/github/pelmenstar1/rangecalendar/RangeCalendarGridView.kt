@@ -7,6 +7,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.Rect
@@ -31,7 +32,6 @@ import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
-import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
@@ -281,6 +281,7 @@ internal class RangeCalendarGridView(
         weekdayPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         cellHoverPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.BLACK
             style = Paint.Style.FILL
         }
 
@@ -1104,19 +1105,13 @@ internal class RangeCalendarGridView(
         if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
             val cell = if (isHoverAnimation) animationHoverCell else hoverCell
 
-            val isOnSelection = selectionManager.currentState.contains(cell)
-
-            var color = if (isOnSelection) {
-                style.getInt { HOVER_ON_SELECTION_COLOR }
-            } else {
-                style.getInt { HOVER_COLOR }
-            }
+            var alpha = style.getFloat { HOVER_ALPHA }
 
             if (isHoverAnimation) {
-                color = color.withCombinedAlpha(animFraction)
+                alpha *= animFraction
             }
 
-            cellHoverPaint.color = color
+            cellHoverPaint.alpha = (alpha * 255f + 0.5f).toInt()
 
             val halfCellWidth = cellWidth() * 0.5f
             val cellHeight = cellHeight()

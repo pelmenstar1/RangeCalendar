@@ -442,17 +442,19 @@ class RangeCalendarView @JvmOverloads constructor(
                 color(R.styleable.RangeCalendarView_rangeCalendar_disabledDayNumberColor) { DISABLED_TEXT_COLOR }
                 color(R.styleable.RangeCalendarView_rangeCalendar_todayColor) { TODAY_TEXT_COLOR }
                 color(R.styleable.RangeCalendarView_rangeCalendar_weekdayColor) { WEEKDAY_TEXT_COLOR }
-                color(R.styleable.RangeCalendarView_rangeCalendar_hoverColor) { HOVER_COLOR }
-                color(R.styleable.RangeCalendarView_rangeCalendar_hoverOnSelectionColor) { HOVER_ON_SELECTION_COLOR }
-                dimension(R.styleable.RangeCalendarView_rangeCalendar_dayNumberTextSize) { DAY_NUMBER_TEXT_SIZE }
-                dimension(R.styleable.RangeCalendarView_rangeCalendar_weekdayTextSize) { WEEKDAY_TEXT_SIZE }
+
                 int(R.styleable.RangeCalendarView_rangeCalendar_weekdayType) { WEEKDAY_TYPE }
                 int(R.styleable.RangeCalendarView_rangeCalendar_clickOnCellSelectionBehavior) { CLICK_ON_CELL_SELECTION_BEHAVIOR }
+
+                dimension(R.styleable.RangeCalendarView_rangeCalendar_dayNumberTextSize) { DAY_NUMBER_TEXT_SIZE }
+                dimension(R.styleable.RangeCalendarView_rangeCalendar_weekdayTextSize) { WEEKDAY_TEXT_SIZE }
                 dimension(R.styleable.RangeCalendarView_rangeCalendar_cellRoundRadius) { CELL_ROUND_RADIUS }
-                boolean(R.styleable.RangeCalendarView_rangeCalendar_vibrateOnSelectingCustomRange) { VIBRATE_ON_SELECTING_RANGE }
+
                 int(R.styleable.RangeCalendarView_rangeCalendar_selectionFillGradientBoundsType) { SELECTION_FILL_GRADIENT_BOUNDS_TYPE }
                 int(R.styleable.RangeCalendarView_rangeCalendar_cellAnimationType) { CELL_ANIMATION_TYPE }
+
                 boolean(R.styleable.RangeCalendarView_rangeCalendar_showAdjacentMonths) { SHOW_ADJACENT_MONTHS }
+                boolean(R.styleable.RangeCalendarView_rangeCalendar_vibrateOnSelectingCustomRange) { VIBRATE_ON_SELECTING_RANGE }
                 boolean(R.styleable.RangeCalendarView_rangeCalendar_isSelectionAnimatedByDefault) { IS_SELECTION_ANIMATED_BY_DEFAULT }
                 boolean(R.styleable.RangeCalendarView_rangeCalendar_isHoverAnimationEnabled) { IS_HOVER_ANIMATION_ENABLED }
 
@@ -515,6 +517,12 @@ class RangeCalendarView @JvmOverloads constructor(
                         val firstDow = CompatDayOfWeek(it)
 
                         setFirstDayOfWeekInternal(firstDow, isCustom = true)
+                    }
+                }
+
+                a.getFloat(R.styleable.RangeCalendarView_rangeCalendar_hoverAlpha, Float.NaN).also {
+                    if (!it.isNaN()) {
+                        hoverAlpha = it
                     }
                 }
             }
@@ -1175,27 +1183,15 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Gets or sets a background color of cell which appears when user hovers under a cell
-     * (when a pointer is registered to be down).
-     *
-     * @see [hoverOnSelectionColor]
+     * Gets or sets alpha channel value of a black color that is drawn under the cell when the cell is in hovered state.
+     * The alpha is represented as a float in range `0..1`.
      */
-    @get:ColorInt
-    var hoverColor: Int
-        get() = adapter.getStyleInt { HOVER_COLOR }
-        set(color) {
-            adapter.setStyleInt({ HOVER_COLOR }, color)
-        }
+    var hoverAlpha: Float
+        get() = adapter.getStyleFloat { HOVER_ALPHA }
+        set(value) {
+            require(value in 0f..1f) { "alpha is out of range" }
 
-    /**
-     * Gets or sets a background color of cell which appears when user hovers under a cell and selection contains the cell.
-     * As background of the calendar and selection color are different, common [hoverColor] wouldn't look fine on selection.
-     */
-    @get:ColorInt
-    var hoverOnSelectionColor: Int
-        get() = adapter.getStyleInt { HOVER_ON_SELECTION_COLOR }
-        set(color) {
-            adapter.setStyleInt({ HOVER_ON_SELECTION_COLOR }, color)
+            adapter.setStyleFloat({ HOVER_ALPHA }, value)
         }
 
     /**

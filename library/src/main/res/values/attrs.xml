@@ -9,8 +9,7 @@
         <attr name="rangeCalendar_todayColor" format="color"/>
         <attr name="rangeCalendar_weekdayColor" format="color"/>
         <attr name="rangeCalendar_weekdayTextSize" format="dimension"/>
-        <attr name="rangeCalendar_hoverColor" format="color"/>
-        <attr name="rangeCalendar_hoverOnSelectionColor" format="color"/>
+        <attr name="rangeCalendar_hoverAlpha" format="float"/>
         <attr name="rangeCalendar_cellSize" format="dimension"/>
         <attr name="rangeCalendar_cellWidth" format="dimension"/>
         <attr name="rangeCalendar_cellHeight" format="dimension"/>
