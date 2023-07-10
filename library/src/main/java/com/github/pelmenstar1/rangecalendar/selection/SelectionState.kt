@@ -14,7 +14,7 @@ interface SelectionState {
      * It does not implements [SelectionState] interface, because it might not have any selection type or definitive range.
      * But it should contain enough information to render itself on canvas.
      */
-    interface Transitive {
+    interface Transitive : SelectionState {
         /**
          * The state from which the transition starts.
          */
@@ -24,6 +24,8 @@ interface SelectionState {
          * The state to which the transition should come.
          */
         val end: SelectionState
+
+        val hasDefinitiveRange: Boolean
 
         /**
          * Determines whether selection determined by the transitive state overlays a cell specified by [cellIndex].

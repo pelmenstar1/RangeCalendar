@@ -43,6 +43,9 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
                 val newStartCellDist = lerp(state.startStateStartCellDistance, state.endStateStartCellDistance, fraction)
                 val newEndCellDist = lerp(state.startStateEndCellDistance, state.endStateEndCellDistance, fraction)
 
+                state.currentStartCellDistance = newStartCellDist
+                state.currentEndCellDistance = newEndCellDist
+
                 val newStartCell = measureManager.getCellAndPointByDistance(newStartCellDist, point)
                 val (newStartCellLeft, newStartCellTop) = point
 

@@ -13,6 +13,7 @@ import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.*
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
@@ -51,6 +52,10 @@ internal class RangeCalendarGridView(
 
     interface SelectionGate {
         fun range(range: CellRange): Boolean
+    }
+
+    private fun interface TickCallback {
+        fun onTick(fraction: Float)
     }
 
     private class TouchHelper(private val grid: RangeCalendarGridView) :
@@ -226,7 +231,7 @@ internal class RangeCalendarGridView(
     var onSelectionListener: OnSelectionListener? = null
     var selectionGate: SelectionGate? = null
 
-    private var selectionTransitionHandler: (() -> Unit)? = null
+    private var selectionTransitionHandler: TickCallback? = null
     private var onSelectionTransitionEnd: (() -> Unit)? = null
 
     private var selectionTransitiveState: SelectionState.Transitive? = null
@@ -235,6 +240,8 @@ internal class RangeCalendarGridView(
     private var selectionRenderer = selectionManager.renderer
     private var selectionRenderOptions: SelectionRenderOptions? = null
 
+    private var hoverAnimationHandler: TickCallback? = null
+
     private val cellMeasureManager = CellMeasureManagerImpl(this)
     private val cellPropertiesProvider = CellPropertiesProviderImpl(this)
     private val gestureEventHandler = GestureEventHandlerImpl(this)
@@ -242,10 +249,10 @@ internal class RangeCalendarGridView(
     private var gestureDetector: RangeCalendarGestureDetector? = null
 
     private var animType = 0
-    private var animFraction = 0f
     private var animator: ValueAnimator? = null
+
+    private var animationHandler: TickCallback? = null
     private var onAnimationEnd: (() -> Unit)? = null
-    private var animationHandler: (() -> Unit)? = null
 
     private val touchHelper = TouchHelper(this)
 
@@ -266,7 +273,7 @@ internal class RangeCalendarGridView(
     private var decorAnimFractionInterpolator: DecorAnimationFractionInterpolator? = null
     private var decorAnimatedCell = Cell.Undefined
     private var decorAnimatedRange = PackedIntRange(0)
-    private var decorAnimationHandler: (() -> Unit)? = null
+    private var decorAnimationHandler: TickCallback? = null
 
     init {
         ViewCompat.setAccessibilityDelegate(this, touchHelper)
@@ -291,6 +298,7 @@ internal class RangeCalendarGridView(
     private fun rrRadius(): Float = style.getFloat { CELL_ROUND_RADIUS }
     private fun cellWidth(): Float = style.getFloat { CELL_WIDTH }
     private fun cellHeight(): Float = style.getFloat { CELL_HEIGHT }
+    private fun hoverAlpha(): Float = style.getFloat { HOVER_ALPHA }
 
     private fun selectionFill() = style.getObject<Fill> { SELECTION_FILL }
     private fun selectionFillGradientBoundsType() =
@@ -700,35 +708,55 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun startSelectionTransition() {
-        val controller = selectionManager.transitionController
+    private fun createSelectionTransitionHandler(): TickCallback{
+        return TickCallback { fraction ->
+            selectionTransitiveState?.let { state ->
+                selectionManager.transitionController.handleTransition(
+                    state,
+                    cellMeasureManager,
+                    fraction
+                )
+            }
+        }
+    }
 
-        val handler = getLazyValue(
+    private fun getSelectionTransitionHandler(): TickCallback {
+        return getLazyValue(
             selectionTransitionHandler,
-            {
-                {
-                    controller.handleTransition(
-                        selectionTransitiveState!!,
-                        cellMeasureManager,
-                        animFraction
-                    )
-                }
-            },
-            { selectionTransitionHandler = it }
-        )
-        val onEnd = getLazyValue(
+            ::createSelectionTransitionHandler
+        ) { selectionTransitionHandler = it }
+    }
+
+    private fun getSelectionOnEndHandler(): () -> Unit {
+        return getLazyValue(
             onSelectionTransitionEnd,
             { { selectionTransitiveState = null } },
             { onSelectionTransitionEnd = it }
         )
+    }
+
+    private fun startSelectionTransition() {
+        val handler = getSelectionTransitionHandler()
+        val onEnd = getSelectionOnEndHandler()
+
+        val selManager = selectionManager
+
+        val isSelectionAnimRunning = animType == SELECTION_ANIMATION
+        val prevTransitiveState = selectionTransitiveState
+        var newTransitiveState = selManager.createTransition(cellMeasureManager, selectionRenderOptions!!)
+
+        if (isSelectionAnimRunning) {
+            if (prevTransitiveState != null && selManager.canJoinTransitions(prevTransitiveState, newTransitiveState)) {
+                newTransitiveState = selManager.joinTransitions(prevTransitiveState, newTransitiveState)
+            }
+        }
 
         // Before changing selectionTransitiveState, previous animation (which may be selection-like) should be stopped.
         endCalendarAnimation()
 
-        selectionTransitiveState =
-            selectionManager.createTransition(cellMeasureManager, selectionRenderOptions!!)
+        selectionTransitiveState = newTransitiveState
 
-        startCalendarAnimation(SELECTION_ANIMATION, handler, onEnd)
+        startCalendarAnimation(SELECTION_ANIMATION, isReversed = false, handler, onEnd)
     }
 
     private fun setHoverCell(cell: Cell) {
@@ -740,7 +768,7 @@ internal class RangeCalendarGridView(
         hoverCell = cell
 
         if (isHoverAnimationEnabled()) {
-            startCalendarAnimation(HOVER_ANIMATION)
+            startHoverAnimation(isReversed = false)
         } else {
             invalidate()
         }
@@ -751,11 +779,26 @@ internal class RangeCalendarGridView(
             hoverCell = Cell.Undefined
 
             if (isHoverAnimationEnabled()) {
-                startCalendarAnimation(HOVER_ANIMATION or ANIMATION_REVERSE_BIT)
+                startHoverAnimation(isReversed = true)
             } else {
                 invalidate()
             }
         }
+    }
+
+    private fun handleHoverAnimation(fraction: Float) {
+        val alpha = hoverAlpha() * fraction
+
+        cellHoverPaint.alpha = (alpha * 255f + 0.5f).toInt()
+    }
+
+    private fun startHoverAnimation(isReversed: Boolean) {
+        val handler = getLazyValue(
+            hoverAnimationHandler,
+            { TickCallback(::handleHoverAnimation) },
+        ) { hoverAnimationHandler = it }
+
+        startCalendarAnimation(HOVER_ANIMATION, isReversed, handler)
     }
 
     fun clearSelection(fireEvent: Boolean, withAnimation: Boolean) {
@@ -872,6 +915,7 @@ internal class RangeCalendarGridView(
 
             startCalendarAnimation(
                 DECOR_ANIMATION,
+                isReversed = false,
                 handler = getDecorAnimationHandler(),
                 onEnd = {
                     val transitive = decorVisualStates[cell] as CellDecor.VisualState.Transitive
@@ -935,6 +979,7 @@ internal class RangeCalendarGridView(
 
             startCalendarAnimation(
                 DECOR_ANIMATION,
+                isReversed = false,
                 handler = getDecorAnimationHandler(),
                 onEnd = {
                     val transitive = decorVisualStates[cell] as CellDecor.VisualState.Transitive
@@ -977,6 +1022,7 @@ internal class RangeCalendarGridView(
 
             startCalendarAnimation(
                 DECOR_ANIMATION,
+                isReversed = false,
                 handler = getDecorAnimationHandler(),
                 onEnd = {
                     val transitive = decorVisualStates[cell] as CellDecor.VisualState.Transitive
@@ -1006,7 +1052,8 @@ internal class RangeCalendarGridView(
     // It could be startAnimation(), but this name would interfere with View's startAnimation(Animation)
     private fun startCalendarAnimation(
         type: Int,
-        handler: (() -> Unit)? = null,
+        isReversed: Boolean,
+        handler: TickCallback?,
         onEnd: (() -> Unit)? = null
     ) {
         var animator = animator
@@ -1015,18 +1062,18 @@ internal class RangeCalendarGridView(
         animType = type
         onAnimationEnd = onEnd
         animationHandler = handler
-        animFraction = if ((animType and ANIMATION_REVERSE_BIT) != 0) 1f else 0f
 
         if (animator == null) {
-            animator = AnimationHelper.createFractionAnimator { value: Float ->
-                animFraction = value
-                animationHandler?.invoke()
+            animator = AnimationHelper.createFractionAnimator { fraction ->
+                Log.i("RangeCalendarGridView", "onTick: $fraction")
+                animationHandler?.onTick(fraction)
 
                 invalidate()
             }
 
             animator.addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(a: Animator) {
+                    Log.i("RangeCalendarView", "onAnimationEnd")
                     animType = NO_ANIMATION
                     onAnimationEnd?.invoke()
 
@@ -1037,7 +1084,7 @@ internal class RangeCalendarGridView(
             this.animator = animator
         }
 
-        if (type and ANIMATION_DATA_MASK == HOVER_ANIMATION) {
+        if (type == HOVER_ANIMATION) {
             animator.duration = hoverAnimationDuration().toLong()
             animator.interpolator = hoverAnimationInterpolator()
         } else {
@@ -1045,7 +1092,7 @@ internal class RangeCalendarGridView(
             animator.interpolator = commonAnimationInterpolator()
         }
 
-        if ((type and ANIMATION_REVERSE_BIT) != 0) {
+        if (isReversed) {
             animator.reverse()
         } else {
             animator.start()
@@ -1077,7 +1124,7 @@ internal class RangeCalendarGridView(
         val renderer = selectionRenderer
         val options = selectionRenderOptions!!
 
-        if ((animType and ANIMATION_DATA_MASK) == SELECTION_ANIMATION) {
+        if (animType == SELECTION_ANIMATION) {
             selectionTransitiveState?.let {
                 canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
                     renderer.drawTransition(canvas, it, options)
@@ -1100,18 +1147,10 @@ internal class RangeCalendarGridView(
     }
 
     private fun drawHover(c: Canvas) {
-        val isHoverAnimation = (animType and ANIMATION_DATA_MASK) == HOVER_ANIMATION
+        val isHoverAnimation = animType == HOVER_ANIMATION
 
         if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
             val cell = if (isHoverAnimation) animationHoverCell else hoverCell
-
-            var alpha = style.getFloat { HOVER_ALPHA }
-
-            if (isHoverAnimation) {
-                alpha *= animFraction
-            }
-
-            cellHoverPaint.alpha = (alpha * 255f + 0.5f).toInt()
 
             val halfCellWidth = cellWidth() * 0.5f
             val cellHeight = cellHeight()
@@ -1230,20 +1269,20 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun getDecorAnimationHandler(): () -> Unit {
+    private fun getDecorAnimationHandler(): TickCallback {
         return getLazyValue(
             decorAnimationHandler,
-            { this::handleDecorationAnimation },
+            { TickCallback(::handleDecorationAnimation) },
             { decorAnimationHandler = it }
         )
     }
 
-    private fun handleDecorationAnimation() {
-        if ((animType and ANIMATION_DATA_MASK) == DECOR_ANIMATION) {
+    private fun handleDecorationAnimation(fraction: Float) {
+        if (animType == DECOR_ANIMATION) {
             val state = decorVisualStates[decorAnimatedCell]
 
             if (state is CellDecor.VisualState.Transitive) {
-                state.handleAnimation(animFraction, decorAnimFractionInterpolator!!)
+                state.handleAnimation(fraction, decorAnimFractionInterpolator!!)
             }
         }
     }
@@ -1451,9 +1490,6 @@ internal class RangeCalendarGridView(
         private val ALL_SELECTED = CellRange(0, 42)
 
         private const val TAG = "RangeCalendarGridView"
-
-        private const val ANIMATION_REVERSE_BIT = 1 shl 31
-        private const val ANIMATION_DATA_MASK = ANIMATION_REVERSE_BIT.inv()
 
         private const val NO_ANIMATION = 0
         private const val SELECTION_ANIMATION = 1

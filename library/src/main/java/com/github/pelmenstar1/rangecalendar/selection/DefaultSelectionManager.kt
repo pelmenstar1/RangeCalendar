@@ -219,4 +219,28 @@ internal class DefaultSelectionManager : SelectionManager {
             DefaultSelectionState.DualAlpha(prevState, currentState)
         }
     }
+
+    override fun canJoinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive): Boolean {
+        return when {
+            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> true
+            else -> false
+        }
+    }
+
+    override fun joinTransitions(
+        current: SelectionState.Transitive,
+        end: SelectionState.Transitive
+    ): SelectionState.Transitive {
+        return when {
+            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> {
+                DefaultSelectionState.RangeToRange(
+                    current, end,
+                    current.currentStartCellDistance, current.currentEndCellDistance,
+                    end.endStateStartCellDistance, end.endStateEndCellDistance,
+                    current.shapeInfo // reuse shapeInfo from the start state.
+                )
+            }
+            else -> throw RuntimeException("Unexpected joining transitions")
+        }
+    }
 }
