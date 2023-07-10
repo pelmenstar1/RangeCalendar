@@ -56,7 +56,7 @@ internal class WeekdayRow(
         val widths = currentWidths
         var maxHeight = -1
 
-        textPaint.getTextBoundsArray(_weekdays, start = 0, end = 7) { i, width, height ->
+        textPaint.getTextBoundsArray(_weekdays) { i, width, height ->
             maxHeight = max(maxHeight, height)
             widths[i] = width.toFloat()
         }

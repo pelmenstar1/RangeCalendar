@@ -1224,7 +1224,7 @@ internal class RangeCalendarGridView(
                 dayNumberSizes = sizes
             }
 
-            dayNumberPaint.getTextBoundsArray(CalendarResources.DAYS, 0, 31) { i, width, height ->
+            dayNumberPaint.getTextBoundsArray(CalendarResources.DAYS) { i, width, height ->
                 sizes[i] = PackedSize(width, height)
             }
         }

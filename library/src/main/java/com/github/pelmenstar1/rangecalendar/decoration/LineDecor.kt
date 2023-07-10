@@ -191,6 +191,7 @@ class LineDecor(val style: Style) : CellDecor() {
         private val emptyLineState = LineVisualState(FloatArray(0), emptyArray())
 
         private val rect = RectF()
+        private val tempPaint = Paint()
 
         private var defaultDecorBlockPadding: Padding? = null
         private var defaultDecorPadding: Padding? = null
@@ -341,9 +342,15 @@ class LineDecor(val style: Style) : CellDecor() {
                 setRectFromObject(linesAndTextBoundsArray, i * 4, rect)
                 style.fill.setSize(rect.width(), rect.height())
 
-                if (style.text != null) {
-                    val textSize = getTextBounds(style.text, style.textSize, style.textTypeface)
-                    val (textWidth, textHeight) = textSize
+                val text = style.text
+
+                if (text != null) {
+                    tempPaint.apply {
+                        textSize = style.textSize
+                        typeface = style.textTypeface
+                    }
+
+                    val (textWidth, textHeight) = tempPaint.getTextBounds(text)
 
                     val textX = when (style.textAlignment) {
                         HorizontalAlignment.LEFT -> {

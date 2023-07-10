@@ -3,6 +3,7 @@ package com.github.pelmenstar1.rangecalendar
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Paint
 import androidx.core.graphics.alpha
 import com.github.pelmenstar1.rangecalendar.utils.getColorFromAttribute
 import com.github.pelmenstar1.rangecalendar.utils.getColorStateListFromAttribute
@@ -50,7 +51,14 @@ internal class CalendarResources(context: Context) {
         weekdayRowMarginBottom = res.getDimension(R.dimen.rangeCalendar_weekdayRowMarginBottom)
 
         // Compute text size of numbers in [0; 31]
-        defaultDayNumberSizes = getTextBoundsArray(DAYS, dayNumberTextSize)
+        val paint = Paint().apply {
+            textSize = dayNumberTextSize
+        }
+
+        defaultDayNumberSizes = PackedSizeArray(31)
+        paint.getTextBoundsArray(DAYS) { i, width, height ->
+            defaultDayNumberSizes[i] = PackedSize(width, height)
+        }
 
         defaultWeekdayData = WeekdayData.get(context.getLocaleCompat())
     }
