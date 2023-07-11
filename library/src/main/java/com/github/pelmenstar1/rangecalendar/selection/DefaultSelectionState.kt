@@ -1,7 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.RectF
-import com.github.pelmenstar1.rangecalendar.utils.rangeContains
 
 internal interface SelectionShapeBasedState : SelectionState {
     val shapeInfo: SelectionShapeInfo
@@ -141,31 +140,19 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val hasDefinitiveRange: Boolean
             get() = true
 
-        override var rangeStart: Int = 0
-        override var rangeEnd: Int = 0
+        override val rangeStart: Int
+            get() = cell
+
+        override val rangeEnd: Int
+            get() = cell
 
         var left: Float = Float.NaN
         var top: Float = Float.NaN
 
+        var cell: Int = 0
+
         override fun overlaysCell(cellIndex: Int): Boolean {
-            val startCell = start.startCell
-            val endCell = end.startCell
-
-            val cellX = Cell(cellIndex).gridX
-            val cellY = Cell(cellIndex).gridY
-
-            val startX = startCell.gridX
-            val startY = startCell.gridY
-
-            val endX = endCell.gridX
-            val endY = endCell.gridY
-
-            return if (startY == endY) {
-                cellY == startY && rangeContains(startX, endX, cellX)
-            } else {
-                // Then cells have same x on grid.
-                cellX == startX && rangeContains(startY, endY, cellY)
-            }
+            return cell == cellIndex
         }
     }
 

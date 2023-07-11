@@ -70,10 +70,12 @@ abstract class RangeCalendarGestureDetector {
         cellPropertiesProvider.isSelectableCell(cell)
 
     /**
-     * Shortcut for `measureManager.getCellAt(x, y)`
+     * Shortcut for `measureManager.getCellAt(x, y, CellMeasureManager.Coordinate.VIEW)`.
+     *
+     * The relativity is [CellMeasureManager.CoordinateRelativity.VIEW] by default as the coordinates in [MotionEvent]s are relative to the view.
      */
     protected fun getCellAt(x: Float, y: Float): Int =
-        measureManager.getCellAt(x, y)
+        measureManager.getCellAt(x, y, CellMeasureManager.CoordinateRelativity.VIEW)
 
     /**
      * Shortcut for `gestureEventHandler.reportStartHovering(cell)`

@@ -64,7 +64,7 @@ internal class RangeCalendarGridView(
 
         override fun getVirtualViewAt(x: Float, y: Float): Int {
             return if (grid.isXInActiveZone(x) && y > grid.gridTop()) {
-                grid.getCellByPointOnScreen(x, y).index
+                grid.getCellByPointOnScreen(x, y, CellMeasureManager.CoordinateRelativity.VIEW)
             } else {
                 INVALID_ID
             }
@@ -167,8 +167,8 @@ internal class RangeCalendarGridView(
         override fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int =
             view.getCellAndPointByCellDistanceRelativeToGrid(distance, outPoint)
 
-        override fun getCellAt(x: Float, y: Float): Int =
-            view.getCellByPointOnScreen(x, y).index
+        override fun getCellAt(x: Float, y: Float, relativity: CellMeasureManager.CoordinateRelativity): Int =
+            view.getCellByPointOnScreen(x, y, relativity)
 
         override fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float =
             view.getRelativeAnchorValue(anchor)
@@ -1433,18 +1433,31 @@ internal class RangeCalendarGridView(
         return gridY * 7 + gridX
     }
 
-    private fun getCellByPointOnScreen(x: Float, y: Float): Cell {
+    private fun getCellByPointOnScreen(x: Float, y: Float, relativity: CellMeasureManager.CoordinateRelativity): Int {
+        var translatedX = x
+        var translatedY = y
+
         val hPadding = cr.hPadding
         val gridTop = gridTop()
 
-        if (x < hPadding || x > width - hPadding || y < gridTop) {
-            return Cell.Undefined
+        val rowWidth = rowWidth()
+        val columnWidth = rowWidth / 7f
+        val gridHeight = height - gridTop
+
+        if (relativity == CellMeasureManager.CoordinateRelativity.VIEW) {
+            // Translate to grid's coordinates
+            translatedX -= hPadding
+            translatedY -= gridTop
         }
 
-        val gridX = ((x - hPadding) / columnWidth()).toInt()
-        val gridY = ((y - gridTop) / cellHeight()).toInt()
+        if (translatedX !in 0f..rowWidth || translatedY !in 0f..gridHeight) {
+            return -1
+        }
 
-        return Cell(gridY * 7 + gridX)
+        val gridX = (translatedX / columnWidth).toInt()
+        val gridY = (translatedY / cellHeight()).toInt()
+
+        return gridY * 7 + gridX
     }
 
     private fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float {

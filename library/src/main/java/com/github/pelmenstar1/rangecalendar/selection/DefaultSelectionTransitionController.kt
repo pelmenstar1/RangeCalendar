@@ -8,7 +8,11 @@ import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 import com.github.pelmenstar1.rangecalendar.utils.lerp
 
 class DefaultSelectionTransitionController : SelectionTransitionController {
-    override fun handleTransition(state: SelectionState.Transitive, measureManager: CellMeasureManager, fraction: Float) {
+    override fun handleTransition(
+        state: SelectionState.Transitive,
+        measureManager: CellMeasureManager,
+        fraction: Float
+    ) {
         when (state) {
             // Cell transitions
             is DefaultSelectionState.AppearAlpha -> {
@@ -35,12 +39,22 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
                 val start = state.start.shapeInfo
                 val end = state.end.shapeInfo
 
-                state.left = lerp(start.startLeft, end.startLeft, fraction)
-                state.top = lerp(start.startTop, end.startTop, fraction)
+                val currentLeft = lerp(start.startLeft, end.startLeft, fraction)
+                val currentTop = lerp(start.startTop, end.startTop, fraction)
+
+                state.left = currentLeft
+                state.top = currentTop
+
+                state.cell = measureManager.getCellAt(
+                    currentLeft,
+                    currentTop,
+                    relativity = CellMeasureManager.CoordinateRelativity.GRID
+                )
             }
 
             is DefaultSelectionState.RangeToRange -> {
-                val newStartCellDist = lerp(state.startStateStartCellDistance, state.endStateStartCellDistance, fraction)
+                val newStartCellDist =
+                    lerp(state.startStateStartCellDistance, state.endStateStartCellDistance, fraction)
                 val newEndCellDist = lerp(state.startStateEndCellDistance, state.endStateEndCellDistance, fraction)
 
                 state.currentStartCellDistance = newStartCellDist

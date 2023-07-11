@@ -8,6 +8,11 @@ import android.graphics.PointF
  * **API surface of this class is not stable and new members might be added or removed.**
  */
 interface CellMeasureManager {
+    enum class CoordinateRelativity {
+        VIEW,
+        GRID
+    }
+
     /**
      * Width of cell (in pixels).
      */
@@ -24,7 +29,7 @@ interface CellMeasureManager {
     val roundRadius: Float
 
     /**
-     * Gets x-axis value of the coordinate that specifies left corner of the cell.
+     * Gets x-axis value of the coordinate that specifies left corner of the cell. The coordinate is relative to the grid.
      *
      * @param cellIndex index of the cell, should be in range 0..41
      * @throws IllegalArgumentException if [cellIndex] is out of the range 0..41
@@ -32,7 +37,7 @@ interface CellMeasureManager {
     fun getCellLeft(cellIndex: Int): Float
 
     /**
-     * Gets y-axis value of the coordinate that specifies top corner of the cell.
+     * Gets y-axis value of the coordinate that specifies top corner of the cell. The coordinate is relative to the grid.
      *
      * @param cellIndex index of the cell, should be in range 0..41
      * @throws IllegalArgumentException if [cellIndex] is out of the range 0..41
@@ -50,6 +55,7 @@ interface CellMeasureManager {
 
     /**
      * Gets points on the calendar view and cell's index nearest to the point by cell [distance]. The point is set to [outPoint].
+     * The coordinates of the point are relative to the grid.
      *
      * @param distance cell distance, expected to be non-negative
      * @param outPoint the resulting point is set to this point
@@ -59,9 +65,9 @@ interface CellMeasureManager {
     fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int
 
     /**
-     * Gets index of a cell nearest to a point with specified coordinates. If there's no such cell, returns `-1`
+     * Gets index of a cell nearest to a point with specified coordinates. If there's no such cell, returns `-1`.
      */
-    fun getCellAt(x: Float, y: Float): Int
+    fun getCellAt(x: Float, y: Float, relativity: CoordinateRelativity): Int
 
     /**
      * Returns the absolute value of a dimension specified by the [anchor].
