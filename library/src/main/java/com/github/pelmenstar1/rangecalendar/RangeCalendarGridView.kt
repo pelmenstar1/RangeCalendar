@@ -795,7 +795,7 @@ internal class RangeCalendarGridView(
     private fun startHoverAnimation(isReversed: Boolean) {
         val handler = getLazyValue(
             hoverAnimationHandler,
-            { TickCallback(::handleHoverAnimation) },
+            { TickCallback { handleHoverAnimation(it) } },
         ) { hoverAnimationHandler = it }
 
         startCalendarAnimation(HOVER_ANIMATION, isReversed, handler)
@@ -1272,7 +1272,7 @@ internal class RangeCalendarGridView(
     private fun getDecorAnimationHandler(): TickCallback {
         return getLazyValue(
             decorAnimationHandler,
-            { TickCallback(::handleDecorationAnimation) },
+            { TickCallback { handleDecorationAnimation(it) } },
             { decorAnimationHandler = it }
         )
     }
