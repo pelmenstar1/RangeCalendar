@@ -1,5 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
+import android.util.Log
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
@@ -68,20 +69,25 @@ internal class DefaultSelectionManager : SelectionManager {
         val startLeft = measureManager.getCellLeft(rangeStart)
         val startTop = measureManager.getCellTop(rangeStart)
 
-        val endRight = measureManager.getCellLeft(rangeEnd) + cellWidth
-        val endTop = measureManager.getCellTop(rangeEnd)
+        val endRight: Float
+        val endTop: Float
+
+        if (rangeStart == rangeEnd) {
+            endRight = startLeft + cellWidth
+            endTop = startTop
+        } else {
+            endRight = measureManager.getCellLeft(rangeEnd) + cellWidth
+            endTop = measureManager.getCellTop(rangeEnd)
+        }
 
         val firstCellOnRowLeft = measureManager.getCellLeft(0)
         val lastCellOnRowRight = measureManager.getCellLeft(6) + cellWidth
-
-        val gridTop = measureManager.getCellTop(0)
 
         val pathInfo = SelectionShapeInfo(
             range = CellRange(rangeStart, rangeEnd),
             startLeft, startTop,
             endRight, endTop,
             firstCellOnRowLeft, lastCellOnRowRight,
-            gridTop,
             cellWidth, cellHeight,
             measureManager.roundRadius
         )
@@ -141,7 +147,7 @@ internal class DefaultSelectionManager : SelectionManager {
                 val currentCell = Cell(currentStart)
 
                 if (prevCell.sameX(currentCell) || prevCell.sameY(currentCell)) {
-                    DefaultSelectionState.CellMoveToCell(prevState, currentState)
+                    createCellMoveToCellTransition(prevState, currentState)
                 } else {
                     when (options.cellAnimationType) {
                         CellAnimationType.ALPHA ->
@@ -164,6 +170,62 @@ internal class DefaultSelectionManager : SelectionManager {
         }
     }
 
+    override fun canJoinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive): Boolean {
+        return when {
+            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> true
+            current is DefaultSelectionState.CellMoveToCell && end is DefaultSelectionState.CellMoveToCell -> {
+                val currentStateStart = Cell(current.start.rangeStart)
+                val currentStateEnd = Cell(current.end.rangeStart)
+
+                val endStateStart = Cell(end.start.rangeStart)
+                val endStateEnd = Cell(end.end.rangeStart)
+
+                val currentStateStartY = currentStateStart.gridY
+                val currentStateEndY = currentStateEnd.gridY
+
+                val endStateStartY = endStateStart.gridY
+                val endStateEndY = endStateEnd.gridY
+
+                // We can only join cell-move-to-cell transitions if they're both moving on single row or column
+                // and column/row of the current transition is the same as column/row of the end transition.
+                val result = if (currentStateStartY == currentStateEndY) {
+                    currentStateStartY == endStateStartY && endStateStartY == endStateEndY
+                }  else {
+                    currentStateStart.sameX(endStateStart)
+                }
+
+                //Log.i("DefaultSelectionManager", "canJoinTransitions: $result")
+
+                result
+            }
+            else -> false
+        }
+    }
+
+    override fun joinTransitions(
+        current: SelectionState.Transitive,
+        end: SelectionState.Transitive
+    ): SelectionState.Transitive {
+        return when {
+            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> {
+                DefaultSelectionState.RangeToRange(
+                    current, end,
+                    current.currentStartCellDistance, current.currentEndCellDistance,
+                    end.endStateStartCellDistance, end.endStateEndCellDistance,
+                    current.shapeInfo // reuse shapeInfo from the start state.
+                )
+            }
+            current is DefaultSelectionState.CellMoveToCell && end is DefaultSelectionState.CellMoveToCell -> {
+                createCellMoveToCellTransition(current, end.end)
+            }
+            else -> throw RuntimeException("Unexpected joining transitions")
+        }
+    }
+
+    private fun isCellMoveToCellTransitionOnX(state: DefaultSelectionState.CellMoveToCell): Boolean {
+        return state.start.shapeInfo.range.start.sameY(state.end.shapeInfo.range.end)
+    }
+
     private fun createCellAppearTransition(
         state: DefaultSelectionState,
         options: SelectionRenderOptions,
@@ -173,6 +235,28 @@ internal class DefaultSelectionManager : SelectionManager {
             CellAnimationType.ALPHA -> DefaultSelectionState.AppearAlpha(state, isReversed)
             CellAnimationType.BUBBLE -> DefaultSelectionState.CellAppearBubble(state, isReversed)
         }
+    }
+
+    private fun createCellMoveToCellTransition(
+        startState: SelectionShapeBasedState,
+        endState: SelectionShapeBasedState
+    ): DefaultSelectionState.CellMoveToCell {
+        val startShapeInfo = startState.shapeInfo
+
+        //Log.i("DefaultSelectionManager", "cmtc (create): start.left=${startShapeInfo.startLeft}")
+
+        val shapeInfo = SelectionShapeInfo(
+            range = CellRange.Invalid,
+            // startLeft and startTop are changed on the first animation frame.
+            startLeft = 0f, startTop = 0f,
+            // endRight, endTop, firstCellOnRowLeft, lastCellOnRowRight are not used in cell-move-to-cell transition
+            endRight = 0f, endTop = 0f,
+            firstCellOnRowLeft = 0f, lastCellOnRowRight = 0f,
+            cellWidth = startShapeInfo.cellWidth, cellHeight = startShapeInfo.cellHeight,
+            roundRadius = startShapeInfo.roundRadius
+        )
+
+        return DefaultSelectionState.CellMoveToCell(startState, endState, shapeInfo)
     }
 
     private fun createRangeToRangeTransition(
@@ -201,7 +285,6 @@ internal class DefaultSelectionManager : SelectionManager {
                 // These are not supposed to be changed during the animation. Init them now.
                 firstCellOnRowLeft = prevShapeInfo.firstCellOnRowLeft
                 lastCellOnRowRight = prevShapeInfo.lastCellOnRowRight
-                gridTop = prevShapeInfo.gridTop
 
                 cellWidth = cw
                 cellHeight = measureManager.cellHeight
@@ -217,30 +300,6 @@ internal class DefaultSelectionManager : SelectionManager {
             )
         } else {
             DefaultSelectionState.DualAlpha(prevState, currentState)
-        }
-    }
-
-    override fun canJoinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive): Boolean {
-        return when {
-            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> true
-            else -> false
-        }
-    }
-
-    override fun joinTransitions(
-        current: SelectionState.Transitive,
-        end: SelectionState.Transitive
-    ): SelectionState.Transitive {
-        return when {
-            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> {
-                DefaultSelectionState.RangeToRange(
-                    current, end,
-                    current.currentStartCellDistance, current.currentEndCellDistance,
-                    end.endStateStartCellDistance, end.endStateEndCellDistance,
-                    current.shapeInfo // reuse shapeInfo from the start state.
-                )
-            }
-            else -> throw RuntimeException("Unexpected joining transitions")
         }
     }
 }

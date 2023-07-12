@@ -13,7 +13,6 @@ import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.*
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
@@ -708,7 +707,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun createSelectionTransitionHandler(): TickCallback{
+    private fun createSelectionTransitionHandler(): TickCallback {
         return TickCallback { fraction ->
             selectionTransitiveState?.let { state ->
                 selectionManager.transitionController.handleTransition(
@@ -745,18 +744,33 @@ internal class RangeCalendarGridView(
         val prevTransitiveState = selectionTransitiveState
         var newTransitiveState = selManager.createTransition(cellMeasureManager, selectionRenderOptions!!)
 
+        var cancelAnim = false
+
         if (isSelectionAnimRunning) {
             if (prevTransitiveState != null && selManager.canJoinTransitions(prevTransitiveState, newTransitiveState)) {
                 newTransitiveState = selManager.joinTransitions(prevTransitiveState, newTransitiveState)
+
+                // Ending animation causes end value of the animation to be assigned. But if we joining transitions,
+                // the transition between unfinished transition and end one is expected to be seamless. Thus, we shouldn't
+                // handle the end value of the animation.
+                cancelAnim = true
             }
         }
 
-        // Before changing selectionTransitiveState, previous animation (which may be selection-like) should be stopped.
-        endCalendarAnimation()
+        if (cancelAnim) {
+            cancelCalendarAnimation()
+        } else {
+            endCalendarAnimation()
+        }
 
         selectionTransitiveState = newTransitiveState
 
-        startCalendarAnimation(SELECTION_ANIMATION, isReversed = false, handler, onEnd)
+        startCalendarAnimation(
+            SELECTION_ANIMATION,
+            isReversed = false,
+            handler, onEnd,
+            endPrevAnimation = false
+        )
     }
 
     private fun setHoverCell(cell: Cell) {
@@ -1049,15 +1063,27 @@ internal class RangeCalendarGridView(
         }
     }
 
+    private fun cancelCalendarAnimation() {
+        animator?.let {
+            if (it.isRunning) {
+                it.cancel()
+            }
+        }
+    }
+
     // It could be startAnimation(), but this name would interfere with View's startAnimation(Animation)
     private fun startCalendarAnimation(
         type: Int,
         isReversed: Boolean,
         handler: TickCallback?,
-        onEnd: (() -> Unit)? = null
+        onEnd: (() -> Unit)? = null,
+        endPrevAnimation: Boolean = true
     ) {
         var animator = animator
-        endCalendarAnimation()
+
+        if (endPrevAnimation) {
+            endCalendarAnimation()
+        }
 
         animType = type
         onAnimationEnd = onEnd
@@ -1065,7 +1091,7 @@ internal class RangeCalendarGridView(
 
         if (animator == null) {
             animator = AnimationHelper.createFractionAnimator { fraction ->
-                Log.i("RangeCalendarGridView", "onTick: $fraction")
+                //Log.i("RangeCalendarGridView", "onTick: $fraction")
                 animationHandler?.onTick(fraction)
 
                 invalidate()
@@ -1073,7 +1099,7 @@ internal class RangeCalendarGridView(
 
             animator.addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(a: Animator) {
-                    Log.i("RangeCalendarView", "onAnimationEnd")
+                    //Log.i("RangeCalendarView", "onAnimationEnd")
                     animType = NO_ANIMATION
                     onAnimationEnd?.invoke()
 

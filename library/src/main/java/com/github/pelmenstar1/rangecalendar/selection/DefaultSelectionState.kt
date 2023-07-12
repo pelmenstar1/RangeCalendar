@@ -134,25 +134,21 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
     }
 
     class CellMoveToCell(
-        override val start: DefaultSelectionState,
-        override val end: DefaultSelectionState
-    ) : SelectionState.Transitive {
+        override val start: SelectionShapeBasedState,
+        override val end: SelectionShapeBasedState,
+        override val shapeInfo: SelectionShapeInfo
+    ) : SelectionShapeBasedState, SelectionState.Transitive {
         override val hasDefinitiveRange: Boolean
             get() = true
 
         override val rangeStart: Int
-            get() = cell
+            get() = shapeInfo.range.start.index
 
         override val rangeEnd: Int
-            get() = cell
-
-        var left: Float = Float.NaN
-        var top: Float = Float.NaN
-
-        var cell: Int = 0
+            get() = rangeStart
 
         override fun overlaysCell(cellIndex: Int): Boolean {
-            return cell == cellIndex
+            return rangeStart == cellIndex
         }
     }
 

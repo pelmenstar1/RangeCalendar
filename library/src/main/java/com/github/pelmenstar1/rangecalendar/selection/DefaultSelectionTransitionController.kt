@@ -2,6 +2,7 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.PointF
 import android.graphics.RectF
+import android.util.Log
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
@@ -36,20 +37,24 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
-                val start = state.start.shapeInfo
-                val end = state.end.shapeInfo
+                val startShapeInfo = state.start.shapeInfo
+                val endShapeInfo = state.end.shapeInfo
+                val currentShapeInfo = state.shapeInfo
 
-                val currentLeft = lerp(start.startLeft, end.startLeft, fraction)
-                val currentTop = lerp(start.startTop, end.startTop, fraction)
+                val currentLeft = lerp(startShapeInfo.startLeft, endShapeInfo.startLeft, fraction)
+                val currentTop = lerp(startShapeInfo.startTop, endShapeInfo.startTop, fraction)
 
-                state.left = currentLeft
-                state.top = currentTop
+                currentShapeInfo.startLeft = currentLeft
+                currentShapeInfo.startTop = currentTop
 
-                state.cell = measureManager.getCellAt(
-                    currentLeft,
-                    currentTop,
+                //Log.i("TransitionController", "cmtc (trans): currentLeft: $currentLeft | start.left=${startShapeInfo.startLeft} end.left=${endShapeInfo.startLeft} fraction=$fraction")
+
+                val cell = measureManager.getCellAt(
+                    currentLeft, currentTop,
                     relativity = CellMeasureManager.CoordinateRelativity.GRID
                 )
+
+                currentShapeInfo.range = CellRange.single(cell)
             }
 
             is DefaultSelectionState.RangeToRange -> {
