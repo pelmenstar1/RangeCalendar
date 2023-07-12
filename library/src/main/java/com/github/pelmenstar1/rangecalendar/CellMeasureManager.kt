@@ -64,6 +64,12 @@ interface CellMeasureManager {
      */
     fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int
 
+    /**
+     * Gets 'cell distance' using a point ([x], [y]) relative to the grid.
+     * The [x] can be arbitrary but the [y] **must** be aligned to the row's top point.
+     *
+     * @see getCellDistance
+     */
     fun getCellDistanceByPoint(x: Float, y: Float): Float
 
     /**

@@ -63,9 +63,27 @@ interface SelectionManager {
         options: SelectionRenderOptions
     ): SelectionState.Transitive
 
+    /**
+     * Returns whether two transitions can be joined into another transition
+     * that starts from the visual state of [current] transition and ends in the end state of [end] transition.
+     */
     fun canJoinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive): Boolean
 
-    fun joinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive, measureManager: CellMeasureManager): SelectionState.Transitive
+    /**
+     * Joins [current] and [end] transition into a transition
+     * that starts from the visual state of [current] transition and ends in the end state of [end] transition.
+     * Note that the resulting transition may be used in [joinTransitions] again as a [current] transition.
+     *
+     * The method can only be called when [canJoinTransitions] returns `true` on those transitive states.
+     *
+     * The implementation is allowed to mutate and reuse internal information of [current] and/or [end] transitions.
+     * Thus, after creating the joined transition, the calling code can't use [current] and [end] transitions.
+     */
+    fun joinTransitions(
+        current: SelectionState.Transitive,
+        end: SelectionState.Transitive,
+        measureManager: CellMeasureManager
+    ): SelectionState.Transitive
 }
 
 internal fun SelectionManager.setState(
