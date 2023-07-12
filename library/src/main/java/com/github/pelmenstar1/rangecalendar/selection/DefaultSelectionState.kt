@@ -6,6 +6,9 @@ internal interface SelectionShapeBasedState : SelectionState {
     val shapeInfo: SelectionShapeInfo
 }
 
+internal val SelectionShapeBasedState.range: CellRange
+    get() = shapeInfo.range
+
 internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo) : SelectionShapeBasedState {
     override val rangeStart: Int
         get() = shapeInfo.range.start.index

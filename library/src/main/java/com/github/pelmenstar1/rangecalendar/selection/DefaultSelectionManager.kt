@@ -173,11 +173,8 @@ internal class DefaultSelectionManager : SelectionManager {
         return when {
             current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> true
             current is DefaultSelectionState.CellMoveToCell && end is DefaultSelectionState.CellMoveToCell -> {
-                val currentStateStart = Cell(current.start.rangeStart)
-                val currentStateEnd = Cell(current.end.rangeStart)
-
-                val endStateStart = Cell(end.start.rangeStart)
-                val endStateEnd = Cell(end.end.rangeStart)
+                val (currentStateStart, currentStateEnd) = current.start.range
+                val (endStateStart, endStateEnd) = end.end.range
 
                 val currentStateStartY = currentStateStart.gridY
                 val currentStateEndY = currentStateEnd.gridY
@@ -262,7 +259,7 @@ internal class DefaultSelectionManager : SelectionManager {
     }
 
     private fun isCellMoveToCellTransitionOnRow(state: DefaultSelectionState.CellMoveToCell): Boolean {
-        return state.start.shapeInfo.range.start.sameY(state.end.shapeInfo.range.start)
+        return state.start.range.start.sameY(state.end.range.start)
     }
 
     private fun createCellAppearTransition(
