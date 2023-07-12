@@ -182,15 +182,20 @@ internal class DefaultSelectionManager : SelectionManager {
                 val currentStateStartY = currentStateStart.gridY
                 val currentStateEndY = currentStateEnd.gridY
 
-                val endStateStartY = endStateStart.gridY
-                val endStateEndY = endStateEnd.gridY
-
                 // We can only join cell-move-to-cell transitions if they're both moving on single row or column
                 // and column/row of the current transition is the same as column/row of the end transition.
                 if (currentStateStartY == currentStateEndY) {
+                    val endStateStartY = endStateStart.gridY
+                    val endStateEndY = endStateEnd.gridY
+
                     currentStateStartY == endStateStartY && endStateStartY == endStateEndY
                 } else {
-                    currentStateStart.sameX(endStateStart)
+                    val currentStateStartX = currentStateStart.gridX
+
+                    val endStateStartX = endStateStart.gridX
+                    val endStateEndX = endStateEnd.gridX
+
+                    currentStateStartX == endStateStartX && endStateStartX == endStateEndX
                 }
             }
 
