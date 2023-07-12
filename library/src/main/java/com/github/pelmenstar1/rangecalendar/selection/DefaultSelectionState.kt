@@ -31,7 +31,7 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val rangeEnd: Int
             get() = shapeInfo.range.end.index
 
-        override val hasDefinitiveRange: Boolean
+        override val isRangeDefined: Boolean
             get() = true
 
         var currentStartCellDistance = 0f
@@ -58,7 +58,7 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val rangeEnd: Int
             get() = baseState.rangeEnd
 
-        override val hasDefinitiveRange: Boolean
+        override val isRangeDefined: Boolean
             get() = true
 
         var alpha = 0f
@@ -81,7 +81,7 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val rangeEnd: Int
             get() = throwUndefinedRange()
 
-        override val hasDefinitiveRange: Boolean
+        override val isRangeDefined: Boolean
             get() = false
 
         override fun overlaysCell(cellIndex: Int): Boolean {
@@ -99,7 +99,7 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val end: SelectionState
             get() = baseState
 
-        override val hasDefinitiveRange: Boolean
+        override val isRangeDefined: Boolean
             get() = true
 
         override val rangeStart: Int
@@ -119,7 +119,7 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val start: DefaultSelectionState,
         override val end: DefaultSelectionState
     ) : SelectionState.Transitive {
-        override val hasDefinitiveRange: Boolean
+        override val isRangeDefined: Boolean
             get() = false
 
         override val rangeStart: Int
@@ -141,7 +141,7 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val end: SelectionShapeBasedState,
         override val shapeInfo: SelectionShapeInfo
     ) : SelectionShapeBasedState, SelectionState.Transitive {
-        override val hasDefinitiveRange: Boolean
+        override val isRangeDefined: Boolean
             get() = true
 
         override val rangeStart: Int
