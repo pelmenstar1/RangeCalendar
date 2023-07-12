@@ -49,22 +49,16 @@ interface SelectionManager {
     fun updateConfiguration(measureManager: CellMeasureManager)
 
     /**
-     * Returns whether there is a transition between [previousState] and [currentState].
-     */
-    fun hasTransition(): Boolean
-
-    /**
-     * Creates a transitive state between [previousState] and [currentState].
-     *
-     * It should only be called if [hasTransition] returns true.
+     * Creates a transitive state between [previousState] and [currentState]. If there's no transition between states, returns `null`.
      */
     fun createTransition(
         measureManager: CellMeasureManager,
         options: SelectionRenderOptions
-    ): SelectionState.Transitive
+    ): SelectionState.Transitive?
 
     /**
      * Transforms the [current] transition and [end] state in such way that the end state of [current] transition become given [end] state.
+     * If there's no such transition, returns `null`.
      * Note that the resulting transition may be used in [joinTransition] again as a [current] transition.
      *
      * The implementation is allowed to mutate and reuse internal information of [current] and/or [end] states.

@@ -684,7 +684,7 @@ internal class RangeCalendarGridView(
         selectionManager.setState(intersection, cellMeasureManager)
         onSelectionListener?.onSelection(intersection)
 
-        if (withAnimation && selectionManager.hasTransition()) {
+        if (withAnimation) {
             startSelectionTransition()
         } else {
             invalidate()
@@ -754,6 +754,14 @@ internal class RangeCalendarGridView(
 
         if (newTransitiveState == null) {
             newTransitiveState = selManager.createTransition(measureManager, selectionRenderOptions!!)
+        }
+
+        if (newTransitiveState == null) {
+            // We can't create simple transition between states. We have nothing to do except calling invalidate()
+            // to redraw.
+            invalidate()
+
+            return
         }
 
         // Cancel animation instead of ending it because ending the animation causes end value of the animation to be assigned
