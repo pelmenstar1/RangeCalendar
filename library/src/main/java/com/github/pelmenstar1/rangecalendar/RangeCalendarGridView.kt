@@ -742,29 +742,26 @@ internal class RangeCalendarGridView(
         val onEnd = getSelectionOnEndHandler()
 
         val selManager = selectionManager
+        val measureManager = cellMeasureManager
 
         val isSelectionAnimRunning = animType == SELECTION_ANIMATION
         val prevTransitiveState = selectionTransitiveState
-        var newTransitiveState = selManager.createTransition(cellMeasureManager, selectionRenderOptions!!)
+        var newTransitiveState: SelectionState.Transitive? = null
 
-        var cancelAnim = false
-
-        if (isSelectionAnimRunning) {
-            if (prevTransitiveState != null && selManager.canJoinTransitions(prevTransitiveState, newTransitiveState)) {
-                newTransitiveState = selManager.joinTransitions(prevTransitiveState, newTransitiveState, cellMeasureManager)
-
-                // Ending animation causes end value of the animation to be assigned. But if we joining transitions,
-                // the transition between unfinished transition and end one is expected to be seamless. Thus, we shouldn't
-                // handle the end value of the animation.
-                cancelAnim = true
-            }
+        if (isSelectionAnimRunning && prevTransitiveState != null) {
+            newTransitiveState = selManager.joinTransition(prevTransitiveState, selManager.currentState, measureManager)
         }
 
-        if (cancelAnim) {
-            cancelCalendarAnimation()
-        } else {
-            endCalendarAnimation()
+        if (newTransitiveState == null) {
+            newTransitiveState = selManager.createTransition(measureManager, selectionRenderOptions!!)
         }
+
+        // Cancel animation instead of ending it because ending the animation causes end value of the animation to be assigned
+        // but we don't need that because old selectionTransitiveState should not be mutated after joining transitions
+        //
+        // Call cancelCalendarAnimation() before changing selectionTransitiveState. Otherwise, it'd mutate newTransitiveState
+        // which is undesired.
+        cancelCalendarAnimation()
 
         selectionTransitiveState = newTransitiveState
 

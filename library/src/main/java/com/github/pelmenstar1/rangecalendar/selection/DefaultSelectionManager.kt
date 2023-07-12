@@ -169,92 +169,102 @@ internal class DefaultSelectionManager : SelectionManager {
         }
     }
 
-    override fun canJoinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive): Boolean {
-        return when {
-            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> true
-            current is DefaultSelectionState.CellMoveToCell && end is DefaultSelectionState.CellMoveToCell -> {
-                val (currentStateStart, currentStateEnd) = current.start.range
-                val (endStateStart, endStateEnd) = end.end.range
+    override fun joinTransition(
+        current: SelectionState.Transitive,
+        end: SelectionState,
+        measureManager: CellMeasureManager
+    ): SelectionState.Transitive? {
+        end as DefaultSelectionState
 
-                val currentStateStartY = currentStateStart.gridY
-                val currentStateEndY = currentStateEnd.gridY
+        val endStateStart = end.rangeStart
+        val endStateEnd = end.rangeEnd
 
-                // We can only join cell-move-to-cell transitions if they're both moving on single row or column
-                // and column/row of the current transition is the same as column/row of the end transition.
-                if (currentStateStartY == currentStateEndY) {
-                    val endStateStartY = endStateStart.gridY
-                    val endStateEndY = endStateEnd.gridY
+        return when (current) {
+            is DefaultSelectionState.RangeToRange -> {
+                if (endStateStart > endStateEnd) { // end state is none
+                    DefaultSelectionState.AppearAlpha(current, isReversed = true)
+                } else  { // end state is single cell
+                    val endStateStartCellDist = measureManager.getCellDistance(endStateStart)
+                    var endStateEndCellDist = if (endStateStart == endStateEnd) {
+                        endStateStartCellDist
+                    } else {
+                        measureManager.getCellDistance(endStateEnd)
+                    }
 
-                    currentStateStartY == endStateStartY && endStateStartY == endStateEndY
+                    endStateEndCellDist += measureManager.cellWidth
+
+                    DefaultSelectionState.RangeToRange(
+                        current, end,
+                        current.currentStartCellDistance, current.currentEndCellDistance,
+                        endStateStartCellDist, endStateEndCellDist,
+                        current.shapeInfo // reuse shapeInfo of current
+                    )
+                }
+            }
+            is DefaultSelectionState.CellMoveToCell -> {
+                if (endStateStart > endStateEnd) { // end state is none
+                    DefaultSelectionState.AppearAlpha(current, isReversed = true)
                 } else {
-                    val currentStateStartX = currentStateStart.gridX
+                    val currentStateStart = current.start.shapeInfo.range.start
+                    val currentStateEnd = current.end.shapeInfo.range.end
 
-                    val endStateStartX = endStateStart.gridX
-                    val endStateEndX = endStateEnd.gridX
+                    val currentStateStartY = currentStateStart.gridY
+                    val currentStateEndY = currentStateEnd.gridY
 
-                    currentStateStartX == endStateStartX && endStateStartX == endStateEndX
+                    var result: SelectionState.Transitive? = null
+
+                    if (endStateStart == endStateEnd) { // end state is single cell
+                        val cellGridX = Cell(endStateStart).gridX
+                        val cellGridY = Cell(endStateStart).gridY
+
+                        var canCreateCellMoveToCell = false
+
+                        if (currentStateStartY == currentStateEndY) {
+                            if (currentStateEndY == cellGridY) {
+                                canCreateCellMoveToCell = true
+                            }
+                        } else {
+                            val currentStateStartX = currentStateStart.gridX
+
+                            canCreateCellMoveToCell = currentStateStartX == cellGridX
+                        }
+
+                        if (canCreateCellMoveToCell) {
+                            result = DefaultSelectionState.CellMoveToCell(current, end, current.shapeInfo.clone())
+                        }
+                    } else {
+                        val cellGridY = Cell(endStateStart).gridY
+
+                        if (currentStateStartY == currentStateEndY && currentStateStartY == cellGridY) {
+                            val currentShapeInfo = current.shapeInfo
+                            val cellWidth = measureManager.cellWidth
+
+                            val currentStateStartDist = measureManager.getCellDistanceByPoint(
+                                currentShapeInfo.startLeft, currentShapeInfo.startTop
+                            )
+                            val currentStateEndDist = currentStateStartDist + cellWidth
+
+                            val endStateStartCellDist = measureManager.getCellDistance(endStateStart)
+                            val endStateEndCellDist = measureManager.getCellDistance(endStateEnd) + cellWidth
+
+                            result = DefaultSelectionState.RangeToRange(
+                                current, end,
+                                currentStateStartDist, currentStateEndDist,
+                                endStateStartCellDist, endStateEndCellDist,
+                                current.shapeInfo
+                            )
+                        }
+                    }
+
+                    if (result == null) {
+                        result = DefaultSelectionState.DualAlpha(current, end)
+                    }
+
+                    result
                 }
             }
 
-            current is DefaultSelectionState.CellMoveToCell && end is DefaultSelectionState.RangeToRange -> {
-                isCellMoveToCellTransitionOnRow(current)
-            }
-
-            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.CellMoveToCell -> {
-                isCellMoveToCellTransitionOnRow(end)
-            }
-
-            else -> false
-        }
-    }
-
-    override fun joinTransitions(
-        current: SelectionState.Transitive,
-        end: SelectionState.Transitive,
-        measureManager: CellMeasureManager
-    ): SelectionState.Transitive {
-        return when {
-            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.RangeToRange -> {
-                DefaultSelectionState.RangeToRange(
-                    current, end,
-                    current.currentStartCellDistance, current.currentEndCellDistance,
-                    end.endStateStartCellDistance, end.endStateEndCellDistance,
-                    current.shapeInfo // reuse shapeInfo from the start state.
-                )
-            }
-
-            current is DefaultSelectionState.CellMoveToCell && end is DefaultSelectionState.CellMoveToCell -> {
-                createCellMoveToCellTransition(current, end.end)
-            }
-
-            current is DefaultSelectionState.CellMoveToCell && end is DefaultSelectionState.RangeToRange -> {
-                val currentShape = current.shapeInfo
-                val currentCellStartDist =
-                    measureManager.getCellDistanceByPoint(currentShape.startLeft, currentShape.startTop)
-                val currentCellEndDist = currentCellStartDist + measureManager.cellWidth
-
-                DefaultSelectionState.RangeToRange(
-                    current, end,
-                    currentCellStartDist, currentCellEndDist,
-                    end.endStateStartCellDistance, end.endStateEndCellDistance,
-                    current.shapeInfo // reuse shapeInfo
-                )
-            }
-
-            current is DefaultSelectionState.RangeToRange && end is DefaultSelectionState.CellMoveToCell -> {
-                val endShape = end.end.shapeInfo
-                val endStateCellStartDist = measureManager.getCellDistanceByPoint(endShape.startLeft, endShape.startTop)
-                val endStateCellEndDist = endStateCellStartDist + measureManager.cellWidth
-
-                DefaultSelectionState.RangeToRange(
-                    current, end,
-                    current.currentStartCellDistance, current.currentEndCellDistance,
-                    endStateCellStartDist, endStateCellEndDist,
-                    current.shapeInfo // reuse shapeInfo
-                )
-            }
-
-            else -> throw RuntimeException("Unexpected joining transitions")
+            else -> return null
         }
     }
 
@@ -279,15 +289,17 @@ internal class DefaultSelectionManager : SelectionManager {
     ): DefaultSelectionState.CellMoveToCell {
         val startShapeInfo = startState.shapeInfo
 
+        val startLeft = startShapeInfo.startLeft
+        val startTop = startShapeInfo.startTop
+        val cellWidth = startShapeInfo.cellWidth
+
         val shapeInfo = SelectionShapeInfo(
             range = startShapeInfo.range,
-            startLeft = startShapeInfo.startLeft, startTop = startShapeInfo.startTop,
-
-            // endRight, endTop, firstCellOnRowLeft, lastCellOnRowRight are not used in cell-move-to-cell transition
-            endRight = 0f, endTop = 0f,
+            startLeft, startTop,
+            endRight = startLeft + cellWidth, endTop = startTop,
             firstCellOnRowLeft = 0f, lastCellOnRowRight = 0f,
 
-            cellWidth = startShapeInfo.cellWidth, cellHeight = startShapeInfo.cellHeight,
+            cellWidth, cellHeight = startShapeInfo.cellHeight,
             roundRadius = startShapeInfo.roundRadius
         )
 

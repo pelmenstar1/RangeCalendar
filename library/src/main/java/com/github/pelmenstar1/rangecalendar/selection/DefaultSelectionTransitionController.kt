@@ -2,6 +2,7 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.PointF
 import android.graphics.RectF
+import android.util.Log
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
@@ -45,6 +46,7 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
 
                 currentShapeInfo.startLeft = currentLeft
                 currentShapeInfo.startTop = currentTop
+                currentShapeInfo.endRight = currentLeft + currentShapeInfo.cellWidth
 
                 val cell = measureManager.getCellAt(
                     currentLeft, currentTop,

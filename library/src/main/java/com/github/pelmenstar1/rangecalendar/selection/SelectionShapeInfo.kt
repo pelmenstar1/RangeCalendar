@@ -56,4 +56,8 @@ internal class SelectionShapeInfo(
 
         return result
     }
+
+    fun clone(): SelectionShapeInfo {
+        return SelectionShapeInfo().also { it.set(this) }
+    }
 }

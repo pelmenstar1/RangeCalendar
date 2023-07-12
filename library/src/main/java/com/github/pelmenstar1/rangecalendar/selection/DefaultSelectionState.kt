@@ -43,7 +43,7 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
     }
 
     class AppearAlpha(
-        val baseState: DefaultSelectionState,
+        val baseState: SelectionShapeBasedState,
         val isReversed: Boolean
     ) : SelectionState.Transitive {
         override val start: SelectionState
@@ -69,8 +69,8 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
     }
 
     class DualAlpha(
-        override val start: DefaultSelectionState,
-        override val end: DefaultSelectionState
+        override val start: SelectionShapeBasedState,
+        override val end: SelectionShapeBasedState
     ) : SelectionState.Transitive {
         var startAlpha = Float.NaN
         var endAlpha = Float.NaN

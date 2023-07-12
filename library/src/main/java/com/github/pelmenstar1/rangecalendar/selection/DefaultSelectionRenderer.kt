@@ -97,7 +97,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private fun drawRange(
         canvas: Canvas,
-        state: DefaultSelectionState,
+        state: SelectionShapeBasedState,
         options: SelectionRenderOptions,
         alpha: Float,
         isPrimary: Boolean
