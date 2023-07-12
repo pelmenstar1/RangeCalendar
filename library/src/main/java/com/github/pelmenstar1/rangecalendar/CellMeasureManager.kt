@@ -64,6 +64,8 @@ interface CellMeasureManager {
      */
     fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int
 
+    fun getCellDistanceByPoint(x: Float, y: Float): Float
+
     /**
      * Gets index of a cell nearest to a point with specified coordinates. If there's no such cell, returns `-1`.
      */

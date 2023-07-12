@@ -65,7 +65,7 @@ interface SelectionManager {
 
     fun canJoinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive): Boolean
 
-    fun joinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive): SelectionState.Transitive
+    fun joinTransitions(current: SelectionState.Transitive, end: SelectionState.Transitive, measureManager: CellMeasureManager): SelectionState.Transitive
 }
 
 internal fun SelectionManager.setState(

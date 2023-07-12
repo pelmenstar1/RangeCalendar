@@ -166,6 +166,9 @@ internal class RangeCalendarGridView(
         override fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int =
             view.getCellAndPointByCellDistanceRelativeToGrid(distance, outPoint)
 
+        override fun getCellDistanceByPoint(x: Float, y: Float): Float =
+            view.getCellDistanceByPoint(x, y)
+
         override fun getCellAt(x: Float, y: Float, relativity: CellMeasureManager.CoordinateRelativity): Int =
             view.getCellByPointOnScreen(x, y, relativity)
 
@@ -748,7 +751,7 @@ internal class RangeCalendarGridView(
 
         if (isSelectionAnimRunning) {
             if (prevTransitiveState != null && selManager.canJoinTransitions(prevTransitiveState, newTransitiveState)) {
-                newTransitiveState = selManager.joinTransitions(prevTransitiveState, newTransitiveState)
+                newTransitiveState = selManager.joinTransitions(prevTransitiveState, newTransitiveState, cellMeasureManager)
 
                 // Ending animation causes end value of the animation to be assigned. But if we joining transitions,
                 // the transition between unfinished transition and end one is expected to be seamless. Thus, we shouldn't
@@ -1439,6 +1442,10 @@ internal class RangeCalendarGridView(
         distance += rw * cell.gridY
 
         return distance
+    }
+
+    private fun getCellDistanceByPoint(x: Float, y: Float): Float {
+        return (y / cellHeight()) * rowWidth() + x
     }
 
     private fun getCellAndPointByCellDistanceRelativeToGrid(distance: Float, outPoint: PointF): Int {
