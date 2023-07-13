@@ -49,7 +49,8 @@ interface SelectionManager {
     fun updateConfiguration(measureManager: CellMeasureManager)
 
     /**
-     * Creates a transitive state between [previousState] and [currentState]. If there's no transition between states, returns `null`.
+     * Creates a transitive state between [previousState] and [currentState].
+     * If there's no transition between states, returns `null`.
      */
     fun createTransition(
         measureManager: CellMeasureManager,

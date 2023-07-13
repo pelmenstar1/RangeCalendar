@@ -165,10 +165,7 @@ There's a description of methods of `SelectionManager` and what they are expecte
   arguments. Note that, rangeEnd is **inclusive**. measureManager should be used to determine bounds of a cell.
 - `updateConfiguration(measureManager)` - updates internal measurements and computation based on measureManager results
   of both previousState and currentState. Change of measureManager result means that cells might be moved or resized.
-- `hasTransition()` - returns whether there's a transition between previousState and currentState.
-- `createTransition(measureManager, options)` - creates a transitive state between previousState and currentState. It's
-  only called if hasTransition() returns true.
-- `options` is used to stylize the selection as selection state shouldn't contain any style-related information.
+- `createTransition(measureManager, options)` - creates a transitive state between previousState and currentState
 
 Selection renderer is responsible for drawing simple selection state or transitive state, that is created to save information about transition between two selection states. When selection is to be drawn, the canvas' matrix is translated in such way that coordinates will be relative to the grid's leftmost point on top.
 
