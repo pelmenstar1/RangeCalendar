@@ -1355,7 +1355,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun columnWidth(): Float {
-        return rowWidth() / 7f
+        return rowWidth() * (1f / 7)
     }
 
     private fun getCellCenterX(cell: Cell) = getCellCenterX(cell, columnWidth())
@@ -1429,13 +1429,9 @@ internal class RangeCalendarGridView(
     private fun getCellDistance(cell: Cell): Float {
         val rw = rowWidth()
 
-        // First, find a x-axis of the cell but without horizontal padding
-        var distance = (rw / 7f) * (cell.gridX + 0.5f) - cellWidth() * 0.5f
-
-        // Add widths of the rows on the way to the cell.
-        distance += rw * cell.gridY
-
-        return distance
+        // Find a x-axis of the cell but without horizontal padding.
+        // Also merge rw * cell.gridY to the rw * ((1f / 7f) * (cell.gridX + 0.5f))
+        return rw * ((1f / 7f) * (cell.gridX + 0.5f) + cell.gridY) - cellWidth() * 0.5f
     }
 
     private fun getCellDistanceByPoint(x: Float, y: Float): Float {
@@ -1445,14 +1441,13 @@ internal class RangeCalendarGridView(
     private fun getCellAndPointByCellDistanceRelativeToGrid(distance: Float, outPoint: PointF): Int {
         val rw = rowWidth()
 
-        val gridY = (distance / rw).toInt()
+        val fGridY = distance / rw
+        val gridY = fGridY.toInt()
         val cellTop = getCellTopRelativeToGridByGridY(gridY)
 
         val xOnRow = distance - gridY * rw
 
-        // Basically this is xOnRow / columnWidth() but we already have rowWidth, so
-        // we rewrite xOnRow / (rw / 7f) as (7f * xOnRow) / rw
-        val gridX = ((7f * xOnRow) / rw).toInt()
+        val gridX = (7f * (fGridY - gridY)).toInt()
 
         outPoint.x = xOnRow
         outPoint.y = cellTop
@@ -1468,7 +1463,6 @@ internal class RangeCalendarGridView(
         val gridTop = gridTop()
 
         val rowWidth = rowWidth()
-        val columnWidth = rowWidth / 7f
         val gridHeight = height - gridTop
 
         if (relativity == CellMeasureManager.CoordinateRelativity.VIEW) {
@@ -1481,7 +1475,7 @@ internal class RangeCalendarGridView(
             return -1
         }
 
-        val gridX = (translatedX / columnWidth).toInt()
+        val gridX = ((7f * translatedX) / rowWidth).toInt()
         val gridY = (translatedY / cellHeight()).toInt()
 
         return gridY * 7 + gridX
