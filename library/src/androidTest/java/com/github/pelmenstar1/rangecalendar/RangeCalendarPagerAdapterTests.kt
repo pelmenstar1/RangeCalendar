@@ -482,7 +482,7 @@ class RangeCalendarPagerAdapterTests {
         )
 
         val gate = object : RangeCalendarView.SelectionGate {
-            override fun range(
+            override fun accept(
                 startYear: Int,
                 startMonth: Int,
                 startDay: Int,

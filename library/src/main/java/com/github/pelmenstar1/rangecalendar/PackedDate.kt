@@ -44,6 +44,10 @@ internal value class PackedDate(val bits: Int) {
     val dayOfWeek: CompatDayOfWeek
         get() = getDayOfWeek(toEpochDay())
 
+    operator fun component1() = year
+    operator fun component2() = month
+    operator fun component3() = dayOfMonth
+
     operator fun compareTo(other: PackedDate): Int {
         var cmp = year - other.year
         if (cmp == 0) {
@@ -123,20 +127,18 @@ internal value class PackedDate(val bits: Int) {
     }
 
     fun toEpochDay(): Long {
-        val year = year
-        val month = month
+        val (y, m, d) = this
 
-        val yearL = year.toLong()
         var total = 0L
 
-        total += 365L * yearL
-        total += ((yearL + 3L) / 4L - (yearL + 99L) / 100L + (yearL + 399L) / 400L)
-        total += (367L * month - 362L) / 12L
-        total += dayOfMonth - 1L
+        total += 365L * y
+        total += ((y + 3L) / 4L - (y + 99L) / 100L + (y + 399L) / 400L)
+        total += (367L * m - 362L) / 12L
+        total += d - 1
 
-        if (month > 2) {
+        if (m > 2) {
             total--
-            if (!isLeapYear(year)) {
+            if (!isLeapYear(y)) {
                 total--
             }
         }

@@ -65,10 +65,22 @@ internal class YearMonthGridInfo {
     }
 
     fun getCellByDate(date: PackedDate): Cell {
-        val diff = date.toEpochDay() - firstCellInGridDate.toEpochDay()
+        val firstIndex = firstDayOfMonthCellIndex
+        val (firstYear, firstMonth, firstDay) = firstCellInGridDate
+        val (currentYear, currentMonth, currentDay) = date
 
-        if (diff in 0 until CELLS_IN_GRID) {
-            return Cell(diff.toInt())
+        if (firstYear == currentYear && firstMonth == currentMonth && currentDay >= firstDay) {
+            return Cell(currentDay - firstDay)
+        }
+
+        if (currentYear == year && currentMonth == month) {
+            return Cell(firstIndex + currentDay - 1)
+        }
+
+        val (lastYear, lastMonth, lastDay) = lastCellInGridDate
+
+        if (lastYear == currentYear && lastMonth == currentMonth && currentDay <= lastDay) {
+            return Cell(firstIndex + daysInMonth + currentDay - 1)
         }
 
         return Cell.Undefined

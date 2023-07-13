@@ -175,6 +175,27 @@ class YearMonthGridInfoTests {
         // First day of week - Monday
 
         testCase(
+            year = 2023, month = 5,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            date = PackedDate(year = 2023, month = 4, dayOfMonth = 30),
+            expectedCell = -1
+        )
+
+        testCase(
+            year = 2023, month = 5,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            date = PackedDate(year = 2023, month = 5, dayOfMonth = 1),
+            expectedCell = 0
+        )
+
+        testCase(
+            year = 2023, month = 5,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            date = PackedDate(year = 2023, month = 5, dayOfMonth = 5),
+            expectedCell = 4
+        )
+
+        testCase(
             year = 2023, month = 6,
             firstDayOfWeek = CompatDayOfWeek.Monday,
             date = PackedDate(year = 2023, month = 5, dayOfMonth = 29),
