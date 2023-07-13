@@ -33,14 +33,22 @@ internal class DefaultSelectionManager : SelectionManager {
         rangeEnd: Int,
         measureManager: CellMeasureManager
     ) {
-        val state = createRangeState(rangeStart, rangeEnd, measureManager)
-
-        setStateInternal(state)
+        setStateInternal(createRangeState(rangeStart, rangeEnd, measureManager))
     }
 
     override fun updateConfiguration(measureManager: CellMeasureManager) {
-        _prevState = createStateOnConfigurationUpdate(_prevState, measureManager)
-        _currentState = createStateOnConfigurationUpdate(_currentState, measureManager)
+        updateStateConfiguration(_prevState, measureManager)
+        updateStateConfiguration(_currentState, measureManager)
+    }
+
+    private fun updateStateConfiguration(state: DefaultSelectionState, measureManager: CellMeasureManager) {
+        val shapeInfo = state.shapeInfo
+        val (rangeStart, rangeEnd) = shapeInfo.range
+
+        // Update measurements if the state is defined
+        if (rangeStart.index <= rangeEnd.index) {
+            fillSelectionShapeInfo(rangeStart.index, rangeEnd.index, measureManager, shapeInfo)
+        }
     }
 
     private fun createStateOnConfigurationUpdate(
@@ -57,41 +65,51 @@ internal class DefaultSelectionManager : SelectionManager {
         }
     }
 
+    private fun fillSelectionShapeInfo(
+        rangeStart: Int,
+        rangeEnd: Int,
+        measureManager: CellMeasureManager,
+        outShapeInfo: SelectionShapeInfo
+    ) {
+        val cellWidth = measureManager.cellWidth
+
+        val startLeft = measureManager.getCellLeft(rangeStart)
+        val startTop = measureManager.getCellTop(rangeStart)
+
+        var endRight: Float
+        val endTop: Float
+
+        if (rangeStart == rangeEnd) {
+            endRight = startLeft
+            endTop = startTop
+        } else {
+            endRight = measureManager.getCellLeft(rangeEnd)
+            endTop = measureManager.getCellTop(rangeEnd)
+        }
+
+        endRight += cellWidth
+
+        outShapeInfo.range = CellRange(rangeStart, rangeEnd)
+        outShapeInfo.startLeft = startLeft
+        outShapeInfo.startTop = startTop
+        outShapeInfo.endRight = endRight
+        outShapeInfo.endTop = endTop
+        outShapeInfo.firstCellOnRowLeft = measureManager.getCellLeft(0)
+        outShapeInfo.lastCellOnRowRight = measureManager.getCellLeft(6) + cellWidth
+        outShapeInfo.cellWidth = cellWidth
+        outShapeInfo.cellHeight = measureManager.cellHeight
+        outShapeInfo.roundRadius = measureManager.roundRadius
+    }
+
     private fun createRangeState(
         rangeStart: Int,
         rangeEnd: Int,
         measureManager: CellMeasureManager
     ): DefaultSelectionState {
-        val cellWidth = measureManager.cellWidth
-        val cellHeight = measureManager.cellHeight
+        val shapeInfo = SelectionShapeInfo()
+        fillSelectionShapeInfo(rangeStart, rangeEnd, measureManager, shapeInfo)
 
-        val startLeft = measureManager.getCellLeft(rangeStart)
-        val startTop = measureManager.getCellTop(rangeStart)
-
-        val endRight: Float
-        val endTop: Float
-
-        if (rangeStart == rangeEnd) {
-            endRight = startLeft + cellWidth
-            endTop = startTop
-        } else {
-            endRight = measureManager.getCellLeft(rangeEnd) + cellWidth
-            endTop = measureManager.getCellTop(rangeEnd)
-        }
-
-        val firstCellOnRowLeft = measureManager.getCellLeft(0)
-        val lastCellOnRowRight = measureManager.getCellLeft(6) + cellWidth
-
-        val pathInfo = SelectionShapeInfo(
-            range = CellRange(rangeStart, rangeEnd),
-            startLeft, startTop,
-            endRight, endTop,
-            firstCellOnRowLeft, lastCellOnRowRight,
-            cellWidth, cellHeight,
-            measureManager.roundRadius
-        )
-
-        return DefaultSelectionState(pathInfo)
+        return DefaultSelectionState(shapeInfo)
     }
 
     private fun setStateInternal(state: DefaultSelectionState) {
@@ -247,10 +265,6 @@ internal class DefaultSelectionManager : SelectionManager {
 
             else -> return null
         }
-    }
-
-    private fun isCellMoveToCellTransitionOnRow(state: DefaultSelectionState.CellMoveToCell): Boolean {
-        return state.start.range.start.sameY(state.end.range.start)
     }
 
     private fun createCellAppearTransition(
