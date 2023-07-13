@@ -413,24 +413,13 @@ internal class RangeCalendarGridView(
         val prevSelState = selectionManager.previousState
         val selState = selectionManager.currentState
 
-        resolvedManager.setStateOrNone(prevSelState)
-        resolvedManager.setStateOrNone(selState)
+        resolvedManager.setState(prevSelState.rangeStart, prevSelState.rangeEnd, cellMeasureManager)
+        resolvedManager.setState(selState.rangeStart, selState.rangeEnd, cellMeasureManager)
 
         selectionManager = resolvedManager
         selectionRenderer = resolvedManager.renderer
 
         invalidate()
-    }
-
-    private fun SelectionManager.setStateOrNone(state: SelectionState) {
-        val rangeStart = state.rangeStart
-        val rangeEnd = state.rangeEnd
-
-        if (rangeStart > rangeEnd) {
-            setNoneState()
-        } else {
-            setState(rangeStart, rangeEnd, cellMeasureManager)
-        }
     }
 
     private fun onCellAnimationTypeChanged() {
@@ -829,7 +818,8 @@ internal class RangeCalendarGridView(
             return
         }
 
-        selectionManager.setNoneState()
+        // (0, -1) means an empty range.
+        selectionManager.setState(0, -1, cellMeasureManager)
 
         // Fire event if it's demanded
         val listener = onSelectionListener

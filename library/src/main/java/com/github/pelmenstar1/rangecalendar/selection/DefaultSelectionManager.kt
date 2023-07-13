@@ -24,16 +24,18 @@ internal class DefaultSelectionManager : SelectionManager {
             ::DefaultSelectionTransitionController
         ) { _transitionController = it }
 
-    override fun setNoneState() {
-        setStateInternal(DefaultSelectionState.None)
-    }
-
     override fun setState(
         rangeStart: Int,
         rangeEnd: Int,
         measureManager: CellMeasureManager
     ) {
-        setStateInternal(createRangeState(rangeStart, rangeEnd, measureManager))
+        val state = if (rangeStart > rangeEnd) {
+            DefaultSelectionState.None
+        } else {
+            createRangeState(rangeStart, rangeEnd, measureManager)
+        }
+
+        setStateInternal(state)
     }
 
     override fun updateConfiguration(measureManager: CellMeasureManager) {
@@ -48,20 +50,6 @@ internal class DefaultSelectionManager : SelectionManager {
         // Update measurements if the state is defined
         if (rangeStart.index <= rangeEnd.index) {
             fillSelectionShapeInfo(rangeStart.index, rangeEnd.index, measureManager, shapeInfo)
-        }
-    }
-
-    private fun createStateOnConfigurationUpdate(
-        state: DefaultSelectionState,
-        measureManager: CellMeasureManager,
-    ): DefaultSelectionState {
-        val rangeStart = state.rangeStart
-        val rangeEnd = state.rangeEnd
-
-        return if (rangeStart > rangeEnd) {
-            DefaultSelectionState.None
-        } else {
-            createRangeState(rangeStart, rangeEnd, measureManager)
         }
     }
 

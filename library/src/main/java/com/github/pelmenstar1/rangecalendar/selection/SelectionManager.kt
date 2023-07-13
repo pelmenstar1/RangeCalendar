@@ -8,7 +8,8 @@ import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 interface SelectionManager {
     /**
      * State which was selected before [currentState].
-     * If there's no previous state, it should be instance of [SelectionState] whose selection range is empty.
+     * If there's no previous state, it should be instance of [SelectionState] whose selection range is empty,
+     * i.e [SelectionState.rangeStart] is greater than [SelectionState.rangeEnd].
      */
     val previousState: SelectionState
 
@@ -34,12 +35,7 @@ interface SelectionManager {
     val transitionController: SelectionTransitionController
 
     /**
-     * Sets a state with an empty selection range.
-     */
-    fun setNoneState()
-
-    /**
-     * Sets a current state.
+     * Sets a current state. If the [rangeStart] is greater than [rangeEnd], the selection is empty.
      */
     fun setState(rangeStart: Int, rangeEnd: Int, measureManager: CellMeasureManager)
 

@@ -156,12 +156,9 @@ There are two main abstractions in selection management:
 
 There's a description of methods of `SelectionManager` and what they are expected to do:
 
-- `previousState` - saves a selection state that was before currentState. If there's no such state, then it should
-  contain selection state whose type is NONE
-- `currentState` - current state of the manager. If there's no such state, then it should contain selection state whose
-  type is NONE
-- `setNoneState()` - sets current state as the state whose type is NONE. Also updates previousState.
-- `setState(type, rangeStart, rangeEnd, measureManager)` - creates and assigns new selection state using passed
+- `previousState` - saves a selection state that was before currentState. 
+- `currentState` - current state of the manager.
+- `setState(rangeStart, rangeEnd, measureManager)` - creates and assigns new selection state using passed
   arguments. Note that, rangeEnd is **inclusive**. measureManager should be used to determine bounds of a cell.
 - `updateConfiguration(measureManager)` - updates internal measurements and computation based on measureManager results
   of both previousState and currentState. Change of measureManager result means that cells might be moved or resized.
