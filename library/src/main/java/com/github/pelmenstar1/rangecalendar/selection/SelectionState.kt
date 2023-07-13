@@ -1,20 +1,21 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
 /**
- * A set of properties which are needed to represent selection state.
+ * A set of properties which are needed to represent a selection.
+ * The data in the implementation should be enough to render the state on a canvas.
  *
- * Implementation of the interface is excepted to be immutable.
- * Also, data in the implementation should be enough to render the state on canvas.
- * Exception is only transition between state.
+ * The implementations is excepted to be immutable.
  */
 interface SelectionState {
     /**
      * Represents a transitive state between two [SelectionState] instances.
      *
-     * It does not implements [SelectionState] interface, because it might not have any selection type or definitive range.
-     * But it should contain enough information to render itself on canvas.
+     * It still implements [SelectionState], although the transitive state is allowed not to have a notion of
+     * a cell range on which the visual representation of the state is located because this range might be undefined.
+     *
+     * The implementation is expected to be mutable.
      */
-    interface Transitive {
+    interface Transitive : SelectionState {
         /**
          * The state from which the transition starts.
          */
@@ -24,6 +25,12 @@ interface SelectionState {
          * The state to which the transition should come.
          */
         val end: SelectionState
+
+        /**
+         * Returns whether the transitive state has the range ([rangeStart] and [rangeEnd] properties) defined.
+         * If it returns `false`, [rangeStart] and [rangeEnd] properties are expected to throw.
+         */
+        val isRangeDefined: Boolean
 
         /**
          * Determines whether selection determined by the transitive state overlays a cell specified by [cellIndex].

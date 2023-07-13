@@ -2,13 +2,18 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.PointF
 import android.graphics.RectF
+import android.util.Log
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 import com.github.pelmenstar1.rangecalendar.utils.lerp
 
 class DefaultSelectionTransitionController : SelectionTransitionController {
-    override fun handleTransition(state: SelectionState.Transitive, measureManager: CellMeasureManager, fraction: Float) {
+    override fun handleTransition(
+        state: SelectionState.Transitive,
+        measureManager: CellMeasureManager,
+        fraction: Float
+    ) {
         when (state) {
             // Cell transitions
             is DefaultSelectionState.AppearAlpha -> {
@@ -32,16 +37,32 @@ class DefaultSelectionTransitionController : SelectionTransitionController {
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
-                val start = state.start.shapeInfo
-                val end = state.end.shapeInfo
+                val startShapeInfo = state.start.shapeInfo
+                val endShapeInfo = state.end.shapeInfo
+                val currentShapeInfo = state.shapeInfo
 
-                state.left = lerp(start.startLeft, end.startLeft, fraction)
-                state.top = lerp(start.startTop, end.startTop, fraction)
+                val currentLeft = lerp(startShapeInfo.startLeft, endShapeInfo.startLeft, fraction)
+                val currentTop = lerp(startShapeInfo.startTop, endShapeInfo.startTop, fraction)
+
+                currentShapeInfo.startLeft = currentLeft
+                currentShapeInfo.startTop = currentTop
+                currentShapeInfo.endRight = currentLeft + currentShapeInfo.cellWidth
+
+                val cell = measureManager.getCellAt(
+                    currentLeft, currentTop,
+                    relativity = CellMeasureManager.CoordinateRelativity.GRID
+                )
+
+                currentShapeInfo.range = CellRange.single(cell)
             }
 
             is DefaultSelectionState.RangeToRange -> {
-                val newStartCellDist = lerp(state.startStateStartCellDistance, state.endStateStartCellDistance, fraction)
+                val newStartCellDist =
+                    lerp(state.startStateStartCellDistance, state.endStateStartCellDistance, fraction)
                 val newEndCellDist = lerp(state.startStateEndCellDistance, state.endStateEndCellDistance, fraction)
+
+                state.currentStartCellDistance = newStartCellDist
+                state.currentEndCellDistance = newEndCellDist
 
                 val newStartCell = measureManager.getCellAndPointByDistance(newStartCellDist, point)
                 val (newStartCellLeft, newStartCellTop) = point

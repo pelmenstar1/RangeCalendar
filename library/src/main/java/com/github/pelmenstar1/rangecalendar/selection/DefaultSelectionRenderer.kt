@@ -59,11 +59,11 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
-                val shapeInfo = state.start.shapeInfo
+                val shapeInfo = state.shapeInfo
                 val width = shapeInfo.cellWidth
                 val height = shapeInfo.cellHeight
 
-                drawRect(canvas, state.left, state.top, width, height, options, alpha = 1f)
+                drawRect(canvas, shapeInfo.startLeft, shapeInfo.startTop, width, height, options, alpha = 1f)
             }
 
             is DefaultSelectionState.RangeToRange -> {
@@ -97,7 +97,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private fun drawRange(
         canvas: Canvas,
-        state: DefaultSelectionState,
+        state: SelectionShapeBasedState,
         options: SelectionRenderOptions,
         alpha: Float,
         isPrimary: Boolean
