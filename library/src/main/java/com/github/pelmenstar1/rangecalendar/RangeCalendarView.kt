@@ -75,7 +75,18 @@ class RangeCalendarView @JvmOverloads constructor(
      * Represents a "gate" which determines whether to allow selection or not.
      */
     interface SelectionGate {
-        fun range(
+        /**
+         * Returns whether the selection range is allowed or not. The start date of the selection specified by [startYear], [startMonth], [startDay] is inclusive.
+         * The end date specified by [endYear], [endMonth], [endDay] is inclusive as well, thus if a single cell is selected, the start date is equal to the end date.
+         *
+         * @param startYear year of the start date of the range
+         * @param startMonth month of the start date of the range, 1-based
+         * @param startDay year of the start date of the range, 1-based
+         * @param endYear year of the end date of the range
+         * @param endMonth month of the end date of the range, 1-based
+         * @param endDay year of the end date of the range, 1-based
+         */
+        fun accept(
             startYear: Int, startMonth: Int, startDay: Int,
             endYear: Int, endMonth: Int, endDay: Int
         ): Boolean
@@ -92,9 +103,8 @@ class RangeCalendarView @JvmOverloads constructor(
         fun onSelectionCleared()
 
         /**
-         * Fires when on date range selection. Start date of selection specified by [startYear], [startMonth], [startDay] is inclusive.
-         * End date specified by [endYear], [endMonth], [endDay] is inclusive, so that if a single cell is selected, start date is equal to end date.
-         * But start date cannot be greater than end date.
+         * Fires when on date range selection. The start date of the selection specified by [startYear], [startMonth], [startDay] is inclusive.
+         * End date specified by [endYear], [endMonth], [endDay] is inclusive as well, thus if a single cell is selected, the start date is equal to the end date.
          *
          * @param startYear year of the start date
          * @param startMonth month of the start date, 1-based

@@ -50,7 +50,7 @@ internal class RangeCalendarGridView(
     }
 
     interface SelectionGate {
-        fun range(range: CellRange): Boolean
+        fun accept(range: CellRange): Boolean
     }
 
     private fun interface TickCallback {
@@ -111,7 +111,8 @@ internal class RangeCalendarGridView(
                     range = CellRange.single(virtualViewId),
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                     gestureType = SelectionByGestureType.SINGLE_CELL_ON_CLICK,
-                    withAnimation = false
+                    withAnimation = false,
+                    checkGate = true
                 )
 
                 true
@@ -190,6 +191,7 @@ internal class RangeCalendarGridView(
             return view.selectRange(
                 range = CellRange(start, end),
                 requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                checkGate = true,
                 gestureType
             )
         }
@@ -606,6 +608,7 @@ internal class RangeCalendarGridView(
             selectRange(
                 selRange,
                 requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                checkGate = true,
             )
         }
     }
@@ -621,19 +624,16 @@ internal class RangeCalendarGridView(
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ) {
-        selectRange(
-            range,
-            requestRejectedBehaviour,
-            gestureType = null,
-            withAnimation
-        )
+        // Do not check whether the gate accepts the selection as the RangeCalendarPagerAdapter checked it before.
+        selectRange(range, requestRejectedBehaviour, checkGate = false, gestureType = null, withAnimation)
     }
 
     private fun selectRange(
         range: CellRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+        checkGate: Boolean,
         gestureType: SelectionByGestureType? = null,
-        withAnimation: Boolean = isSelectionAnimatedByDefault()
+        withAnimation: Boolean = isSelectionAnimatedByDefault(),
     ): SelectionAcceptanceStatus {
         val selState = selectionManager.currentState
         val rangeStart = range.start
@@ -646,8 +646,7 @@ internal class RangeCalendarGridView(
             return SelectionAcceptanceStatus.REJECTED
         }
 
-        val gate = selectionGate
-        if (gate != null && !gate.range(range)) {
+        if (checkGate && selectionGate?.accept(range) == false) {
             clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
             return SelectionAcceptanceStatus.REJECTED
@@ -686,6 +685,7 @@ internal class RangeCalendarGridView(
         return selectRange(
             range = inMonthRange,
             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+            checkGate = true,
             gestureType = SelectionByGestureType.OTHER
         )
     }
@@ -818,13 +818,12 @@ internal class RangeCalendarGridView(
             return
         }
 
-        // (0, -1) means an empty range.
+        // [0, -1] means an empty range.
         selectionManager.setState(0, -1, cellMeasureManager)
 
         // Fire event if it's demanded
-        val listener = onSelectionListener
-        if (fireEvent && listener != null) {
-            listener.onSelectionCleared()
+        if (fireEvent) {
+            onSelectionListener?.onSelectionCleared()
         }
 
         if (withAnimation) {

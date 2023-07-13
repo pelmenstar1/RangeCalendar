@@ -356,13 +356,13 @@ internal class RangeCalendarPagerAdapter(
 
     private fun createRedirectSelectionGate(ym: YearMonth): RangeCalendarGridView.SelectionGate {
         return object : RangeCalendarGridView.SelectionGate {
-            override fun range(range: CellRange): Boolean {
+            override fun accept(range: CellRange): Boolean {
                 return selectionGate?.let {
                     updateGridInfo(ym)
 
                     val (startDate, endDate) = gridInfo.getDateRangeByCellRange(range)
 
-                    it.range(
+                    it.accept(
                         startDate.year, startDate.month, startDate.dayOfMonth,
                         endDate.year, endDate.month, endDate.dayOfMonth
                     )
@@ -432,7 +432,7 @@ internal class RangeCalendarPagerAdapter(
         val gate = selectionGate
 
         return gate == null ||
-                gate.range(
+                gate.accept(
                     start.year, start.month, start.dayOfMonth,
                     end.year, end.month, end.dayOfMonth
                 )
