@@ -9,6 +9,7 @@ import android.view.ViewConfiguration
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import com.github.pelmenstar1.rangecalendar.Distance
+import com.github.pelmenstar1.rangecalendar.SelectionAcceptanceStatus
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getDistance
 import kotlin.math.PI
@@ -154,9 +155,9 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                     val cell = getCellAt(x0, y0)
 
                     if (cell >= 0 && isSelectableCell(cell)) {
-                        val (start, end) = CellRange(longRangeStartCell, cell).normalize()
+                        val range = CellRange(longRangeStartCell, cell).normalize()
 
-                        selectRange(start.index, end.index, SelectionByGestureType.LONG_SELECTION)
+                        selectRange(range, SelectionByGestureType.LONG_SELECTION)
                     }
                 } else if (!isSelectingLongRange && pointerCount == 2) {
                     onTwoPointersDownOrMove(event)
@@ -361,15 +362,21 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
     }
 
     private fun selectWeek(weekIndex: Int) {
-        val (start, end) = CellRange.week(weekIndex)
-
-        selectRange(start.index, end.index, SelectionByGestureType.OTHER)
+        selectRange(CellRange.week(weekIndex), SelectionByGestureType.OTHER)
     }
 
     private fun onStartSelectingRange(cell: Int) {
-        isSelectingLongRange = true
-        longRangeStartCell = cell
-        gestureEventHandler.reportStartSelectingRange()
+        val status = selectRange(cell, cell, SelectionByGestureType.LONG_SELECTION)
+
+        if (status != SelectionAcceptanceStatus.REJECTED) {
+            isSelectingLongRange = true
+            longRangeStartCell = cell
+            gestureEventHandler.reportStartSelectingRange()
+        }
+    }
+
+    private fun selectRange(range: CellRange, gestureType: SelectionByGestureType): SelectionAcceptanceStatus {
+        return selectRange(range.start.index, range.end.index, gestureType)
     }
 
     private fun cancelTimeoutMessages() {
