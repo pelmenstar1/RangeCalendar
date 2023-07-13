@@ -202,11 +202,9 @@ internal class DefaultSelectionManager : SelectionManager {
                     var result: SelectionState.Transitive? = null
 
                     if (endStateStart == endStateEnd) { // end state is single cell
-                        val cellGridY = Cell(endStateStart).gridY
-
                         // Create CellMoveToCell only if end cell is on the same row/column as current CellMoveToCell state.
                         val canCreateCellMoveToCell = if (currentStateStartY == currentStateEndY) {
-                            currentStateEndY == cellGridY
+                            currentStateEndY == Cell(endStateStart).gridY
                         } else {
                             currentStateStart.gridX == Cell(endStateStart).gridX
                         }
@@ -312,31 +310,48 @@ internal class DefaultSelectionManager : SelectionManager {
             val (prevStart, prevEnd) = prevRange
             val (currentStart, currentEnd) = currentRange
 
-            val cw = measureManager.cellWidth
-
-            val startStateStartCellDistance = measureManager.getCellDistance(prevStart.index)
-            val startStateEndCellDistance = measureManager.getCellDistance(prevEnd.index) + cw
-
-            val endStateStartCellDistance = measureManager.getCellDistance(currentStart.index)
-            val endStateEndCellDistance = measureManager.getCellDistance(currentEnd.index) + cw
-
             val prevShapeInfo = prevState.shapeInfo
+            val cw = prevShapeInfo.cellWidth
 
-            val shapeInfo = SelectionShapeInfo().apply {
-                // These are not supposed to be changed during the animation. Init them now.
-                firstCellOnRowLeft = prevShapeInfo.firstCellOnRowLeft
-                lastCellOnRowRight = prevShapeInfo.lastCellOnRowRight
-
-                cellWidth = cw
-                cellHeight = measureManager.cellHeight
-
-                roundRadius = measureManager.roundRadius
+            // Do not compute the cell distance if we already know one.
+            val startStateStartCellDist = measureManager.getCellDistance(prevStart.index)
+            var startStateEndCellDist = if (prevStart.index == prevEnd.index) {
+                startStateStartCellDist
+            } else {
+                measureManager.getCellDistance(prevEnd.index)
             }
+
+            // end cell distance should point to the right side of the cell
+            startStateEndCellDist += cw
+
+            val endStateStartCellDist = if (currentStart.index == prevStart.index) {
+                startStateStartCellDist
+            } else {
+                measureManager.getCellDistance(currentStart.index)
+            }
+
+            val endStateEndCellDist = if (currentEnd.index == prevEnd.index) {
+                startStateEndCellDist
+            } else {
+                measureManager.getCellDistance(currentEnd.index) + cw
+            }
+
+            val shapeInfo = SelectionShapeInfo(
+                // range, startLeft, startTop, endRight, endTop are changed on the first transition frame.
+                // Do not init them.
+                range = CellRange.Invalid,
+                startLeft = 0f, startTop = 0f,
+                endRight = 0f, endTop = 0f,
+                firstCellOnRowLeft = prevShapeInfo.firstCellOnRowLeft,
+                lastCellOnRowRight = prevShapeInfo.lastCellOnRowRight,
+                cellWidth = cw, cellHeight = prevShapeInfo.cellHeight,
+                roundRadius = prevShapeInfo.roundRadius
+            )
 
             DefaultSelectionState.RangeToRange(
                 prevState, currentState,
-                startStateStartCellDistance, startStateEndCellDistance,
-                endStateStartCellDistance, endStateEndCellDistance,
+                startStateStartCellDist, startStateEndCellDist,
+                endStateStartCellDist, endStateEndCellDist,
                 shapeInfo
             )
         } else {
