@@ -273,7 +273,6 @@ class RangeCalendarView @JvmOverloads constructor(
     internal val adapter: RangeCalendarPagerAdapter
 
     private val buttonSize: Int
-    private val hPadding: Int
     private val topContainerMarginBottom: Int
 
     private val toolbarManager: CalendarToolbarManager
@@ -295,8 +294,6 @@ class RangeCalendarView @JvmOverloads constructor(
 
         val selectableBg = context.getSelectableItemBackground()
         val cr = CalendarResources(context)
-
-        hPadding = cr.hPadding.toInt()
 
         val currentTimeZone = TimeZone.getDefault()
         _timeZone = currentTimeZone
@@ -640,20 +637,22 @@ class RangeCalendarView @JvmOverloads constructor(
         val pagerWidth = pager.measuredWidth
         val buttonSize = buttonSize
 
+        val maxInfoWidth = pagerWidth - 2 * buttonSize
+
+        infoTextView.measure(
+            MeasureSpec.makeMeasureSpec(maxInfoWidth, MeasureSpec.AT_MOST),
+            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+        )
+
         val buttonSpec = MeasureSpec.makeMeasureSpec(buttonSize, MeasureSpec.EXACTLY)
 
-        val maxInfoWidth = pagerWidth - 2 * (hPadding + buttonSize)
-        val infoWidthSpec = MeasureSpec.makeMeasureSpec(maxInfoWidth, MeasureSpec.AT_MOST)
-        val infoHeightSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
-
-        infoTextView.measure(infoWidthSpec, infoHeightSpec)
         prevButton.measure(buttonSpec, buttonSpec)
         nextOrClearButton.measure(buttonSpec, buttonSpec)
 
         val toolbarHeight = max(infoTextView.measuredHeight, buttonSize)
 
         toolbarManager.selectionView?.also { sv ->
-            var maxWidth = pagerWidth - 2 * hPadding - buttonSize
+            var maxWidth = pagerWidth - buttonSize
             if (!toolbarManager.hasSelectionViewClearButton) {
                 maxWidth -= buttonSize
             }
@@ -677,12 +676,10 @@ class RangeCalendarView @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val width = r - l
 
-        val hPadding = hPadding
         val buttonSize = buttonSize
 
         val toolbarManager = toolbarManager
-        val prevRight = hPadding + buttonSize
-        val nextLeft = width - prevRight
+        val nextLeft = width - buttonSize
 
         val infoWidth = infoTextView.measuredWidth
         val infoHeight = infoTextView.measuredHeight
@@ -695,7 +692,7 @@ class RangeCalendarView @JvmOverloads constructor(
         val buttonBottom = buttonTop + buttonSize
         val pagerTop = toolbarHeight + topContainerMarginBottom
 
-        prevButton.layout(hPadding, buttonTop, prevRight, buttonBottom)
+        prevButton.layout(0, buttonTop, buttonSize, buttonBottom)
         nextOrClearButton.layout(nextLeft, buttonTop, nextLeft + buttonSize, buttonBottom)
         infoTextView.layout(infoLeft, infoTop, infoLeft + infoWidth, infoTop + infoHeight)
 
@@ -709,7 +706,6 @@ class RangeCalendarView @JvmOverloads constructor(
             val gravity = svLayoutParams.gravity
 
             // lr's top is always 0
-            // lr.top = 0
             lr.bottom = toolbarHeight
 
             // Detection of whether the gravity is center_horizontal is a little bit complicated.
@@ -720,10 +716,10 @@ class RangeCalendarView @JvmOverloads constructor(
             // If the gravity on x-axis is center, let the view be centered along the whole
             // calendar view (except padding).
             if (isCenterHorizontal) {
-                lr.left = hPadding
-                lr.right = width - hPadding
+                lr.left = 0
+                lr.right = width
             } else {
-                lr.left = if (toolbarManager.hasSelectionViewClearButton) hPadding else prevRight
+                lr.left = if (toolbarManager.hasSelectionViewClearButton) 0 else buttonSize
                 lr.right = nextLeft
             }
 
@@ -736,10 +732,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
             Gravity.apply(absGravity, sv.measuredWidth, sv.measuredHeight, lr, lrOut)
 
-            sv.layout(
-                lrOut.left, lrOut.top,
-                lrOut.right, lrOut.bottom
-            )
+            sv.layout(lrOut.left, lrOut.top, lrOut.right, lrOut.bottom)
         }
     }
 
