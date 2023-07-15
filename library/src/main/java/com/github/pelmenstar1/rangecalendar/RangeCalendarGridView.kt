@@ -552,7 +552,7 @@ internal class RangeCalendarGridView(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val preferredWidth = ceilToInt(cellWidth() * 7)
-        val preferredHeight = ceilToInt(gridTop() + (cellHeight() * 6))
+        val preferredHeight = ceilToInt(gridTop() + gridHeight())
 
         setMeasuredDimension(
             resolveSize(preferredWidth, widthMeasureSpec),
@@ -570,7 +570,7 @@ internal class RangeCalendarGridView(
 
     private fun updateGradientBoundsIfNeeded() {
         if (selectionFillGradientBoundsType() == SelectionFillGradientBoundsType.GRID) {
-            selectionFill().setSize(rowWidth(), height = height - gridTop())
+            selectionFill().setSize(rowWidth(), gridHeight())
         }
     }
 
@@ -1340,6 +1340,14 @@ internal class RangeCalendarGridView(
         return weekdayRow.height + cr.weekdayRowMarginBottom
     }
 
+    private fun gridHeight(): Float {
+        return gridHeight(cellHeight())
+    }
+
+    private fun gridHeight(cellHeight: Float): Float {
+        return cellHeight * 6f
+    }
+
     // It'd be better if cellRoundRadius() returns round radius that isn't greater than half of cell size.
     private fun cellRoundRadius(): Float {
         return min(rrRadius(), min(cellWidth(), cellHeight()) * 0.5f)
@@ -1348,10 +1356,6 @@ internal class RangeCalendarGridView(
     // Width of the view without horizontal paddings (left and right)
     private fun rowWidth(): Float {
         return width - cr.hPadding * 2f
-    }
-
-    private fun gridHeight(): Float {
-        return height - gridTop()
     }
 
     private fun columnWidth(): Float {
@@ -1461,9 +1465,10 @@ internal class RangeCalendarGridView(
 
         val hPadding = cr.hPadding
         val gridTop = gridTop()
+        val cellHeight = cellHeight()
 
         val rowWidth = rowWidth()
-        val gridHeight = height - gridTop
+        val gridHeight = cellHeight * 6f
 
         if (relativity == CellMeasureManager.CoordinateRelativity.VIEW) {
             // Translate to grid's coordinates
@@ -1476,7 +1481,7 @@ internal class RangeCalendarGridView(
         }
 
         val gridX = ((7f * translatedX) / rowWidth).toInt()
-        val gridY = (translatedY / cellHeight()).toInt()
+        val gridY = (translatedY / cellHeight).toInt()
 
         return gridY * 7 + gridX
     }
