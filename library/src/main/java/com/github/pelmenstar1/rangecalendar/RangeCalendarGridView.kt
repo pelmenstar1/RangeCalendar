@@ -406,7 +406,7 @@ internal class RangeCalendarGridView(
         val resolvedManager = manager ?: DefaultSelectionManager()
 
         // DefaultSelectionManager has no options and preferences which means re-setting it has no effect.
-        if (resolvedManager.javaClass == DefaultSelectionManager::class.java &&
+        if (selectionManager.javaClass == DefaultSelectionManager::class.java &&
             resolvedManager.javaClass == DefaultSelectionManager::class.java
         ) {
             return
