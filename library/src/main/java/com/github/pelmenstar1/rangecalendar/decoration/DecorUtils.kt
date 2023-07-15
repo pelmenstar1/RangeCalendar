@@ -5,11 +5,11 @@ import android.graphics.RectF
 import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.BorderAnimationType
 import com.github.pelmenstar1.rangecalendar.adjustForBorder
-import com.github.pelmenstar1.rangecalendar.utils.arrayRectToObject
+import com.github.pelmenstar1.rangecalendar.PackedRectFArray
 
 internal fun Border.doDrawPreparation(
-    animatedBoundsArray: FloatArray, endBoundsArray: FloatArray,
-    arrayAbsIndex: Int,
+    animatedBoundsArray: PackedRectFArray, endBoundsArray: PackedRectFArray,
+    arrayIndex: Int,
     animationFraction: Float,
     borderAnimationType: BorderAnimationType,
     paint: Paint,
@@ -18,7 +18,7 @@ internal fun Border.doDrawPreparation(
     applyToPaint(paint)
 
     val animatedBorderWidth: Float
-    val outRectArray: FloatArray
+    val outRectArray: PackedRectFArray
 
     when (borderAnimationType) {
         BorderAnimationType.ONLY_SHAPE -> {
@@ -42,6 +42,6 @@ internal fun Border.doDrawPreparation(
         }
     }
 
-    arrayRectToObject(outRectArray, arrayAbsIndex, outRect)
+    outRectArray.toObjectRect(arrayIndex, outRect)
     outRect.adjustForBorder(animatedBorderWidth)
 }

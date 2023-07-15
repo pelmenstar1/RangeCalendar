@@ -9,6 +9,7 @@ import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
+import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
 import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.BorderAnimationType
@@ -20,12 +21,7 @@ import com.github.pelmenstar1.rangecalendar.RectangleShape
 import com.github.pelmenstar1.rangecalendar.Shape
 import com.github.pelmenstar1.rangecalendar.ShapeVisualInfo
 import com.github.pelmenstar1.rangecalendar.VerticalAlignment
-import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_BOTTOM
-import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_LEFT
-import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_RIGHT
-import com.github.pelmenstar1.rangecalendar.utils.RECT_ARRAY_TOP
-import com.github.pelmenstar1.rangecalendar.utils.lerpFloatArray
-import com.github.pelmenstar1.rangecalendar.utils.setRectFromValues
+import com.github.pelmenstar1.rangecalendar.PackedRectFArray
 
 /**
  * Represents a shape decoration.
@@ -44,7 +40,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
         private val affectedRangeEnd: Int
     ) : ShapeVisualState(
         end.inCellLeft, end.inCellTop, end.inCellRight, end.inCellBottom,
-        FloatArray(end.boundsArray.size),
+        PackedRectFArray(end.boundsArray.size),
         end.styles
     ), VisualState.Transitive {
         override var animationFraction: Float = 0f
@@ -63,9 +59,9 @@ class ShapeDecor(val style: Style) : CellDecor() {
             val rangeEnd = affectedRangeEnd
             val rangeLength = rangeEnd - rangeStart + 1
 
-            lerpFloatArray(
+            PackedRectFArray.lerpArray(
                 startBoundsArray, endBoundsArray, thisBoundsArray,
-                startIndex = 0, endIndexExclusive = rangeStart * 4,
+                startIndex = 0, endIndexExclusive = rangeStart,
                 animationFraction
             )
 
@@ -74,19 +70,14 @@ class ShapeDecor(val style: Style) : CellDecor() {
                     i - rangeStart, rangeLength, animationFraction
                 )
 
-                lerpRectFromCenter(
-                    sourceArray = endBoundsArray,
-                    destArray = thisBoundsArray,
-                    index = i * 4,
-                    animFraction
-                )
+                lerpRectFromCenter(source = endBoundsArray, dest = thisBoundsArray, index = i, animFraction)
             }
 
-            lerpFloatArray(
+            PackedRectFArray.lerpArray(
                 startBoundsArray, endBoundsArray, thisBoundsArray,
-                startIndex = (rangeEnd + 1) * 4, endIndexExclusive = thisBoundsArray.size,
+                startIndex = rangeEnd + 1, endIndexExclusive = thisBoundsArray.size,
                 animationFraction,
-                startOffset = rangeLength * 4
+                startOffset = rangeLength
             )
         }
     }
@@ -98,7 +89,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
         private val affectedRangeEnd: Int
     ) : ShapeVisualState(
         start.inCellLeft, start.inCellTop, start.inCellRight, start.inCellBottom,
-        FloatArray(start.boundsArray.size),
+        PackedRectFArray(start.boundsArray.size),
         start.styles
     ), VisualState.Transitive {
         override var animationFraction: Float = 0f
@@ -119,9 +110,9 @@ class ShapeDecor(val style: Style) : CellDecor() {
             val rangeEnd = affectedRangeEnd
             val rangeLength = rangeEnd - rangeStart + 1
 
-            lerpFloatArray(
+            PackedRectFArray.lerpArray(
                 startBoundsArray, endBoundsArray, thisBoundsArray,
-                startIndex = 0, endIndexExclusive = rangeStart * 4,
+                startIndex = 0, endIndexExclusive = rangeStart,
                 animationFraction
             )
 
@@ -130,19 +121,14 @@ class ShapeDecor(val style: Style) : CellDecor() {
                     i - rangeStart, rangeLength, revAnimationFraction
                 )
 
-                lerpRectFromCenter(
-                    sourceArray = startBoundsArray,
-                    destArray = thisBoundsArray,
-                    index = i * 4,
-                    itemFraction
-                )
+                lerpRectFromCenter(source = startBoundsArray, dest = thisBoundsArray, i, itemFraction)
             }
 
-            lerpFloatArray(
+            PackedRectFArray.lerpArray(
                 startBoundsArray, endBoundsArray, thisBoundsArray,
-                startIndex = (rangeEnd + 1) * 4, endIndexExclusive = thisBoundsArray.size,
+                startIndex = rangeEnd + 1, endIndexExclusive = thisBoundsArray.size,
                 animationFraction,
-                endOffset = rangeLength * 4
+                endOffset = rangeLength
             )
         }
     }
@@ -154,7 +140,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
         private val affectedRangeEnd: Int
     ) : ShapeVisualState(
         start.inCellLeft, start.inCellTop, start.inCellRight, start.inCellBottom,
-        FloatArray(start.boundsArray.size),
+        PackedRectFArray(start.boundsArray.size),
         start.styles
     ), VisualState.Transitive {
         override var animationFraction: Float = 0f
@@ -165,9 +151,9 @@ class ShapeDecor(val style: Style) : CellDecor() {
         ) {
             this.animationFraction = animationFraction
 
-            lerpFloatArray(
+            PackedRectFArray.lerpArray(
                 start.boundsArray, end.boundsArray, boundsArray,
-                affectedRangeStart * 4, (affectedRangeEnd + 1) * 4,
+                startIndex = affectedRangeStart, endIndexExclusive = affectedRangeEnd + 1,
                 animationFraction
             )
         }
@@ -178,11 +164,11 @@ class ShapeDecor(val style: Style) : CellDecor() {
         val inCellTop: Float,
         val inCellRight: Float,
         val inCellBottom: Float,
-        val boundsArray: FloatArray,
+        val boundsArray: PackedRectFArray,
         val styles: Array<Style>
     ) : VisualState {
         override val isEmpty: Boolean
-            get() = boundsArray.isEmpty()
+            get() = boundsArray.isEmpty
 
         override fun visual(): Visual = ShapeVisual
     }
@@ -190,7 +176,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
     private object ShapeStateHandler : VisualStateHandler {
         private val emptyShapeState = ShapeVisualState(
             0f, 0f, 0f, 0f,
-            FloatArray(0),
+            PackedRectFArray(0),
             emptyArray()
         )
 
@@ -296,7 +282,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
             }
 
             val styles = Array(decorCount) { (decorations[start + it] as ShapeDecor).style }
-            val boundsArray = FloatArray(decorCount * 4)
+            val boundsArray = PackedRectFArray(decorCount)
 
             val halfMaxHeight = maxHeight * 0.5f
 
@@ -319,10 +305,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 val right = left + size
                 val bottom = decorTop + size
 
-                setRectFromValues(
-                    boundsArray, i * 4,
-                    left, decorTop, right, bottom
-                )
+                boundsArray.set(i, left, decorTop, right, bottom)
 
                 style.fill.setSize(size, size)
 
@@ -381,55 +364,48 @@ class ShapeDecor(val style: Style) : CellDecor() {
         private val tempRect = RectF()
 
         override fun renderState(canvas: Canvas, state: VisualState) {
-            val shapeState = state as ShapeVisualState
+            state as ShapeVisualState
+
             val rect = tempRect
-            val boundsArray = shapeState.boundsArray
-            val styles = shapeState.styles
+            val boundsArray = state.boundsArray
+            val styles = state.styles
             val decorCount = styles.size
 
-            canvas.save()
-            canvas.clipRect(
-                shapeState.inCellLeft,
-                shapeState.inCellTop,
-                shapeState.inCellRight,
-                shapeState.inCellBottom
-            )
+            canvas.withClip(
+                state.inCellLeft,
+                state.inCellTop,
+                state.inCellRight,
+                state.inCellBottom
+            ) {
+                for (i in 0 until decorCount) {
+                    val style = styles[i]
+                    val shape = style.shape
 
-            for (i in 0 until decorCount) {
-                val style = styles[i]
-                val absIndex = i * 4
-                val shape = style.shape
+                    boundsArray.toObjectRect(i, rect)
+                    drawFilledShape(canvas, rect, shape, style.fill)
 
-                val left = boundsArray[absIndex + RECT_ARRAY_LEFT]
-                val top = boundsArray[absIndex + RECT_ARRAY_TOP]
-                val right = boundsArray[absIndex + RECT_ARRAY_RIGHT]
-                val bottom = boundsArray[absIndex + RECT_ARRAY_BOTTOM]
+                    val border = style.border
+                    if (border != null) {
+                        val endBoundsArray = when (state) {
+                            is TransitiveAdditionShapeVisualState -> state.end.boundsArray
+                            is TransitiveCellInfoShapeVisualState -> state.end.boundsArray
+                            is TransitiveRemovalShapeVisualState -> state.start.boundsArray
 
-                drawFilledShape(canvas, left, top, right, bottom, shape, style.fill)
+                            else -> boundsArray
+                        }
 
-                val border = style.border
-                if (border != null) {
-                    val endBoundsArray = when (state) {
-                        is TransitiveAdditionShapeVisualState -> state.end.boundsArray
-                        is TransitiveCellInfoShapeVisualState -> state.end.boundsArray
-                        is TransitiveRemovalShapeVisualState -> state.start.boundsArray
+                        border.doDrawPreparation(
+                            animatedBoundsArray = boundsArray,
+                            endBoundsArray,
+                            i,
+                            state.animationFraction, style.borderAnimationType,
+                            paint, rect
+                        )
 
-                        else -> boundsArray
+                        drawShape(canvas, rect, shape)
                     }
-
-                    border.doDrawPreparation(
-                        animatedBoundsArray = boundsArray,
-                        endBoundsArray,
-                        absIndex,
-                        state.animationFraction, style.borderAnimationType,
-                        paint, rect
-                    )
-
-                    drawShape(canvas, rect, shape)
                 }
             }
-
-            canvas.restore()
         }
 
         private fun drawShape(canvas: Canvas, bounds: RectF, shape: Shape) {
@@ -441,16 +417,11 @@ class ShapeDecor(val style: Style) : CellDecor() {
             }
         }
 
-        private fun drawFilledShape(
-            canvas: Canvas,
-            left: Float, top: Float, right: Float, bottom: Float,
-            shape: Shape,
-            fill: Fill
-        ) {
-            val width = right - left
-            val height = bottom - top
+        private fun drawFilledShape(canvas: Canvas, rect: RectF, shape: Shape, fill: Fill) {
+            val (left, top) = rect
+            val width = rect.width()
+            val height = rect.height()
 
-            val rect = tempRect
             rect.set(0f, 0f, width, height)
 
             canvas.withTranslation(left, top) {
@@ -609,14 +580,14 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
     companion object {
         private fun lerpRectFromCenter(
-            sourceArray: FloatArray, destArray: FloatArray,
+            source: PackedRectFArray, dest: PackedRectFArray,
             index: Int,
             fraction: Float
         ) {
-            val left = sourceArray[index + RECT_ARRAY_LEFT]
-            val top = sourceArray[index + RECT_ARRAY_TOP]
-            val right = sourceArray[index + RECT_ARRAY_RIGHT]
-            val bottom = sourceArray[index + RECT_ARRAY_BOTTOM]
+            val left = source.getLeft(index)
+            val top = source.getTop(index)
+            val right = source.getRight(index)
+            val bottom = source.getBottom(index)
 
             val centerX = (left + right) * 0.5f
             val centerY = (top + bottom) * 0.5f
@@ -625,8 +596,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
             val animatedHalfWidth = (right - left) * t
             val animatedHalfHeight = (bottom - top) * t
 
-            setRectFromValues(
-                destArray, index,
+            dest.set(
+                index,
                 left = centerX - animatedHalfWidth, top = centerY - animatedHalfHeight,
                 right = centerX + animatedHalfWidth, bottom = centerY + animatedHalfHeight
             )
