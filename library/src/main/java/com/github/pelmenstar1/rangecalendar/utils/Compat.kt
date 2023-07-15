@@ -5,7 +5,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.os.Build
-import kotlin.math.round
 
 private val tempRect: RectF? = if (Build.VERSION.SDK_INT < 21) RectF() else null
 

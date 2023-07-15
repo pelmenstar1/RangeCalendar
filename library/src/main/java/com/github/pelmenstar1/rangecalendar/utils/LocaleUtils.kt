@@ -2,10 +2,8 @@ package com.github.pelmenstar1.rangecalendar.utils
 
 import android.content.Context
 import android.content.res.Configuration
-import android.icu.util.ULocale
 import android.os.Build
 import android.text.format.DateFormat
-import android.util.Log
 import com.github.pelmenstar1.rangecalendar.CompatDayOfWeek
 import java.util.*
 

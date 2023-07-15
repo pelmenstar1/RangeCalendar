@@ -27,9 +27,6 @@ internal value class CellRange(val bits: Int) {
     val isValid: Boolean
         get() = start.index <= end.index
 
-    val isInvalid: Boolean
-        get() = start.index > end.index
-
     inline operator fun component1() = start
     inline operator fun component2() = end
 

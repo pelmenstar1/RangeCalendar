@@ -3,7 +3,6 @@ package com.github.pelmenstar1.rangecalendar
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RectF
 import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
@@ -22,10 +21,6 @@ internal class RoundRectVisualInfo {
     private var isPathDirty = true
 
     private var roundRectPath: Path? = null
-
-    fun setBounds(rect: RectF) {
-        setBounds(rect.left, rect.top, rect.right, rect.bottom)
-    }
 
     fun setBounds(newLeft: Float, newTop: Float, newRight: Float, newBottom: Float) {
         if (newLeft == left && newTop == top && newRight == right && newBottom == bottom) {
