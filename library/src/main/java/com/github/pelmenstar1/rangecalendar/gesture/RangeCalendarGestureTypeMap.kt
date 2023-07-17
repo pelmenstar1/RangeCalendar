@@ -8,12 +8,19 @@ open class RangeCalendarGestureTypeMap(
     private val map: Map<RangeCalendarGestureType<*>, Any>
 ) {
     /**
-     * Returns the value corresponding the given [key]. Throws if there is no value associated with specified [key].
+     * Returns the value corresponding the given [key]. Returns `null` there is no value associated with specified [key].
      */
     @Suppress("UNCHECKED_CAST")
-    operator fun<TOptions : Any> get(key: RangeCalendarGestureType<TOptions>): TOptions {
-        return map[key] as TOptions
+    operator fun<TOptions : Any> get(key: RangeCalendarGestureType<TOptions>): TOptions? {
+        return map[key] as TOptions?
     }
+
+    /**
+     * Returns the value corresponding the given [key]. Returns `null` if there is no value associated with specified [key].
+     *
+     * Unlike [get] method, this method does not perform the cast and returns value of [Any] type.
+     */
+    fun getRaw(key: RangeCalendarGestureType<*>): Any? = map[key]
 
     /**
      * Returns the wrapped instance of map.

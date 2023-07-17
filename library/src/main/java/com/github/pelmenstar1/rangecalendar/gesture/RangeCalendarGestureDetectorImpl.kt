@@ -109,12 +109,14 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                         val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout()
 
                         if (lastDownTouchCell == cellIndex) {
-                            if (isEnabledGesture { doubleTapWeek } &&
+                            val enabledTypes = configuration.enabledGestureTypes
+
+                            if (enabledTypes.contains { doubleTapWeek } &&
                                 eventTime - lastUpTouchTime < doubleTapTimeout &&
                                 lastUpTouchCell == cellIndex
                             ) {
                                 selectWeek(weekIndex = cellIndex / 7)
-                            } else if (isEnabledGesture { singleTapCell }) {
+                            } else if (enabledTypes.contains { singleTapCell }) {
                                 selectRange(cellIndex, cellIndex, SelectionByGestureType.SINGLE_CELL_ON_CLICK)
                             }
                         }
@@ -204,6 +206,16 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
     }
 
     private fun onTwoPointersDownOrMove(event: MotionEvent) {
+        val conf = configuration
+        val enabledTypes = conf.enabledGestureTypes
+
+        val isPinchWeekEnabled = enabledTypes.contains { horizontalPinchWeek }
+        val isPinchMonthEnabled = enabledTypes.contains { diagonalPinchMonth }
+
+        if (!isPinchWeekEnabled && !isPinchMonthEnabled) {
+            return
+        }
+
         // Disallow parent to "see" the event as even when two pointers are down, the move event causes horizontal scrolling
         disallowParentInterceptEvent()
 
@@ -217,11 +229,9 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         val x1 = event.getX(1)
         val y1 = event.getY(1)
 
-        val conf = configuration
         val gestureTypeOptions = conf.gestureTypeOptions
-
-        val weekPinchConf = gestureTypeOptions.get { horizontalPinchWeek }
-        val monthPinchConf = gestureTypeOptions.get { diagonalPinchMonth }
+        val weekPinchConf = gestureTypeOptions.getOptionsAndCheck(isPinchWeekEnabled) { horizontalPinchWeek }
+        val monthPinchConf = gestureTypeOptions.getOptionsAndCheck(isPinchMonthEnabled) { diagonalPinchMonth }
 
         if (!pinchInfo.isStarted) {
             cancelTimeoutMessages()
@@ -236,15 +246,15 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                 val cell0 = getCellAt(x0, y0)
                 val cell1 = getCellAt(x1, y1)
 
-                val enabledTypes = conf.enabledGestureTypes
-
                 // Currently, all supported pinch gestures require that two pointers to be on the grid.
                 if (cell0 < 0 || cell1 < 0) {
                     isFinished = true
                     return
                 }
 
-                if (enabledTypes.contains { horizontalPinchWeek } && isWeekAngle(angle, weekPinchConf)) {
+                // If either weekPinchConf or monthPinchConf is not null, it means that corresponding gesture type
+                // is enabled.
+                if (weekPinchConf != null && isWeekAngle(angle, weekPinchConf)) {
                     val weekIndex0 = cell0 / 7
                     val weekIndex1 = cell1 / 7
 
@@ -258,7 +268,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                     firstPointerRole = if (x0 < x1) ROLE_WEEK_LEFT else ROLE_WEEK_RIGHT
 
                     type = PINCH_TYPE_WEEK
-                } else if (enabledTypes.contains { diagonalPinchMonth } && isMonthAngle(angle, monthPinchConf)) {
+                } else if (monthPinchConf != null && isMonthAngle(angle, monthPinchConf)) {
                     // Assign the role of left-bottom pointer to the first pointer if the first pointer
                     // is more on the left side than the right pointer. Giving the angle is somewhere 45 degrees,
                     // we check only x axis.
@@ -283,7 +293,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
         when (pinchInfo.type) {
             PINCH_TYPE_WEEK -> {
-                if (!isWeekAngle(angle, weekPinchConf)) {
+                // We can't have pinchInfo.type == PINCH_TYPE_WEEK and weekPinchConf that is null
+                if (!isWeekAngle(angle, weekPinchConf!!)) {
                     pinchInfo.isFinished = true
                     return
                 }
@@ -318,7 +329,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             }
 
             PINCH_TYPE_MONTH -> {
-                if (!isMonthAngle(angle, monthPinchConf)) {
+                // We can't have pinchInfo.type == PINCH_TYPE_MONTH and monthPinchConf that is null
+                if (!isMonthAngle(angle, monthPinchConf!!)) {
                     pinchInfo.isFinished = true
                     return
                 }
@@ -396,6 +408,30 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         private const val ROLE_WEEK_RIGHT = 2
         private const val ROLE_MONTH_RT = 3
         private const val ROLE_MONTH_LB = 4
+
+        private inline fun <reified TOptions : Any> RangeCalendarGestureTypeMap.getOptionsAndCheck(
+            shouldExist: Boolean,
+            getType: GetDefaultGestureType<TOptions>
+        ): TOptions? {
+            val type = RangeCalendarDefaultGestureTypes.getType()
+            val result = getRaw(type)
+
+            checkGestureOptions(result, shouldExist, type, expectedClass = TOptions::class.java)
+
+            return result as TOptions?
+        }
+
+        private fun checkGestureOptions(options: Any?, shouldBeNotNull: Boolean, type: RangeCalendarGestureType<*>, expectedClass: Class<*>) {
+            if (shouldBeNotNull) {
+                if (options == null) {
+                    throw IllegalStateException("Gesture '$type' is enabled but there is no options provided")
+                }
+
+                if (options.javaClass != expectedClass) {
+                    throw IllegalStateException("Options of type '$expectedClass' is expected for the gesture '$type' but provided: ${options.javaClass}")
+                }
+            }
+        }
 
         private fun isWeekAngle(angle: Float, conf: PinchConfiguration): Boolean {
             val dev = conf.angleDeviation

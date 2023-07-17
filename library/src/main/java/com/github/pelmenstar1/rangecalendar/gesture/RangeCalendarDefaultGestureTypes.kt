@@ -124,6 +124,6 @@ internal inline fun<T : Any> RangeCalendarGestureTypeMutableMap.put(getType: Get
     put(RangeCalendarDefaultGestureTypes.getType(), value)
 }
 
-internal inline fun <T : Any> RangeCalendarGestureTypeMap.get(getType: GetDefaultGestureType<T>): T {
+internal inline fun <T : Any> RangeCalendarGestureTypeMap.get(getType: GetDefaultGestureType<T>): T? {
     return get(RangeCalendarDefaultGestureTypes.getType())
 }
