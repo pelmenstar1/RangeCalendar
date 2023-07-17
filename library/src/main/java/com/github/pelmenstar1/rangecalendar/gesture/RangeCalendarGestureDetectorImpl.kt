@@ -74,13 +74,11 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
     private var lastDownTouchCell = -1
 
     private var longRangeStartCell = -1
-    private var isSelectingLongRange = false
+    private var isSelectingCustomRange = false
 
     private val pinchInfo = PinchInfo()
 
     override fun processEvent(event: MotionEvent): Boolean {
-        val x0 = event.x
-        val y0 = event.y
         val pointerCount = event.pointerCount
 
         when (event.actionMasked) {
@@ -97,8 +95,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                if (!isSelectingLongRange) {
-                    val cellIndex = getCellAt(x0, y0)
+                if (!isSelectingCustomRange && pointerCount == 1) {
+                    val cellIndex = getCellAt(event.x, event.y)
 
                     if (cellIndex >= 0 && isSelectableCell(cellIndex)) {
                         val eventTime = event.eventTime
@@ -127,7 +125,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
                 pinchInfo.invalidate()
 
-                isSelectingLongRange = false
+                isSelectingCustomRange = false
             }
 
             MotionEvent.ACTION_CANCEL -> {
@@ -136,7 +134,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
 
                 pinchInfo.invalidate()
 
-                isSelectingLongRange = false
+                isSelectingCustomRange = false
             }
 
             MotionEvent.ACTION_MOVE -> {
@@ -144,23 +142,61 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                     pinchInfo.invalidate()
                 }
 
-                if (isSelectingLongRange && pointerCount == 1) {
-                    disallowParentInterceptEvent()
-
-                    val cell = getCellAt(x0, y0)
-
-                    if (cell >= 0 && isSelectableCell(cell)) {
-                        val range = CellRange(longRangeStartCell, cell).normalize()
-
-                        selectRange(range, SelectionByGestureType.LONG_SELECTION)
-                    }
-                } else if (!isSelectingLongRange && pointerCount == 2) {
+                if (isSelectingCustomRange) {
+                    onPointersMoveWhenSelectingCustomRange(event)
+                } else if (pointerCount == 2) {
                     onTwoPointersDownOrMove(event)
                 }
             }
         }
 
         return true
+    }
+
+    private fun onPointersMoveWhenSelectingCustomRange(event: MotionEvent) {
+        val conf = configuration
+        val enabledTypes = conf.enabledGestureTypes
+
+        val x0 = event.getX(0)
+        val y0 = event.getY(0)
+
+        when (event.pointerCount) {
+            1 -> {
+                if (!enabledTypes.contains { longPressRange }) {
+                    return
+                }
+
+                disallowParentInterceptEvent()
+
+                val cell = getCellAt(x0, y0)
+
+                if (isSelectableCell(cell)) {
+                    val range = CellRange(longRangeStartCell, cell).normalize()
+
+                    selectRange(range, SelectionByGestureType.LONG_SELECTION)
+                }
+            }
+
+            2 -> {
+                if (!enabledTypes.contains { longPressTwoPointersRange }) {
+                    return
+                }
+
+                disallowParentInterceptEvent()
+
+                val x1 = event.getX(1)
+                val y1 = event.getY(1)
+
+                val cell0 = getCellAt(x0, y0)
+                val cell1 = getCellAt(x1, y1)
+
+                if (isSelectableCell(cell0) && isSelectableCell(cell1)) {
+                    val range = CellRange(cell0, cell1).normalize()
+
+                    selectRange(range, SelectionByGestureType.LONG_SELECTION)
+                }
+            }
+        }
     }
 
     private fun onSinglePointerDown(event: MotionEvent) {
@@ -187,7 +223,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             timeoutHandler.sendMessageAtTime(msg2, hoverTime)
 
             // Detect long presses only when the gesture is enabled.
-            if (isEnabledGesture { longPressRange }) {
+            if (isEnabledGesture { longPressRange } || isEnabledGesture { longPressTwoPointersRange }) {
                 val msg1 = Message.obtain().apply {
                     what = MSG_LONG_PRESS
                     obj = this@RangeCalendarGestureDetectorImpl
@@ -376,7 +412,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         val status = selectRange(cell, cell, SelectionByGestureType.LONG_SELECTION)
 
         if (status != SelectionAcceptanceStatus.REJECTED) {
-            isSelectingLongRange = true
+            isSelectingCustomRange = true
             longRangeStartCell = cell
             gestureEventHandler.reportStartSelectingRange()
         }
@@ -419,7 +455,12 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             return result as TOptions?
         }
 
-        private fun checkGestureOptions(options: Any?, shouldBeNotNull: Boolean, type: RangeCalendarGestureType<*>, expectedClass: Class<*>) {
+        private fun checkGestureOptions(
+            options: Any?,
+            shouldBeNotNull: Boolean,
+            type: RangeCalendarGestureType<*>,
+            expectedClass: Class<*>
+        ) {
             if (shouldBeNotNull) {
                 if (options == null) {
                     throw IllegalStateException("Gesture '$type' is enabled but there is no options provided")

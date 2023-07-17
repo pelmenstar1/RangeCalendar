@@ -222,11 +222,12 @@ rangeCalendar.gestureConfiguration = RangeCalendarGestureConfiguration {
 ```
 
 The library provides default gesture detector that detects these gestures:
-- single tap to select a cell
-- double tap to select a week
-- long press to start selecting custom range
-- horizontal pinch to select week
-- diagonal pinch to select month
+- single tap to select a cell (`RangeCalendarDefaultGestureTypes.singleTapCell`)
+- double tap to select a week (`RangeCalendarDefaultGestureTypes.doubleTapWeek`)
+- long press to start selecting custom range and then move **one** pointer to specify the range (`RangeCalendarDefaultGestureTypes.longPressRange`)
+- long press to start selecting custom range and then move **two** pointers to specify the range (`RangeCalendarDefaultGestureTypes.longPressTwoPointersRange`)
+- horizontal pinch to select week (`RangeCalendarDefaultGestureTypes.horizontalPinchWeek`)
+- diagonal pinch to select month (`RangeCalendarDefaultGestureTypes.diagonalPinchMonth`)
 
 The configuration of gesture detector can be changed when the detector is default:
 ```kotlin

@@ -21,7 +21,10 @@ object RangeCalendarDefaultGestureTypes {
     val doubleTapWeek = RangeCalendarGestureType<Nothing>(ordinal = 1, displayName = "doubleTapWeek")
 
     /**
-     * Long press to start selecting custom range.
+     * Long press to start selecting custom range and then **single** pointer selects the range.
+     *
+     * This gesture is pretty similar to the [longPressTwoPointersRange] but unlike the former one,
+     * [longPressRange] doesn't work if there's more than one pointer.
      */
     @JvmField
     val longPressRange = RangeCalendarGestureType<Nothing>(ordinal = 2, displayName = "longPressRange")
@@ -40,9 +43,30 @@ object RangeCalendarDefaultGestureTypes {
     val diagonalPinchMonth =
         RangeCalendarGestureType<PinchConfiguration>(ordinal = 4, displayName = "diagonalSwipeMonth")
 
-    internal const val typeCount = 5
-    internal val allTypes: Array<RangeCalendarGestureType<*>> =
-        arrayOf(singleTapCell, doubleTapWeek, longPressRange, horizontalPinchWeek, diagonalPinchMonth)
+    /**
+     * Long press to start selecting custom range and then **two** pointers select the range.
+     *
+     * This gesture is pretty similar to the [longPressRange] but unlike the former one,
+     * [longPressTwoPointersRange] doesn't work if the number of pointers isn't two.
+     *
+     * Transition from using a single pointer to using two pointers is possible, whereas the reverse transition is not. It's because
+     * the [longPressRange] gesture relies on the information about the cell from which the custom selection is started.
+     * When two pointers are used, this cell is undefined.
+     */
+    @JvmField
+    val longPressTwoPointersRange = RangeCalendarGestureType<Nothing>(ordinal = 5, displayName = "longPressTwoPointersRange")
+
+    internal const val typeCount = 6
+
+    // The array should be sorted by ordinal
+    internal val allTypes: Array<RangeCalendarGestureType<*>> = arrayOf(
+        singleTapCell,
+        doubleTapWeek,
+        longPressRange,
+        horizontalPinchWeek,
+        diagonalPinchMonth,
+        longPressTwoPointersRange
+    )
 
     // bits is a number where lowest 'typeCount' bits are set.
     internal val allEnabledSet = RangeCalendarGestureTypeBitsSet(bits = (1 shl typeCount) - 1, allTypes)
@@ -78,6 +102,11 @@ class RangeCalendarDefaultGestureTypeSetBuilder {
      * Adds [RangeCalendarDefaultGestureTypes.diagonalPinchMonth] to the set.
      */
     fun diagonalPinchMonth() = addType { diagonalPinchMonth }
+
+    /**
+     * Adds [RangeCalendarDefaultGestureTypes.longPressTwoPointersRange] to the set.
+     */
+    fun longPressTwoPointersRange() = addType { longPressTwoPointersRange }
 
     private inline fun addType(getType: RangeCalendarDefaultGestureTypes.() -> RangeCalendarGestureType<*>) {
         addType(RangeCalendarDefaultGestureTypes.getType())
@@ -120,7 +149,7 @@ internal inline fun Set<RangeCalendarGestureType<*>>.contains(getType: GetDefaul
     return contains(RangeCalendarDefaultGestureTypes.getType())
 }
 
-internal inline fun<T : Any> RangeCalendarGestureTypeMutableMap.put(getType: GetDefaultGestureType<T>, value: T) {
+internal inline fun <T : Any> RangeCalendarGestureTypeMutableMap.put(getType: GetDefaultGestureType<T>, value: T) {
     put(RangeCalendarDefaultGestureTypes.getType(), value)
 }
 

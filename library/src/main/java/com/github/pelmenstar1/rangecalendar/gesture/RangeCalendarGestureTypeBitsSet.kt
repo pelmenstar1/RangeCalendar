@@ -2,13 +2,13 @@ package com.github.pelmenstar1.rangecalendar.gesture
 
 internal class RangeCalendarGestureTypeBitsSet(
     // If bit 'n' is set, it means that the gesture with ordinal number 'n' is in set.
-    @JvmField val bits: Int,
+    private val bits: Int,
 
     // Expected that the array doesn't have items with the same ordinal
-    @JvmField val elements: Array<RangeCalendarGestureType<*>>
+    private val elements: Array<RangeCalendarGestureType<*>>
 ) : Set<RangeCalendarGestureType<*>> {
     override val size: Int
-        get() = bits.countOneBits()
+        get() = elements.size
 
     override fun isEmpty(): Boolean = bits == 0
 
