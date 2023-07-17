@@ -31,18 +31,19 @@ internal class RangeCalendarGestureTypeBitsSet(
 
     override fun equals(other: Any?): Boolean {
         if (other === this) return true
-        if (other == null || javaClass != other.javaClass) return false
 
-        other as RangeCalendarGestureTypeBitsSet
-
-        return other.bits == bits
+        return when (other) {
+            is RangeCalendarGestureTypeBitsSet -> other.bits == bits
+            is Set<*> -> containsAll(other)
+            else -> false
+        }
     }
 
     override fun hashCode(): Int = bits
 
     override fun toString(): String {
         return buildString(64) {
-            append("RangeCalendarGestureTypeSet(elements=[")
+            append('[')
 
             for ((index, element) in elements.withIndex()) {
                 append(element.toString())
@@ -52,7 +53,7 @@ internal class RangeCalendarGestureTypeBitsSet(
                 }
             }
 
-            append("])")
+            append(']')
         }
     }
 }
