@@ -228,7 +228,9 @@ internal class RangeCalendarGridView(
     private var enabledCellRange = ALL_SELECTED
     private var todayCell = Cell.Undefined
     private var hoverCell = Cell.Undefined
-    private var animationHoverCell = Cell.Undefined
+
+    // In case of clearing hover cell with animation, we need to know the previous cell before the clearing.
+    private var animatedHoverCell = Cell.Undefined
 
     var ym = YearMonth(0)
 
@@ -775,7 +777,7 @@ internal class RangeCalendarGridView(
             return
         }
 
-        animationHoverCell = cell
+        animatedHoverCell = cell
         hoverCell = cell
 
         if (isHoverAnimationEnabled()) {
@@ -1172,8 +1174,10 @@ internal class RangeCalendarGridView(
     private fun drawHover(c: Canvas) {
         val isHoverAnimation = animType == HOVER_ANIMATION
 
-        if ((isHoverAnimation && animationHoverCell.isDefined) || hoverCell.isDefined) {
-            val cell = if (isHoverAnimation) animationHoverCell else hoverCell
+        if (hoverCell.isDefined || isHoverAnimation) {
+            // If this is hover-animation, we need to use animatedHoverCell instead of hoverCell in case the animation
+            // is triggered because of clearing the hover.
+            val cell = if (isHoverAnimation) animatedHoverCell else hoverCell
 
             val halfCellWidth = cellWidth() * 0.5f
             val cellHeight = cellHeight()
@@ -1226,39 +1230,25 @@ internal class RangeCalendarGridView(
         val isSelectionOverlaysCell = selectionTransitiveState?.overlaysCell(cell.index)
             ?: selectionManager.currentState.contains(cell)
 
-        var cellType = if (isSelectionOverlaysCell) {
-            CELL_SELECTED
-        } else if (enabledCellRange.contains(cell)) {
-            if (inMonthRange.contains(cell)) {
-                if (cell == todayCell) {
-                    CELL_TODAY
+        return when {
+            isSelectionOverlaysCell -> CELL_SELECTED
+            enabledCellRange.contains(cell) -> {
+                if (inMonthRange.contains(cell)) {
+                    if (cell == todayCell) CELL_TODAY else CELL_IN_MONTH
                 } else {
-                    CELL_IN_MONTH
+                    CELL_OUT_MONTH
                 }
-            } else {
-                CELL_OUT_MONTH
             }
-        } else {
-            CELL_DISABLED
+            else -> CELL_DISABLED
         }
-
-        if (cell == hoverCell) {
-            cellType = cellType or CELL_HOVER_BIT
-        }
-
-        return cellType
     }
 
     private fun drawCell(c: Canvas, centerX: Float, centerY: Float, day: Int, cellType: Int) {
         if (day > 0) {
-            val propIndex = when (cellType and CELL_DATA_MASK) {
+            val propIndex = when (cellType) {
                 CELL_SELECTED, CELL_IN_MONTH -> RangeCalendarStyleData.IN_MONTH_TEXT_COLOR
                 CELL_OUT_MONTH -> RangeCalendarStyleData.OUT_MONTH_TEXT_COLOR
-                CELL_TODAY -> if ((cellType and CELL_HOVER_BIT) != 0) {
-                    RangeCalendarStyleData.IN_MONTH_TEXT_COLOR
-                } else {
-                    RangeCalendarStyleData.TODAY_TEXT_COLOR
-                }
+                CELL_TODAY -> RangeCalendarStyleData.TODAY_TEXT_COLOR
 
                 else -> throw IllegalArgumentException("type")
             }
@@ -1515,20 +1505,15 @@ internal class RangeCalendarGridView(
     private fun getDayNumberSize(cell: Cell) = getDayNumberSize(cells[cell.index].toInt())
 
     companion object {
-        private const val MSG_LONG_PRESS = 0
-        private const val MSG_HOVER_PRESS = 1
+        private const val TAG = "RangeCalendarGridView"
 
         private const val CELL_IN_MONTH = 0
         private const val CELL_OUT_MONTH = 1
         private const val CELL_SELECTED = 2
         private const val CELL_DISABLED = 3
         private const val CELL_TODAY = 4
-        private const val CELL_HOVER_BIT = 1 shl 31
-        private const val CELL_DATA_MASK = CELL_HOVER_BIT.inv()
 
-        private val ALL_SELECTED = CellRange(0, 42)
-
-        private const val TAG = "RangeCalendarGridView"
+        private val ALL_SELECTED = CellRange(0, 41)
 
         private const val NO_ANIMATION = 0
         private const val SELECTION_ANIMATION = 1
