@@ -30,9 +30,9 @@ internal fun lerp(start: Int, end: Int, fraction: Float): Int {
     return start + ((end - start).toFloat() * fraction).toInt()
 }
 
-internal fun getDistance(x0: Float, y0: Float, x1: Float, y1: Float): Float {
+internal fun getSquareDistance(x0: Float, y0: Float, x1: Float, y1: Float): Float {
     val dx = x0 - x1
     val dy = y0 - y1
 
-    return sqrt(dx * dx + dy * dy)
+    return dx * dx + dy * dy
 }

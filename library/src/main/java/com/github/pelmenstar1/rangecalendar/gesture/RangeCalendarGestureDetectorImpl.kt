@@ -1,17 +1,14 @@
 package com.github.pelmenstar1.rangecalendar.gesture
 
-import android.graphics.PointF
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.view.MotionEvent
 import android.view.ViewConfiguration
-import androidx.core.graphics.component1
-import androidx.core.graphics.component2
 import com.github.pelmenstar1.rangecalendar.Distance
 import com.github.pelmenstar1.rangecalendar.SelectionAcceptanceStatus
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
-import com.github.pelmenstar1.rangecalendar.utils.getDistance
+import com.github.pelmenstar1.rangecalendar.utils.getSquareDistance
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -39,8 +36,10 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         var isStarted = false
         var isFinished = false
 
-        val startP0 = PointF()
-        val startP1 = PointF()
+        var startX0 = 0f
+        var startY0 = 0f
+        var startX1 = 0f
+        var startY1 = 0f
 
         var startWeekIndex = 0
 
@@ -48,20 +47,17 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         var firstPointerRole = ROLE_NONE
 
         fun setStartLine(x0: Float, y0: Float, x1: Float, y1: Float) {
-            startP0.set(x0, y0)
-            startP1.set(x1, y1)
-        }
-
-        fun getDistanceToStartPoint0(x: Float, y: Float): Float {
-            return getDistance(startP0.x, startP0.y, x, y)
-        }
-
-        fun getDistanceToStartPoint1(x: Float, y: Float): Float {
-            return getDistance(startP1.x, startP1.y, x, y)
+            startX0 = x0
+            startX0 = y0
+            startX1 = x1
+            startX1 = y1
         }
 
         fun bothDistanceGreaterThanMinDistance(x0: Float, y0: Float, x1: Float, y1: Float, minDist: Float): Boolean {
-            return getDistanceToStartPoint0(x0, y0) > minDist && getDistanceToStartPoint1(x1, y1) > minDist
+            val sqMinDist = minDist * minDist
+
+            return getSquareDistance(startX0, startY0, x0, y0) > sqMinDist &&
+                    getSquareDistance(startX1, startY1, x1, y1) > sqMinDist
         }
 
         fun invalidate() {
@@ -286,8 +282,10 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             return
         }
 
-        val (startX0, startY0) = pinchInfo.startP0
-        val (startX1, startY1) = pinchInfo.startP1
+        val startX0 = pinchInfo.startX0
+        val startY0 = pinchInfo.startY0
+        val startX1 = pinchInfo.startX1
+        val startY1 = pinchInfo.startY1
 
         val angle = getLineAngle(x0, y0, x1, y1)
 
