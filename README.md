@@ -222,7 +222,8 @@ rangeCalendar.gestureConfiguration = RangeCalendarGestureConfiguration {
 ```
 
 The library provides default gesture detector that detects these gestures:
-- double tap to select week
+- single tap to select a cell
+- double tap to select a week
 - long press to start selecting custom range
 - horizontal pinch to select week
 - diagonal pinch to select month

@@ -114,11 +114,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                                 lastUpTouchCell == cellIndex
                             ) {
                                 selectWeek(weekIndex = cellIndex / 7)
-                            } else {
-                                selectRange(
-                                    cellIndex, cellIndex,
-                                    SelectionByGestureType.SINGLE_CELL_ON_CLICK
-                                )
+                            } else if (isEnabledGesture { singleTapCell }) {
+                                selectRange(cellIndex, cellIndex, SelectionByGestureType.SINGLE_CELL_ON_CLICK)
                             }
                         }
 

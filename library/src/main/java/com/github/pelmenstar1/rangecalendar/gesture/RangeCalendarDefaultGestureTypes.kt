@@ -9,37 +9,43 @@ internal typealias GetDefaultGestureType<T> = RangeCalendarDefaultGestureTypes.(
  */
 object RangeCalendarDefaultGestureTypes {
     /**
+     * Single tap to select a cell.
+     */
+    @JvmField
+    val singleTapCell = RangeCalendarGestureType<Nothing>(ordinal = 0, displayName = "singleTapCell")
+
+    /**
      * Double tap to select week range.
      */
     @JvmField
-    val doubleTapWeek = RangeCalendarGestureType<Nothing>(ordinal = 0, displayName = "doubleTapWeek")
+    val doubleTapWeek = RangeCalendarGestureType<Nothing>(ordinal = 1, displayName = "doubleTapWeek")
 
     /**
      * Long press to start selecting custom range.
      */
     @JvmField
-    val longPressRange = RangeCalendarGestureType<Nothing>(ordinal = 1, displayName = "longPressRange")
+    val longPressRange = RangeCalendarGestureType<Nothing>(ordinal = 2, displayName = "longPressRange")
 
     /**
      * Horizontal pinch to select week range.
      */
     @JvmField
     val horizontalPinchWeek =
-        RangeCalendarGestureType<PinchConfiguration>(ordinal = 2, displayName = "horizontalSwipeWeek")
+        RangeCalendarGestureType<PinchConfiguration>(ordinal = 3, displayName = "horizontalSwipeWeek")
 
     /**
      * Diagonal pinch to select month range. The diagonal in this gesture is a one that runs from left bottom corner to right top corner.
      */
     @JvmField
     val diagonalPinchMonth =
-        RangeCalendarGestureType<PinchConfiguration>(ordinal = 3, displayName = "diagonalSwipeMonth")
+        RangeCalendarGestureType<PinchConfiguration>(ordinal = 4, displayName = "diagonalSwipeMonth")
 
-    internal const val typeCount = 4
+    internal const val typeCount = 5
     internal val allTypes: Array<RangeCalendarGestureType<*>> =
-        arrayOf(doubleTapWeek, longPressRange, horizontalPinchWeek, diagonalPinchMonth)
+        arrayOf(singleTapCell, doubleTapWeek, longPressRange, horizontalPinchWeek, diagonalPinchMonth)
 
-    // bits is the number where lowest 'typeCount' bits are set.
-    internal val allEnabledSet = RangeCalendarGestureTypeBitsSet(bits = 0b1111, allTypes)
+    // bits is a number where lowest 'typeCount' bits are set.
+    internal val allEnabledSet = RangeCalendarGestureTypeBitsSet(bits = (1 shl typeCount) - 1, allTypes)
 }
 
 /**
@@ -47,6 +53,11 @@ object RangeCalendarDefaultGestureTypes {
  */
 class RangeCalendarDefaultGestureTypeSetBuilder {
     private var bits = 0
+
+    /**
+     * Adds [RangeCalendarDefaultGestureTypes.singleTapCell] to the set.
+     */
+    fun singleTapCell() = addType { singleTapCell }
 
     /**
      * Adds [RangeCalendarDefaultGestureTypes.doubleTapWeek] to the set.
