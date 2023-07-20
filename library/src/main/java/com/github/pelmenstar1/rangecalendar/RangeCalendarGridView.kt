@@ -246,7 +246,9 @@ internal class RangeCalendarGridView(
 
     private var selectionManager: SelectionManager = DefaultSelectionManager()
     private var selectionRenderer = selectionManager.renderer
+
     private var selectionRenderOptions: SelectionRenderOptions? = null
+    private var isSelectionRenderOptionsDirty = true
 
     private var hoverAnimationHandler: TickCallback? = null
 
@@ -342,15 +344,22 @@ internal class RangeCalendarGridView(
 
     private fun gestureConfiguration() = style.getObject<RangeCalendarGestureConfiguration> { GESTURE_CONFIGURATION }
 
-    private fun updateSelectionRenderOptions() {
-        selectionRenderOptions = SelectionRenderOptions(
-            selectionFill(),
-            selectionFillGradientBoundsType(),
-            cellRoundRadius(),
-            cellAnimationType()
-        )
+    private fun getSelectionRenderOptions(): SelectionRenderOptions {
+        var options = selectionRenderOptions
 
-        invalidate()
+        if (options == null || isSelectionRenderOptionsDirty) {
+            isSelectionRenderOptionsDirty = false
+
+            options = SelectionRenderOptions(
+                selectionFill(),
+                selectionFillGradientBoundsType(),
+                cellRoundRadius(),
+                cellAnimationType()
+            )
+            selectionRenderOptions = options
+        }
+
+        return options
     }
 
     private fun updateSelectionStateConfiguration() {
@@ -404,7 +413,8 @@ internal class RangeCalendarGridView(
 
     private fun onSelectionFillOrGradientBoundsTypeChanged() {
         updateGradientBoundsIfNeeded()
-        updateSelectionRenderOptions()
+        isSelectionRenderOptionsDirty = true
+
         invalidate()
     }
 
@@ -431,41 +441,49 @@ internal class RangeCalendarGridView(
     }
 
     private fun onCellAnimationTypeChanged() {
-        updateSelectionRenderOptions()
+        isSelectionRenderOptionsDirty = true
     }
 
     private fun onDayNumberTextSizeChanged(newSize: Float) {
-        dayNumberPaint.textSize = newSize
+        if (dayNumberPaint.textSize != newSize) {
+            dayNumberPaint.textSize = newSize
 
-        if (newSize != cr.dayNumberTextSize) {
             isDayNumberMeasurementsDirty = true
-        }
 
-        refreshAllDecorVisualStates()
+            refreshAllDecorVisualStates()
+            invalidate()
+        }
     }
 
     private fun onWeekdayTextSizeChanged(newSize: Float) {
-        weekdayPaint.textSize = newSize
-        weekdayRow.onMeasurementsChanged()
+        if (weekdayPaint.textSize != newSize) {
+            weekdayPaint.textSize = newSize
+            weekdayRow.onMeasurementsChanged()
 
-        onGridTopChanged()
+            onGridTopChanged()
+        }
     }
 
     private fun onWeekdayTypefaceChanged(typeface: Typeface?) {
-        weekdayPaint.typeface = typeface
-        weekdayRow.onMeasurementsChanged()
+        if (weekdayPaint.typeface != typeface) {
+            weekdayPaint.typeface = typeface
+            weekdayRow.onMeasurementsChanged()
 
-        onGridTopChanged()
+            onGridTopChanged()
+        }
     }
 
     private fun onWeekdaysChanged(weekdays: Array<out String>?) {
-        weekdayRow.weekdays = weekdays
+        if (!weekdayRow.weekdays.contentEquals(weekdays)) {
+            weekdayRow.weekdays = weekdays
 
-        onGridChanged()
+            onGridTopChanged()
+        }
     }
 
     private fun onWeekdayTextColorChanged(color: Int) {
         weekdayPaint.color = color
+
         invalidate()
     }
 
@@ -479,7 +497,7 @@ internal class RangeCalendarGridView(
 
     fun onCellRoundRadiusChanged() {
         refreshAllDecorVisualStates()
-        updateSelectionRenderOptions()
+        isSelectionRenderOptionsDirty = true
 
         invalidate()
     }
@@ -492,7 +510,6 @@ internal class RangeCalendarGridView(
             weekdayRow.type = type
 
             onGridTopChanged()
-            invalidate()
         }
     }
 
@@ -530,22 +547,25 @@ internal class RangeCalendarGridView(
     }
 
     fun setInMonthRange(range: CellRange) {
-        inMonthRange = range
+        if (inMonthRange != range) {
+            inMonthRange = range
 
-        updateSelectionRange()
+            updateSelectionRange()
+        }
     }
 
     fun setEnabledCellRange(range: CellRange) {
-        enabledCellRange = range
+        if (enabledCellRange != range) {
+            enabledCellRange = range
 
-        updateSelectionRange()
+            updateSelectionRange()
+        }
     }
 
     fun setTodayCell(cell: Cell) {
-        val old = todayCell
-        todayCell = cell
+        if (todayCell != cell) {
+            todayCell = cell
 
-        if (old != cell) {
             invalidate()
         }
     }
@@ -748,7 +768,7 @@ internal class RangeCalendarGridView(
         }
 
         if (newTransitiveState == null) {
-            newTransitiveState = selManager.createTransition(measureManager, selectionRenderOptions!!)
+            newTransitiveState = selManager.createTransition(measureManager, getSelectionRenderOptions())
         }
 
         if (newTransitiveState == null) {
@@ -1151,12 +1171,11 @@ internal class RangeCalendarGridView(
 
     private fun drawSelection(canvas: Canvas) {
         val renderer = selectionRenderer
-        val options = selectionRenderOptions!!
 
         if (animType == SELECTION_ANIMATION) {
             selectionTransitiveState?.let {
                 canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
-                    renderer.drawTransition(canvas, it, options)
+                    renderer.drawTransition(canvas, it, getSelectionRenderOptions())
                 }
             }
         } else {
@@ -1165,7 +1184,7 @@ internal class RangeCalendarGridView(
             // Draw selection state if there's actually a state to draw.
             if (!currentState.isNone) {
                 canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
-                    renderer.draw(canvas, currentState, options)
+                    renderer.draw(canvas, currentState, getSelectionRenderOptions())
                 }
             }
         }

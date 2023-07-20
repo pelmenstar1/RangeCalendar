@@ -29,7 +29,7 @@ enum class WeekdayType {
     NARROW;
 
     /**
-     * If API level is lower than 23, returns [SHORT], otherwise it returns this reference.
+     * If API level is lower than 24, returns [SHORT], otherwise it returns this reference.
      */
     fun resolved(): WeekdayType {
         return if (Build.VERSION.SDK_INT < 24) {
