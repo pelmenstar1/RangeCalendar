@@ -10,13 +10,19 @@ internal class WeekdayRow(
     private val textPaint: Paint
 ) {
     private var isCustomWeekdays = false
+
     private val currentWidths = FloatArray(7)
+    private var _height: Float = Float.NaN
 
     /**
      * Height of the row, in pixels.
      */
-    var height: Float = Float.NaN
-        private set
+    val height: Float
+        get() {
+            updateMeasurementsIfNecessary()
+
+            return _height
+        }
 
     /**
      * Gets or sets type of weekdays in the row. In setter the value should be "resolved" (via [WeekdayType.resolved])
@@ -48,23 +54,31 @@ internal class WeekdayRow(
 
     var firstDayOfWeek = CompatDayOfWeek.Monday
 
-    init {
-        onMeasurementsChanged()
-    }
+    private var isMeasurementsDirty = true
 
     fun onMeasurementsChanged() {
-        val widths = currentWidths
-        var maxHeight = -1
+        isMeasurementsDirty = true
+    }
 
-        textPaint.getTextBoundsArray(_weekdays) { i, width, height ->
-            maxHeight = max(maxHeight, height)
-            widths[i] = width.toFloat()
+    private fun updateMeasurementsIfNecessary() {
+        if (isMeasurementsDirty) {
+            isMeasurementsDirty = false
+
+            val widths = currentWidths
+            var maxHeight = -1
+
+            textPaint.getTextBoundsArray(_weekdays) { i, width, height ->
+                maxHeight = max(maxHeight, height)
+                widths[i] = width.toFloat()
+            }
+
+            _height = maxHeight.toFloat()
         }
-
-        height = maxHeight.toFloat()
     }
 
     fun draw(canvas: Canvas, x: Float, columnWidth: Float) {
+        updateMeasurementsIfNecessary()
+
         var midX = x + columnWidth * 0.5f
         val firstDow = firstDayOfWeek.value
 
