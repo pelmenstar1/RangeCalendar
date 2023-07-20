@@ -1135,7 +1135,7 @@ class RangeCalendarView @JvmOverloads constructor(
      * Note that the getter returns a reference to weekdays, not a copy, thus that array should not be modified in any way.
      * If you want to update weekdays, make a copy with changes and use setter.
      *
-     * Pass `null` to use localized weekdays. Note that if you do that, the getter will return localized weekdays, not `null`.
+     * Pass `null` to use localized weekdays.
      */
     var weekdays: Array<out String>?
         get() = adapter.getStyleObject { WEEKDAYS }
@@ -1258,8 +1258,6 @@ class RangeCalendarView @JvmOverloads constructor(
      *
      * Changing weekday type when custom weekdays array was set (via [weekdays]) won't have any effect, even though when
      * `null` value is passed to the setter of [weekdays], the latest value of [weekdayType] will be used.
-     *
-     * @throws IllegalArgumentException if type is not one of [WeekdayType] constants
      */
     var weekdayType: WeekdayType
         get() = adapter.getStyleEnum({ WEEKDAY_TYPE }, WeekdayType::ofOrdinal)
