@@ -64,11 +64,12 @@ internal class RangeCalendarGridView(
         private val tempRect = Rect()
 
         override fun getVirtualViewAt(x: Float, y: Float): Int {
-            return if (grid.isXInActiveZone(x) && y > grid.gridTop()) {
-                grid.getCellByPointOnScreen(x, y, CellMeasureManager.CoordinateRelativity.VIEW)
-            } else {
-                INVALID_ID
+            val cellIndex = grid.getCellByPointOnScreen(x, y, CellMeasureManager.CoordinateRelativity.VIEW)
+            if (cellIndex >= 0) {
+                return cellIndex
             }
+
+            return INVALID_ID
         }
 
         override fun getVisibleVirtualViews(virtualViewIds: MutableList<Int>) {
@@ -1536,11 +1537,6 @@ internal class RangeCalendarGridView(
     private fun isSelectableCell(cell: Cell): Boolean {
         return enabledCellRange.contains(cell) &&
                 (showAdjacentMonths() || inMonthRange.contains(cell))
-    }
-
-    // Checks whether x in active (touchable) zone
-    private fun isXInActiveZone(x: Float): Boolean {
-        return x >= cr.hPadding && x <= width - cr.hPadding
     }
 
     private fun getDayNumberSize(day: Int) = dayNumberSizes[day - 1]
