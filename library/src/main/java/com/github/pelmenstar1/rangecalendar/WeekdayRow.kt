@@ -35,7 +35,7 @@ internal class WeekdayRow(
             }
         }
 
-    private var _weekdays: Array<out String> = localizedWeekdayData.shortWeekdays
+    private var _weekdays: Array<out String> = localizedWeekdayData.getWeekdays(WeekdayType.SHORT)
 
     var weekdays: Array<out String>?
         get() = _weekdays

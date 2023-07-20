@@ -18,30 +18,16 @@ class WeekdayDataTests {
 
     @Test
     fun getTest() {
-        val data = WeekdayData.get(Locale.ENGLISH)
+        val data = WeekdayData(Locale.ENGLISH)
 
         val expectedShortWeekdays = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-        val expectedNarrowWeekdays = if (Build.VERSION.SDK_INT >= 24) {
-            arrayOf( "M", "T", "W", "T", "F", "S", "S")
-        } else {
-            null
-        }
 
-        assertContentEquals(expectedShortWeekdays, data.shortWeekdays)
-        assertContentEquals(expectedNarrowWeekdays, data.narrowWeekdays)
-    }
-
-    @Test
-    fun getWeekdaysTest() {
-        val data = WeekdayData.get(Locale.ENGLISH)
-
-        val actualShortWeekdays = data.getWeekdays(WeekdayType.SHORT)
-        assertSame(data.shortWeekdays, actualShortWeekdays)
+        assertContentEquals(expectedShortWeekdays, data.getWeekdays(WeekdayType.SHORT))
 
         if (Build.VERSION.SDK_INT >= 24) {
-            val actualNarrowWeekdays = data.getWeekdays(WeekdayType.NARROW)
+            val expectedNarrowWeekdays = arrayOf( "M", "T", "W", "T", "F", "S", "S")
 
-            assertSame(data.narrowWeekdays, actualNarrowWeekdays)
+            assertContentEquals(expectedNarrowWeekdays, data.getWeekdays(WeekdayType.NARROW))
         }
     }
 }

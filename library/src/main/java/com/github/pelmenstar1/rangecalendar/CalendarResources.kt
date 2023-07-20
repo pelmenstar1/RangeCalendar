@@ -60,7 +60,7 @@ internal class CalendarResources(context: Context) {
             defaultDayNumberSizes[i] = PackedSize(width, height)
         }
 
-        defaultWeekdayData = WeekdayData.get(context.getLocaleCompat())
+        defaultWeekdayData = WeekdayData(context.getLocaleCompat())
     }
 
     companion object {

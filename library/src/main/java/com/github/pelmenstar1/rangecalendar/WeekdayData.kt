@@ -2,41 +2,58 @@ package com.github.pelmenstar1.rangecalendar
 
 import android.icu.text.DateFormatSymbols
 import android.os.Build
+import androidx.annotation.RequiresApi
+import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import java.util.Calendar
 import java.util.Locale
 
 /**
- * Saves weekdays in short format and in narrow format (if possible). [narrowWeekdays] is always non-null when API level >= 24
+ * Saves weekdays in short and narrow (if possible) formats
  */
-internal class WeekdayData(val shortWeekdays: Array<out String>, val narrowWeekdays: Array<out String>?) {
+internal class WeekdayData(locale: Locale) {
+    private val symbols: Any
+    private var shortWeekdays: Array<out String>? = null
+    private var narrowWeekdays: Array<out String>? = null
+
+    init {
+        symbols = if (Build.VERSION.SDK_INT >= 24) {
+            DateFormatSymbols.getInstance(locale)
+        } else {
+            java.text.DateFormatSymbols.getInstance(locale)
+        }
+    }
+
+    private fun extractShortWeekdays(): Array<out String> {
+        val weekdays = if (Build.VERSION.SDK_INT >= 24) {
+            (symbols as DateFormatSymbols).shortWeekdays
+        } else {
+            (symbols as java.text.DateFormatSymbols).shortWeekdays
+        }
+
+        return fixWeekdaysOrder(weekdays)
+    }
+
+    @RequiresApi(24)
+    private fun extractNarrowWeekdays(): Array<out String> {
+        val weekdays = (symbols as DateFormatSymbols).getWeekdays(DateFormatSymbols.FORMAT, DateFormatSymbols.NARROW)
+
+        return fixWeekdaysOrder(weekdays)
+    }
+
     fun getWeekdays(type: WeekdayType): Array<out String> {
-        return if (type == WeekdayType.SHORT) shortWeekdays else narrowWeekdays!!
+        return when(type) {
+            WeekdayType.SHORT -> getLazyValue(shortWeekdays, ::extractShortWeekdays) { shortWeekdays = it }
+            WeekdayType.NARROW -> {
+                if (Build.VERSION.SDK_INT < 24) {
+                    throw RuntimeException("Api level < 24")
+                }
+
+                getLazyValue(narrowWeekdays, ::extractNarrowWeekdays) { narrowWeekdays = it }
+            }
+        }
     }
 
     companion object {
-        fun get(locale: Locale): WeekdayData {
-            var shortWeekdays: Array<String>
-            var narrowWeekdays: Array<String>? = null
-
-            if (Build.VERSION.SDK_INT >= 24) {
-                val symbols = DateFormatSymbols.getInstance(locale)
-                shortWeekdays = symbols.shortWeekdays
-
-                narrowWeekdays = symbols.getWeekdays(
-                    DateFormatSymbols.FORMAT,
-                    DateFormatSymbols.NARROW
-                )
-
-                shortWeekdays = fixWeekdaysOrder(shortWeekdays)
-                narrowWeekdays = fixWeekdaysOrder(narrowWeekdays)
-            } else {
-                shortWeekdays = java.text.DateFormatSymbols.getInstance(locale).shortWeekdays
-                shortWeekdays = fixWeekdaysOrder(shortWeekdays)
-            }
-
-            return WeekdayData(shortWeekdays, narrowWeekdays)
-        }
-
         // In format that DateFormatSymbols returns, Sunday is the first day of the week and 0 element is null, then goes Sun, Mon, Tue, ...
         // But it's better for logic when first day of week is Monday and the elements start from 0 element.
         // The method creates a new array with fixed order.
