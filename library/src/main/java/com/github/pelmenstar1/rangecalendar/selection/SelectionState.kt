@@ -1,5 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
+import android.graphics.RectF
+
 /**
  * A set of properties which are needed to represent a selection.
  * The data in the implementation should be enough to render the state on a canvas.
@@ -33,11 +35,10 @@ interface SelectionState {
         val isRangeDefined: Boolean
 
         /**
-         * Determines whether selection determined by the transitive state overlays a cell specified by [cellIndex].
-         *
-         * @param cellIndex index of the cell, should be in range 0..41
+         * Returns whether the selection overlays a rect specified by [bounds].
+         * [bounds] rect should not be mutated.
          */
-        fun overlaysCell(cellIndex: Int): Boolean
+        fun overlaysRect(bounds: RectF): Boolean
     }
 
     /**

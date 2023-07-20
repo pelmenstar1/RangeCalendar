@@ -37,8 +37,8 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         var currentStartCellDistance = 0f
         var currentEndCellDistance = 0f
 
-        override fun overlaysCell(cellIndex: Int): Boolean {
-            return shapeInfo.range.contains(Cell(cellIndex))
+        override fun overlaysRect(bounds: RectF): Boolean {
+            return shapeInfo.overlaysRect(bounds)
         }
     }
 
@@ -63,8 +63,8 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
 
         var alpha = 0f
 
-        override fun overlaysCell(cellIndex: Int): Boolean {
-            return baseState.rangeStart == cellIndex
+        override fun overlaysRect(bounds: RectF): Boolean {
+            return baseState.shapeInfo.overlaysRect(bounds)
         }
     }
 
@@ -84,8 +84,8 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val isRangeDefined: Boolean
             get() = false
 
-        override fun overlaysCell(cellIndex: Int): Boolean {
-            return start.contains(Cell(cellIndex)) || end.contains(Cell(cellIndex))
+        override fun overlaysRect(bounds: RectF): Boolean {
+            return start.shapeInfo.overlaysRect(bounds) || end.shapeInfo.overlaysRect(bounds)
         }
     }
 
@@ -110,8 +110,8 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
 
         val bounds = RectF()
 
-        override fun overlaysCell(cellIndex: Int): Boolean {
-            return baseState.rangeStart == cellIndex
+        override fun overlaysRect(bounds: RectF): Boolean {
+            return RectF.intersects(this.bounds, bounds)
         }
     }
 
@@ -131,8 +131,8 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         val startBounds = RectF()
         val endBounds = RectF()
 
-        override fun overlaysCell(cellIndex: Int): Boolean {
-            return start.rangeStart == cellIndex || end.rangeStart == cellIndex
+        override fun overlaysRect(bounds: RectF): Boolean {
+            return RectF.intersects(startBounds, bounds) || RectF.intersects(endBounds, bounds)
         }
     }
 
@@ -150,8 +150,8 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
         override val rangeEnd: Int
             get() = rangeStart
 
-        override fun overlaysCell(cellIndex: Int): Boolean {
-            return rangeStart == cellIndex
+        override fun overlaysRect(bounds: RectF): Boolean {
+            return shapeInfo.overlaysRect(bounds)
         }
     }
 

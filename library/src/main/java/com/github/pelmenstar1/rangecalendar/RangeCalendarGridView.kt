@@ -11,6 +11,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.*
 import android.view.MotionEvent
@@ -57,8 +58,9 @@ internal class RangeCalendarGridView(
         fun onTick(fraction: Float)
     }
 
-    private class TouchHelper(private val grid: RangeCalendarGridView) :
-        ExploreByTouchHelper(grid) {
+    private class TouchHelper(
+        private val grid: RangeCalendarGridView
+    ) : ExploreByTouchHelper(grid) {
         private val tempRect = Rect()
 
         override fun getVirtualViewAt(x: Float, y: Float): Int {
@@ -280,6 +282,8 @@ internal class RangeCalendarGridView(
     private var decorAnimatedCell = Cell.Undefined
     private var decorAnimatedRange = PackedIntRange(0)
     private var decorAnimationHandler: TickCallback? = null
+
+    private val tempRect = RectF()
 
     init {
         ViewCompat.setAccessibilityDelegate(this, touchHelper)
@@ -1216,54 +1220,73 @@ internal class RangeCalendarGridView(
         val cellHeight = cellHeight()
         val halfCellHeight = cellHeight * 0.5f
 
+        val transitiveSelState = selectionTransitiveState
+        val currentSelState = selectionManager.currentState
+        val currentSelStateRangeStart = currentSelState.rangeStart
+        val currentSelStateRangeEnd = currentSelState.rangeEnd
+
+        val rect = tempRect
+
         for (i in startIndex..endIndex) {
             val cell = Cell(i)
+            val day = cells[i].toInt()
 
-            val centerX = getCellCenterX(cell, columnWidth)
-            val centerY = getCellTop(cell, cellHeight) + halfCellHeight
+            if (day > 0) {
+                val centerX = getCellCenterX(cell, columnWidth)
+                val centerY = getCellTop(cell, cellHeight) + halfCellHeight
 
-            drawCell(c, centerX, centerY, cells[i].toInt(), resolveCellType(cell))
-        }
-    }
+                val (textWidth, textHeight) = getDayNumberSize(day)
+                val halfTextWidth = textWidth * 0.5f
+                val halfTextHeight = textHeight * 0.5f
 
-    private fun resolveCellType(cell: Cell): Int {
-        val isSelectionOverlaysCell = selectionTransitiveState?.overlaysCell(cell.index)
-            ?: selectionManager.currentState.contains(cell)
+                val textX = centerX - halfTextWidth
+                val textY = centerY + halfTextHeight
 
-        return when {
-            isSelectionOverlaysCell -> CELL_SELECTED
-            enabledCellRange.contains(cell) -> {
-                if (inMonthRange.contains(cell)) {
-                    if (cell == todayCell) CELL_TODAY else CELL_IN_MONTH
+                val isSelectionOverlaysCellText = if (transitiveSelState != null) {
+                    rect.set(
+                        textX, centerY - halfTextHeight,
+                        centerX + halfTextWidth, textY
+                    )
+
+                    // Coordinates in selection are relative to the grid. Translate the rect.
+                    rect.offset(-cr.hPadding, -gridTop())
+
+                    transitiveSelState.overlaysRect(rect)
                 } else {
-                    CELL_OUT_MONTH
+                    i in currentSelStateRangeStart..currentSelStateRangeEnd
                 }
+
+                val cellType = when {
+                    isSelectionOverlaysCellText -> CELL_SELECTED
+                    enabledCellRange.contains(cell) -> {
+                        if (inMonthRange.contains(cell)) {
+                            if (cell == todayCell) CELL_TODAY else CELL_IN_MONTH
+                        } else {
+                            CELL_OUT_MONTH
+                        }
+                    }
+
+                    else -> CELL_DISABLED
+                }
+
+                drawCell(c, textX, textY, day, cellType)
             }
-            else -> CELL_DISABLED
         }
     }
 
-    private fun drawCell(c: Canvas, centerX: Float, centerY: Float, day: Int, cellType: Int) {
-        if (day > 0) {
-            val propIndex = when (cellType) {
-                CELL_SELECTED, CELL_IN_MONTH -> RangeCalendarStyleData.IN_MONTH_TEXT_COLOR
-                CELL_OUT_MONTH -> RangeCalendarStyleData.OUT_MONTH_TEXT_COLOR
-                CELL_TODAY -> RangeCalendarStyleData.TODAY_TEXT_COLOR
+    private fun drawCell(c: Canvas, textX: Float, textY: Float, day: Int, cellType: Int) {
+        val propIndex = when (cellType) {
+            CELL_SELECTED, CELL_IN_MONTH -> RangeCalendarStyleData.IN_MONTH_TEXT_COLOR
+            CELL_OUT_MONTH -> RangeCalendarStyleData.OUT_MONTH_TEXT_COLOR
+            CELL_TODAY -> RangeCalendarStyleData.TODAY_TEXT_COLOR
+            CELL_DISABLED -> RangeCalendarStyleData.DISABLED_TEXT_COLOR
 
-                else -> throw IllegalArgumentException("type")
-            }
-
-            val color = style.getInt(propIndex)
-
-            val (textWidth, textHeight) = getDayNumberSize(day)
-
-            val textX = centerX - textWidth * 0.5f
-            val textY = centerY + textHeight * 0.5f
-
-            dayNumberPaint.color = color
-
-            c.drawText(CalendarResources.getDayText(day), textX, textY, dayNumberPaint)
+            else -> throw IllegalArgumentException("type")
         }
+
+        dayNumberPaint.color = style.getInt(propIndex)
+
+        c.drawText(CalendarResources.getDayText(day), textX, textY, dayNumberPaint)
     }
 
     private fun measureDayNumberTextSizesIfNecessary() {
