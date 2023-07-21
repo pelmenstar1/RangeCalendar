@@ -526,9 +526,17 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
+    private fun throwDecorAlreadyAdded(): Nothing {
+        throw IllegalArgumentException("Decoration is already added to the calendar")
+    }
+
+    private fun throwDecorsShouldBeSameClass() {
+        throw IllegalStateException("All decorations in a cell should be of single type")
+    }
+
     private fun checkDecor(decor: CellDecor, ym: YearMonth, cell: Cell) {
         if (decor.cell.isDefined) {
-            throw IllegalStateException("Decoration is already added to the calendar")
+            throwDecorAlreadyAdded()
         }
 
         val subregion = decorations.getSubregion(ym, cell)
@@ -538,36 +546,31 @@ internal class RangeCalendarPagerAdapter(
             val actualClass = decor.javaClass
 
             if (actualClass != expectedClass) {
-                throw IllegalStateException("Only one class of decoration can be in one cell. Expected class: $expectedClass, actual class: $actualClass")
+                throwDecorsShouldBeSameClass()
             }
         }
     }
 
     private fun checkDecors(decors: Array<out CellDecor>, ym: YearMonth, cell: Cell) {
-        val subregion = decorations.getSubregion(ym, cell)
-
-        val firstDecorClass = decors[0].javaClass
-        for (i in 1 until decors.size) {
-            val decor = decors[i]
-
-            require(decor.cell.isUndefined) {
-                "One of decorations is already added to the calendar"
-            }
-
-            require(firstDecorClass == decor.javaClass) {
-                "All decorations should be one class"
-            }
+        if (decors.isEmpty()) {
+            throw IllegalArgumentException("Decorations array can't be empty")
         }
 
-        if (subregion.isDefined) {
-            val expectedClass = decorations[subregion.start].javaClass
+        val subregion = decorations.getSubregion(ym, cell)
 
-            for (decor in decors) {
-                val actualClass = decor.javaClass
+        val expectedClass = if (subregion.isDefined) {
+            decorations[subregion.start].javaClass
+        } else {
+            decors[0].javaClass
+        }
 
-                if (actualClass != expectedClass) {
-                    throw IllegalStateException("Only one class of decoration can be in one cell. Expected class: $expectedClass, actual class: $actualClass")
-                }
+        for (decor in decors) {
+            if (decor.cell.isDefined) {
+                throwDecorAlreadyAdded()
+            }
+
+            if (decor.javaClass != expectedClass) {
+                throwDecorsShouldBeSameClass()
             }
         }
     }

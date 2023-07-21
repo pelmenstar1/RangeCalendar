@@ -1734,9 +1734,9 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Adds multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     * Adds multiple decorations to the cell. Note that, only one type of decorations can exist in one cell.
      *
-     * @param decors array of decorations to be added
+     * @param decors array of decorations to be added. The array should not be empty.
      * @param date specifies the cell to which the decoration is added.
      * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
      * May be null, if no animation is desired.
@@ -1751,10 +1751,10 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     /**
-     * Inserts multiple decorations to the cell. Note that, only one type of decoration can exist in one cell.
+     * Inserts multiple decorations to the cell. Note that, only one type of decorations can exist in one cell.
      *
      * @param indexInCell decoration index in specified cell at which insert decorations
-     * @param decors array of decorations to be added
+     * @param decors array of decorations to be added. The array should not be empty.
      * @param date specifies the cell to which the decoration is added.
      * @param fractionInterpolator instance of [DecorAnimationFractionInterpolator] that interpolates one fraction to set of elements.
      * May be null, if no animation is desired.
