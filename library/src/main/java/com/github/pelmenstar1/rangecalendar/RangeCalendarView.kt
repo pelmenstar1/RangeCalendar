@@ -930,15 +930,35 @@ class RangeCalendarView @JvmOverloads constructor(
     var minDate: LocalDate
         get() = _minDate.toLocalDate()
         set(value) {
-            val packedMin = PackedDate.fromLocalDate(value)
-
-            if (_maxDate > packedMin) {
-                throwInvalidMinMax()
-            }
-
-            _minDate = packedMin
-            onMinMaxChanged()
+            setMinDate(PackedDate.fromLocalDate(value))
         }
+
+    /**
+     * Sets minimum date. The minimum date should be before or equal to current maximum date.
+     *
+     * @param year year of the date, should be in range `[0..65535]`
+     * @param month month of the date, 1-based
+     * @param dayOfMonth day of the month of the date, 1-based
+     */
+    fun setMinDate(year: Int, month: Int, dayOfMonth: Int) {
+        setMinDate(PackedDate(year, month, dayOfMonth))
+    }
+
+    /**
+     * Sets minimum date using [Calendar] instance. The minimum date should be before or equal to current maximum date.
+     * Year of the calendar is expected to be in range `[0..65535]`
+     */
+    fun setMinDate(calendar: Calendar) {
+        setMinDate(PackedDate.fromCalendar(calendar))
+    }
+
+    /**
+     * Sets current minimum date to the specified [calendar].
+     * Only year, month, and day of month properties are changed.
+     */
+    fun getMinDate(calendar: Calendar) {
+        _minDate.toCalendar(calendar)
+    }
 
     /**
      * Gets or sets minimum date.
@@ -949,19 +969,98 @@ class RangeCalendarView @JvmOverloads constructor(
     var maxDate: LocalDate
         get() = _maxDate.toLocalDate()
         set(value) {
-            val packedMax = PackedDate.fromLocalDate(value)
-
-            if (packedMax > _minDate) {
-                throwInvalidMinMax()
-            }
-
-            _maxDate = packedMax
-
-            onMinMaxChanged()
+            setMaxDate(PackedDate.fromLocalDate(value))
         }
 
-    private fun throwInvalidMinMax(): Nothing {
-        throw IllegalStateException("Minimum date is greater than maximum one")
+    /**
+     * Sets maximum date. The minimum date should be before or equal to current maximum date.
+     *
+     * @param year year of the date, should be in range `[0..65535]`
+     * @param month month of the date, 1-based
+     * @param dayOfMonth day of the month of the date, 1-based
+     */
+    fun setMaxDate(year: Int, month: Int, dayOfMonth: Int) {
+        setMaxDate(PackedDate(year, month, dayOfMonth))
+    }
+
+    /**
+     * Sets maximum date using [Calendar] instance. The maximum date should be after or equal to current minimum date.
+     * Year of the calendar is expected to be in range `[0..65535]`
+     */
+    fun setMaxDate(calendar: Calendar) {
+        setMaxDate(PackedDate.fromCalendar(calendar))
+    }
+
+    /**
+     * Sets current maximum date to the specified [calendar].
+     * Only year, month, and day of month properties are changed.
+     */
+    fun getMaxDate(calendar: Calendar) {
+        _maxDate.toCalendar(calendar)
+    }
+
+    /**
+     * Sets calendar's minimum and maximum dates. [minDate] should be before or equal to [maxDate].
+     * Year of the both dates should be in range `[0..65535]`.
+     *
+     * This is more efficient than two calls to [setMinDate] and [setMaxDate].
+     */
+    fun setMinMaxDate(minDate: LocalDate, maxDate: LocalDate) {
+        setMinMaxDate(PackedDate.fromLocalDate(minDate), PackedDate.fromLocalDate(maxDate))
+    }
+
+    /**
+     * Sets calendar's minimum and maximum dates using [minDate] and [maxDate] calendars respectively.
+     * [minDate] should be before or equal to [maxDate].
+     * Year of the both dates should be in range `[0..65535]`.
+     *
+     * This is more efficient than two calls to [setMinDate] and [setMaxDate].
+     */
+    fun setMinMaxDate(minDate: Calendar, maxDate: Calendar) {
+        setMinMaxDate(PackedDate.fromCalendar(minDate), PackedDate.fromCalendar(maxDate))
+    }
+
+    /**
+     * Sets calendar's minimum and maximum dates.
+     * Minimum date, specified by [minYear], [minMonth], [minDay], should be before or equal to the maximum date, specified by [minYear], [minMonth], [minDay].
+     *
+     * This is more efficient than two calls to [setMinDate] and [setMaxDate].
+     *
+     * @param minYear year of the minimum date, it should be in range `[0..65535]`
+     * @param minMonth month of the minimum date, 1-based
+     * @param minDay day of the month of the minimum date, 1-based
+     * @param maxYear year of the maximum date, it should be in range `[0..65535]`
+     * @param maxMonth month of the maximum date, 1-based
+     * @param maxDay day of the month of the maximum date, 1-based
+     */
+    fun setMinMaxDate(
+        minYear: Int, minMonth: Int, minDay: Int,
+        maxYear: Int, maxMonth: Int, maxDay: Int,
+    ) {
+        setMinMaxDate(PackedDate(minYear, minMonth, minDay), PackedDate(maxYear, maxMonth, maxDay))
+    }
+
+    private fun setMinDate(date: PackedDate) {
+        validateDateRange(date, _maxDate)
+
+        _minDate = date
+        onMinMaxChanged()
+    }
+
+    private fun setMaxDate(date: PackedDate) {
+        validateDateRange(_minDate, date)
+
+        _maxDate = date
+        onMinMaxChanged()
+    }
+
+    private fun setMinMaxDate(newMinDate: PackedDate, newMaxDate: PackedDate) {
+        validateDateRange(newMinDate, newMaxDate)
+
+        _minDate = newMinDate
+        _maxDate = newMaxDate
+
+        onMinMaxChanged()
     }
 
     private fun onMinMaxChanged() {
@@ -1576,7 +1675,7 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        validateDateRange(startDate, endDate)
+        validateDateRangeSameYearMonth(startDate, endDate)
 
         selectRangeInternal(
             YearMonth(startDate.year, startDate.monthValue),
@@ -1753,9 +1852,15 @@ class RangeCalendarView @JvmOverloads constructor(
 
         private const val INVALID_DURATION_MSG = "Duration should be non-negative"
 
-        private fun validateDateRange(start: LocalDate, end: LocalDate) {
+        private fun validateDateRangeSameYearMonth(start: LocalDate, end: LocalDate) {
             require(start.year == end.year && start.monthValue == end.monthValue) { "Date range should have same year and month" }
             require(start <= end) { "Start date is greater than end date" }
+        }
+
+        private fun validateDateRange(minDate: PackedDate, maxDate: PackedDate) {
+            if (maxDate > minDate) {
+                throw IllegalStateException("Maximum date cannot be before minimum date")
+            }
         }
 
         private fun validateTextSize(value: Float) {

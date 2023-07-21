@@ -2,6 +2,7 @@ package com.github.pelmenstar1.rangecalendar
 
 import org.junit.Test
 import java.time.LocalDate
+import java.util.Calendar
 import kotlin.test.assertEquals
 
 class PackedDateTests {
@@ -161,5 +162,29 @@ class PackedDateTests {
             days = 46,
             expectedDate = PackedDate(year = 2023, month = 8, dayOfMonth = 1)
         )
+    }
+
+    @Test
+    fun toCalendarTest() {
+        val date = PackedDate(year = 2023, month = 7, dayOfMonth = 21)
+        val calendar = Calendar.getInstance()
+
+        date.toCalendar(calendar)
+
+        assertEquals(expected = 2023, calendar[Calendar.YEAR])
+        // Month in Calendar is 0-based.
+        assertEquals(expected = 6, calendar[Calendar.MONTH])
+        assertEquals(expected = 21, calendar[Calendar.DAY_OF_MONTH])
+    }
+
+    @Test
+    fun fromCalendarTest() {
+        val calendar = Calendar.getInstance().also {
+            it.set(2023, 6, 21)
+        }
+
+        val actualDate = PackedDate.fromCalendar(calendar)
+
+        assertEquals(expected = PackedDate(2023, 7, 21), actualDate)
     }
 }

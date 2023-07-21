@@ -126,6 +126,11 @@ internal value class PackedDate(val bits: Int) {
         return LocalDate.of(year, month, dayOfMonth)
     }
 
+    fun toCalendar(calendar: Calendar) {
+        // month in Calendar is 0-based.
+        calendar.set(year, month - 1, dayOfMonth)
+    }
+
     fun toEpochDay(): Long {
         val (y, m, d) = this
 
@@ -240,6 +245,18 @@ internal value class PackedDate(val bits: Int) {
             checkYear(year)
 
             return createUnchecked(year, date.monthValue, date.dayOfMonth)
+        }
+
+        fun fromCalendar(calendar: Calendar): PackedDate {
+            val year = calendar[Calendar.YEAR]
+            val month = calendar[Calendar.MONTH]
+            val day = calendar[Calendar.DAY_OF_MONTH]
+
+            // Only year may be out of bounds.
+            checkYear(year)
+
+            // month in Calendar is 0-based.
+            return createUnchecked(year, month + 1, day)
         }
 
         fun getDayOfWeek(epochDay: Long): CompatDayOfWeek {
