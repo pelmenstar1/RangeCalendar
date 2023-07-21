@@ -110,7 +110,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         bounds: RectF,
         options: SelectionRenderOptions
     ) {
-        drawRect(canvas, bounds.left, bounds.top, bounds.right, bounds.bottom, options, alpha = 1f)
+        drawRect(canvas, bounds.left, bounds.top, bounds.width(), bounds.height(), options, alpha = 1f)
     }
 
     private fun drawRect(
