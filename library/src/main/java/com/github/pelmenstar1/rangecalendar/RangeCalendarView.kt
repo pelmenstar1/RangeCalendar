@@ -156,10 +156,10 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     internal class DefaultLocalizedInfoFormatter(
-        context: Context,
+        locale: Locale,
         pattern: String
     ) : LocalizedInfoFormatter {
-        val dateFormatter = CompatDateFormatter(context, pattern)
+        val dateFormatter = CompatDateFormatter(locale, pattern)
 
         override fun format(year: Int, month: Int): CharSequence {
             return dateFormatter.format(PackedDate(year, month, 1))
@@ -298,13 +298,15 @@ class RangeCalendarView @JvmOverloads constructor(
         val currentTimeZone = TimeZone.getDefault()
         _timeZone = currentTimeZone
 
+        val locale = context.getLocaleCompat()
+
         val today = PackedDate.today(currentTimeZone)
 
         adapter = RangeCalendarPagerAdapter(cr).apply {
             setToday(today)
             setStyleObject(
                 { CELL_ACCESSIBILITY_INFO_PROVIDER },
-                DefaultRangeCalendarCellAccessibilityInfoProvider(context),
+                DefaultRangeCalendarCellAccessibilityInfoProvider(locale),
                 notify = false
             )
 
@@ -385,10 +387,10 @@ class RangeCalendarView @JvmOverloads constructor(
         addView(infoTextView)
 
         // It should be called after the toolbarManager is initialized.
-        initLocaleDependentValues()
+        initLocaleDependentValues(locale)
 
-        _infoPattern = getBestDatePatternCompat(currentLocale!!, DEFAULT_INFO_FORMAT)
-        _infoFormatter = DefaultLocalizedInfoFormatter(context, _infoPattern)
+        _infoPattern = getBestDatePatternCompat(locale, DEFAULT_INFO_FORMAT)
+        _infoFormatter = DefaultLocalizedInfoFormatter(locale, _infoPattern)
 
         // It should be called after _infoFormatter is initialized
         setYearAndMonthInternal(YearMonth.forDate(today), false)
@@ -545,10 +547,10 @@ class RangeCalendarView @JvmOverloads constructor(
         block(ExtractAttributesScope(this, attrs))
     }
 
-    private fun initLocaleDependentValues() {
+    private fun initLocaleDependentValues(locale: Locale) {
         // infoFormatter is initialized on creation. No need in double creating the underlying models.
         refreshLocaleDependentValues(
-            newLocale = context.getLocaleCompat(),
+            newLocale = locale,
             updateInfoFormatter = false
         )
     }
@@ -868,7 +870,7 @@ class RangeCalendarView @JvmOverloads constructor(
      * Sets [infoFormatter] to the default one.
      */
     fun setDefaultInfoFormatter() {
-        infoFormatter = DefaultLocalizedInfoFormatter(context, _infoPattern)
+        infoFormatter = DefaultLocalizedInfoFormatter(currentLocale!!, _infoPattern)
     }
 
     private fun updateInfoPattern() {
