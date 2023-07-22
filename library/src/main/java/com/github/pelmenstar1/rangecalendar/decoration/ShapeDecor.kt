@@ -33,6 +33,21 @@ class ShapeDecor(val style: Style) : CellDecor() {
         override fun renderer(): Renderer = ShapeRenderer
     }
 
+    private open class ShapeVisualState(
+        val inCellLeft: Float,
+        val inCellTop: Float,
+        val inCellRight: Float,
+        val inCellBottom: Float,
+        val boundsArray: PackedRectFArray,
+        val styles: Array<Style>,
+        val fillStates: Array<Fill.State>
+    ) : VisualState {
+        override val isEmpty: Boolean
+            get() = boundsArray.isEmpty
+
+        override fun visual(): Visual = ShapeVisual
+    }
+
     private class TransitiveAdditionShapeVisualState(
         override val start: ShapeVisualState,
         override val end: ShapeVisualState,
@@ -41,7 +56,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
     ) : ShapeVisualState(
         end.inCellLeft, end.inCellTop, end.inCellRight, end.inCellBottom,
         PackedRectFArray(end.boundsArray.size),
-        end.styles
+        end.styles,
+        end.fillStates
     ), VisualState.Transitive {
         override var animationFraction: Float = 0f
 
@@ -90,7 +106,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
     ) : ShapeVisualState(
         start.inCellLeft, start.inCellTop, start.inCellRight, start.inCellBottom,
         PackedRectFArray(start.boundsArray.size),
-        start.styles
+        start.styles,
+        start.fillStates
     ), VisualState.Transitive {
         override var animationFraction: Float = 0f
 
@@ -141,7 +158,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
     ) : ShapeVisualState(
         start.inCellLeft, start.inCellTop, start.inCellRight, start.inCellBottom,
         PackedRectFArray(start.boundsArray.size),
-        start.styles
+        start.styles,
+        start.fillStates
     ), VisualState.Transitive {
         override var animationFraction: Float = 0f
 
@@ -159,24 +177,11 @@ class ShapeDecor(val style: Style) : CellDecor() {
         }
     }
 
-    private open class ShapeVisualState(
-        val inCellLeft: Float,
-        val inCellTop: Float,
-        val inCellRight: Float,
-        val inCellBottom: Float,
-        val boundsArray: PackedRectFArray,
-        val styles: Array<Style>
-    ) : VisualState {
-        override val isEmpty: Boolean
-            get() = boundsArray.isEmpty
-
-        override fun visual(): Visual = ShapeVisual
-    }
-
     private object ShapeStateHandler : VisualStateHandler {
         private val emptyShapeState = ShapeVisualState(
             0f, 0f, 0f, 0f,
             PackedRectFArray(0),
+            emptyArray(),
             emptyArray()
         )
 
@@ -225,6 +230,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
         override fun emptyState(): VisualState = emptyShapeState
 
+        @Suppress("UNCHECKED_CAST")
         override fun createState(
             context: Context,
             decorations: Array<out CellDecor>,
@@ -281,14 +287,17 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 HorizontalAlignment.RIGHT -> rect.right - totalWidth - blockPadding.right
             }
 
-            val styles = Array(decorCount) { (decorations[start + it] as ShapeDecor).style }
+            val styles = arrayOfNulls<Style>(decorCount)
             val boundsArray = PackedRectFArray(decorCount)
+            val fillStates = arrayOfNulls<Fill.State>(decorCount)
 
             val halfMaxHeight = maxHeight * 0.5f
 
             for (i in 0 until decorCount) {
                 val decor = decorations[start + i] as ShapeDecor
                 val style = decor.style
+                styles[i] = style
+
                 val padding = getDecorPadding(context, style.padding)
                 val size = style.size
 
@@ -305,9 +314,10 @@ class ShapeDecor(val style: Style) : CellDecor() {
                 val right = left + size
                 val bottom = decorTop + size
 
-                boundsArray.set(i, left, decorTop, right, bottom)
+                val fillState = style.fill.createState()
+                fillStates[i] = fillState
 
-                style.fill.setSize(size, size)
+                boundsArray.set(i, left, decorTop, right, bottom)
 
                 left += size
                 if (i < decorCount - 1) {
@@ -318,7 +328,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
             return ShapeVisualState(
                 inCellLeft, inCellTop, inCellRight, inCellBottom,
                 boundsArray,
-                styles
+                styles as Array<Style>,
+                fillStates as Array<Fill.State>
             )
         }
 
@@ -369,6 +380,8 @@ class ShapeDecor(val style: Style) : CellDecor() {
             val rect = tempRect
             val boundsArray = state.boundsArray
             val styles = state.styles
+            val fillStates = state.fillStates
+
             val decorCount = styles.size
 
             canvas.withClip(
@@ -379,10 +392,12 @@ class ShapeDecor(val style: Style) : CellDecor() {
             ) {
                 for (i in 0 until decorCount) {
                     val style = styles[i]
+                    val fillState = fillStates[i]
+
                     val shape = style.shape
 
                     boundsArray.toObjectRect(i, rect)
-                    drawFilledShape(canvas, rect, shape, style.fill)
+                    drawFilledShape(canvas, rect, shape, style.fill, fillState)
 
                     val border = style.border
                     if (border != null) {
@@ -417,12 +432,14 @@ class ShapeDecor(val style: Style) : CellDecor() {
             }
         }
 
-        private fun drawFilledShape(canvas: Canvas, rect: RectF, shape: Shape, fill: Fill) {
+        private fun drawFilledShape(canvas: Canvas, rect: RectF, shape: Shape, fill: Fill, fillState: Fill.State) {
             val (left, top) = rect
             val width = rect.width()
             val height = rect.height()
 
             rect.set(0f, 0f, width, height)
+
+            fillState.setSize(width, height)
 
             canvas.withTranslation(left, top) {
                 val drawable = fill.drawable
@@ -441,7 +458,7 @@ class ShapeDecor(val style: Style) : CellDecor() {
 
                     drawable.draw(canvas)
                 } else {
-                    fill.applyToPaint(paint)
+                    fillState.applyToPaint(paint)
 
                     drawShape(canvas, rect, shape)
                 }

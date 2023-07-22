@@ -106,10 +106,11 @@ class FillInstrumentedTests {
     fun applyToPaintSolidTest() {
         fun testCase(fillColor: Int, alpha: Float, expectedPaintColor: Int) {
             val fill = Fill.solid(fillColor)
+            val state = fill.createState()
             val paint = Paint()
 
-            fill.setSize(10f, 10f)
-            fill.applyToPaint(paint, alpha)
+            state.setSize(10f, 10f)
+            state.applyToPaint(paint, alpha)
 
             val paintColor = paint.color
 
@@ -132,11 +133,12 @@ class FillInstrumentedTests {
             } else {
                 Fill.radialGradient(colors, null)
             }
+            val state = fill.createState()
 
             val paint = Paint()
 
-            fill.setSize(10f, 10f)
-            fill.applyToPaint(paint)
+            state.setSize(10f, 10f)
+            state.applyToPaint(paint)
 
             assertEquals(Paint.Style.FILL, paint.style)
             assertEquals(expectedClass, paint.shader.javaClass)
@@ -149,16 +151,18 @@ class FillInstrumentedTests {
     @Test
     fun applyToPaintThrowsOnDrawableFillTest() {
         val fill = Fill.drawable(DrawableImpl(color = 0))
+        val state = fill.createState()
 
-        assertFailsWith<IllegalStateException> { fill.applyToPaint(Paint()) }
+        assertFailsWith<IllegalStateException> { state.applyToPaint(Paint()) }
     }
 
     @Test
     fun setSizeShaderTest() {
         val factory = ShaderFactoryImpl()
         val fill = Fill.shader(factory)
+        val state = fill.createState()
 
-        fill.setSize(width = 2f, height = 3f)
+        state.setSize(width = 2f, height = 3f)
 
         assertEquals(2f, factory.widthOnCreate)
         assertEquals(3f, factory.heightOnCreate)
@@ -167,7 +171,7 @@ class FillInstrumentedTests {
         assertEquals(RectangleShape, factory.shapeOnCreate)
 
         val paint = Paint()
-        fill.applyToPaint(paint)
+        state.applyToPaint(paint)
 
         val actualShader = paint.shader
         assertSame(factory.shader, actualShader)
@@ -177,9 +181,10 @@ class FillInstrumentedTests {
     fun setSizeUpdateShaderWhenDifferentSizeTest() {
         val factory = ShaderFactoryImpl()
         val fill = Fill.shader(factory)
+        val state = fill.createState()
 
-        fill.setSize(width = 2f, height = 3f)
-        fill.setSize(width = 2f, height = 2f)
+        state.setSize(width = 2f, height = 3f)
+        state.setSize(width = 2f, height = 2f)
 
         assertEquals(2, factory.createCallCount)
     }
@@ -188,9 +193,10 @@ class FillInstrumentedTests {
     fun setSizeDoNotUpdateShaderWhenSameSizeTest() {
         val factory = ShaderFactoryImpl()
         val fill = Fill.shader(factory)
+        val state = fill.createState()
 
-        fill.setSize(width = 2f, height = 3f)
-        fill.setSize(width = 2f, height = 3f)
+        state.setSize(width = 2f, height = 3f)
+        state.setSize(width = 2f, height = 3f)
 
         // ShaderFactory.create() should be called exactly one time.
         assertEquals(1, factory.createCallCount)
@@ -201,8 +207,9 @@ class FillInstrumentedTests {
         fun testCase(width: Float, height: Float, expectedWidth: Int, expectedHeight: Int) {
             val drawable = DrawableImpl(color = 1)
             val fill = Fill.drawable(drawable)
+            val state = fill.createState()
 
-            fill.setSize(width, height)
+            state.setSize(width, height)
 
             val (actualLeft, actualTop, actualRight, actualBottom) = drawable.bounds
             assertEquals(0, actualLeft)

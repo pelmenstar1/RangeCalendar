@@ -5,15 +5,20 @@ import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
 
 /**
  * Contains a set of properties that might be needed to draw a selection.
+ *
+ * Note: value of [fillState] doesn't affect [equals], [hashCode], [toString] because it's can't be compared and converted to string.
  */
 class SelectionRenderOptions {
     private var _fill: Fill? = null
+    private var _fillState: Fill.State? = null
     private var _fillGradientBoundsType: SelectionFillGradientBoundsType? = null
     private var _roundRadius = -1f
     private var _cellAnimType: CellAnimationType? = null
 
     /**
      * Fill of the selection.
+     *
+     * @throws RuntimeException if the value of the property is unset.
      */
     var fill: Fill
         get() = _fill ?: throwPropertyValueNotSet()
@@ -21,8 +26,16 @@ class SelectionRenderOptions {
             _fill = value
         }
 
+    var fillState: Fill.State
+        get() = _fillState ?: throwPropertyValueNotSet()
+        internal set(value) {
+            _fillState = value
+        }
+
     /**
      * Specifies a way how to determine gradient bounds of the selection.
+     *
+     * @throws RuntimeException if the value of the property is unset.
      */
     var fillGradientBoundsType: SelectionFillGradientBoundsType
         get() = _fillGradientBoundsType ?: throwPropertyValueNotSet()
@@ -31,7 +44,7 @@ class SelectionRenderOptions {
         }
 
     /**
-     * Round radius of the selection shape, measured in pixels.
+     * Round radius of the selection shape, measured in pixels. By default, the value is `-1`
      */
     var roundRadius: Float
         get() = _roundRadius
@@ -41,6 +54,8 @@ class SelectionRenderOptions {
 
     /**
      * Specifies type of cell animation.
+     *
+     * @throws RuntimeException if the value of the property is unset.
      */
     var cellAnimationType: CellAnimationType
         get() = _cellAnimType ?: throwPropertyValueNotSet()
@@ -49,6 +64,7 @@ class SelectionRenderOptions {
         }
 
     internal fun getFillOrNull() = _fill
+    internal fun getFillStateOrNull() = _fillState
     internal fun getFillGradientBoundsTypeOrNull() = _fillGradientBoundsType
     internal fun getCellAnimationTypeOrNull() = _cellAnimType
 

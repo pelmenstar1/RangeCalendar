@@ -24,6 +24,9 @@ import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
  * This class is declared as `sealed` which means classes outside the library module cannot extend [Fill].
  * To create an instance of [Fill], use [Fill.solid], [Fill.linearGradient], [Fill.radialGradient], [Fill.shader], [Fill.drawable] methods.
  *
+ * [Fill] is immutable, therefore it can't be used for applying the fill to the [Paint] because shader fills require mutability for saving [Shader] object.
+ * To use these features, [Fill.State] can be used.
+ *
  * **Comparison and representation**
  *
  * Gradient positions `null` and `[0, 1]` are visually the same in [LinearGradient] and [RadialGradient] and Fill's logic makes it same too.
@@ -87,37 +90,249 @@ class Fill private constructor(
         fun create(width: Float, height: Float, shape: Shape): Shader
     }
 
-    private var shader: Shader? = null
-
-    private var _width = 0f
-    private var _height = 0f
-
     /**
-     * Gets width of the size of the shape, fill is used to draw.
+     * Stateful representation of [Fill].
+     *
+     * Because of internal representation, it can't be compared and [toString] is not implemented.
      */
-    val width: Float
-        get() = _width
+    class State (val fill: Fill) {
+        private var shader: Shader? = null
 
-    /**
-     * Gets height of the size of the shape, fill is used to draw.
-     */
-    val height: Float
-        get() = _height
+        private var _width = 0f
+        private var _height = 0f
 
-    /**
-     * Gets or sets shape, fill is used to draw.
-     * If fill is shader-like, shader is updated (re-created) as shader properties depend on type of shape.
-     */
-    var shape: Shape = RectangleShape
-        set(value) {
-            if (field != value) {
-                field = value
+        /**
+         * Gets width of the size of the shape, fill is used to draw.
+         */
+        val width: Float
+            get() = _width
 
-                if (isShaderLike) {
+        /**
+         * Gets height of the size of the shape, fill is used to draw.
+         */
+        val height: Float
+            get() = _height
+
+        /**
+         * Gets or sets shape, fill is used to draw.
+         * If fill is shader-like, shader is updated (re-created) as shader properties depend on type of shape.
+         */
+        var shape: Shape = RectangleShape
+            set(value) {
+                if (field != value) {
+                    field = value
+
+                    if (fill.isShaderLike) {
+                        updateShader()
+                    }
+                }
+            }
+
+        private fun createShader(): Shader {
+            val width = _width
+            val height = _height
+
+            fill.shaderFactory?.let {
+                return it.create(width, height, shape)
+            }
+
+            val type = fill.type
+            val colors = fill.gradientColors!!
+            val positions = fill.gradientPositions
+            val orientation = fill.gradientOrientation
+
+            return when (type) {
+                TYPE_LINEAR_GRADIENT -> {
+                    createLinearShader(orientation, width, height) { x0, y0, x1, y1 ->
+                        // Prior to API 29 there was an optimization around creating a shader
+                        // that allows to create the shader with two colors, that are distributed along
+                        // the gradient line, more efficiently
+                        // by using LinearGradient(x0, y0, x1, y1, color0, color1, tile) constructor
+                        if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(positions)) {
+                            LinearGradient(
+                                x0, y0, x1, y1,
+                                colors[0], colors[1],
+                                Shader.TileMode.MIRROR
+                            )
+                        } else {
+                            LinearGradient(
+                                x0, y0, x1, y1,
+                                colors, positions,
+                                Shader.TileMode.MIRROR
+                            )
+                        }
+                    }
+                }
+
+                TYPE_RADIAL_GRADIENT -> {
+                    val tempBox = getTempBox().apply {
+                        // left and top are always zero.
+                        right = width
+                        bottom = height
+                    }
+
+                    val tempPoint = getTempPoint()
+
+                    val radius = shape.computeCircumcircle(tempBox, tempPoint)
+                    val (cx, cy) = tempPoint
+
+                    // Same motivation as in linear gradients.
+                    if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(positions)) {
+                        RadialGradient(
+                            cx, cy, radius,
+                            colors[0], colors[1],
+                            Shader.TileMode.MIRROR
+                        )
+                    } else {
+                        RadialGradient(
+                            cx, cy, radius,
+                            colors, positions,
+                            Shader.TileMode.MIRROR
+                        )
+                    }
+                }
+
+                else -> throwInvalidType(type)
+            }
+        }
+
+        /**
+         * Sets size of the shape, fill is used to draw.
+         *
+         * The size only matters when fill is shader-like or drawable.
+         * If fill is drawable, the drawable's bounds are set relative to the origin.
+         * In other words bounds are `(left=0, top=0, right=width, bottom=height)`
+         */
+        fun setSize(width: Float, height: Float) {
+            val oldWidth = _width
+            val oldHeight = _height
+
+            _width = width
+            _height = height
+
+            if (oldWidth == width && oldHeight == height) {
+                return
+            }
+
+            val type = fill.type
+            val drawable = fill.drawable
+
+            if (drawable != null) {
+                drawable.setBounds(0, 0, ceilToInt(width), ceilToInt(height))
+            } else if ((type and TYPE_SHADER_LIKE_BIT) != 0) {
+                var needToUpdateShader = true
+
+                if (type == TYPE_LINEAR_GRADIENT) {
+                    needToUpdateShader = when (fill.gradientOrientation) {
+                        // If the gradient line is horizontal, it changes visually only when width is changed.
+                        Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT -> oldWidth != width
+
+                        // If the gradient line is vertical, it changes visually only when height is changed.
+                        Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP -> oldHeight != height
+                    }
+                }
+
+                if (needToUpdateShader) {
                     updateShader()
                 }
             }
         }
+
+        private fun updateShader() {
+            shader = createShader()
+        }
+
+        /**
+         * Applies options of [Fill] to specified [paint].
+         *
+         * If the fill is solid, [alpha] parameter specifies with what `alpha` value solid color is applied to the [paint].
+         * Note that alpha of the solid color and alpha of the parameter are combined.
+         *
+         * If the fill is solid, [alpha] is ignored. Shader is set to the [paint].
+         *
+         * **The method can't be used for drawable fills**
+         */
+        @JvmOverloads
+        fun applyToPaint(paint: Paint, alpha: Float = 1f) {
+            val type = fill.type
+
+            if (type == TYPE_DRAWABLE) {
+                throw IllegalStateException("The method can't be called when Fill's type is TYPE_DRAWABLE")
+            }
+
+            paint.style = Paint.Style.FILL
+
+            if (type == TYPE_SOLID) {
+                // Combine alphas.
+                paint.color = fill.solidColor.withCombinedAlpha(alpha)
+            }
+
+            // If shader is null, it means either type is SOLID or type is shader-like but setSize() hasn't been called.
+            // In the latter case, it's illegal thing to do. We don't force it though.
+            paint.shader = shader
+        }
+
+        /**
+         * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
+         *
+         * It's indented to be used when a shape is drawn using shader-like fill and alpha can vary.
+         * In other words, the shape is not always opaque. It can be used for solid fills but it's same as calling [applyToPaint] with specified alpha and drawing the shape.
+         *
+         * For Kotlin, there's `inline` version of the method which makes it more performant.
+         *
+         * **The method can't be used for drawable fills**
+         */
+        fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Runnable) {
+            drawWith(canvas, shapeBounds, paint, alpha) { block.run() }
+        }
+
+        /**
+         * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
+         *
+         * It's indented to be used when a shape is drawn using shader-like fill and alpha can vary.
+         * In other words, the shape is not always opaque. It can be used for solid fills but it's same as calling [applyToPaint] with specified alpha and drawing the shape.
+         *
+         * **The method can't be used for drawable fills**
+         */
+        inline fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
+            // If alpha is 0, there's no sense in drawing. If the value is less than 0, that's illegal
+            // and better to return from the method.
+            if (alpha <= 0f) {
+                return
+            }
+
+            // applyToPaint() will check whether type is not TYPE_DRAWABLE.
+            applyToPaint(paint, alpha)
+
+            var count = -1
+
+            // alpha doesn't work in applyToPaint() if fill is not solid. We need
+            // to use a layer with different alpha to draw a shape using shader. However, we don't need
+            // it in case alpha is 1 -- we can draw it as is
+            if (fill.isShaderLike && alpha < 1f) {
+                // Convert float alpha [0; 1] to int alpha [0; 255]
+                val iAlpha = (alpha * 255f + 0.5f).toInt()
+
+                count = if (Build.VERSION.SDK_INT >= 21) {
+                    canvas.saveLayerAlpha(shapeBounds, iAlpha)
+                } else {
+                    paint.alpha = iAlpha
+
+                    // Use deprecated method because it's the only available method when API < 21
+                    @Suppress("DEPRECATION")
+                    canvas.saveLayer(shapeBounds, paint, Canvas.ALL_SAVE_FLAG)
+                }
+            }
+
+            try {
+                canvas.block()
+            } finally {
+                if (count >= 0) {
+                    canvas.restoreToCount(count)
+                }
+            }
+        }
+    }
 
     /**
      * Gets whether fill is shader-like, i.e. created by [linearGradient], [radialGradient], [shader].
@@ -131,204 +346,11 @@ class Fill private constructor(
     val isDrawableType: Boolean
         get() = type == TYPE_DRAWABLE
 
-    private fun createShader(): Shader {
-        val width = _width
-        val height = _height
-        val positions = gradientPositions
-
-        return when (type) {
-            TYPE_LINEAR_GRADIENT -> {
-                val gradColors = gradientColors!!
-
-                createLinearShader(gradientOrientation, width, height) { x0, y0, x1, y1 ->
-                    // Prior to API 29 there was an optimization around creating a shader
-                    // that allows to create the shader with two colors, that are distributed along
-                    // the gradient line, more efficiently
-                    // by using LinearGradient(x0, y0, x1, y1, color0, color1, Shader.TileMode) constructor
-                    if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(positions)) {
-                        LinearGradient(
-                            x0, y0, x1, y1,
-                            gradColors[0], gradColors[1],
-                            Shader.TileMode.MIRROR
-                        )
-                    } else {
-                        LinearGradient(
-                            x0, y0, x1, y1,
-                            gradColors, positions,
-                            Shader.TileMode.MIRROR
-                        )
-                    }
-                }
-            }
-
-            TYPE_RADIAL_GRADIENT -> {
-                val gradColors = gradientColors!!
-
-                val tempBox = getTempBox().apply {
-                    // left and top are always zero.
-                    right = width
-                    bottom = height
-                }
-
-                val tempPoint = getTempPoint()
-
-                val radius = shape.computeCircumcircle(tempBox, tempPoint)
-                val (cx, cy) = tempPoint
-
-                // Same motivation as in linear gradients.
-                if (Build.VERSION.SDK_INT < 29 && isZeroOneArray(positions)) {
-                    RadialGradient(
-                        cx, cy, radius,
-                        gradColors[0], gradColors[1],
-                        Shader.TileMode.MIRROR
-                    )
-                } else {
-                    RadialGradient(
-                        cx, cy, radius,
-                        gradColors, positions,
-                        Shader.TileMode.MIRROR
-                    )
-                }
-            }
-
-            TYPE_SHADER -> {
-                shaderFactory!!.create(width, height, shape)
-            }
-
-            else -> throwInvalidType(type)
-        }
-    }
-
     /**
-     * Sets size of the shape, fill is used to draw.
-     *
-     * The size only matters when fill is shader-like or drawable.
-     * If fill is drawable, the drawable's bounds are set relative to the origin.
-     * In other words bounds are `(left=0, top=0, right=width, bottom=height)`
+     * Create a state instance for this [Fill].
      */
-    fun setSize(width: Float, height: Float) {
-        val oldWidth = _width
-        val oldHeight = _height
-
-        _width = width
-        _height = height
-
-        if (oldWidth == width && oldHeight == height) {
-            return
-        }
-
-        if (isShaderLike) {
-            var needToUpdateShader = true
-
-            if (type == TYPE_LINEAR_GRADIENT) {
-                needToUpdateShader = when (gradientOrientation) {
-                    // If the gradient line is horizontal, it changes visually only when width is changed.
-                    Orientation.LEFT_RIGHT, Orientation.RIGHT_LEFT -> oldWidth != width
-
-                    // If the gradient line is vertical, it changes visually only when height is changed.
-                    Orientation.TOP_BOTTOM, Orientation.BOTTOM_TOP -> oldHeight != height
-                }
-            }
-
-            if (needToUpdateShader) {
-                updateShader()
-            }
-        } else if (isDrawableType) {
-            drawable!!.setBounds(0, 0, ceilToInt(width), ceilToInt(height))
-        }
-    }
-
-    private fun updateShader() {
-        shader = createShader()
-    }
-
-    /**
-     * Applies options of [Fill] to specified [paint].
-     *
-     * If the fill is solid, [alpha] parameter specifies with what `alpha` value solid color is applied to the [paint].
-     * Note that alpha of the solid color and alpha of the parameter are combined.
-     *
-     * If the fill is solid, [alpha] is ignored. Shader is set to the [paint].
-     *
-     * **The method can't be used for drawable fills**
-     */
-    @JvmOverloads
-    fun applyToPaint(paint: Paint, alpha: Float = 1f) {
-        if (isDrawableType) {
-            throw IllegalStateException("The method can't be called when Fill's type is TYPE_DRAWABLE")
-        }
-
-        paint.style = Paint.Style.FILL
-
-        if (type == TYPE_SOLID) {
-            // Combine alphas.
-            paint.color = solidColor.withCombinedAlpha(alpha)
-        }
-
-        // If shader is null, it means either type is SOLID or type is shader-like but setSize() hasn't been called.
-        // In the latter case, it's illegal thing to do. We don't force it though.
-        paint.shader = shader
-    }
-
-    /**
-     * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
-     *
-     * It's indented to be used when a shape is drawn using shader-like fill and alpha can vary.
-     * In other words, the shape is not always opaque. It can be used for solid fills but it's same as calling [applyToPaint] with specified alpha and drawing the shape.
-     *
-     * For Kotlin, there's `inline` version of the method which makes it more performant.
-     *
-     * **The method can't be used for drawable fills**
-     */
-    fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Runnable) {
-        drawWith(canvas, shapeBounds, paint, alpha) { block.run() }
-    }
-
-    /**
-     * Initializes [paint] with the current options of [Fill] and specified [alpha], then calls [block] lambda.
-     *
-     * It's indented to be used when a shape is drawn using shader-like fill and alpha can vary.
-     * In other words, the shape is not always opaque. It can be used for solid fills but it's same as calling [applyToPaint] with specified alpha and drawing the shape.
-     *
-     * **The method can't be used for drawable fills**
-     */
-    inline fun drawWith(canvas: Canvas, shapeBounds: RectF, paint: Paint, alpha: Float, block: Canvas.() -> Unit) {
-        // If alpha is 0, there's no sense in drawing. If the value is less than 0, that's illegal
-        // and better to return from the method.
-        if (alpha <= 0f) {
-            return
-        }
-
-        // applyToPaint() will check whether type is not TYPE_DRAWABLE.
-        applyToPaint(paint, alpha)
-
-        var count = -1
-
-        // alpha doesn't work in applyToPaint() if fill is not solid. We need
-        // to use a layer with different alpha to draw a shape using shader. However, we don't need
-        // it in case alpha is 1 -- we can draw it as is
-        if (isShaderLike && alpha < 1f) {
-            // Convert float alpha [0; 1] to int alpha [0; 255]
-            val iAlpha = (alpha * 255f + 0.5f).toInt()
-
-            count = if (Build.VERSION.SDK_INT >= 21) {
-                canvas.saveLayerAlpha(shapeBounds, iAlpha)
-            } else {
-                paint.alpha = iAlpha
-
-                // Use deprecated method because it's the only available method when API < 21
-                @Suppress("DEPRECATION")
-                canvas.saveLayer(shapeBounds, paint, Canvas.ALL_SAVE_FLAG)
-            }
-        }
-
-        try {
-            canvas.block()
-        } finally {
-            if (count >= 0) {
-                canvas.restoreToCount(count)
-            }
-        }
+    fun createState(): State {
+        return State(this)
     }
 
     override fun equals(other: Any?): Boolean {

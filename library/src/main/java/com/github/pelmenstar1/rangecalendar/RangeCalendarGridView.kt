@@ -378,8 +378,8 @@ internal class RangeCalendarGridView(
 
         onDecorationDefaultLayoutOptionsChanged(style.getObject { DECOR_DEFAULT_LAYOUT_OPTIONS })
 
-        onSelectionFillOrGradientBoundsTypePossiblyChanged(
-            style.getObject { SELECTION_FILL },
+        onSelectionFillChanged(style.getObject { SELECTION_FILL })
+        onSelectionFillGradientBoundsTypeChanged(
             style.getEnum({ SELECTION_FILL_GRADIENT_BOUNDS_TYPE }, SelectionFillGradientBoundsType::ofOrdinal)
         )
 
@@ -586,6 +586,7 @@ internal class RangeCalendarGridView(
     private fun onSelectionFillChanged(fill: Fill) {
         if (selectionRenderOptions.getFillOrNull() != fill) {
             selectionRenderOptions.fill = fill
+            selectionRenderOptions.fillState = fill.createState()
 
             onSelectionFillOrGradientBoundsTypeChanged()
         }
@@ -596,27 +597,6 @@ internal class RangeCalendarGridView(
             selectionRenderOptions.fillGradientBoundsType = type
 
             onSelectionFillOrGradientBoundsTypeChanged()
-        }
-    }
-
-    private fun onSelectionFillOrGradientBoundsTypePossiblyChanged(fill: Fill, type: SelectionFillGradientBoundsType) {
-        val options = selectionRenderOptions
-
-        var changed = false
-
-        if (options.getFillOrNull() != fill) {
-            options.fill = fill
-            changed = true
-        }
-
-        if (options.getFillGradientBoundsTypeOrNull() != type) {
-            options.fillGradientBoundsType = type
-            changed = true
-        }
-
-        if (changed) {
-            updateGradientBoundsIfNeeded()
-            invalidate()
         }
     }
 
@@ -735,7 +715,7 @@ internal class RangeCalendarGridView(
         val options = selectionRenderOptions
 
         if (options.getFillGradientBoundsTypeOrNull() == SelectionFillGradientBoundsType.GRID) {
-            options.getFillOrNull()?.setSize(rowWidth(), gridHeight())
+            options.getFillStateOrNull()?.setSize(rowWidth(), gridHeight())
         }
     }
 

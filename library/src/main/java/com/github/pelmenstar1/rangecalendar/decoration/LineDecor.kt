@@ -34,7 +34,8 @@ class LineDecor(val style: Style) : CellDecor() {
 
     private open class LineVisualState(
         val linesAndTextBoundsArray: PackedRectFArray,
-        val styles: Array<Style>
+        val styles: Array<Style>,
+        val fillStates: Array<Fill.State>
     ) : VisualState {
         override val isEmpty: Boolean
             get() = linesAndTextBoundsArray.isEmpty
@@ -47,7 +48,7 @@ class LineDecor(val style: Style) : CellDecor() {
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
-    ) : LineVisualState(end.linesAndTextBoundsArray.copyOf(), end.styles), VisualState.Transitive {
+    ) : LineVisualState(end.linesAndTextBoundsArray.copyOf(), end.styles, end.fillStates), VisualState.Transitive {
         override var animationFraction: Float = 0f
 
         override fun handleAnimation(
@@ -102,7 +103,7 @@ class LineDecor(val style: Style) : CellDecor() {
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
-    ) : LineVisualState(start.linesAndTextBoundsArray.copyOf(), start.styles),
+    ) : LineVisualState(start.linesAndTextBoundsArray.copyOf(), start.styles, start.fillStates),
         VisualState.Transitive {
         override var animationFraction: Float = 0f
 
@@ -158,7 +159,7 @@ class LineDecor(val style: Style) : CellDecor() {
         override val end: LineVisualState,
         private val affectedRangeStart: Int,
         private val affectedRangeEnd: Int
-    ) : LineVisualState(start.linesAndTextBoundsArray.copyOf(), start.styles),
+    ) : LineVisualState(start.linesAndTextBoundsArray.copyOf(), start.styles, start.fillStates),
         VisualState.Transitive {
         override var animationFraction: Float = 0f
 
@@ -182,7 +183,7 @@ class LineDecor(val style: Style) : CellDecor() {
     }
 
     private object LineStateHandler : VisualStateHandler {
-        private val emptyLineState = LineVisualState(PackedRectFArray(0), emptyArray())
+        private val emptyLineState = LineVisualState(PackedRectFArray(0), emptyArray(), emptyArray())
 
         private val rect = RectF()
         private val tempPaint = Paint()
@@ -230,6 +231,7 @@ class LineDecor(val style: Style) : CellDecor() {
 
         override fun emptyState(): VisualState = emptyLineState
 
+        @Suppress("UNCHECKED_CAST")
         override fun createState(
             context: Context,
             decorations: Array<out CellDecor>,
@@ -244,10 +246,7 @@ class LineDecor(val style: Style) : CellDecor() {
                 context.resources.getDimension(R.dimen.rangeCalendar_lineTextHorizontalMargin)
 
             val decorCount = endInclusive - start + 1
-
-            val styles = Array(decorCount) { i ->
-                (decorations[start + i] as LineDecor).style
-            }
+            val styles = arrayOfNulls<Style>(decorCount)
 
             val freeAreaHeight = info.height - info.textBottom
 
@@ -261,6 +260,8 @@ class LineDecor(val style: Style) : CellDecor() {
                 val line = decorations[i] as LineDecor
                 val style = line.style
 
+                styles[i] = style
+
                 val height = style.height
                 val padding = getDecorPadding(context, style.padding)
 
@@ -272,6 +273,8 @@ class LineDecor(val style: Style) : CellDecor() {
             }
 
             val linesAndTextBoundsArray = PackedRectFArray(decorCount + decorCountWithText)
+            val fillStates = arrayOfNulls<Fill.State>(decorCount)
+
             var textIndex = 0
 
             // Find y of position where to start drawing lines
@@ -334,7 +337,9 @@ class LineDecor(val style: Style) : CellDecor() {
                 rect.right = right
 
                 linesAndTextBoundsArray.setFromObjectRect(i, rect)
-                style.fill.setSize(rect.width(), rect.height())
+
+                val fillState = style.fill.createState()
+                fillStates[i] = fillState
 
                 val text = style.text
 
@@ -376,7 +381,7 @@ class LineDecor(val style: Style) : CellDecor() {
                 top += resolvedHeight + decorPadding.bottom
             }
 
-            return LineVisualState(linesAndTextBoundsArray, styles)
+            return LineVisualState(linesAndTextBoundsArray, styles as Array<Style>, fillStates as Array<Fill.State>)
         }
 
         override fun createTransitiveState(
@@ -437,15 +442,17 @@ class LineDecor(val style: Style) : CellDecor() {
             val paint = paint
 
             val styles = lineState.styles
+            val fillStates = lineState.fillStates
             val decorCount = styles.size
             var textIndex = 0
 
             for (i in 0 until decorCount) {
                 val style = styles[i]
+                val fillState = fillStates[i]
 
                 linesAndTextBoundsArray.toObjectRect(i, rect)
 
-                drawFilledRect(canvas, rect, style)
+                drawFilledRect(canvas, rect, style, fillState)
 
                 val border = style.border
                 if (border != null) {
@@ -535,11 +542,13 @@ class LineDecor(val style: Style) : CellDecor() {
             }
         }
 
-        private fun drawFilledRect(canvas: Canvas, rect: RectF, style: Style) {
+        private fun drawFilledRect(canvas: Canvas, rect: RectF, style: Style, fillState: Fill.State) {
             val fill = style.fill
 
             val width = rect.width()
             val height = rect.height()
+
+            fillState.setSize(width, height)
 
             canvas.withTranslation(rect.left, rect.top) {
                 val drawable = fill.drawable
@@ -549,7 +558,7 @@ class LineDecor(val style: Style) : CellDecor() {
 
                     drawable.draw(canvas)
                 } else {
-                    fill.applyToPaint(paint)
+                    fillState.applyToPaint(paint)
 
                     drawRect(canvas, 0f, 0f, width, height, style)
                 }

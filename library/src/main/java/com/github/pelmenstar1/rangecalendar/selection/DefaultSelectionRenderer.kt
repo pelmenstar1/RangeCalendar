@@ -121,13 +121,15 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         alpha: Float
     ) {
         val fill = options.fill
+        val fillState = options.fillState
+
         val rr = options.roundRadius
         val shapeBounds = tempRect
 
         var count = -1
 
         if (useTranslationToBounds(fill, options.fillGradientBoundsType)) {
-            fill.setSize(width, height)
+            fillState.setSize(width, height)
 
             count = canvas.save()
             canvas.translate(left, top)
@@ -157,7 +159,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 setDrawableAlpha(drawable, alpha)
                 drawable.draw(canvas)
             } else {
-                fill.drawWith(canvas, shapeBounds, paint, alpha) {
+                fillState.drawWith(canvas, shapeBounds, paint, alpha) {
                     drawRoundRect(shapeBounds, rr, rr, paint)
                 }
             }
@@ -177,6 +179,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     ) {
         val shape = if (isPrimary) primaryShape else secondaryShape
         val fill = options.fill
+        val fillState = options.fillState
 
         var forcePath = false
         val origin: Int
@@ -202,7 +205,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             val width = right - left
             val height = bottom - top
 
-            fill.setSize(width, height)
+            fillState.setSize(width, height)
 
             count = canvas.save()
             canvas.translate(left, top)
@@ -227,7 +230,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 setDrawableAlpha(drawable, alpha)
                 drawable.draw(canvas)
             } else {
-                fill.drawWith(canvas, translatedBounds, paint, alpha) { shape.draw(canvas, paint) }
+                fillState.drawWith(canvas, translatedBounds, paint, alpha) { shape.draw(canvas, paint) }
             }
         } finally {
             if (count >= 0) {
