@@ -4,16 +4,8 @@ import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 internal class DefaultSelectionManager : SelectionManager {
-    private var _prevState: DefaultSelectionState = DefaultSelectionState.None
-    private var _currentState: DefaultSelectionState = DefaultSelectionState.None
     private var _renderer: DefaultSelectionRenderer? = null
     private var _transitionController: DefaultSelectionTransitionController? = null
-
-    override val previousState: SelectionState
-        get() = _prevState
-
-    override val currentState: SelectionState
-        get() = _currentState
 
     override val renderer: SelectionRenderer
         get() = getLazyValue(_renderer, ::DefaultSelectionRenderer) { _renderer = it }
@@ -24,33 +16,24 @@ internal class DefaultSelectionManager : SelectionManager {
             ::DefaultSelectionTransitionController
         ) { _transitionController = it }
 
-    override fun setState(
+    override fun createState(
         rangeStart: Int,
         rangeEnd: Int,
         measureManager: CellMeasureManager
-    ) {
-        val state = if (rangeStart > rangeEnd) {
-            DefaultSelectionState.None
-        } else {
-            createRangeState(rangeStart, rangeEnd, measureManager)
-        }
+    ): SelectionState {
+        val shapeInfo = SelectionShapeInfo()
+        fillSelectionShapeInfo(rangeStart, rangeEnd, measureManager, shapeInfo)
 
-        setStateInternal(state)
+        return DefaultSelectionState(shapeInfo)
     }
 
-    override fun updateConfiguration(measureManager: CellMeasureManager) {
-        updateStateConfiguration(_prevState, measureManager)
-        updateStateConfiguration(_currentState, measureManager)
-    }
+    override fun updateConfiguration(state: SelectionState, measureManager: CellMeasureManager) {
+        state as DefaultSelectionState
 
-    private fun updateStateConfiguration(state: DefaultSelectionState, measureManager: CellMeasureManager) {
         val shapeInfo = state.shapeInfo
         val (rangeStart, rangeEnd) = shapeInfo.range
 
-        // Update measurements if the state is defined
-        if (rangeStart.index <= rangeEnd.index) {
-            fillSelectionShapeInfo(rangeStart.index, rangeEnd.index, measureManager, shapeInfo)
-        }
+        fillSelectionShapeInfo(rangeStart.index, rangeEnd.index, measureManager, shapeInfo)
     }
 
     private fun fillSelectionShapeInfo(
@@ -89,72 +72,57 @@ internal class DefaultSelectionManager : SelectionManager {
         outShapeInfo.roundRadius = measureManager.roundRadius
     }
 
-    private fun createRangeState(
-        rangeStart: Int,
-        rangeEnd: Int,
-        measureManager: CellMeasureManager
-    ): DefaultSelectionState {
-        val shapeInfo = SelectionShapeInfo()
-        fillSelectionShapeInfo(rangeStart, rangeEnd, measureManager, shapeInfo)
-
-        return DefaultSelectionState(shapeInfo)
-    }
-
-    private fun setStateInternal(state: DefaultSelectionState) {
-        _prevState = _currentState
-        _currentState = state
-    }
-
     override fun createTransition(
+        previousState: SelectionState?,
+        currentState: SelectionState?,
         measureManager: CellMeasureManager,
         options: SelectionRenderOptions
     ): SelectionState.Transitive? {
-        val prevState = _prevState
-        val currentState = _currentState
+        previousState as DefaultSelectionState?
+        currentState as DefaultSelectionState?
 
-        val prevStart = prevState.rangeStart
-        val prevEnd = prevState.rangeEnd
-
-        val currentStart = currentState.rangeStart
-        val currentEnd = currentState.rangeEnd
-
-        return when {
-            // previous state is none
-            prevStart > prevEnd -> when {
+        if (previousState == null) {
+            return when {
                 // There's no transition between none and none.
-                currentStart > currentEnd -> null
+                currentState == null -> null
 
                 // current state is single-cell
-                currentStart == currentEnd -> createCellAppearTransition(currentState, options, isReversed = false)
-                else -> createRangeToRangeTransition(prevState, currentState, measureManager)
+                currentState.rangeStart == currentState.rangeEnd ->
+                    createCellAppearTransition(currentState, options, isReversed = false)
+
+                else -> DefaultSelectionState.AppearAlpha(currentState, isReversed = false)
             }
+        } else {
+            val prevStart = previousState.rangeStart
+            val prevEnd = previousState.rangeEnd
 
             // previous state is single-cell
-            prevStart == prevEnd -> when {
-                // current state is none
-                currentStart > currentEnd -> createCellAppearTransition(prevState, options, isReversed = true)
+            if (prevStart == prevEnd) {
+                if (currentState == null) {
+                    return createCellAppearTransition(previousState, options, isReversed = true)
+                }
+
+                val currentStart = currentState.rangeStart
+                val currentEnd = currentState.rangeEnd
 
                 // current state is single-cell
-                currentStart == currentEnd -> {
+                return if (currentStart == currentEnd) {
                     val prevCell = Cell(prevStart)
                     val currentCell = Cell(currentStart)
 
                     if (prevCell.sameX(currentCell) || prevCell.sameY(currentCell)) {
-                        createCellMoveToCellTransition(prevState, currentState)
+                        createCellMoveToCellTransition(previousState, currentState)
                     } else {
-                        createDualCellAppearTransition(prevState, currentState, options)
+                        createDualCellAppearTransition(previousState, currentState, options)
                     }
-                }
-
-                else -> createRangeToRangeTransition(prevState, currentState, measureManager)
-            }
-
-            else -> {
-                // current state is none
-                if (currentStart > currentEnd) {
-                    DefaultSelectionState.AppearAlpha(prevState, isReversed = true)
                 } else {
-                    createRangeToRangeTransition(prevState, currentState, measureManager)
+                    createRangeToRangeTransition(previousState, currentState, measureManager)
+                }
+            } else {
+                return if (currentState == null) {
+                    DefaultSelectionState.AppearAlpha(previousState, isReversed = true)
+                } else {
+                    createRangeToRangeTransition(previousState, currentState, measureManager)
                 }
             }
         }
@@ -162,19 +130,20 @@ internal class DefaultSelectionManager : SelectionManager {
 
     override fun joinTransition(
         current: SelectionState.Transitive,
-        end: SelectionState,
+        end: SelectionState?,
         measureManager: CellMeasureManager
     ): SelectionState.Transitive? {
-        end as DefaultSelectionState
-
-        val endStateStart = end.rangeStart
-        val endStateEnd = end.rangeEnd
+        end as DefaultSelectionState?
 
         return when (current) {
             is DefaultSelectionState.RangeToRange -> {
-                if (endStateStart > endStateEnd) { // end state is none
+                // end state is none
+                if (end == null) {
                     DefaultSelectionState.AppearAlpha(current, isReversed = true)
-                } else { // end state is single cell
+                } else {
+                    val endStateStart = end.rangeStart
+                    val endStateEnd = end.rangeEnd
+
                     val endStateStartCellDist = measureManager.getCellDistance(endStateStart)
 
                     var endStateEndCellDist = if (endStateStart == endStateEnd) {
@@ -196,11 +165,15 @@ internal class DefaultSelectionManager : SelectionManager {
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
-                if (endStateStart > endStateEnd) { // end state is none
+                // end state is none
+                if (end == null) {
                     DefaultSelectionState.AppearAlpha(current, isReversed = true)
                 } else {
                     val currentStateStart = current.start.shapeInfo.range.start
                     val currentStateEnd = current.end.shapeInfo.range.end
+
+                    val endStateStart = end.rangeStart
+                    val endStateEnd = end.rangeEnd
 
                     val currentStateStartY = currentStateStart.gridY
                     val currentStateEndY = currentStateEnd.gridY

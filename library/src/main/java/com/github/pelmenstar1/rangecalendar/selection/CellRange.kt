@@ -27,6 +27,9 @@ internal value class CellRange(val bits: Int) {
     val isValid: Boolean
         get() = start.index <= end.index
 
+    val isSingleCell: Boolean
+        get() = start == end
+
     inline operator fun component1() = start
     inline operator fun component2() = end
 
@@ -47,7 +50,7 @@ internal value class CellRange(val bits: Int) {
         return CellRange(max(start, otherStart), min(end, otherEnd))
     }
 
-    fun contains(cell: Cell): Boolean {
+    operator fun contains(cell: Cell): Boolean {
         return cell.index in start.index..end.index
     }
 

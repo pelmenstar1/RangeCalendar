@@ -3,21 +3,11 @@ package com.github.pelmenstar1.rangecalendar.selection
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 
 /**
- * Manages selection state and provides a way to draw a state and transition between them.
+ * Responsible for providing [SelectionRenderer], [SelectionTransitionController], creating selection states and transitions between them.
+ * The manager is expected to be stateless, except caching in [renderer], [transitionController], as the same instance is used
+ * among different calendars.
  */
 interface SelectionManager {
-    /**
-     * State which was selected before [currentState].
-     * If there's no previous state, it should be instance of [SelectionState] whose selection range is empty,
-     * i.e [SelectionState.rangeStart] is greater than [SelectionState.rangeEnd].
-     */
-    val previousState: SelectionState
-
-    /**
-     * Current state.
-     */
-    val currentState: SelectionState
-
     /**
      * Gets a selection renderer that is connected to the current [SelectionManager] in the way that the renderer
      * recognizes the types of selection states that are created by the selection manager.
@@ -35,20 +25,30 @@ interface SelectionManager {
     val transitionController: SelectionTransitionController
 
     /**
-     * Sets a current state. If the [rangeStart] is greater than [rangeEnd], the selection is empty.
+     * Creates selection state using range of selected cells (`[rangeStart; rangeEnd]`) and [measureManager].
+     *
+     * @param rangeStart index of a start of the range, inclusive
+     * @param rangeEnd index of an end of the range, **inclusive**
+     * @param measureManager [CellMeasureManager] instance that provides a way to get information about measurements
      */
-    fun setState(rangeStart: Int, rangeEnd: Int, measureManager: CellMeasureManager)
+    fun createState(rangeStart: Int, rangeEnd: Int, measureManager: CellMeasureManager): SelectionState
 
     /**
-     * Updates previous and current state due to the configuration change ([CellMeasureManager] measurements are changed)
+     * Updates given [state] due to the configuration change (some measurements may be changed)
      */
-    fun updateConfiguration(measureManager: CellMeasureManager)
+    fun updateConfiguration(state: SelectionState, measureManager: CellMeasureManager)
 
     /**
      * Creates a transitive state between [previousState] and [currentState].
+     *
+     * If [previousState] and/or [currentState] are `null`, it means that the respective state doesn't exist.
+     * For example, if a range is selected but there was no selection before, [previousState] is `null`.
+     *
      * If there's no transition between states, returns `null`.
      */
     fun createTransition(
+        previousState: SelectionState?,
+        currentState: SelectionState?,
         measureManager: CellMeasureManager,
         options: SelectionRenderOptions
     ): SelectionState.Transitive?
@@ -63,22 +63,14 @@ interface SelectionManager {
      */
     fun joinTransition(
         current: SelectionState.Transitive,
-        end: SelectionState,
+        end: SelectionState?,
         measureManager: CellMeasureManager
     ): SelectionState.Transitive?
 }
 
-internal fun SelectionManager.setState(
+internal fun SelectionManager.createState(
     range: CellRange,
     measureManager: CellMeasureManager
-) {
-    setState(range.start, range.end, measureManager)
-}
-
-internal fun SelectionManager.setState(
-    rangeStart: Cell,
-    rangeEnd: Cell,
-    measureManager: CellMeasureManager
-) {
-    setState(rangeStart.index, rangeEnd.index, measureManager)
+): SelectionState {
+    return createState(range.start.index, range.end.index, measureManager)
 }

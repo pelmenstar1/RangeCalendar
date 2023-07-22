@@ -150,19 +150,16 @@ There are two main abstractions in selection management:
 
 - 'selection state' - saves type of selection, its range (rangeStart and rangeEnd) and other data required to draw it on
   canvas.
-- 'selection manager' - responsible for creating selection state, accessing to it.
+- 'selection manager' - responsible for creating selection state and transitions between them. The manager is expected to be stateless, except caching instances of `renderer` and `transitionController`
 - 'selection renderer' - responsible for rendering the selection state on `Canvas`. The implementation is not expected to be stateful, but it's acceptable to cache some information in order to make the rendering faster.
 - 'selection transition controller' - responsible for mutating `SelectionState.Transition` internal data to make a transition.
 
 There's a description of methods of `SelectionManager` and what they are expected to do:
 
-- `previousState` - saves a selection state that was before currentState. 
-- `currentState` - current state of the manager.
-- `setState(rangeStart, rangeEnd, measureManager)` - creates and assigns new selection state using passed
-  arguments. Note that, rangeEnd is **inclusive**. measureManager should be used to determine bounds of a cell.
-- `updateConfiguration(measureManager)` - updates internal measurements and computation based on measureManager results
+- `createState(rangeStart, rangeEnd, measureManager)` - creates a **new** selection state. Note that, rangeEnd is **inclusive**. measureManager can be used to determine bounds of a cell and other info.
+- `updateConfiguration(state, measureManager)` - updates internal measurements and computation based on measureManager results
   of both previousState and currentState. Change of measureManager result means that cells might be moved or resized.
-- `createTransition(measureManager, options)` - creates a transitive state between previousState and currentState
+- `createTransition(previousState, currentState, measureManager, options)` - creates a transitive state between previousState and currentState
 
 Selection renderer is responsible for drawing simple selection state or transitive state, that is created to save information about transition between two selection states. When selection is to be drawn, the canvas' matrix is translated in such way that coordinates will be relative to the grid's leftmost point on top.
 

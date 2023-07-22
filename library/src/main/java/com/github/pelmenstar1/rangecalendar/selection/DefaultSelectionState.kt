@@ -171,8 +171,6 @@ internal class DefaultSelectionState(override val shapeInfo: SelectionShapeInfo)
     }
 
     companion object {
-        val None = DefaultSelectionState(SelectionShapeInfo())
-
         private fun throwUndefinedRange(): Nothing {
             throw IllegalStateException("The selection transitive state doesn't have defined range")
         }

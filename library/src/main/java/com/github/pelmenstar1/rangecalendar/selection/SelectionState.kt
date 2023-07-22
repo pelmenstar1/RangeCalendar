@@ -68,6 +68,8 @@ internal fun SelectionState.contains(cell: Cell): Boolean {
     return cell.index in rangeStart..rangeEnd
 }
 
-internal fun SelectionState.isSingleCell(cell: Cell): Boolean {
+internal fun SelectionState?.isSingleCell(cell: Cell): Boolean {
+    if (this == null) return false
+
     return rangeStart == cell.index && rangeEnd == cell.index
 }

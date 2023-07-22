@@ -91,7 +91,7 @@ internal class RangeCalendarGridView(
                 contentDescription = getDayDescriptionForIndex(virtualViewId)
                 text = CalendarResources.getDayText(grid.cells[virtualViewId].toInt())
 
-                isSelected = grid.selectionManager.currentState.isSingleCell(cell)
+                isSelected = grid.currentSelState.isSingleCell(cell)
                 isClickable = true
 
                 isEnabled = if (grid.enabledCellRange.contains(cell)) {
@@ -248,6 +248,9 @@ internal class RangeCalendarGridView(
     private var selectionManager: SelectionManager = DefaultSelectionManager()
     private var selectionRenderer = selectionManager.renderer
 
+    private var prevSelState: SelectionState? = null
+    private var currentSelState: SelectionState? = null
+
     private var selectionRenderOptions: SelectionRenderOptions? = null
     private var isSelectionRenderOptionsDirty = true
 
@@ -364,9 +367,22 @@ internal class RangeCalendarGridView(
     }
 
     private fun updateSelectionStateConfiguration() {
-        selectionManager.updateConfiguration(cellMeasureManager)
+        val manager = selectionManager
+        var needsToInvalidate = false
 
-        invalidate()
+        prevSelState?.let {
+            needsToInvalidate = true
+            manager.updateConfiguration(it, cellMeasureManager)
+        }
+
+        currentSelState?.let {
+            needsToInvalidate = true
+            manager.updateConfiguration(it, cellMeasureManager)
+        }
+
+        if (needsToInvalidate) {
+            invalidate()
+        }
     }
 
     fun onStylePropertyChanged(propIndex: Int) {
@@ -422,23 +438,26 @@ internal class RangeCalendarGridView(
     private fun onSelectionManagerChanged(manager: SelectionManager?) {
         val resolvedManager = manager ?: DefaultSelectionManager()
 
-        // DefaultSelectionManager has no options and preferences which means re-setting it has no effect.
-        if (selectionManager.javaClass == DefaultSelectionManager::class.java &&
-            resolvedManager.javaClass == DefaultSelectionManager::class.java
-        ) {
+        if (resolvedManager === manager) {
             return
         }
 
-        val prevSelState = selectionManager.previousState
-        val selState = selectionManager.currentState
-
-        resolvedManager.setState(prevSelState.rangeStart, prevSelState.rangeEnd, cellMeasureManager)
-        resolvedManager.setState(selState.rangeStart, selState.rangeEnd, cellMeasureManager)
+        prevSelState = copySelectionState(resolvedManager, prevSelState)
+        currentSelState = copySelectionState(resolvedManager, currentSelState)
 
         selectionManager = resolvedManager
         selectionRenderer = resolvedManager.renderer
 
         invalidate()
+    }
+
+    private fun copySelectionState(manager: SelectionManager, state: SelectionState?): SelectionState? {
+        return state?.let { manager.createState(it.rangeStart, it.rangeEnd, cellMeasureManager) }
+    }
+
+    private fun setNewSelectionState(state: SelectionState?) {
+        prevSelState = currentSelState
+        currentSelState = state
     }
 
     private fun onCellAnimationTypeChanged() {
@@ -613,15 +632,17 @@ internal class RangeCalendarGridView(
     }
 
     override fun getFocusedRect(r: Rect) {
-        val selState = selectionManager.currentState
-        val start = selState.startCell
-        val end = selState.endCell
+        currentSelState?.let {
+            val start = it.startCell
+            val end = it.endCell
 
-        if (start.sameY(end)) {
-            fillRangeOnRowBounds(start, end, r)
-        } else {
-            super.getFocusedRect(r)
+            if (start.sameY(end)) {
+                fillRangeOnRowBounds(start, end, r)
+                return
+            }
         }
+
+        super.getFocusedRect(r)
     }
 
     private fun sendClickEventToAccessibility(cell: Cell) {
@@ -629,13 +650,11 @@ internal class RangeCalendarGridView(
     }
 
     private fun updateSelectionRange() {
-        val selRange = selectionManager.currentState.range
-
-        if (selRange.isValid) {
+        currentSelState?.let {
             selectRange(
-                selRange,
+                it.range,
                 requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                checkGate = true,
+                checkGate = true
             )
         }
     }
@@ -662,9 +681,9 @@ internal class RangeCalendarGridView(
         gestureType: SelectionByGestureType? = null,
         withAnimation: Boolean = isSelectionAnimatedByDefault(),
     ): SelectionAcceptanceStatus {
-        val selState = selectionManager.currentState
-        val rangeStart = range.start
-        val isSameCellSelection = rangeStart == range.end && selState.isSingleCell(rangeStart)
+        val currentSelRange = currentSelState?.range ?: CellRange.Invalid
+
+        val isSameCellSelection = currentSelRange.isSingleCell && currentSelRange == range
 
         // Check if user clicks on the same cell and clear selection if necessary.
         if (gestureType == SelectionByGestureType.SINGLE_CELL_ON_CLICK && isSameCellSelection && clickOnCellSelectionBehavior() == ClickOnCellSelectionBehavior.CLEAR) {
@@ -692,11 +711,13 @@ internal class RangeCalendarGridView(
             clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
             return SelectionAcceptanceStatus.REJECTED
-        } else if (selState.range == intersection) {
+        } else if (currentSelRange == intersection) {
             return SelectionAcceptanceStatus.ACCEPTED_SAME_RANGE
         }
 
-        selectionManager.setState(intersection, cellMeasureManager)
+        val newState = selectionManager.createState(intersection, cellMeasureManager)
+        setNewSelectionState(newState)
+
         onSelectionListener?.onSelection(intersection)
 
         if (withAnimation) {
@@ -761,15 +782,23 @@ internal class RangeCalendarGridView(
         val measureManager = cellMeasureManager
 
         val isSelectionAnimRunning = animType == SELECTION_ANIMATION
+
+        val prevSelState = prevSelState
+        val currentSelState = currentSelState
         val prevTransitiveState = selectionTransitiveState
+
         var newTransitiveState: SelectionState.Transitive? = null
 
         if (isSelectionAnimRunning && prevTransitiveState != null) {
-            newTransitiveState = selManager.joinTransition(prevTransitiveState, selManager.currentState, measureManager)
+            newTransitiveState = selManager.joinTransition(prevTransitiveState, currentSelState, measureManager)
         }
 
         if (newTransitiveState == null) {
-            newTransitiveState = selManager.createTransition(measureManager, getSelectionRenderOptions())
+            newTransitiveState = selManager.createTransition(
+                prevSelState, currentSelState,
+                measureManager,
+                getSelectionRenderOptions()
+            )
         }
 
         if (newTransitiveState == null) {
@@ -798,7 +827,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun setHoverCell(cell: Cell) {
-        if (selectionManager.currentState.isSingleCell(cell) || hoverCell == cell) {
+        if (currentSelState.isSingleCell(cell) || hoverCell == cell) {
             return
         }
 
@@ -841,12 +870,11 @@ internal class RangeCalendarGridView(
 
     fun clearSelection(fireEvent: Boolean, withAnimation: Boolean) {
         // No sense to clear selection if there's none.
-        if (selectionManager.currentState.isNone) {
+        if (currentSelState == null) {
             return
         }
 
-        // [0, -1] means an empty range.
-        selectionManager.setState(0, -1, cellMeasureManager)
+        setNewSelectionState(null)
 
         // Fire event if it's demanded
         if (fireEvent) {
@@ -1180,12 +1208,9 @@ internal class RangeCalendarGridView(
                 }
             }
         } else {
-            val currentState = selectionManager.currentState
-
-            // Draw selection state if there's actually a state to draw.
-            if (!currentState.isNone) {
+            currentSelState?.let { state ->
                 canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
-                    renderer.draw(canvas, currentState, getSelectionRenderOptions())
+                    renderer.draw(canvas, state, getSelectionRenderOptions())
                 }
             }
         }
@@ -1241,9 +1266,7 @@ internal class RangeCalendarGridView(
         val halfCellHeight = cellHeight * 0.5f
 
         val transitiveSelState = selectionTransitiveState
-        val currentSelState = selectionManager.currentState
-        val currentSelStateRangeStart = currentSelState.rangeStart
-        val currentSelStateRangeEnd = currentSelState.rangeEnd
+        val currentSelRange = currentSelState?.range ?: CellRange.Invalid
 
         val rect = tempRect
 
@@ -1273,7 +1296,7 @@ internal class RangeCalendarGridView(
 
                     transitiveSelState.overlaysRect(rect)
                 } else {
-                    i in currentSelStateRangeStart..currentSelStateRangeEnd
+                    cell in currentSelRange
                 }
 
                 val cellType = when {
