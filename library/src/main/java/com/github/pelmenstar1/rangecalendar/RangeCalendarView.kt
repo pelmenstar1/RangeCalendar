@@ -8,6 +8,7 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Parcelable
+import android.text.format.DateFormat
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -27,21 +28,20 @@ import com.github.pelmenstar1.rangecalendar.RangeCalendarView.SelectionGate
 import com.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import com.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureConfiguration
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetector
+import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetectorFactory
 import com.github.pelmenstar1.rangecalendar.selection.CellAnimationType
 import com.github.pelmenstar1.rangecalendar.selection.SelectionManager
 import com.github.pelmenstar1.rangecalendar.utils.getBestDatePatternCompat
+import com.github.pelmenstar1.rangecalendar.utils.getFirstDayOfWeek
 import com.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import com.github.pelmenstar1.rangecalendar.utils.getSelectableItemBackground
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
-import android.text.format.DateFormat
-import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureConfiguration
-import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetectorFactory
-import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetector
-import com.github.pelmenstar1.rangecalendar.utils.getFirstDayOfWeek
-import java.time.DayOfWeek
 import kotlin.math.max
 
 /**
@@ -1517,7 +1517,7 @@ class RangeCalendarView @JvmOverloads constructor(
      * Changing the factory causes creation of [RangeCalendarGestureDetector] instances on all available calendar pages.
      * All the pages will use these gesture detectors.
      */
-    var gestureDetectorFactory: RangeCalendarGestureDetectorFactory<*>
+    var gestureDetectorFactory: RangeCalendarGestureDetectorFactory
         get() = adapter.getStyleObject { GESTURE_DETECTOR_FACTORY }
         set(value) {
             adapter.setStyleObject({ GESTURE_DETECTOR_FACTORY }, value)

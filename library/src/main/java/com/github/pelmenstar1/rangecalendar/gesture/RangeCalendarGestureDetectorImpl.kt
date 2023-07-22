@@ -14,10 +14,7 @@ import kotlin.math.abs
 import kotlin.math.atan2
 
 internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector() {
-    object Factory : RangeCalendarGestureDetectorFactory<RangeCalendarGestureDetectorImpl> {
-        override val detectorClass: Class<RangeCalendarGestureDetectorImpl>
-            get() = RangeCalendarGestureDetectorImpl::class.java
-
+    object Factory : RangeCalendarGestureDetectorFactory {
         override fun create() = RangeCalendarGestureDetectorImpl()
     }
 
