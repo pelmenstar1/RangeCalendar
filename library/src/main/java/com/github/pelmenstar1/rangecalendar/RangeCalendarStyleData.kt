@@ -24,6 +24,9 @@ internal class RangeCalendarStyleData {
     inline fun getFloat(getProp: GetCalendarStyleProp) = getPackedInt(getProp).float()
     inline fun getBoolean(getProp: GetCalendarStyleProp) = getPackedInt(getProp).boolean()
 
+    inline fun <T : Enum<T>> getEnum(getProp: GetCalendarStyleProp, fromInt: (Int) -> T) =
+        getPackedInt(getProp).enum(fromInt)
+
     @Suppress("UNCHECKED_CAST")
     fun <T> getObject(propIndex: Int) = propObjects[propIndex - OBJECT_PROP_START] as T
 
@@ -48,16 +51,6 @@ internal class RangeCalendarStyleData {
         propObjects[objIndex] = value
 
         return old != value
-    }
-
-    inline fun forEachProperty(block: (propIndex: Int) -> Unit) {
-        for (propIndex in 0 until INT_PROPS_COUNT) {
-            block(propIndex)
-        }
-
-        for (propIndex in OBJECT_PROP_START until (OBJECT_PROP_START + OBJECT_PROPS_COUNT)) {
-            block(propIndex)
-        }
     }
 
     companion object {
@@ -145,6 +138,7 @@ internal class RangeCalendarStyleData {
                 set(VIBRATE_ON_SELECTING_RANGE, true)
                 set(SHOW_ADJACENT_MONTHS, true)
                 set(WEEKDAYS, null)
+                set(DECOR_DEFAULT_LAYOUT_OPTIONS, null)
                 set(
                     CLICK_ON_CELL_SELECTION_BEHAVIOR,
                     ClickOnCellSelectionBehavior.NONE

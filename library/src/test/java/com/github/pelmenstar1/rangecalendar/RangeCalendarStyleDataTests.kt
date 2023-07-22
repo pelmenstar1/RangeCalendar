@@ -5,21 +5,6 @@ import kotlin.test.assertEquals
 
 class RangeCalendarStyleDataTests {
     @Test
-    fun forEachPropertyTest() {
-        val styleData = RangeCalendarStyleData()
-
-        // Checks whether internal int or object arrays have sufficient size.
-        // If not, out of bounds will happen.
-        styleData.forEachProperty { propIndex ->
-            if (RangeCalendarStyleData.isObjectProperty(propIndex)) {
-                styleData.getObject(propIndex)
-            } else {
-                styleData.getPackedInt(propIndex)
-            }
-        }
-    }
-
-    @Test
     fun setIntStyleTest() {
         fun testCase(propIndex: Int, newValue: Int, expectedChanged: Boolean) {
             val styleData = RangeCalendarStyleData()

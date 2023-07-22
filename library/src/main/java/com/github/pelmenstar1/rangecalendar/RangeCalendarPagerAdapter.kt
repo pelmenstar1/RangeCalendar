@@ -794,10 +794,7 @@ internal class RangeCalendarPagerAdapter(
 
         gridView.setFirstDayOfWeek(firstDayOfWeek)
 
-        // Call onStylePropertyChanged to initialize the view with particular style data.
-        style.forEachProperty { propIndex ->
-            gridView.onStylePropertyChanged(propIndex)
-        }
+        gridView.onAllStylePropertiesPossiblyChanged()
 
         if (selectionYm == ym) {
             // Animation should be seen because animation should be started when selection *changed*,
