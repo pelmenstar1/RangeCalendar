@@ -2,11 +2,10 @@ package com.github.pelmenstar1.rangecalendar
 
 import android.content.res.Configuration
 import android.os.Build
-import android.os.Bundle
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
-import androidx.test.core.app.ActivityScenario
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.github.pelmenstar1.rangecalendar.utils.getLocaleCompat
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,18 +47,11 @@ class RangeCalendarViewTests {
         }
     }
 
-    class TestActivity : AppCompatActivity() {
-        lateinit var rangeCalendar: RangeCalendarView
+    private val context = InstrumentationRegistry.getInstrumentation().context
+    private val themedContext = ContextThemeWrapper(context, androidx.appcompat.R.style.Theme_AppCompat)
 
-        override fun onCreate(savedInstanceState: Bundle?) {
-            super.onCreate(savedInstanceState)
-
-            rangeCalendar = RangeCalendarView(this)
-        }
-    }
-
-    private fun launchActivity(block: (RangeCalendarView) -> Unit) {
-        ActivityScenario.launch(TestActivity::class.java).onActivity { block(it.rangeCalendar) }
+    private fun createRangeCalendar(): RangeCalendarView {
+        return RangeCalendarView(themedContext)
     }
 
     private fun getAnyLocaleExcept(excludedLocale: Locale): Locale {
@@ -71,7 +63,9 @@ class RangeCalendarViewTests {
     }
 
     @Test
-    fun infoFormatterWithSimpleFormatterTest() = launchActivity { rangeCalendar ->
+    fun infoFormatterWithSimpleFormatterTest() {
+        val rangeCalendar = createRangeCalendar()
+
         // The selected calendar page should be the one with today date.
         val (year, month) = YearMonth.forDate(PackedDate.today())
 
@@ -88,7 +82,9 @@ class RangeCalendarViewTests {
     }
 
     @Test
-    fun localizedInfoFormatterTest() = launchActivity { rangeCalendar ->
+    fun localizedInfoFormatterTest() {
+        val rangeCalendar = createRangeCalendar()
+
         // The selected calendar page should be the one with today date.
         val (year, month) = YearMonth.forDate(PackedDate.today())
 
@@ -122,44 +118,41 @@ class RangeCalendarViewTests {
             return
         }
 
-        launchActivity { rangeCalendar ->
-            val originPattern = "MMMM y"
-            rangeCalendar.infoPattern = originPattern
+        val rangeCalendar = createRangeCalendar()
+        val originPattern = "MMMM y"
+        rangeCalendar.infoPattern = originPattern
 
-            var internalFormatterPattern = rangeCalendar.getDefaultFormatterPattern()
-            assertEquals(rangeCalendar.infoPattern, internalFormatterPattern)
+        var internalFormatterPattern = rangeCalendar.getDefaultFormatterPattern()
+        assertEquals(rangeCalendar.infoPattern, internalFormatterPattern)
 
-            if (originPattern == rangeCalendar.infoPattern) {
-                Log.w(TAG, "Origin pattern and best-format pattern are the same. Nothing to test")
-                return@launchActivity
-            }
-
-            // When we disable best-format, we should get originPattern
-            rangeCalendar.useBestPatternForInfoPattern = false
-
-            assertEquals(originPattern, rangeCalendar.infoPattern)
-
-            internalFormatterPattern = rangeCalendar.getDefaultFormatterPattern()
-            assertEquals(originPattern, internalFormatterPattern)
+        if (originPattern == rangeCalendar.infoPattern) {
+            Log.w(TAG, "Origin pattern and best-format pattern are the same. Nothing to test")
+            return
         }
-    }
 
+        // When we disable best-format, we should get originPattern
+        rangeCalendar.useBestPatternForInfoPattern = false
+
+        assertEquals(originPattern, rangeCalendar.infoPattern)
+
+        internalFormatterPattern = rangeCalendar.getDefaultFormatterPattern()
+        assertEquals(originPattern, internalFormatterPattern)
+    }
 
     @Test
     fun firstDayOfWeekIsNotChangedOnLocaleChangesWhenSetToCustomValueTest() {
-        launchActivity { rangeCalendar ->
-            rangeCalendar.firstDayOfWeek = DayOfWeek.FRIDAY
+        val rangeCalendar = createRangeCalendar()
+        rangeCalendar.firstDayOfWeek = DayOfWeek.FRIDAY
 
-            val currentConfig = rangeCalendar.resources.configuration
+        val currentConfig = rangeCalendar.resources.configuration
 
-            val newConfig = Configuration(currentConfig).apply {
-                setLocale(getAnyLocaleExcept(currentConfig.getLocaleCompat()))
-            }
-
-            rangeCalendar.dispatchConfigurationChanged(newConfig)
-
-            assertEquals(DayOfWeek.FRIDAY, rangeCalendar.firstDayOfWeek)
+        val newConfig = Configuration(currentConfig).apply {
+            setLocale(getAnyLocaleExcept(currentConfig.getLocaleCompat()))
         }
+
+        rangeCalendar.dispatchConfigurationChanged(newConfig)
+
+        assertEquals(DayOfWeek.FRIDAY, rangeCalendar.firstDayOfWeek)
     }
 
     companion object {

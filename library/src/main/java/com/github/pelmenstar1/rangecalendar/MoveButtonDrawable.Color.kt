@@ -3,12 +3,12 @@ package com.github.pelmenstar1.rangecalendar
 import android.view.Choreographer
 import androidx.annotation.ColorInt
 import com.github.pelmenstar1.rangecalendar.utils.colorLerp
+import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 /**
  * Responsible for managing animation logic for the arrow color in MoveButtonDrawable.
  */
 internal class MoveButtonDrawableColorAnimator(
-    private val choreographer: Choreographer,
     private val colorCallback: ColorCallback
 ) {
     fun interface ColorCallback {
@@ -28,6 +28,8 @@ internal class MoveButtonDrawableColorAnimator(
 
     // Stores whether there was another animation request during current one.
     private var isInterrupted = false
+
+    private var choreographer: Choreographer? = null
 
     private val tickCallback = Choreographer.FrameCallback(::onTick)
     private val startCallback = Choreographer.FrameCallback { time ->
@@ -58,7 +60,7 @@ internal class MoveButtonDrawableColorAnimator(
         isRunning = true
         currentAnimationDuration = duration
 
-        choreographer.postFrameCallback(startCallback)
+        postFrameCallback(startCallback)
     }
 
     private fun onTick(nanos: Long) {
@@ -90,7 +92,13 @@ internal class MoveButtonDrawableColorAnimator(
     }
 
     private fun postTick() {
-        choreographer.postFrameCallback(tickCallback)
+        postFrameCallback(tickCallback)
+    }
+
+    private fun postFrameCallback(callback: Choreographer.FrameCallback) {
+        val c = getLazyValue(choreographer, Choreographer::getInstance) { choreographer = it }
+
+        c.postFrameCallback(callback)
     }
 
     private fun onColor(@ColorInt color: Int) {

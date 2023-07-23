@@ -2,10 +2,8 @@ package com.github.pelmenstar1.rangecalendar
 
 import android.content.Intent
 import android.os.Build
-import android.os.Bundle
-import android.view.View
-import androidx.appcompat.app.AppCompatActivity
-import androidx.test.core.app.ActivityScenario
+import androidx.appcompat.R
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Test
@@ -16,16 +14,14 @@ import kotlin.test.assertEquals
 
 @RunWith(AndroidJUnit4::class)
 class RangeCalendarConfigObserverTests {
-    class TestActivity : AppCompatActivity() {
-        override fun onCreate(savedInstanceState: Bundle?) {
-            super.onCreate(savedInstanceState)
+    private val context = InstrumentationRegistry.getInstrumentation().context
+    private val themedContext = ContextThemeWrapper(context, R.style.Theme_AppCompat)
 
-            setContentView(View(this))
-        }
-    }
-
-    private val appContext = InstrumentationRegistry.getInstrumentation().targetContext
     private val testTimeZone = SimpleTimeZone(123, "TestTZ")
+
+    private fun createRangeCalendar(): RangeCalendarView {
+        return RangeCalendarView(themedContext)
+    }
 
     private fun createTimeZoneChangedIntent(): Intent {
         return Intent(Intent.ACTION_TIMEZONE_CHANGED).apply {
@@ -39,17 +35,13 @@ class RangeCalendarConfigObserverTests {
         return Intent(Intent.ACTION_DATE_CHANGED)
     }
 
-    private fun useCalendarView(block: (RangeCalendarView) -> Unit) {
-        ActivityScenario.launch(TestActivity::class.java).onActivity {
-            block(RangeCalendarView(it))
-        }
-    }
-
     // Unfortunately, we can't change current time zone programmatically. So we can't directly test
     // the handling of Intent.ACTION_TIMEZONE_CHANGED event. To workaround, the intent sent by the system
     // is emulated and the method that handles these intents (RangeCalendarConfigObserver.onReceiveBroadcast) is called.
     @Test
-    fun timeZoneChangedTest() = useCalendarView { calendar ->
+    fun timeZoneChangedTest() {
+        val calendar = createRangeCalendar()
+
         val oldTz = TimeZone.getDefault()
         TimeZone.setDefault(testTimeZone)
 
@@ -62,7 +54,8 @@ class RangeCalendarConfigObserverTests {
     }
 
     @Test
-    fun disableTimeZoneChangeNotificationsTest() = useCalendarView { calendar ->
+    fun disableTimeZoneChangeNotificationsTest() {
+        val calendar = createRangeCalendar()
         val observer = RangeCalendarConfigObserver(calendar).apply {
             observeTimeZoneChanges = false
         }
@@ -79,7 +72,9 @@ class RangeCalendarConfigObserverTests {
     // RangeCalendarView.notifyTodayChanged(), we firstly set the today's date to a fake one, then
     // emulate the broadcast intent and check if the today's date is actually today.
     @Test
-    fun dateChangedTest() = useCalendarView { calendar ->
+    fun dateChangedTest() {
+        val calendar = createRangeCalendar()
+
         val testDate = PackedDate(year = 1, month = 1, dayOfMonth = 1)
         val expectedDate = PackedDate.today()
 
@@ -90,7 +85,9 @@ class RangeCalendarConfigObserverTests {
     }
 
     @Test
-    fun disableDateChangeNotificationsTest() = useCalendarView { calendar ->
+    fun disableDateChangeNotificationsTest() {
+        val calendar = createRangeCalendar()
+
         val observer = RangeCalendarConfigObserver(calendar).apply {
             observeDateChanges = false
         }

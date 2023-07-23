@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.*
 import android.graphics.drawable.Drawable
-import android.view.Choreographer
 import androidx.annotation.RestrictTo
 import androidx.core.graphics.alpha
 import com.github.pelmenstar1.rangecalendar.utils.lerp
@@ -27,13 +26,12 @@ class MoveButtonDrawable(
     private var arrowSize = 0f
     private val arrowStrokeWidth: Float
 
-    private var arrowUsePath = false
-    private val arrowPath = Path()
-    private val arrowLinePoints = FloatArray(4)
+    internal var arrowUsePath = false
+    internal val arrowPath = Path()
+    internal val arrowLinePoints = FloatArray(4)
 
     private var arrowAnimFraction = 0f
     private val colorAnimator = MoveButtonDrawableColorAnimator(
-        choreographer = Choreographer.getInstance(),
         colorCallback = ::setPaintColor
     )
 

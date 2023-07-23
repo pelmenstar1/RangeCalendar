@@ -1,7 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.utils
 
 import kotlin.math.ceil
-import kotlin.math.sqrt
 
 /**
  * sqrt(2)
