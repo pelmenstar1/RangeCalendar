@@ -6,6 +6,12 @@ import java.util.Calendar
 import kotlin.test.assertEquals
 
 class PackedDateTests {
+    private enum class CompareResult {
+        LESSER,
+        EQUAL,
+        GREATER
+    }
+
     private fun forEachValidDate(block: (year: Int, month: Int, dayOfMonth: Int) -> Unit) {
         for (year in 0..PackedDate.MAX_YEAR) {
             for (month in 1..12) {
@@ -186,5 +192,71 @@ class PackedDateTests {
         val actualDate = PackedDate.fromCalendar(calendar)
 
         assertEquals(expected = PackedDate(2023, 7, 21), actualDate)
+    }
+
+    @Test
+    fun compareTest() {
+        fun testHelper(first: PackedDate, second: PackedDate, result: CompareResult) {
+            val rawResult = first.compareTo(second)
+            val actualResult = when {
+                rawResult < 0 -> CompareResult.LESSER
+                rawResult > 0 -> CompareResult.GREATER
+                else -> CompareResult.EQUAL
+            }
+
+            assertEquals(result, actualResult, "first: $first second: $second")
+        }
+
+        testHelper(
+            first = PackedDate(year = 2023, month = 6, dayOfMonth = 5),
+            second = PackedDate(year = 2023, month = 6, dayOfMonth = 6),
+            result = CompareResult.LESSER
+        )
+
+        testHelper(
+            first = PackedDate(year = 2023, month = 6, dayOfMonth = 5),
+            second = PackedDate(year = 2023, month = 7, dayOfMonth = 5),
+            result = CompareResult.LESSER
+        )
+        testHelper(
+            first = PackedDate(year = 2023, month = 6, dayOfMonth = 5),
+            second = PackedDate(year = 2024, month = 7, dayOfMonth = 5),
+            result = CompareResult.LESSER
+        )
+        testHelper(
+            first = PackedDate(year = 2023, month = 6, dayOfMonth = 5),
+            second = PackedDate(year = 2024, month = 6, dayOfMonth = 5),
+            result = CompareResult.LESSER
+        )
+
+        testHelper(
+            first = PackedDate(year = 2023, month = 6, dayOfMonth = 5),
+            second = PackedDate(year = 2024, month = 7, dayOfMonth = 8),
+            result = CompareResult.LESSER
+        )
+
+        testHelper(
+            first = PackedDate(year = 2023, month = 6, dayOfMonth = 5),
+            second = PackedDate(year = 2024, month = 7, dayOfMonth = 3),
+            result = CompareResult.LESSER
+        )
+
+        testHelper(
+            first = PackedDate(year = 2024, month = 7, dayOfMonth = 3),
+            second = PackedDate(year = 2023, month = 6, dayOfMonth = 5),
+            result = CompareResult.GREATER
+        )
+
+        testHelper(
+            first = PackedDate(year = 2024, month = 7, dayOfMonth = 3),
+            second = PackedDate(year = 2022, month = 8, dayOfMonth = 9),
+            result = CompareResult.GREATER
+        )
+
+        testHelper(
+            first = PackedDate(year = 2022, month = 8, dayOfMonth = 9),
+            second = PackedDate(year = 2022, month = 8, dayOfMonth = 9),
+            result = CompareResult.EQUAL
+        )
     }
 }

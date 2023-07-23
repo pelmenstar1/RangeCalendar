@@ -42,23 +42,20 @@ internal value class PackedDate(val bits: Int) {
         get() = bits and 0xff
 
     val dayOfWeek: CompatDayOfWeek
-        get() = getDayOfWeek(toEpochDay())
+        get() {
+            val dow = floorMod(toEpochDay() + 3L, 7L).toInt()
+
+            return CompatDayOfWeek(dow)
+        }
 
     operator fun component1() = year
     operator fun component2() = month
     operator fun component3() = dayOfMonth
 
     operator fun compareTo(other: PackedDate): Int {
-        var cmp = year - other.year
-        if (cmp == 0) {
-            cmp = month - other.month
-
-            if (cmp == 0) {
-                cmp = dayOfMonth - other.dayOfMonth
-            }
-        }
-
-        return cmp
+        // We can simply subtract this bits from other bits because
+        // bits = d * 2^0 + m * 2^8 + y * 2^16, where d = day of the month, m = month, y = year
+        return bits - other.bits
     }
 
     private fun withDayOfMonthUnchecked(newValue: Int): PackedDate {
@@ -257,12 +254,6 @@ internal value class PackedDate(val bits: Int) {
 
             // month in Calendar is 0-based.
             return createUnchecked(year, month + 1, day)
-        }
-
-        fun getDayOfWeek(epochDay: Long): CompatDayOfWeek {
-            val dow = floorMod(epochDay + 3L, 7L).toInt()
-
-            return CompatDayOfWeek(dow)
         }
     }
 }
