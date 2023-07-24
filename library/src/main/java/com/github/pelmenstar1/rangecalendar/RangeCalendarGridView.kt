@@ -33,6 +33,7 @@ import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
 import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
+import com.github.pelmenstar1.rangecalendar.utils.toIntAlpha
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
@@ -953,9 +954,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun handleHoverAnimation(fraction: Float) {
-        val alpha = hoverAlpha() * fraction
-
-        cellHoverPaint.alpha = (alpha * 255f + 0.5f).toInt()
+        cellHoverPaint.alpha = (hoverAlpha() * fraction).toIntAlpha()
     }
 
     private fun startHoverAnimation(isReversed: Boolean) {

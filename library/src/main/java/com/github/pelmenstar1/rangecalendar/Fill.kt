@@ -311,6 +311,7 @@ class Fill private constructor(
             // it in case alpha is 1 -- we can draw it as is
             if (fill.isShaderLike && alpha < 1f) {
                 // Convert float alpha [0; 1] to int alpha [0; 255]
+                // Can't use Float.toIntAlpha() because it's internal
                 val iAlpha = (alpha * 255f + 0.5f).toInt()
 
                 count = if (Build.VERSION.SDK_INT >= 21) {

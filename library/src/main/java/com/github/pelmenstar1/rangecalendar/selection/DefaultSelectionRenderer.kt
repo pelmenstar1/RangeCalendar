@@ -3,7 +3,6 @@ package com.github.pelmenstar1.rangecalendar.selection
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.drawable.Drawable
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
@@ -12,6 +11,7 @@ import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.RoundRectVisualInfo
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
+import com.github.pelmenstar1.rangecalendar.utils.toIntAlpha
 
 internal class DefaultSelectionRenderer : SelectionRenderer {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -156,7 +156,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                     canvas.clipPath(it)
                 }
 
-                setDrawableAlpha(drawable, alpha)
+                drawable.alpha = alpha.toIntAlpha()
                 drawable.draw(canvas)
             } else {
                 fillState.drawWith(canvas, shapeBounds, paint, alpha) {
@@ -227,7 +227,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 // that makes the logic to create a path.
                 canvas.clipPath(shape.path!!)
 
-                setDrawableAlpha(drawable, alpha)
+                drawable.alpha = alpha.toIntAlpha()
                 drawable.draw(canvas)
             } else {
                 fillState.drawWith(canvas, translatedBounds, paint, alpha) { shape.draw(canvas, paint) }
@@ -245,9 +245,5 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         // We also need a translation if fill has TYPE_DRAWABLE type.
         // It's not yet customizable to use whole grid bounds as with shader-like fill.
         return (fill.isShaderLike && boundsType == SelectionFillGradientBoundsType.SHAPE) || fill.isDrawableType
-    }
-
-    private fun setDrawableAlpha(drawable: Drawable, alpha: Float) {
-        drawable.alpha = (alpha * 255f + 0.5f).toInt()
     }
 }

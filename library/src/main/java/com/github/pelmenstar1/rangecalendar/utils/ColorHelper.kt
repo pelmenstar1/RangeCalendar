@@ -19,6 +19,10 @@ internal fun Int.withCombinedAlpha(@FloatRange(from = 0.0, to = 1.0) newAlpha: F
     return withAlpha((alpha * newAlpha + 0.5f).toInt())
 }
 
+internal fun Float.toIntAlpha(): Int {
+    return (this * 255f + 0.5f).toInt()
+}
+
 internal fun Int.withoutAlpha(): Int {
     // clear alpha bits
     return this and 0x00FFFFFF
