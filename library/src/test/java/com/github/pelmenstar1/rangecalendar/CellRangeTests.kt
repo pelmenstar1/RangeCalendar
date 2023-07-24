@@ -14,6 +14,14 @@ class CellRangeTests {
     }
 
     @Test
+    fun allTest() {
+        val range = CellRange.All
+
+        assertEquals(0, range.start.index, "start")
+        assertEquals(GridConstants.CELL_COUNT - 1, range.end.index, "end")
+    }
+
+    @Test
     fun weekTest() {
         fun testCase(weekIndex: Int, expectedStart: Int, expectedEnd: Int) {
             val range = CellRange.week(weekIndex)

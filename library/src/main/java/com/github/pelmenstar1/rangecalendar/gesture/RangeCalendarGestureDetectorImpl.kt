@@ -6,6 +6,7 @@ import android.os.Message
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import com.github.pelmenstar1.rangecalendar.Distance
+import com.github.pelmenstar1.rangecalendar.GridConstants
 import com.github.pelmenstar1.rangecalendar.SelectionAcceptanceStatus
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getSquareDistance
@@ -106,7 +107,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                                 eventTime - lastUpTouchTime < doubleTapTimeout &&
                                 lastUpTouchCell == cellIndex
                             ) {
-                                selectWeek(weekIndex = cellIndex / 7)
+                                selectWeek(getWeekIndex(cellIndex))
                             } else if (enabledTypes.contains { singleTapCell }) {
                                 selectRange(cellIndex, cellIndex, SelectionByGestureType.SINGLE_CELL_ON_CLICK)
                             }
@@ -284,8 +285,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                 // If either weekPinchConf or monthPinchConf is not null, it means that corresponding gesture type
                 // is enabled.
                 if (weekPinchConf != null && isWeekAngle(angle, weekPinchConf)) {
-                    val weekIndex0 = cell0 / 7
-                    val weekIndex1 = cell1 / 7
+                    val weekIndex0 = getWeekIndex(cell0)
+                    val weekIndex1 = getWeekIndex(cell1)
 
                     startWeekIndex = weekIndex0
 
@@ -343,11 +344,8 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                     val minDist = getAbsoluteDistance(weekPinchConf.minDistance)
 
                     if (pinchInfo.bothDistanceGreaterThanMinDistance(x0, y0, x1, y1, minDist)) {
-                        val cell0 = getCellAt(x0, y0)
-                        val cell1 = getCellAt(x1, y1)
-
-                        val weekIndex0 = cell0 / 7
-                        val weekIndex1 = cell1 / 7
+                        val weekIndex0 = getWeekIndex(getCellAt(x0, y0))
+                        val weekIndex1 = getWeekIndex(getCellAt(x1, y1))
 
                         if (pinchInfo.startWeekIndex == weekIndex0 && weekIndex0 == weekIndex1) {
                             selectWeek(weekIndex0)
@@ -484,6 +482,10 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             val dy = abs(y0 - y1)
 
             return atan2(dy, dx)
+        }
+
+        private fun getWeekIndex(cellIndex: Int): Int {
+            return cellIndex / GridConstants.COLUMN_COUNT
         }
     }
 }

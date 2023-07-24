@@ -38,7 +38,7 @@ class LazyCellDataArrayTests {
     }
 
     private fun assertEmpty(array: LazyCellDataArray<Any>) {
-        for (i in 0 until 42) {
+        for (i in 0 until GridConstants.CELL_COUNT) {
             assertNull(array[Cell(i)], "index: $i")
         }
     }
@@ -55,7 +55,7 @@ class LazyCellDataArrayTests {
     fun clearTest() {
         val array = LazyCellDataArray<Any>()
 
-        for (i in 0 until 42) {
+        for (i in 0 until GridConstants.CELL_COUNT) {
             array[Cell(i)] = Any()
         }
 
@@ -75,7 +75,7 @@ class LazyCellDataArrayTests {
     fun forEachNotNullEmptyTest() {
         fun testCase(indices: IntArray) {
             val array = LazyCellDataArray<Any>()
-            val expectedArray = arrayOfNulls<Any>(42)
+            val expectedArray = arrayOfNulls<Any>(GridConstants.CELL_COUNT)
 
             val indicesAndElements = indices.map { it to Any() }
 

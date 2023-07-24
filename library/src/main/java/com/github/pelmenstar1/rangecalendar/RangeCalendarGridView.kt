@@ -140,8 +140,8 @@ internal class RangeCalendarGridView(
         }
 
         companion object {
-            private val INDICES = ArrayList<Int>(42).also {
-                repeat(42, it::add)
+            private val INDICES = ArrayList<Int>(GridConstants.CELL_COUNT).also {
+                repeat(GridConstants.CELL_COUNT, it::add)
             }
         }
     }
@@ -219,7 +219,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    val cells = ByteArray(42)
+    val cells = ByteArray(GridConstants.CELL_COUNT)
 
     private val dayNumberPaint: Paint
     private val weekdayPaint: Paint
@@ -227,7 +227,7 @@ internal class RangeCalendarGridView(
     private val cellHoverPaint: Paint
 
     private var inMonthRange = CellRange.Invalid
-    private var enabledCellRange = ALL_SELECTED
+    private var enabledCellRange = CellRange.All
     private var todayCell = Cell.Undefined
     private var hoverCell = Cell.Undefined
 
@@ -694,7 +694,7 @@ internal class RangeCalendarGridView(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val preferredWidth = ceilToInt(cellWidth * 7)
+        val preferredWidth = ceilToInt(cellWidth * GridConstants.COLUMN_COUNT)
         val preferredHeight = ceilToInt(gridTop() + gridHeight())
 
         setMeasuredDimension(
@@ -1355,7 +1355,7 @@ internal class RangeCalendarGridView(
 
         if (showAdjacentMonths) {
             startIndex = 0
-            endIndex = 41
+            endIndex = GridConstants.CELL_COUNT - 1
         } else {
             val (start, end) = inMonthRange
 
@@ -1497,7 +1497,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun gridHeight(): Float {
-        return cellHeight * 6f
+        return cellHeight * GridConstants.ROW_COUNT
     }
 
     private fun cellRoundRadius(): Float {
@@ -1514,7 +1514,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun columnWidth(): Float {
-        return rowWidth() * (1f / 7)
+        return rowWidth() * (1f / GridConstants.COLUMN_COUNT)
     }
 
     private fun getCellCenterX(cell: Cell) = getCellCenterX(cell, columnWidth())
@@ -1579,7 +1579,7 @@ internal class RangeCalendarGridView(
 
         // Find a x-axis of the cell but without horizontal padding.
         // Also merge rw * cell.gridY to the rw * ((1f / 7f) * (cell.gridX + 0.5f))
-        return rw * ((1f / 7f) * (cell.gridX + 0.5f) + cell.gridY) - cellWidth * 0.5f
+        return rw * ((1f / GridConstants.COLUMN_COUNT) * (cell.gridX + 0.5f) + cell.gridY) - cellWidth * 0.5f
     }
 
     private fun getCellDistanceByPoint(x: Float, y: Float): Float {
@@ -1595,12 +1595,12 @@ internal class RangeCalendarGridView(
 
         val xOnRow = distance - gridY * rw
 
-        val gridX = (7f * (fGridY - gridY)).toInt()
+        val gridX = (GridConstants.COLUMN_COUNT * (fGridY - gridY)).toInt()
 
         outPoint.x = xOnRow
         outPoint.y = cellTop
 
-        return gridY * 7 + gridX
+        return Cell(gridX, gridY).index
     }
 
     private fun getCellByPointOnScreen(x: Float, y: Float, relativity: CellMeasureManager.CoordinateRelativity): Int {
@@ -1612,7 +1612,7 @@ internal class RangeCalendarGridView(
         val cellHeight = cellHeight
 
         val rowWidth = rowWidth()
-        val gridHeight = cellHeight * 6f
+        val gridHeight = cellHeight * GridConstants.ROW_COUNT
 
         if (relativity == CellMeasureManager.CoordinateRelativity.VIEW) {
             // Translate to grid's coordinates
@@ -1624,10 +1624,10 @@ internal class RangeCalendarGridView(
             return -1
         }
 
-        val gridX = ((7f * translatedX) / rowWidth).toInt()
+        val gridX = ((GridConstants.COLUMN_COUNT * translatedX) / rowWidth).toInt()
         val gridY = (translatedY / cellHeight).toInt()
 
-        return gridY * 7 + gridX
+        return Cell(gridX, gridY).index
     }
 
     private fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float {
@@ -1660,8 +1660,6 @@ internal class RangeCalendarGridView(
         private const val CELL_SELECTED = 2
         private const val CELL_DISABLED = 3
         private const val CELL_TODAY = 4
-
-        private val ALL_SELECTED = CellRange(0, 41)
 
         private const val NO_ANIMATION = 0
         private const val SELECTION_ANIMATION = 1

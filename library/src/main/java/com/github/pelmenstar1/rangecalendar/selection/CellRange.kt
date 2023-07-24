@@ -67,8 +67,8 @@ internal value class CellRange(val bits: Int) {
 
     companion object {
         val Invalid = CellRange(0xFFFF_0000.toInt())
+        val All = CellRange(41 shl 16)
 
-        fun single(cell: Cell) = single(cell.index)
         fun single(cellIndex: Int) = CellRange(cellIndex, cellIndex)
 
         fun week(index: Int): CellRange {

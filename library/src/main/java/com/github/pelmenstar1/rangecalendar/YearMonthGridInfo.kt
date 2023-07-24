@@ -56,7 +56,7 @@ internal class YearMonthGridInfo {
             firstDayInMonthDate
         }
 
-        val lastCellInGridDay = CELLS_IN_GRID - (firstDayOfMonthCellIndex + daysInMonth)
+        val lastCellInGridDay = GridConstants.CELL_COUNT - (firstDayOfMonthCellIndex + daysInMonth)
         lastCellInGridDate = PackedDate(nextYear, nextMonth, lastCellInGridDay)
     }
 
@@ -168,15 +168,11 @@ internal class YearMonthGridInfo {
             cells[index] = day.toByte()
         }
 
-        for (i in 0 until CELLS_IN_GRID - thisMonthEnd) {
+        for (i in 0 until GridConstants.CELL_COUNT - thisMonthEnd) {
             val index = thisMonthEnd + i
             val day = i + 1
 
             cells[index] = day.toByte()
         }
-    }
-
-    companion object {
-        private const val CELLS_IN_GRID = 42
     }
 }

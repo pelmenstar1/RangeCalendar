@@ -333,7 +333,7 @@ class YearMonthGridInfoTests {
     fun fillGridTest() {
         fun testCase(year: Int, month: Int, firstDayOfWeek: CompatDayOfWeek, expectedGrid: ByteArray) {
             val info = createGridInfo(year, month, firstDayOfWeek)
-            val actualGrid = ByteArray(42)
+            val actualGrid = ByteArray(GridConstants.CELL_COUNT)
             info.fillGrid(actualGrid)
 
             assertContentEquals(expectedGrid, actualGrid, "year: $year month: $month")

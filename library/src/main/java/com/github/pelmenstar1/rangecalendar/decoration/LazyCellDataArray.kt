@@ -2,6 +2,7 @@
 
 package com.github.pelmenstar1.rangecalendar.decoration
 
+import com.github.pelmenstar1.rangecalendar.GridConstants
 import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.utils.iterateSetBits
 import java.util.*
@@ -40,7 +41,7 @@ internal class LazyCellDataArray<T : Any> {
         var elements = elements
 
         if (elements.isEmpty()) {
-            elements = arrayOfNulls(42)
+            elements = arrayOfNulls(GridConstants.CELL_COUNT)
             this.elements = elements
         }
 

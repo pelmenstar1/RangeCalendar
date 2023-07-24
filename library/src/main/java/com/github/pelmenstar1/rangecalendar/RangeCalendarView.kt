@@ -1241,8 +1241,8 @@ class RangeCalendarView @JvmOverloads constructor(
     var weekdays: Array<out String>?
         get() = adapter.getStyleObject { WEEKDAYS }
         set(value) {
-            if (value != null && value.size != 7) {
-                throw IllegalArgumentException("Length of the array should be 7")
+            if (value != null && value.size != GridConstants.COLUMN_COUNT) {
+                throw IllegalArgumentException("Length of the array should be ${GridConstants.COLUMN_COUNT}")
             }
 
             // Copy the array because the caller might be it later.

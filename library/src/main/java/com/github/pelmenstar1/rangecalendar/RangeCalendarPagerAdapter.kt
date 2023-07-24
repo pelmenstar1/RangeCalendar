@@ -251,13 +251,13 @@ internal class RangeCalendarPagerAdapter(
         val startCell = if (minDate > gridInfo.firstCellInGridDate) {
             gridInfo.getCellByDate(minDate)
         } else {
-            Cell(0)
+            Cell.Min
         }
 
         val endCell = if (maxDate < gridInfo.lastCellInGridDate) {
             gridInfo.getCellByDate(maxDate)
         } else {
-            Cell(42)
+            Cell.Max
         }
 
         return CellRange(startCell, endCell)
