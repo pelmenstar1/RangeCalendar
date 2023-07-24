@@ -37,7 +37,7 @@ allprojects {
 Add the dependency:
 
 ```gradle
-implementation 'com.github.pelmenstar1:RangeCalendar:0.9.3'
+implementation 'com.github.pelmenstar1:RangeCalendar:0.9.4'
 ```
 
 Define `RangeCalendarView` in your XML layout:
@@ -71,7 +71,7 @@ onSelectionListener = object : RangeCalendarView.OnSelectionListener {
 
 ## Demo
 
-[Try it yourself](https://github.com/pelmenstar1/RangeCalendar/releases/download/0.9.3/demo-release.apk)
+[Try it yourself](https://github.com/pelmenstar1/RangeCalendar/releases/download/0.9.4/demo.apk)
 
 ## Selection view
 
