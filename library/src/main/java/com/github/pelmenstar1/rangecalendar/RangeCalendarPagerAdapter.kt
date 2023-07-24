@@ -248,16 +248,14 @@ internal class RangeCalendarPagerAdapter(
     }
 
     private fun createEnabledRange(): CellRange {
-        val startCell = if (minDate > gridInfo.firstCellInGridDate) {
-            gridInfo.getCellByDate(minDate)
-        } else {
-            Cell.Min
+        var startCell = gridInfo.getCellByDate(minDate)
+        if (startCell.isUndefined) {
+            startCell = Cell.Min
         }
 
-        val endCell = if (maxDate < gridInfo.lastCellInGridDate) {
-            gridInfo.getCellByDate(maxDate)
-        } else {
-            Cell.Max
+        var endCell = gridInfo.getCellByDate(maxDate)
+        if (endCell.isUndefined) {
+            endCell = Cell.Max
         }
 
         return CellRange(startCell, endCell)
