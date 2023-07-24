@@ -7,7 +7,6 @@ import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.Padding
 import com.github.pelmenstar1.rangecalendar.VerticalAlignment
-import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
@@ -15,31 +14,25 @@ import kotlin.math.sqrt
  */
 class CellInfo internal constructor() {
     /**
-     * Size of the cell, in pixels.
-     * If [width] and [height] are different, returns the maximum of these.
+     * Width of the cell.
      */
-    @get:Deprecated(
-        message = "Use width and height properties that more precisely describe cell bounds",
-        replaceWith = ReplaceWith(""),
-        level = DeprecationLevel.WARNING
-    )
-    val size: Float
-        get() = max(width, height)
-
     var width = 0f
         internal set
 
+    /**
+     * Height of the cell.
+     */
     var height = 0f
         internal set
 
     /**
-     * Radius of corners of the cell
+     * Radius of corners of the cell.
      */
     var radius = 0f
         internal set
 
     /**
-     * Decor layout options associated with the cell
+     * Decor layout options associated with the cell.
      */
     var layoutOptions: DecorLayoutOptions? = null
         internal set
