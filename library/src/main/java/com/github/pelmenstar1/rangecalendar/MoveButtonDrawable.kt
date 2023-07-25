@@ -47,6 +47,9 @@ class MoveButtonDrawable(
             style = Paint.Style.STROKE
             color = arrowColor
             strokeWidth = arrowStrokeWidth
+
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
         }
     }
 
@@ -200,6 +203,10 @@ class MoveButtonDrawable(
     override fun draw(c: Canvas) {
         val paint = arrowPaint
 
+        if (RENDER_BOUNDS) {
+            c.drawRect(bounds, paint)
+        }
+
         if (arrowUsePath) {
             c.drawPath(arrowPath, paint)
         } else {
@@ -229,6 +236,8 @@ class MoveButtonDrawable(
     }
 
     companion object {
+        private const val RENDER_BOUNDS = false
+
         const val DIRECTION_LEFT = 0
         const val DIRECTION_RIGHT = 1
 
