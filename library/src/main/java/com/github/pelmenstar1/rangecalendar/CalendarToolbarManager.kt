@@ -109,22 +109,29 @@ internal class CalendarToolbarManager(
         onLocaleChanged()
     }
 
+    private fun setPrevButtonAlpha(alpha: Float) {
+        setButtonAlphaIfEnabled(prevButton, prevIcon, alpha)
+    }
+
+    private fun setNextButtonAlpha(alpha: Float) {
+        setButtonAlphaIfEnabled(nextButton, nextIcon, alpha)
+    }
+
     fun onPageScrolled(fraction: Float) {
         // 2 * |0.5 - x| is a function that increases from 0 to 1 on [0; 0.5) and
-        // decreases from 1 to 0 on (0.5; 1].
-        // Alpha of drawable is an integer from 0 to 255, so the value should be also multiplied by 255
-        // and converted to int.
-        val alpha = (255f * 2f * abs(0.5f - fraction)).toInt()
-        setButtonAlphaIfEnabled(prevButton, alpha)
+        // decreases from 1 to 0 on (0.5; 1]
+        val alpha = 2f * abs(0.5f - fraction)
+
+        setPrevButtonAlpha(alpha)
 
         if (!isNextButtonActClear) {
-            setButtonAlphaIfEnabled(nextButton, alpha)
+            setNextButtonAlpha(alpha)
         }
     }
 
     fun restoreButtonsAlpha() {
-        setButtonAlphaIfEnabled(prevButton, alpha = 255)
-        setButtonAlphaIfEnabled(nextButton, alpha = 255)
+        setPrevButtonAlpha(1f)
+        setNextButtonAlpha(1f)
     }
 
     fun onLocaleChanged() {
@@ -263,9 +270,9 @@ internal class CalendarToolbarManager(
         private const val DEFAULT_SV_TRANSITION_DURATION = 300L
         private const val STATE_CHANGE_DURATION = 300L
 
-        private fun setButtonAlphaIfEnabled(button: ImageButton, alpha: Int) {
+        private fun setButtonAlphaIfEnabled(button: ImageButton, icon: MoveButtonDrawable, alpha: Float) {
             if (button.isEnabled) {
-                button.drawable?.alpha = alpha
+                icon.setAlpha(alpha)
             }
         }
     }

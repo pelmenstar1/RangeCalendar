@@ -7,6 +7,7 @@ import android.graphics.drawable.Drawable
 import androidx.annotation.RestrictTo
 import androidx.core.graphics.alpha
 import com.github.pelmenstar1.rangecalendar.utils.lerp
+import com.github.pelmenstar1.rangecalendar.utils.toIntAlpha
 import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 
 /**
@@ -255,6 +256,10 @@ class MoveButtonDrawable(
             c.drawLine(left, top, right, bottom, infoPaint)
             c.drawLine(right, top, left, bottom, infoPaint)
         }
+    }
+
+    override fun getAlpha(): Int {
+        return arrowColorAlpha.toIntAlpha()
     }
 
     override fun setAlpha(alpha: Int) {
