@@ -7,7 +7,7 @@ import android.graphics.drawable.Drawable
 import androidx.annotation.RestrictTo
 import androidx.core.graphics.alpha
 import com.github.pelmenstar1.rangecalendar.utils.lerp
-import com.github.pelmenstar1.rangecalendar.utils.withAlpha
+import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 
 /**
  * A [Drawable] object that draws an arrow. The arrow can also be transitioned to a cross.
@@ -22,7 +22,10 @@ class MoveButtonDrawable(
     private val animationType: Int
 ) : Drawable() {
     private val arrowPaint: Paint
+
     private var arrowColor: Int
+    private var arrowColorAlpha = 1f
+
     private var arrowSize = 0f
     private val arrowStrokeWidth: Float
 
@@ -41,7 +44,7 @@ class MoveButtonDrawable(
         arrowStrokeWidth = res.getDimension(R.dimen.rangeCalendar_arrowStrokeWidth)
         arrowSize = res.getDimension(R.dimen.rangeCalendar_arrowSize)
 
-        arrowColor = colorList.getColorForState(ENABLED_STATE, 0)
+        arrowColor = colorList.getColorForState(ENABLED_STATE, colorList.defaultColor)
 
         arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
@@ -72,9 +75,13 @@ class MoveButtonDrawable(
     }
 
     private fun setPaintColor(color: Int) {
-        arrowPaint.color = color
+        val newColor = color.withCombinedAlpha(arrowColorAlpha)
 
-        invalidateSelf()
+        if (arrowPaint.color != newColor) {
+            arrowPaint.color = newColor
+
+            invalidateSelf()
+        }
     }
 
     private fun computeLinePoints() {
@@ -106,11 +113,12 @@ class MoveButtonDrawable(
 
         // The drawable is animated from the arrow to the cross.
         if (animationType == ANIM_TYPE_ARROW_TO_CROSS) {
+            arrowUsePath = true
+
             // If fraction is 0, it means that we're drawing simple arrow. We should render the arrow as
             // a polygonal chain. Rendering it as two discrete lines is not perfect as there will be an artefact
             // where the lines connect.
             if (fraction == 0f) {
-                arrowUsePath = true
                 path.apply {
                     rewind()
 
@@ -126,8 +134,6 @@ class MoveButtonDrawable(
                 val line2EndY = midY - delta
 
                 val lineEndX = lerp(midX, invAnchorX, fraction)
-
-                arrowUsePath = true
 
                 path.apply {
                     rewind()
@@ -217,7 +223,16 @@ class MoveButtonDrawable(
     }
 
     override fun setAlpha(alpha: Int) {
-        setPaintColor(arrowColor.withAlpha(alpha))
+        val fAlpha = alpha / 255f
+
+        if (arrowColorAlpha != fAlpha) {
+            arrowColorAlpha = fAlpha
+
+            colorAnimator.alpha = fAlpha
+
+            // arrowColorAlpha is changed, paint color should be updated too.
+            setPaintColor(arrowColor)
+        }
     }
 
     override fun getColorFilter(): ColorFilter? = arrowPaint.colorFilter

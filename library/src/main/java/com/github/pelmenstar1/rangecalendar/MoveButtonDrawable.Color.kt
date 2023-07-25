@@ -4,6 +4,7 @@ import android.view.Choreographer
 import androidx.annotation.ColorInt
 import com.github.pelmenstar1.rangecalendar.utils.colorLerp
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
+import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 
 /**
  * Responsible for managing animation logic for the arrow color in MoveButtonDrawable.
@@ -40,6 +41,8 @@ internal class MoveButtonDrawableColorAnimator(
     }
 
     var duration = 0L
+
+    var alpha: Float = 1f
 
     fun start(@ColorInt startColor: Int, @ColorInt endColor: Int) {
         // If there's already ongoing animation, we should ignore startColor parameter and
@@ -78,7 +81,7 @@ internal class MoveButtonDrawableColorAnimator(
         if (fraction >= 1f) {
             onEnd()
         } else {
-            val c = colorLerp(startColor, endColor, fraction)
+            val c = colorLerp(startColor, endColor, fraction, alpha)
 
             onColor(c)
             postTick()
@@ -88,7 +91,7 @@ internal class MoveButtonDrawableColorAnimator(
     private fun onEnd() {
         isRunning = false
 
-        onColor(endColor)
+        onColor(endColor.withCombinedAlpha(alpha))
     }
 
     private fun postTick() {

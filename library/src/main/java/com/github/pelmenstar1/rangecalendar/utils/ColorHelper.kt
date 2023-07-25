@@ -1,6 +1,5 @@
 package com.github.pelmenstar1.rangecalendar.utils
 
-import android.graphics.Color
 import androidx.annotation.ColorInt
 import androidx.annotation.FloatRange
 import androidx.annotation.IntRange
@@ -28,11 +27,14 @@ internal fun Int.withoutAlpha(): Int {
     return this and 0x00FFFFFF
 }
 
-internal fun colorLerp(@ColorInt start: Int, @ColorInt end: Int, fraction: Float): Int {
-    return Color.argb(
-        lerp(start.alpha, end.alpha, fraction),
-        lerp(start.red, end.red, fraction),
-        lerp(start.green, end.green, fraction),
-        lerp(start.blue, end.blue, fraction)
-    )
+internal fun colorLerp(@ColorInt start: Int, @ColorInt end: Int, fraction: Float, alphaFraction: Float): Int {
+    val startAlpha = (start ushr 24).toFloat()
+    val endAlpha = (end ushr 24).toFloat()
+
+    val a = (alphaFraction * lerp(startAlpha, endAlpha, fraction)).toInt()
+    val r = lerp(start.red, end.red, fraction)
+    val g = lerp(start.green, end.green, fraction)
+    val b = lerp(start.blue, end.blue, fraction)
+
+    return (a shl 24) or (r shl 16) or (g shl 8) or b
 }

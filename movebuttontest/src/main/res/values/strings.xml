@@ -4,6 +4,7 @@
     <string name="animationDuration">Animation duration</string>
     <string name="startStateChangeAnimation">Start state-change animation</string>
     <string name="startArrowAnimation">Start arrow animation</string>
+    <string name="startAlphaAnimation">Start alpha animation</string>
 
     <string name="animationType">Animation type:</string>
     <string name="animType_arrowToCross">Arrow-to-cross</string>

@@ -31,7 +31,9 @@ class MainActivity : AppCompatActivity() {
 
     private var currentAnimationType: Int = MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
     private var animationDuration = 1000
+
     private var isArrowAnimationReversed = false
+    private var isAlphaAnimationReversed = false
 
     private var stateFlags = STATE_ENABLED
 
@@ -86,6 +88,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.start_state_change_anim_button).setOnClickListener {
             startStateChangeAnimation()
         }
+
+        findViewById<Button>(R.id.start_alpha_anim_button).setOnClickListener {
+            startAlphaAnimation()
+        }
     }
 
     private fun initStateCheckBox(@IdRes buttonId: Int, state: Int) {
@@ -123,6 +129,27 @@ class MainActivity : AppCompatActivity() {
             }
 
             isArrowAnimationReversed = !isArrowAnimationReversed
+        }
+    }
+
+    private fun startAlphaAnimation() {
+        ValueAnimator.ofInt(0, 255).run {
+            duration = animationDuration.toLong()
+
+            addUpdateListener {
+                val alpha = it.animatedValue as Int
+
+                drawableLeft.alpha = alpha
+                drawableRight.alpha = alpha
+            }
+
+            if (isAlphaAnimationReversed) {
+                reverse()
+            } else {
+                start()
+            }
+
+            isAlphaAnimationReversed = !isAlphaAnimationReversed
         }
     }
 

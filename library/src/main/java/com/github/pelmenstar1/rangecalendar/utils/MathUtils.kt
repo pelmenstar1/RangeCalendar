@@ -26,7 +26,7 @@ internal fun lerp(start: Float, end: Float, fraction: Float): Float {
 }
 
 internal fun lerp(start: Int, end: Int, fraction: Float): Int {
-    return start + ((end - start).toFloat() * fraction).toInt()
+    return lerp(start.toFloat(), end.toFloat(), fraction).toInt()
 }
 
 internal fun getSquareDistance(x0: Float, y0: Float, x1: Float, y1: Float): Float {

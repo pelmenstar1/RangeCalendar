@@ -14,13 +14,13 @@
 
         <View
             android:id="@+id/drawableHolder_leftDirection"
-            android:layout_width="@dimen/testArrowSize"
-            android:layout_height="@dimen/testArrowSize" />
+            android:layout_width="@dimen/testArrowViewSize"
+            android:layout_height="@dimen/testArrowViewSize" />
 
         <View
             android:id="@+id/drawableHolder_rightDirection"
-            android:layout_width="@dimen/testArrowSize"
-            android:layout_height="@dimen/testArrowSize"
+            android:layout_width="@dimen/testArrowViewSize"
+            android:layout_height="@dimen/testArrowViewSize"
             android:layout_marginStart="20dp"
             android:layout_marginLeft="20dp" />
     </LinearLayout>
@@ -112,5 +112,12 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:text="@string/startArrowAnimation" />
+
+    <Button
+        android:id="@+id/start_alpha_anim_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/startAlphaAnimation"/>
 
 </LinearLayout>
