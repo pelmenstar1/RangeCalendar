@@ -21,7 +21,7 @@ class MoveButtonDrawable(
     private val direction: Int,
     private val animationType: Int
 ) : Drawable() {
-    private val arrowPaint: Paint
+    internal val arrowPaint: Paint
 
     private var arrowColor: Int
     private var arrowColorAlpha = 1f
@@ -258,12 +258,14 @@ class MoveButtonDrawable(
     }
 
     override fun setAlpha(alpha: Int) {
-        val fAlpha = alpha / 255f
+        setAlpha(alpha / 255f)
+    }
 
-        if (arrowColorAlpha != fAlpha) {
-            arrowColorAlpha = fAlpha
+    fun setAlpha(alpha: Float) {
+        if (arrowColorAlpha != alpha) {
+            arrowColorAlpha = alpha
 
-            colorAnimator.alpha = fAlpha
+            colorAnimator.alpha = alpha
 
             // arrowColorAlpha is changed, paint color should be updated too.
             setPaintColor(arrowColor)
@@ -286,7 +288,7 @@ class MoveButtonDrawable(
     }
 
     companion object {
-        private const val RENDER_BOUNDS = true
+        private const val RENDER_BOUNDS = false
 
         const val DIRECTION_LEFT = 0
         const val DIRECTION_RIGHT = 1

@@ -9,6 +9,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 
 @RunWith(AndroidJUnit4::class)
 class MoveButtonDrawableTests {
@@ -250,6 +251,26 @@ class MoveButtonDrawableTests {
                 point(x = 29f, y = 21f)
             }
         }
+    }
+
+    @Test
+    fun setAlphaTest() {
+        val baseColor = 0x10AABBCC
+
+        val drawable = MoveButtonDrawable(
+            context,
+            ColorStateList.valueOf(baseColor),
+            MoveButtonDrawable.DIRECTION_LEFT,
+            MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
+        )
+
+        drawable.alpha = 127
+
+        val paint = drawable.arrowPaint
+        val actualColor = paint.color
+        val expectedColor = 0x08AABBCC
+
+        assertEquals(expectedColor, actualColor)
     }
 
     companion object {
