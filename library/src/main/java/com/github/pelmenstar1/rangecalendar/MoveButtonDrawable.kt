@@ -27,7 +27,7 @@ class MoveButtonDrawable(
     private var arrowColorAlpha = 1f
 
     private var arrowSize = 0f
-    private val arrowStrokeWidth: Float
+    private var arrowStrokeWidth: Float
 
     internal var arrowUsePath = false
     internal val arrowPath = Path()
@@ -74,6 +74,14 @@ class MoveButtonDrawable(
         invalidateSelf()
     }
 
+    fun setArrowStrokeWidth(value: Float) {
+        arrowStrokeWidth = value
+        arrowPaint.strokeWidth = value
+
+        computeLinePoints()
+        invalidateSelf()
+    }
+
     private fun setPaintColor(color: Int) {
         val newColor = color.withCombinedAlpha(arrowColorAlpha)
 
@@ -86,19 +94,25 @@ class MoveButtonDrawable(
 
     private fun computeLinePoints() {
         val bounds = bounds
+        if (bounds.isEmpty) {
+            return
+        }
+
         val fraction = arrowAnimFraction
         val path = arrowPath
         val linePoints = arrowLinePoints
 
+        val adjOffset = arrowStrokeWidth * 0.5f
         val halfArrowSize = arrowSize * 0.5f
+        val adjHalfArrowSize = halfArrowSize - adjOffset
 
         val midX = (bounds.left + bounds.right) * 0.5f
         val midY = (bounds.top + bounds.bottom) * 0.5f
 
-        val actualLeft = midX - halfArrowSize
-        val actualTop = midY - halfArrowSize
-        val actualRight = midX + halfArrowSize
-        val actualBottom = midY + halfArrowSize
+        val actualLeft = midX - adjHalfArrowSize
+        val actualTop = midY - adjHalfArrowSize
+        val actualRight = midX + adjHalfArrowSize
+        val actualBottom = midY + adjHalfArrowSize
 
         val anchorX: Float
         val invAnchorX: Float
@@ -128,7 +142,7 @@ class MoveButtonDrawable(
                 }
             } else {
                 // Gradually animate the arrow to the cross.
-                val delta = halfArrowSize * fraction
+                val delta = adjHalfArrowSize * fraction
 
                 val line1EndY = midY + delta
                 val line2EndY = midY - delta
@@ -209,16 +223,37 @@ class MoveButtonDrawable(
     override fun draw(c: Canvas) {
         val paint = arrowPaint
 
-        if (RENDER_BOUNDS) {
-            c.drawRect(bounds, paint)
-        }
-
         if (arrowUsePath) {
             c.drawPath(arrowPath, paint)
         } else {
             val points = arrowLinePoints
 
             c.drawLine(points[0], points[1], points[2], points[3], paint)
+        }
+
+        if (RENDER_BOUNDS) {
+            // It's only used for debugging purposes. Allocating is OK.
+            val infoPaint = Paint().apply {
+                style = Paint.Style.STROKE
+                color = Color.RED
+                strokeWidth = 1f
+            }
+
+            val bounds = bounds
+
+            val cx = (bounds.left + bounds.right) * 0.5f
+            val cy = (bounds.top + bounds.bottom) * 0.5f
+
+            val halfSize = arrowSize * 0.5f
+
+            val left = cx - halfSize
+            val top = cy - halfSize
+            val right = cx + halfSize
+            val bottom = cy + halfSize
+
+            c.drawRect(left, top, right, bottom, infoPaint)
+            c.drawLine(left, top, right, bottom, infoPaint)
+            c.drawLine(right, top, left, bottom, infoPaint)
         }
     }
 
@@ -251,7 +286,7 @@ class MoveButtonDrawable(
     }
 
     companion object {
-        private const val RENDER_BOUNDS = false
+        private const val RENDER_BOUNDS = true
 
         const val DIRECTION_LEFT = 0
         const val DIRECTION_RIGHT = 1

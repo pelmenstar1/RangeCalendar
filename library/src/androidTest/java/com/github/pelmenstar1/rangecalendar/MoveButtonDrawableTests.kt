@@ -4,7 +4,6 @@ import android.content.res.ColorStateList
 import android.graphics.Path
 import android.graphics.Point
 import android.graphics.PointF
-import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Test
@@ -78,17 +77,18 @@ class MoveButtonDrawableTests {
     private fun arrowAnimationTestHelper(
         direction: Int,
         type: Int,
-        leftTop: Point,
-        arrowSize: Int,
         buildFrames: AnimationPathStateArrayBuilder.() -> Unit
     ) {
         val drawable = MoveButtonDrawable(context, ColorStateList.valueOf(0), direction, type)
+        drawable.setArrowStrokeWidth(2f)
 
         val expectedFrames = AnimationPathStateArrayBuilder().also(buildFrames).build()
         val actualFramesList = ArrayList<AnimationPathState>()
 
-        drawable.setBounds(leftTop.x, leftTop.y, leftTop.x + arrowSize, leftTop.y + arrowSize)
-        drawable.setArrowSize(arrowSize.toFloat())
+        val leftTop = ARROW_LEFT_TOP
+
+        drawable.setBounds(leftTop.x, leftTop.y, leftTop.x + ARROW_SIZE, leftTop.y + ARROW_SIZE)
+        drawable.setArrowSize(ARROW_SIZE.toFloat())
 
         for ((fraction, _) in expectedFrames) {
             drawable.setAnimationFraction(fraction)
@@ -109,8 +109,6 @@ class MoveButtonDrawableTests {
 
         val actualFrames = actualFramesList.toTypedArray()
 
-        Log.i("DrawableTests", actualFrames.contentToString())
-
         assertContentEquals(expectedFrames, actualFrames)
     }
 
@@ -118,35 +116,33 @@ class MoveButtonDrawableTests {
     fun arrowAnimationTest_directionRight_arrowCross() {
         arrowAnimationTestHelper(
             direction = MoveButtonDrawable.DIRECTION_RIGHT,
-            type = MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS,
-            leftTop = Point(10, 20),
-            arrowSize = 20
+            type = MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
         ) {
             frame(fraction = 0f) {
-                point(x = 10f, y = 20f)
+                point(x = 11f, y = 21f)
                 point(x = 20f, y = 30f)
-                point(x = 10f, y = 40f)
+                point(x = 11f, y = 39f)
             }
 
             frame(fraction = 0.25f) {
-                point(x = 10f, y = 20f)
-                point(x = 22.5f, y = 32.5f)
-                point(x = 10f, y = 40f)
-                point(x = 22.5f, y = 27.5f)
+                point(x = 11f, y = 21f)
+                point(x = 22.25f, y = 32.25f)
+                point(x = 11f, y = 39f)
+                point(x = 22.25f, y = 27.75f)
             }
 
             frame(fraction = 0.5f) {
-                point(x = 10f, y = 20f)
-                point(x = 25f, y = 35f)
-                point(x = 10f, y = 40f)
-                point(x = 25f, y = 25f)
+                point(x = 11f, y = 21f)
+                point(x = 24.5f, y = 34.5f)
+                point(x = 11f, y = 39f)
+                point(x = 24.5f, y = 25.5f)
             }
 
             frame(fraction = 1f) {
-                point(x = 10f, y = 20f)
-                point(x = 30f, y = 40f)
-                point(x = 10f, y = 40f)
-                point(x = 30f, y = 20f)
+                point(x = 11f, y = 21f)
+                point(x = 29f, y = 39f)
+                point(x = 11f, y = 39f)
+                point(x = 29f, y = 21f)
             }
         }
     }
@@ -155,35 +151,33 @@ class MoveButtonDrawableTests {
     fun arrowAnimationTest_directionRight_voidArrow() {
         arrowAnimationTestHelper(
             direction = MoveButtonDrawable.DIRECTION_RIGHT,
-            type = MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW,
-            leftTop = Point(10, 20),
-            arrowSize = 20
+            type = MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
         ) {
             frame(fraction = 0f) {
-                point(x = 10f, y = 40f)
-                point(x = 10f, y = 40f)
+                point(x = 11f, y = 39f)
+                point(x = 11f, y = 39f)
             }
 
             frame(fraction = 0.25f) {
-                point(x = 10f, y = 40f)
-                point(x = 15f, y = 35f)
+                point(x = 11f, y = 39f)
+                point(x = 15.5f, y = 34.5f)
             }
 
             frame(fraction = 0.5f) {
-                point(x = 10f, y = 40f)
+                point(x = 11f, y = 39f)
                 point(x = 20f, y = 30f)
             }
 
             frame(fraction = 0.75f) {
-                point(x = 10f, y = 40f)
+                point(x = 11f, y = 39f)
                 point(x = 20f, y = 30f)
-                point(x = 15f, y = 25f)
+                point(x = 15.5f, y = 25.5f)
             }
 
             frame(fraction = 1f) {
-                point(x = 10f, y = 40f)
+                point(x = 11f, y = 39f)
                 point(x = 20f, y = 30f)
-                point(x = 10f, y = 20f)
+                point(x = 11f, y = 21f)
             }
         }
     }
@@ -192,35 +186,33 @@ class MoveButtonDrawableTests {
     fun arrowAnimationTest_directionLeft_arrowCross() {
         arrowAnimationTestHelper(
             direction = MoveButtonDrawable.DIRECTION_LEFT,
-            type = MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS,
-            leftTop = Point(10, 20),
-            arrowSize = 20
+            type = MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
         ) {
             frame(fraction = 0f) {
-                point(x = 30f, y = 20f)
+                point(x = 29f, y = 21f)
                 point(x = 20f, y = 30f)
-                point(x = 30f, y = 40f)
+                point(x = 29f, y = 39f)
             }
 
             frame(fraction = 0.25f) {
-                point(x = 30f, y = 20f)
-                point(x = 17.5f, y = 32.5f)
-                point(x = 30f, y = 40f)
-                point(x = 17.5f, y = 27.5f)
+                point(x = 29f, y = 21f)
+                point(x = 17.75f, y = 32.25f)
+                point(x = 29f, y = 39f)
+                point(x = 17.75f, y = 27.75f)
             }
 
             frame(fraction = 0.5f) {
-                point(x = 30f, y = 20f)
-                point(x = 15f, y = 35f)
-                point(x = 30f, y = 40f)
-                point(x = 15f, y = 25f)
+                point(x = 29f, y = 21f)
+                point(x = 15.5f, y = 34.5f)
+                point(x = 29f, y = 39f)
+                point(x = 15.5f, y = 25.5f)
             }
 
             frame(fraction = 1f) {
-                point(x = 30f, y = 20f)
-                point(x = 10f, y = 40f)
-                point(x = 30f, y = 40f)
-                point(x = 10f, y = 20f)
+                point(x = 29f, y = 21f)
+                point(x = 11f, y = 39f)
+                point(x = 29f, y = 39f)
+                point(x = 11f, y = 21f)
             }
         }
     }
@@ -229,36 +221,40 @@ class MoveButtonDrawableTests {
     fun arrowAnimationTest_directionLeft_voidArrow() {
         arrowAnimationTestHelper(
             direction = MoveButtonDrawable.DIRECTION_LEFT,
-            type = MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW,
-            leftTop = Point(10, 20),
-            arrowSize = 20
+            type = MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
         ) {
             frame(fraction = 0f) {
-                point(x = 30f, y = 40f)
-                point(x = 30f, y = 40f)
+                point(x = 29f, y = 39f)
+                point(x = 29f, y = 39f)
             }
 
             frame(fraction = 0.25f) {
-                point(x = 30f, y = 40f)
-                point(x = 25f, y = 35f)
+                point(x = 29f, y = 39f)
+                point(x = 24.5f, y = 34.5f)
             }
 
             frame(fraction = 0.5f) {
-                point(x = 30f, y = 40f)
+                point(x = 29f, y = 39f)
                 point(x = 20f, y = 30f)
             }
 
             frame(fraction = 0.75f) {
-                point(x = 30f, y = 40f)
+                point(x = 29f, y = 39f)
                 point(x = 20f, y = 30f)
-                point(x = 25f, y = 25f)
+                point(x = 24.5f, y = 25.5f)
             }
 
             frame(fraction = 1f) {
-                point(x = 30f, y = 40f)
+                point(x = 29f, y = 39f)
                 point(x = 20f, y = 30f)
-                point(x = 30f, y = 20f)
+                point(x = 29f, y = 21f)
             }
         }
+    }
+
+    companion object {
+        private const val ARROW_SIZE = 20
+        private const val ARROW_STROKE_WIDTH = 2f
+        private val ARROW_LEFT_TOP = Point(10, 20)
     }
 }
