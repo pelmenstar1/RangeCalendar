@@ -13,4 +13,6 @@
     <string name="newVisualState">New visual state:</string>
     <string name="visualState_enabled">Enabled</string>
     <string name="visualState_pressed">Pressed</string>
+
+    <string name="arrowStrokeWidth">Stroke width:</string>
 </resources>

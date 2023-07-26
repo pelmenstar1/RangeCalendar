@@ -46,6 +46,21 @@
         style="@style/TextAppearance.Material3.BodyLarge"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:text="@string/arrowStrokeWidth"/>
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/arrowStrokeWidthSlider"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:value="5"
+        android:valueFrom="5"
+        android:valueTo="40" />
+
+    <TextView
+        style="@style/TextAppearance.Material3.BodyLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:text="@string/animationType" />
 
     <RadioGroup

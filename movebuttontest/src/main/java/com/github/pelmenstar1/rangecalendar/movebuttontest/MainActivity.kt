@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var animDurationTextView: TextView
 
     private var defaultArrowSize = 0f
+    private var arrowStrokeWidth = 5f
 
     private var currentAnimationType: Int = MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
     private var animationDuration = 1000
@@ -91,6 +92,15 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.start_alpha_anim_button).setOnClickListener {
             startAlphaAnimation()
+        }
+
+        findViewById<Slider>(R.id.arrowStrokeWidthSlider).apply {
+            addOnChangeListener { _, value, _ ->
+                arrowStrokeWidth = value
+
+                drawableLeft.setArrowStrokeWidth(value)
+                drawableRight.setArrowStrokeWidth(value)
+            }
         }
     }
 
@@ -180,6 +190,7 @@ class MainActivity : AppCompatActivity() {
     private fun initDrawableHolderView(view: View, direction: Int) {
         val drawable = MoveButtonDrawable(this, colorControlNormal, direction, currentAnimationType).apply {
             setArrowSize(defaultArrowSize)
+            setArrowStrokeWidth(arrowStrokeWidth)
 
             setStateChangeDuration(animationDuration.toLong())
         }
