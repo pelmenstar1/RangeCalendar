@@ -75,7 +75,7 @@ internal class MoveButtonDrawableColorAnimator(
             startTimeNanos = nanos
         }
 
-        val elapsedMillis = (nanos - startTimeNanos) / 1_000_00
+        val elapsedMillis = (nanos - startTimeNanos) / 1_000_000
         val fraction = elapsedMillis.toFloat() / currentAnimationDuration
 
         if (fraction >= 1f) {
