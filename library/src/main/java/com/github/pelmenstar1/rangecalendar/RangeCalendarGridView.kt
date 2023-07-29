@@ -768,7 +768,8 @@ internal class RangeCalendarGridView(
     fun select(
         range: CellRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        withAnimation: Boolean
+        withAnimation: Boolean,
+        fireEvent: Boolean
     ) {
         // Do not check whether the gate accepts the selection as the RangeCalendarPagerAdapter checked it before.
         selectRange(range, requestRejectedBehaviour, checkGate = false, gestureType = null, withAnimation)
@@ -779,6 +780,7 @@ internal class RangeCalendarGridView(
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         checkGate: Boolean,
         gestureType: SelectionByGestureType? = null,
+        fireEvent: Boolean = true,
         withAnimation: Boolean = isSelectionAnimatedByDefault(),
     ): SelectionAcceptanceStatus {
         val currentSelRange = currentSelState?.range ?: CellRange.Invalid
@@ -818,7 +820,9 @@ internal class RangeCalendarGridView(
         val newState = selectionManager.createState(intersection, cellMeasureManager)
         setNewSelectionState(newState)
 
-        onSelectionListener?.onSelection(intersection)
+        if (fireEvent) {
+            onSelectionListener?.onSelection(intersection)
+        }
 
         if (withAnimation) {
             startSelectionTransition()

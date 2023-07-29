@@ -875,7 +875,8 @@ internal class RangeCalendarPagerAdapter(
             gridView.select(
                 cellRange,
                 SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                withAnimation = false
+                withAnimation = false,
+                fireEvent = false
             )
         } else {
             gridView.clearSelection(fireEvent = false, withAnimation = false)
@@ -904,7 +905,7 @@ internal class RangeCalendarPagerAdapter(
 
                     val withAnimation = payload.arg3 == 1L
 
-                    gridView.select(range, requestRejectedBehaviour, withAnimation)
+                    gridView.select(range, requestRejectedBehaviour, withAnimation, fireEvent = false)
                 }
 
                 Payload.UPDATE_TODAY_INDEX -> {
