@@ -41,6 +41,9 @@ internal value class PackedDate(val bits: Int) {
     val dayOfMonth: Int
         get() = bits and 0xff
 
+    val yearMonth: YearMonth
+        get() = YearMonth(year, month)
+
     val dayOfWeek: CompatDayOfWeek
         get() {
             val dow = floorMod(toEpochDay() + 3L, 7L).toInt()
@@ -53,9 +56,21 @@ internal value class PackedDate(val bits: Int) {
     operator fun component3() = dayOfMonth
 
     operator fun compareTo(other: PackedDate): Int {
-        // We can simply subtract this bits from other bits because
-        // bits = d * 2^0 + m * 2^8 + y * 2^16, where d = day of the month, m = month, y = year
-        return bits - other.bits
+        var cmp = year - other.year
+
+        if (cmp == 0) {
+            cmp = month - other.month
+
+            if (cmp == 0) {
+                cmp = dayOfMonth - other.dayOfMonth
+            }
+        }
+
+        return cmp
+    }
+
+    fun isBetween(start: PackedDate, endInclusive: PackedDate): Boolean {
+        return this >= start && this <= endInclusive
     }
 
     private fun withDayOfMonthUnchecked(newValue: Int): PackedDate {
@@ -270,14 +285,28 @@ internal value class PackedDateRange(val bits: Long) {
     inline val end: PackedDate
         get() = PackedDate(unpackSecondInt(bits))
 
+    inline val isValid: Boolean
+        get() = bits != 0L
+
+    fun toYearMonthRange(): YearMonthRange {
+        return YearMonthRange(start.yearMonth, end.yearMonth)
+    }
+
     inline operator fun component1() = start
     inline operator fun component2() = end
+
+    inline fun iterateYearMonth(block: (ym: YearMonth) -> Unit) {
+        iterateYearMonth(start.yearMonth, end.yearMonth, block)
+    }
 
     override fun toString(): String {
         return "PackedDateRange(start=$start, end=$end)"
     }
 
     companion object {
+        // Start and end is invalid, hence the range is invalid as well.
+        val Invalid = PackedDateRange(0L)
+
         fun fromLocalDates(start: LocalDate, end: LocalDate): PackedDateRange {
             return PackedDateRange(PackedDate.fromLocalDate(start), PackedDate.fromLocalDate(end))
         }

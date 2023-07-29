@@ -22,6 +22,10 @@ internal value class Cell(val index: Int) {
     val isDefined: Boolean
         get() = index >= 0
 
+    fun orIfUndefined(value: Cell): Cell {
+        return if (isUndefined) value else this
+    }
+
     inline fun sameX(cell: Cell): Boolean = gridX == cell.gridX
     inline fun sameY(cell: Cell): Boolean = gridY == cell.gridY
 

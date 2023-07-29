@@ -22,6 +22,57 @@ internal class RangeCalendarPagerAdapter(
         val obj1: Any? = null,
         val obj2: Any? = null,
     ) {
+        // Mainly for tests
+        override fun toString(): String = buildString {
+            append("Payload(type=")
+            when(type) {
+                UPDATE_ENABLED_RANGE -> append("UPDATE_ENABLED_RANGE")
+                SELECT -> {
+                    append("SELECT, range=")
+                    append(CellRange(arg1.toInt()).toString())
+                    append(", requestRejectedBehaviour=")
+                    append(SelectionRequestRejectedBehaviour.fromOrdinal(arg2.toInt()))
+                    append(", withAnimation=")
+                    append(arg3 == 1L)
+                }
+                UPDATE_TODAY_INDEX -> append("UPDATE_TODAY_INDEX")
+                ON_STYLE_PROP_CHANGED -> {
+                    append("ON_STYLE_PROP_CHANGED, styleIndex=")
+                    append(RangeCalendarStyleData.propertyToString(arg1.toInt()))
+                }
+                ON_CELL_SIZE_CHANGED -> append("ON_CELL_SIZE_CHANGED")
+                CLEAR_HOVER -> append("CLEAR_HOVER")
+                CLEAR_SELECTION -> {
+                    append("CLEAR_SELECTION, withAnimation=")
+                    append(arg1 == 1L)
+                }
+                ON_DECOR_ADDED -> {
+                    append("ON_DECOR_ADDED, newDecorRange=")
+                    append(PackedIntRange(arg1).toString())
+                    append(", affectedRange=")
+                    append(PackedIntRange(arg2).toString())
+                }
+                ON_DECOR_REMOVED -> {
+                    append("ON_DECOR_REMOVED, newDecorRange=")
+                    append(PackedIntRange(arg1).toString())
+                    append(", affectedRange=")
+                    append(PackedIntRange(arg2).toString())
+                }
+                SET_DECOR_LAYOUT_OPTIONS -> {
+                    append("SET_DECOR_LAYOUT_OPTIONS, cell=")
+                    append(Cell(arg1.toInt()).toString())
+                    append(", withAnimation")
+                    append(arg2 == 1L)
+                    append(", options=")
+                    append(obj1 as DecorLayoutOptions)
+                }
+                ON_FIRST_DAY_OF_WEEK_CHANGED -> append("ON_FIRST_DAY_OF_WEEK_CHANGED")
+                else -> append("UNKNOWN")
+            }
+
+            append(')')
+        }
+
         companion object {
             const val UPDATE_ENABLED_RANGE = 0
             const val SELECT = 1
@@ -119,8 +170,7 @@ internal class RangeCalendarPagerAdapter(
     private var minDate = PackedDate.MIN_DATE
     private var maxDate = PackedDate.MAX_DATE
 
-    var selectionRange = CellRange.Invalid
-    var selectionYm = YearMonth(0)
+    var selectedRange = PackedDateRange.Invalid
 
     // internal as used in tests
     internal var today = PackedDate.INVALID
@@ -275,6 +325,10 @@ internal class RangeCalendarPagerAdapter(
 
     private fun isValidPosition(position: Int) = position in 0 until count
 
+    private fun isValidDateRange(range: PackedDateRange): Boolean {
+        return range.start.isBetween(minDate, maxDate) && range.end.isBetween(minDate, maxDate)
+    }
+
     private fun notifyAllPages(payload: Payload) {
         notifyItemRangeChanged(0, count, payload)
     }
@@ -287,6 +341,15 @@ internal class RangeCalendarPagerAdapter(
 
     private fun notifyPageChanged(ym: YearMonth, payload: Payload) {
         notifyPageChanged(getItemPositionForYearMonth(ym), payload)
+    }
+
+    private fun notifyPageRangeChanged(startYm: YearMonth, endYm: YearMonth, payload: Payload) {
+        if (startYm <= endYm) {
+            val startPos = getItemPositionForYearMonth(startYm)
+            val count = (endYm - startYm + 1).totalMonths
+
+            notifyItemRangeChanged(startPos, count, payload)
+        }
     }
 
     private fun updateGridInfo(ym: YearMonth) {
@@ -323,12 +386,8 @@ internal class RangeCalendarPagerAdapter(
     fun setFirstDayOfWeek(firstDayOfWeek: CompatDayOfWeek) {
         if (this.firstDayOfWeek != firstDayOfWeek) {
             this.firstDayOfWeek = firstDayOfWeek
-
-            if (selectionRange.isValid) {
-                discardSelectionValues()
-
-                onSelectionListener?.onSelectionCleared()
-            }
+            
+            clearSelection(fireEvent = true, withAnimation = false)
 
             notifyAllPages(Payload.onFirstDayOfWeekChanged())
         }
@@ -372,19 +431,20 @@ internal class RangeCalendarPagerAdapter(
     private fun createRedirectSelectionListener(ym: YearMonth): RangeCalendarGridView.OnSelectionListener {
         return object : RangeCalendarGridView.OnSelectionListener {
             override fun onSelectionCleared() {
-                discardSelectionValues()
+                selectedRange = PackedDateRange.Invalid
 
                 onSelectionListener?.onSelectionCleared()
             }
 
             override fun onSelection(range: CellRange) {
                 clearSelectionOnAnotherPage(ym)
-                setSelectionValues(range, ym)
+                updateGridInfo(ym)
+
+                val dateRange = gridInfo.getDateRangeByCellRange(range)
+                selectedRange = dateRange
 
                 onSelectionListener?.let {
-                    updateGridInfo(ym)
-
-                    val (startDate, endDate) = gridInfo.getDateRangeByCellRange(range)
+                    val (startDate, endDate) = dateRange
 
                     it.onSelection(
                         startDate.year, startDate.month, startDate.dayOfMonth,
@@ -395,34 +455,50 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    private fun setSelectionValues(range: CellRange, ym: YearMonth) {
-        selectionRange = range
-        selectionYm = ym
-    }
-
-    private fun discardSelectionValues() {
-        setSelectionValues(CellRange.Invalid, YearMonth(0))
-    }
-
     fun clearSelection(withAnimation: Boolean) {
         clearSelection(fireEvent = true, withAnimation)
     }
 
-    private fun clearSelectionOnAnotherPage(ym: YearMonth) {
-        if (selectionYm != ym) {
-            clearSelection(fireEvent = false, withAnimation = false)
-        }
-    }
-
     private fun clearSelection(fireEvent: Boolean, withAnimation: Boolean) {
-        if (selectionRange.isValid) {
-            notifyPageChanged(selectionYm, Payload.clearSelection(withAnimation))
-            discardSelectionValues()
+        val selRange = selectedRange
+
+        if (selRange.isValid) {
+            val (startYm, endYm) = selRange.toYearMonthRange()
+
+            notifyPageRangeChanged(startYm, endYm, Payload.clearSelection(withAnimation))
+
+            selectedRange = PackedDateRange.Invalid
 
             if (fireEvent) {
                 onSelectionListener?.onSelectionCleared()
             }
         }
+    }
+
+    private fun clearSelectionOnAnotherPage(ym: YearMonth) {
+        clearSelectionExcept(ym, ym)
+    }
+
+    private fun clearSelectionExcept(startYm: YearMonth, endYm: YearMonth) {
+        val selRange = selectedRange
+
+        if (selRange.isValid) {
+            val otherRange = YearMonthRange(startYm, endYm)
+            val selYmRange = selRange.toYearMonthRange()
+
+            val intersection = selYmRange.intersectionWith(otherRange)
+
+            if (intersection.isValid) {
+                val payload = Payload.clearSelection(withAnimation = false)
+
+                notifyPageRangeChanged(selYmRange.start, intersection.start - 1, payload)
+                notifyPageRangeChanged(intersection.end + 1, selYmRange.end, payload)
+            }
+        }
+    }
+
+    private fun clearSelectionOnPage(ym: YearMonth, withAnimation: Boolean) {
+        notifyPageChanged(ym, Payload.clearSelection(withAnimation))
     }
 
     private fun isSelectionAllowed(dateRange: PackedDateRange): Boolean {
@@ -437,47 +513,34 @@ internal class RangeCalendarPagerAdapter(
     }
 
     fun selectRange(
-        ym: YearMonth,
         dateRange: PackedDateRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean,
     ): Boolean {
-        val position = getItemPositionForYearMonth(ym)
+        if (isValidDateRange(dateRange) && isSelectionAllowed(dateRange)) {
+            val ymRange = dateRange.toYearMonthRange()
+            val (startYm, endYm) = ymRange
 
-        if (isValidPosition(position) && isSelectionAllowed(dateRange)) {
-            updateGridInfo(ym)
+            clearSelectionExcept(startYm, endYm)
 
-            // Clear selection on the page with selection if it's not the page we're changing selection of.
-            clearSelectionOnAnotherPage(ym)
+            iterateYearMonth(startYm, endYm) { ym ->
+                updateGridInfo(ym)
 
-            val cellRange = gridInfo.getCellRangeByDateRange(dateRange)
+                val cellRange = gridInfo.getCellRangeByDateRange(dateRange)
 
-            setSelectionValues(cellRange, ym)
+                // Notify the page about selection.
+                notifyPageChanged(
+                    ym,
+                    Payload.select(cellRange, requestRejectedBehaviour, withAnimation)
+                )
+            }
 
-            // Notify the page about selection.
-            notifyItemChanged(
-                position,
-                Payload.select(cellRange, requestRejectedBehaviour, withAnimation)
-            )
+            selectedRange = dateRange
 
             return true
         }
 
         return false
-    }
-
-    // this is special case for RangeCalendarView.onRestoreInstanceState
-    fun selectOnRestore(ym: YearMonth, cellRange: CellRange) {
-        // Restore the selection of the page. Do it without animation because we're restoring things, not setting it.
-        val payload = Payload.select(
-            cellRange,
-            SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-            withAnimation = false
-        )
-
-        setSelectionValues(cellRange, ym)
-
-        notifyPageChanged(ym, payload)
     }
 
     // Expects that the gridInfo is initialized to the right year-month.
@@ -794,11 +857,15 @@ internal class RangeCalendarPagerAdapter(
 
         gridView.onAllStylePropertiesPossiblyChanged()
 
-        if (selectionYm == ym) {
+        val (selStart, selEnd) = selectedRange
+
+        if (gridInfo.contains(selStart) || gridInfo.contains(selEnd)) {
+            val cellRange = gridInfo.getCellRangeByDateRange(selectedRange)
+
             // Animation should be seen because animation should be started when selection *changed*,
             // but in this case, it's actually *restored*
             gridView.select(
-                selectionRange,
+                cellRange,
                 SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                 withAnimation = false
             )

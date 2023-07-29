@@ -603,10 +603,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
     override fun onSaveInstanceState(): Parcelable {
         return SavedState(super.onSaveInstanceState()!!).apply {
-            selectionYm = adapter.selectionYm
-            selectionRange = adapter.selectionRange
+            selectionRange = adapter.selectedRange
             ym = currentCalendarYm
-            firstDayOfWeek = _firstDayOfWeek
         }
     }
 
@@ -625,8 +623,12 @@ class RangeCalendarView @JvmOverloads constructor(
             val selRange = state.selectionRange
 
             // Restore selection if one is present and first day of week is the same.
-            if (selRange.isValid && _firstDayOfWeek == state.firstDayOfWeek) {
-                adapter.selectOnRestore(state.selectionYm, selRange)
+            if (selRange.isValid) {
+                adapter.selectRange(
+                    selRange,
+                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                    withAnimation = false
+                )
             }
         } else {
             super.onRestoreInstanceState(state)
@@ -1602,7 +1604,6 @@ class RangeCalendarView @JvmOverloads constructor(
     ) {
         // PackedDateRange.fromSingleDate will check whether date meets requirements
         selectRangeInternal(
-            YearMonth(date.year, date.monthValue),
             PackedDateRange.fromSingleDate(date),
             selectionRequestRejectedBehaviour,
             withAnimation
@@ -1629,8 +1630,7 @@ class RangeCalendarView @JvmOverloads constructor(
         require(weekIndex in 0 until 5) { "Invalid week index" }
 
         selectRangeInternal(
-            ym = YearMonth(year, month),
-            range = PackedDateRange.week(year, month, weekIndex, _firstDayOfWeek),
+            PackedDateRange.week(year, month, weekIndex, _firstDayOfWeek),
             selectionRequestRejectedBehaviour,
             withAnimation
         )
@@ -1653,8 +1653,7 @@ class RangeCalendarView @JvmOverloads constructor(
         validateYearMonth(year, month)
 
         selectRangeInternal(
-            YearMonth(year, month),
-            range = PackedDateRange.month(year, month),
+            PackedDateRange.month(year, month),
             selectionRequestRejectedBehaviour,
             withAnimation
         )
@@ -1675,10 +1674,9 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        validateDateRangeSameYearMonth(startDate, endDate)
+        validateSelectionDateRange(startDate, endDate)
 
         selectRangeInternal(
-            YearMonth(startDate.year, startDate.monthValue),
             PackedDateRange.fromLocalDates(startDate, endDate),
             selectionRequestRejectedBehaviour,
             withAnimation
@@ -1686,15 +1684,14 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun selectRangeInternal(
-        ym: YearMonth,
         range: PackedDateRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ) {
-        val actuallySelected = adapter.selectRange(ym, range, requestRejectedBehaviour, withAnimation)
+        val actuallySelected = adapter.selectRange(range, requestRejectedBehaviour, withAnimation)
 
         if (actuallySelected) {
-            val position = adapter.getItemPositionForYearMonth(ym)
+            val position = adapter.getItemPositionForDate(range.start)
 
             pager.setCurrentItem(position, withAnimation)
         }
@@ -1852,14 +1849,15 @@ class RangeCalendarView @JvmOverloads constructor(
 
         private const val INVALID_DURATION_MSG = "Duration should be non-negative"
 
-        private fun validateDateRangeSameYearMonth(start: LocalDate, end: LocalDate) {
-            require(start.year == end.year && start.monthValue == end.monthValue) { "Date range should have same year and month" }
-            require(start <= end) { "Start date is greater than end date" }
+        private fun validateSelectionDateRange(start: LocalDate, end: LocalDate) {
+            if (start > end) {
+                throw IllegalArgumentException("Start date cannot be before end date")
+            }
         }
 
         private fun validateDateRange(minDate: PackedDate, maxDate: PackedDate) {
-            if (maxDate > minDate) {
-                throw IllegalStateException("Maximum date cannot be before minimum date")
+            if (minDate > maxDate) {
+                throw IllegalArgumentException("Maximum date cannot be before minimum date")
             }
         }
 
