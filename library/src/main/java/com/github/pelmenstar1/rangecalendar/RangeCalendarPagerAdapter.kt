@@ -517,7 +517,15 @@ internal class RangeCalendarPagerAdapter(
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean,
     ): Boolean {
-        if (isValidDateRange(dateRange) && isSelectionAllowed(dateRange)) {
+        if (isValidDateRange(dateRange)) {
+            if (!isSelectionAllowed(dateRange)) {
+                if (requestRejectedBehaviour == SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION) {
+                    clearSelection(withAnimation)
+                }
+
+                return false
+            }
+
             val ymRange = dateRange.toYearMonthRange()
             val (startYm, endYm) = ymRange
 
