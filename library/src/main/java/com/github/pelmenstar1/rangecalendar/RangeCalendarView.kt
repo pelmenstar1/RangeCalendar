@@ -1600,10 +1600,51 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        // PackedDateRange.fromSingleDate will check whether date meets requirements
+        selectDayInternal(PackedDate.fromLocalDate(date), selectionRequestRejectedBehaviour, withAnimation)
+    }
+
+    /**
+     * Selects a date.
+     *
+     * @param calendar specifies a date to be selected
+     * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
+     * @param withAnimation whether to do it with animation or not. Default value is [isSelectionAnimatedByDefault]
+     */
+    @JvmOverloads
+    fun selectDay(
+        calendar: Calendar,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = isSelectionAnimatedByDefault
+    ) {
+        selectDayInternal(PackedDate.fromCalendar(calendar), selectionRequestRejectedBehaviour, withAnimation)
+    }
+
+    /**
+     * Selects a date.
+     *
+     * @param year year of the date to be selected, should be in range `[0; 65535]`
+     * @param month month of the date, 1-based
+     * @param dayOfMonth day of the month of the date, 1-based.
+     * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
+     * @param withAnimation whether to do it with animation or not. Default value is [isSelectionAnimatedByDefault]
+     */
+    @JvmOverloads
+    fun selectDay(
+        year: Int, month: Int, dayOfMonth: Int,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = isSelectionAnimatedByDefault
+    ) {
+        selectDayInternal(PackedDate(year, month, dayOfMonth), selectionRequestRejectedBehaviour, withAnimation)
+    }
+
+    private fun selectDayInternal(
+        date: PackedDate,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+        withAnimation: Boolean
+    ) {
         selectRangeInternal(
-            YearMonth(date.year, date.monthValue),
-            PackedDateRange.fromSingleDate(date),
+            YearMonth(date.year, date.month),
+            PackedDateRange(date, date),
             selectionRequestRejectedBehaviour,
             withAnimation
         )
@@ -1626,7 +1667,7 @@ class RangeCalendarView @JvmOverloads constructor(
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
         validateYearMonth(year, month)
-        require(weekIndex in 0 until 5) { "Invalid week index" }
+        require(weekIndex in 0..5) { "Invalid week index" }
 
         selectRangeInternal(
             ym = YearMonth(year, month),
@@ -1675,12 +1716,76 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
+        selectedCustomRangeInternal(
+            PackedDate.fromLocalDate(startDate),
+            PackedDate.fromLocalDate(endDate),
+            selectionRequestRejectedBehaviour,
+            withAnimation
+        )
+    }
+
+    /**
+     * Selects a date range.
+     *
+     * @param start start of the range, inclusive
+     * @param end end of the range, inclusive
+     * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
+     * @param withAnimation whether to do it with animation of not. Default value is [isSelectionAnimatedByDefault]
+     */
+    @JvmOverloads
+    fun selectRange(
+        start: Calendar,
+        end: Calendar,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = isSelectionAnimatedByDefault
+    ) {
+        selectedCustomRangeInternal(
+            PackedDate.fromCalendar(start),
+            PackedDate.fromCalendar(end),
+            selectionRequestRejectedBehaviour,
+            withAnimation
+        )
+    }
+
+    /**
+     * Selects a date range.
+     *
+     * @param startYear year of the start of the range
+     * @param startMonth month of the start of the range, 1-based
+     * @param startDay day of the month of the start of the range, 1-based
+     * @param endYear year of the end of the range
+     * @param endMonth month of the end of the range, 1-based
+     * @param endDay day of the month of the end of the range, 1-based
+     * @param selectionRequestRejectedBehaviour specifies what behaviour is expected when a selection request, sent by this method, is rejected
+     * @param withAnimation whether to do it with animation of not. Default value is [isSelectionAnimatedByDefault]
+     */
+    @JvmOverloads
+    fun selectRange(
+        startYear: Int, startMonth: Int, startDay: Int,
+        endYear: Int, endMonth: Int, endDay: Int,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = isSelectionAnimatedByDefault
+    ) {
+        selectedCustomRangeInternal(
+            PackedDate(startYear, startMonth, startDay),
+            PackedDate(endYear, endMonth, endDay),
+            selectionRequestRejectedBehaviour,
+            withAnimation
+        )
+    }
+
+    private fun selectedCustomRangeInternal(
+        startDate: PackedDate,
+        endDate: PackedDate,
+        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+        withAnimation: Boolean
+    ) {
         validateDateRangeSameYearMonth(startDate, endDate)
 
         selectRangeInternal(
-            YearMonth(startDate.year, startDate.monthValue),
-            PackedDateRange.fromLocalDates(startDate, endDate),
-            selectionRequestRejectedBehaviour,
+            YearMonth(startDate.year, startDate.month),
+            PackedDateRange(startDate, endDate),
+            requestRejectedBehaviour,
             withAnimation
         )
     }
@@ -1852,8 +1957,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
         private const val INVALID_DURATION_MSG = "Duration should be non-negative"
 
-        private fun validateDateRangeSameYearMonth(start: LocalDate, end: LocalDate) {
-            require(start.year == end.year && start.monthValue == end.monthValue) { "Date range should have same year and month" }
+        private fun validateDateRangeSameYearMonth(start: PackedDate, end: PackedDate) {
+            require(start.year == end.year && start.month == end.month) { "Date range should have same year and month" }
             require(start <= end) { "Start date is greater than end date" }
         }
 
