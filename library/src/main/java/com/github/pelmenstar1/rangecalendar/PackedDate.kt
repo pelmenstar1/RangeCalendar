@@ -53,9 +53,16 @@ internal value class PackedDate(val bits: Int) {
     operator fun component3() = dayOfMonth
 
     operator fun compareTo(other: PackedDate): Int {
-        // We can simply subtract this bits from other bits because
-        // bits = d * 2^0 + m * 2^8 + y * 2^16, where d = day of the month, m = month, y = year
-        return bits - other.bits
+        var cmp = year - other.year
+        if (cmp == 0) {
+            cmp = month - other.month
+
+            if (cmp == 0) {
+                cmp = dayOfMonth - other.dayOfMonth
+            }
+        }
+
+        return cmp
     }
 
     private fun withDayOfMonthUnchecked(newValue: Int): PackedDate {
