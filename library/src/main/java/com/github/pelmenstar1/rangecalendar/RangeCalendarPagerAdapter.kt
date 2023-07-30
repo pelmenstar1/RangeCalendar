@@ -444,7 +444,15 @@ internal class RangeCalendarPagerAdapter(
     ): Boolean {
         val position = getItemPositionForYearMonth(ym)
 
-        if (isValidPosition(position) && isSelectionAllowed(dateRange)) {
+        if (isValidPosition(position)) {
+            if (!isSelectionAllowed(dateRange)) {
+                if (requestRejectedBehaviour == SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION) {
+                    clearSelection(withAnimation)
+                }
+
+                return false
+            }
+
             updateGridInfo(ym)
 
             // Clear selection on the page with selection if it's not the page we're changing selection of.
