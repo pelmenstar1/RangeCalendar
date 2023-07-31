@@ -64,8 +64,8 @@ internal val SelectionState.range: CellRange
 internal val SelectionState.isNone: Boolean
     get() = rangeStart > rangeEnd
 
-internal fun SelectionState.contains(cell: Cell): Boolean {
-    return cell.index in rangeStart..rangeEnd
+internal fun SelectionState?.contains(cell: Cell): Boolean {
+    return this != null && cell.index in rangeStart..rangeEnd
 }
 
 internal fun SelectionState?.isSingleCell(cell: Cell): Boolean {

@@ -81,6 +81,9 @@ internal class CalendarToolbarManager(
         get() = isSvOnScreen && hasSelectionViewClearButton
 
     init {
+        val durationScale = AnimationHelper.getAnimationScale(context)
+        val stateChangeDuration = (STATE_CHANGE_DURATION * durationScale).toLong()
+
         prevIcon = MoveButtonDrawable(
             context,
             iconColor,
@@ -90,7 +93,7 @@ internal class CalendarToolbarManager(
             // The end state of MoveButtonDrawable when animation type is ANIM_TYPE_VOID_TO_ARROW is the arrow.
             // That's what we need.
             setAnimationFraction(1f)
-            setStateChangeDuration(STATE_CHANGE_DURATION)
+            setStateChangeDuration(stateChangeDuration)
         }
 
         nextIcon = MoveButtonDrawable(
@@ -99,7 +102,7 @@ internal class CalendarToolbarManager(
             MoveButtonDrawable.DIRECTION_RIGHT,
             MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
         ).apply {
-            setStateChangeDuration(STATE_CHANGE_DURATION)
+            setStateChangeDuration(stateChangeDuration)
         }
 
         prevButton.setImageDrawable(prevIcon)
