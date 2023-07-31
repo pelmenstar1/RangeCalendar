@@ -1,3 +1,5 @@
+import java.net.URI
+
 pluginManagement {
     repositories {
         gradlePluginPortal()
@@ -8,15 +10,13 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' }
+        maven { url = URI("https://jitpack.io") }
     }
 }
+
 rootProject.name = "Range Calendar"
-include ':library'
-include ':demo'
-include ':decortest'
-include ':movebuttontest'
-include ':selectionviewtest'
+include(":library", ":demo", ":decortest", "movebuttontest", ":selectionviewtest")
