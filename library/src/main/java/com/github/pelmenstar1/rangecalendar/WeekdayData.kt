@@ -25,9 +25,9 @@ internal class WeekdayData(locale: Locale) {
 
     private fun extractShortWeekdays(): Array<out String> {
         val weekdays = if (Build.VERSION.SDK_INT >= 24) {
-            (symbols as DateFormatSymbols).shortWeekdays
+            (symbols as DateFormatSymbols).getWeekdays(DateFormatSymbols.STANDALONE, DateFormatSymbols.SHORT)
         } else {
-            (symbols as java.text.DateFormatSymbols).shortWeekdays
+            (symbols as java.text.DateFormatSymbols).weekdays
         }
 
         return fixWeekdaysOrder(weekdays)
@@ -35,7 +35,7 @@ internal class WeekdayData(locale: Locale) {
 
     @RequiresApi(24)
     private fun extractNarrowWeekdays(): Array<out String> {
-        val weekdays = (symbols as DateFormatSymbols).getWeekdays(DateFormatSymbols.FORMAT, DateFormatSymbols.NARROW)
+        val weekdays = (symbols as DateFormatSymbols).getWeekdays(DateFormatSymbols.STANDALONE, DateFormatSymbols.NARROW)
 
         return fixWeekdaysOrder(weekdays)
     }

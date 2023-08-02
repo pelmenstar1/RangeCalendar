@@ -14,11 +14,13 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.*
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityEventCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
 import com.github.pelmenstar1.rangecalendar.decoration.*
@@ -74,25 +76,27 @@ internal class RangeCalendarGridView(
         }
 
         override fun getVisibleVirtualViews(virtualViewIds: MutableList<Int>) {
-            virtualViewIds.addAll(INDICES)
+            for (i in 0 until GridConstants.CELL_COUNT) {
+                virtualViewIds.add(i)
+            }
         }
 
         override fun onPopulateNodeForVirtualView(
             virtualViewId: Int,
             node: AccessibilityNodeInfoCompat
         ) {
-            val cell = Cell(virtualViewId)
-
-            grid.fillCellBounds(cell, tempRect)
-
             node.apply {
+                val cell = Cell(virtualViewId)
+
+                grid.fillCellBounds(cell, tempRect)
+
                 @Suppress("DEPRECATION")
                 setBoundsInParent(tempRect)
 
                 contentDescription = getDayDescriptionForIndex(virtualViewId)
                 text = CalendarResources.getDayText(grid.cells[virtualViewId].toInt())
 
-                isSelected = grid.currentSelState.isSingleCell(cell)
+                isSelected = grid.currentSelState.contains(cell)
                 isClickable = true
 
                 isEnabled = if (grid.enabledCellRange.contains(cell)) {
@@ -138,12 +142,6 @@ internal class RangeCalendarGridView(
             val day = grid.cells[index].toInt()
 
             return provider.getContentDescription(ym.year, ym.month, day)
-        }
-
-        companion object {
-            private val INDICES = ArrayList<Int>(GridConstants.CELL_COUNT).also {
-                repeat(GridConstants.CELL_COUNT, it::add)
-            }
         }
     }
 
@@ -673,10 +671,17 @@ internal class RangeCalendarGridView(
     }
 
     fun setEnabledCellRange(range: CellRange) {
-        if (enabledCellRange != range) {
+        val oldRange = enabledCellRange
+
+        if (oldRange != range) {
             enabledCellRange = range
 
             updateSelectionRange()
+            invalidateAccessibilityOutIntersectionRanges(
+                oldRange,
+                range,
+                AccessibilityEventCompat.CONTENT_CHANGE_TYPE_STATE_DESCRIPTION
+            )
         }
     }
 
@@ -721,7 +726,11 @@ internal class RangeCalendarGridView(
     }
 
     override fun dispatchHoverEvent(event: MotionEvent): Boolean {
-        return touchHelper.dispatchHoverEvent(event) && super.dispatchHoverEvent(event)
+        return touchHelper.dispatchHoverEvent(event) || super.dispatchHoverEvent(event)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        return touchHelper.dispatchKeyEvent(event) || super.dispatchKeyEvent(event)
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -731,22 +740,44 @@ internal class RangeCalendarGridView(
         return detector.processEvent(e)
     }
 
-    override fun getFocusedRect(r: Rect) {
-        currentSelState?.let {
-            val start = it.startCell
-            val end = it.endCell
-
-            if (start.sameY(end)) {
-                fillRangeOnRowBounds(start, end, r)
-                return
-            }
-        }
-
-        super.getFocusedRect(r)
-    }
-
     private fun sendClickEventToAccessibility(cell: Cell) {
         touchHelper.sendEventForVirtualView(cell.index, AccessibilityEvent.TYPE_VIEW_CLICKED)
+    }
+
+    private fun invalidateAccessibilityNodesRange(start: Int, endInclusive: Int, changeTypes: Int) {
+        val helper = touchHelper
+
+        for (i in start..endInclusive) {
+            helper.invalidateVirtualView(i, changeTypes)
+        }
+    }
+
+    private fun invalidateAccessibilityOutIntersectionRanges(
+        oldRange: CellRange,
+        newRange: CellRange,
+        changeTypes: Int
+    ) {
+        val oldStart = oldRange.start.index
+        val oldEnd = oldRange.end.index
+        val newStart = newRange.start.index
+        val newEnd = newRange.end.index
+
+        if (oldRange.hasIntersectionWith(newRange)) {
+            invalidateAccessibilityNodesRange(
+                start = min(oldStart, newStart),
+                endInclusive = max(oldStart, newStart) - 1,
+                changeTypes
+            )
+
+            invalidateAccessibilityNodesRange(
+                start = min(oldEnd, newEnd) + 1,
+                endInclusive = max(oldEnd, newEnd) - 1,
+                changeTypes
+            )
+        } else {
+            invalidateAccessibilityNodesRange(oldStart, oldEnd, changeTypes)
+            invalidateAccessibilityNodesRange(newStart, newEnd, changeTypes)
+        }
     }
 
     private fun updateSelectionRange() {
@@ -823,6 +854,12 @@ internal class RangeCalendarGridView(
         if (fireEvent) {
             onSelectionListener?.onSelection(intersection)
         }
+
+        invalidateAccessibilityOutIntersectionRanges(
+            currentSelRange,
+            intersection,
+            AccessibilityEventCompat.CONTENT_CHANGE_TYPE_STATE_DESCRIPTION
+        )
 
         if (withAnimation) {
             startSelectionTransition()

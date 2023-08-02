@@ -1,6 +1,6 @@
 package com.github.pelmenstar1.rangecalendar
 
-object GridConstants {
+internal object GridConstants {
     const val COLUMN_COUNT = 7
     const val ROW_COUNT = 6
 
