@@ -1125,6 +1125,14 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleObject({ SELECTION_FILL }, value)
         }
 
+    var outMonthSelectionAlpha: Float
+        get() = adapter.getStyleFloat { OUT_MONTH_SELECTION_ALPHA }
+        set(value) {
+            validateFloatAlpha(value)
+
+            adapter.setStyleFloat({ OUT_MONTH_SELECTION_ALPHA }, value)
+        }
+
     /**
      * Sets background color of selection. A convenience method for [selectionFill].
      * It's the same as `calendar.selectionFill = Fill.solid(color)`
@@ -1294,7 +1302,7 @@ class RangeCalendarView @JvmOverloads constructor(
     var hoverAlpha: Float
         get() = adapter.getStyleFloat { HOVER_ALPHA }
         set(value) {
-            require(value in 0f..1f) { "alpha is out of range" }
+            validateFloatAlpha(value)
 
             adapter.setStyleFloat({ HOVER_ALPHA }, value)
         }
@@ -1954,6 +1962,10 @@ class RangeCalendarView @JvmOverloads constructor(
         private const val DEFAULT_INFO_FORMAT = "MMMM y"
 
         private const val INVALID_DURATION_MSG = "Duration should be non-negative"
+
+        private fun validateFloatAlpha(alpha: Float) {
+            require(alpha in 0f..1f) { "Alpha value should be in range [0, 1]" }
+        }
 
         private fun validateMinMaxDateRange(minDate: PackedDate, maxDate: PackedDate) {
             if (minDate > maxDate) {

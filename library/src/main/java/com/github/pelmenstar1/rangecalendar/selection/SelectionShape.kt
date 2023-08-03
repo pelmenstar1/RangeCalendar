@@ -31,7 +31,10 @@ internal class SelectionShape {
         return p
     }
 
-    fun update(newPathInfo: SelectionShapeInfo, newOrigin: Int, forcePath: Boolean) {
+    fun update(newPathInfo: SelectionShapeInfo, newOrigin: Int, flags: Int) {
+        val forcePath = (flags and FLAG_FORCE_PATH) != 0
+        val ignoreRoundRadii = (flags and FLAG_IGNORE_ROUND_RADII) != 0
+
         // If path is not created and the caller wants it to be created, do not early exit
         if (shapeInfo == newPathInfo && origin == newOrigin && !(_path == null && forcePath)) {
             return
@@ -47,13 +50,9 @@ internal class SelectionShape {
         val endRight = shapeInfo.endRight
         val endTop = shapeInfo.endTop
 
-        val firstCellLeft = shapeInfo.firstCellOnRowLeft
-        val lastCellRight = shapeInfo.lastCellOnRowRight
-
         val cellHeight = shapeInfo.cellHeight
         val rr = shapeInfo.roundRadius
 
-        val startBottom = startTop + cellHeight
         val endBottom = endTop + cellHeight
 
         val gridYDiff = end.gridY - start.gridY
@@ -61,6 +60,9 @@ internal class SelectionShape {
         // If start and end are on the same row, we can draw the shape even without using Path.
         if (gridYDiff > 0) {
             val path = getEmptyPath()
+
+            val firstCellLeft = shapeInfo.firstCellOnRowLeft
+            val lastCellRight = shapeInfo.lastCellOnRowRight
 
             // If there are more than 1 row, then the shape will always occupy space between first and last cells on a row.
             bounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
@@ -70,67 +72,87 @@ internal class SelectionShape {
             val startGridX = start.gridX
             val endGridX = end.gridX
 
-            Radii.withRadius(rr) {
-                leftTop()
-                rightTop()
-                leftBottom(condition = startGridX != 0)
-                rightBottom(condition = gridYDiff == 1 && endGridX != 6)
+            val topPartLeft: Float
+            val topPartTop: Float
+            val topPartRight: Float
+            val topPartBottom: Float
 
-                if (origin == ORIGIN_LOCAL) {
-                    path.addRoundRectCompat(
-                        left = startLeft, top = startTop,
-                        right = lastCellRight, bottom = startBottom,
-                        radii()
-                    )
-                } else {
-                    path.addRoundRectCompat(
-                        left = startLeft - firstCellLeft, top = 0f,
-                        right = rowWidth, bottom = cellHeight,
-                        radii()
-                    )
-                }
+            val bottomPartLeft: Float
+            val bottomPartTop: Float
+            val bottomPartRight: Float
+            val bottomPartBottom: Float
+
+            val centerPartLeft: Float
+            val centerPartTop: Float
+            val centerPartRight: Float
+            val centerPartBottom: Float
+
+            if (origin == ORIGIN_LOCAL) {
+                val startBottom = startTop + cellHeight
+
+                topPartLeft = startLeft
+                topPartTop = startTop
+                topPartRight = lastCellRight
+                topPartBottom = startBottom
+
+                bottomPartLeft = firstCellLeft
+                bottomPartTop = endTop
+                bottomPartRight = endRight
+                bottomPartBottom = endBottom
+
+                centerPartLeft = firstCellLeft
+                centerPartTop = startBottom
+                centerPartRight = lastCellRight
+                centerPartBottom = endTop
+            } else {
+                topPartLeft = startLeft - firstCellLeft
+                topPartTop = 0f
+                topPartRight = rowWidth
+                topPartBottom = cellHeight
+
+                bottomPartLeft = 0f
+                bottomPartTop = endTop - startTop
+                bottomPartRight = endRight - firstCellLeft
+                bottomPartBottom = bottomPartTop + cellHeight
+
+                centerPartLeft = 0f
+                centerPartTop = cellHeight
+                centerPartRight = rowWidth
+                centerPartBottom = bottomPartTop
             }
 
-            Radii.withRadius(rr) {
-                rightBottom()
-                leftBottom()
-                rightTop(condition = endGridX != 6)
-                leftTop(condition = gridYDiff == 1 && startGridX != 0)
+            if (ignoreRoundRadii) {
+                path.addRect(topPartLeft, topPartTop, topPartRight, topPartBottom, Path.Direction.CW)
+                path.addRect(bottomPartLeft, bottomPartTop, bottomPartRight, bottomPartBottom, Path.Direction.CW)
 
-                if (origin == ORIGIN_LOCAL) {
-                    path.addRoundRectCompat(
-                        left = firstCellLeft, top = endTop,
-                        right = endRight, bottom = endBottom,
-                        radii()
-                    )
-                } else {
-                    val partTop = endTop - startTop
-
-                    path.addRoundRectCompat(
-                        left = 0f, top = partTop,
-                        right = endRight - firstCellLeft, bottom = partTop + cellHeight,
-                        radii()
-                    )
+                if (gridYDiff > 1) {
+                    path.addRect(centerPartLeft, centerPartTop, centerPartRight, centerPartBottom, Path.Direction.CW)
                 }
-            }
-
-            if (gridYDiff > 1) {
+            } else {
                 Radii.withRadius(rr) {
-                    leftTop(condition = startGridX != 0)
-                    rightBottom(condition = endGridX != 6)
+                    leftTop()
+                    rightTop()
+                    leftBottom(condition = startGridX != 0)
+                    rightBottom(condition = gridYDiff == 1 && endGridX != 6)
 
-                    if (origin == ORIGIN_LOCAL) {
-                        path.addRoundRectCompat(
-                            left = firstCellLeft, top = startBottom,
-                            right = lastCellRight, bottom = endTop,
-                            radii()
-                        )
-                    } else {
-                        path.addRoundRectCompat(
-                            left = 0f, top = cellHeight,
-                            right = rowWidth, bottom = endTop - startTop,
-                            radii()
-                        )
+                    path.addRoundRectCompat(topPartLeft, topPartTop, topPartRight, topPartBottom, radii())
+                }
+
+                Radii.withRadius(rr) {
+                    rightBottom()
+                    leftBottom()
+                    rightTop(condition = endGridX != 6)
+                    leftTop(condition = gridYDiff == 1 && startGridX != 0)
+
+                    path.addRoundRectCompat(bottomPartLeft, bottomPartTop, bottomPartRight, bottomPartBottom, radii())
+                }
+
+                if (gridYDiff > 1) {
+                    Radii.withRadius(rr) {
+                        leftTop(condition = startGridX != 0)
+                        rightBottom(condition = endGridX != 6)
+
+                        path.addRoundRectCompat(centerPartLeft, centerPartTop, centerPartRight, centerPartBottom, radii())
                     }
                 }
             }
@@ -141,10 +163,27 @@ internal class SelectionShape {
             if (forcePath) {
                 val path = getEmptyPath()
 
+                val left: Float
+                val top: Float
+                val right: Float
+                val bottom: Float
+
                 if (origin == ORIGIN_LOCAL) {
-                    path.addRoundRect(bounds, rr, rr, Path.Direction.CW)
+                    left = startLeft
+                    top = startTop
+                    right = endRight
+                    bottom = endBottom
                 } else {
-                    path.addRoundRectCompat(0f, 0f, endRight - startLeft, cellHeight, rr)
+                    left = 0f
+                    top = 0f
+                    right = endRight - startLeft
+                    bottom = cellHeight
+                }
+
+                if (ignoreRoundRadii) {
+                    path.addRect(left, top, right, bottom, Path.Direction.CW)
+                } else {
+                    path.addRoundRectCompat(left, top, right, bottom, rr)
                 }
             }
         }
@@ -183,5 +222,8 @@ internal class SelectionShape {
     companion object {
         const val ORIGIN_LOCAL = 0
         const val ORIGIN_BOUNDS = 1
+
+        const val FLAG_FORCE_PATH = 1
+        const val FLAG_IGNORE_ROUND_RADII = 1 shl 1
     }
 }

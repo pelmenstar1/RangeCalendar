@@ -54,7 +54,7 @@ internal class RangeCalendarStyleData {
     }
 
     companion object {
-        const val INT_PROPS_COUNT = 21
+        const val INT_PROPS_COUNT = 22
         const val OBJECT_PROPS_COUNT = 10
 
         const val OBJECT_PROP_START = 32
@@ -81,6 +81,7 @@ internal class RangeCalendarStyleData {
         const val SHOW_ADJACENT_MONTHS = 18
         const val IS_SELECTION_ANIMATED_BY_DEFAULT = 19
         const val IS_HOVER_ANIMATION_ENABLED = 20
+        const val OUT_MONTH_SELECTION_ALPHA = 21
 
         // These are properties that can be stored as an object
         const val COMMON_ANIMATION_INTERPOLATOR = 32
@@ -128,7 +129,8 @@ internal class RangeCalendarStyleData {
             WEEKDAYS -> "WEEKDAYS"
             GESTURE_DETECTOR_FACTORY -> "GESTURE_DETECTOR_FACTORY"
             GESTURE_CONFIGURATION -> "GESTURE_CONFIGURATION"
-            else -> throw IllegalArgumentException("propIndex")
+            OUT_MONTH_SELECTION_ALPHA -> "OUT_MONTH_SELECTION_ALPHA"
+            else -> "<UNKNOWN>"
         }
 
         fun default(cr: CalendarResources): RangeCalendarStyleData {
@@ -183,6 +185,8 @@ internal class RangeCalendarStyleData {
 
                 set(GESTURE_DETECTOR_FACTORY, RangeCalendarGestureDetectorImpl.Factory)
                 set(GESTURE_CONFIGURATION, RangeCalendarGestureConfiguration.default())
+
+                set(OUT_MONTH_SELECTION_ALPHA, 1f)
             }
         }
     }

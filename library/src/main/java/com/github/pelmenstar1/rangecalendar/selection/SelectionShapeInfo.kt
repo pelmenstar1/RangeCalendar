@@ -4,17 +4,19 @@ import android.graphics.RectF
 
 internal data class SelectionShapeInfo(
     var range: CellRange,
-    @JvmField var startLeft: Float,
-    @JvmField var startTop: Float,
-    @JvmField var endRight: Float,
-    @JvmField var endTop: Float,
-    @JvmField var firstCellOnRowLeft: Float,
-    @JvmField var lastCellOnRowRight: Float,
-    @JvmField var cellWidth: Float,
-    @JvmField var cellHeight: Float,
-    @JvmField var roundRadius: Float,
+    var startLeft: Float,
+    var startTop: Float,
+    var endRight: Float,
+    var endTop: Float,
+    var firstCellOnRowLeft: Float,
+    var lastCellOnRowRight: Float,
+    var cellWidth: Float,
+    var cellHeight: Float,
+    var roundRadius: Float,
+    var useInMonthShape: Boolean,
+    var inMonthShapeInfo: SelectionShapeInfo?
 ) {
-    constructor() : this(CellRange.Invalid, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+    constructor() : this(CellRange.Invalid, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, false,null)
 
     fun set(other: SelectionShapeInfo) {
         range = other.range
@@ -27,6 +29,8 @@ internal data class SelectionShapeInfo(
         cellWidth = other.cellWidth
         cellHeight = other.cellHeight
         roundRadius = other.roundRadius
+        useInMonthShape = other.useInMonthShape
+        inMonthShapeInfo = other.inMonthShapeInfo
     }
 
     fun overlaysRect(bounds: RectF): Boolean {

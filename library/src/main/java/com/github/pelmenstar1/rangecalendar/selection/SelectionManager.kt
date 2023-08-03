@@ -1,5 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
+import com.github.pelmenstar1.rangecalendar.CalendarGridInfo
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 
 /**
@@ -31,12 +32,17 @@ interface SelectionManager {
      * @param rangeEnd index of an end of the range, **inclusive**
      * @param measureManager [CellMeasureManager] instance that provides a way to get information about measurements
      */
-    fun createState(rangeStart: Int, rangeEnd: Int, measureManager: CellMeasureManager): SelectionState
+    fun createState(
+        rangeStart: Int,
+        rangeEnd: Int,
+        measureManager: CellMeasureManager,
+        gridInfo: CalendarGridInfo
+    ): SelectionState
 
     /**
      * Updates given [state] due to the configuration change (some measurements may be changed)
      */
-    fun updateConfiguration(state: SelectionState, measureManager: CellMeasureManager)
+    fun updateConfiguration(state: SelectionState, measureManager: CellMeasureManager, gridInfo: CalendarGridInfo)
 
     /**
      * Creates a transitive state between [previousState] and [currentState].
@@ -70,7 +76,8 @@ interface SelectionManager {
 
 internal fun SelectionManager.createState(
     range: CellRange,
-    measureManager: CellMeasureManager
+    measureManager: CellMeasureManager,
+    gridInfo: CalendarGridInfo
 ): SelectionState {
-    return createState(range.start.index, range.end.index, measureManager)
+    return createState(range.start.index, range.end.index, measureManager, gridInfo)
 }
