@@ -11,6 +11,10 @@ android {
     defaultConfig {
         minSdk = 16
 
+        // Tests don't run when targetSdk is not set.
+        @Suppress("DEPRECATION")
+        targetSdk = 33
+
         multiDexEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
