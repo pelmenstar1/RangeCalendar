@@ -6,7 +6,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import com.github.pelmenstar1.rangecalendar.utils.Radii
 import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
-import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
+import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 internal class SelectionShape {
     private var _path: Path? = null
@@ -17,6 +17,10 @@ internal class SelectionShape {
     private var origin = -1
 
     val bounds = RectF()
+
+    private val topRect = RectF()
+
+    private var _bottomRect: RectF? = null
 
     private fun getEmptyPath(): Path {
         var p = _path
@@ -31,27 +35,90 @@ internal class SelectionShape {
         return p
     }
 
-    fun update(newPathInfo: SelectionShapeInfo, newOrigin: Int, flags: Int) {
+    private fun getOrInitBottomRect(): RectF =
+        getLazyValue(_bottomRect, ::RectF) { _bottomRect = it }
+
+    fun update(newShapeInfo: SelectionShapeInfo, newOrigin: Int, flags: Int) {
         val forcePath = (flags and FLAG_FORCE_PATH) != 0
         val ignoreRoundRadii = (flags and FLAG_IGNORE_ROUND_RADII) != 0
 
         // If path is not created and the caller wants it to be created, do not early exit
-        if (shapeInfo == newPathInfo && origin == newOrigin && !(_path == null && forcePath)) {
+        if (shapeInfo == newShapeInfo && origin == newOrigin && !(_path == null && forcePath)) {
             return
         }
 
-        shapeInfo.set(newPathInfo)
+        shapeInfo.set(newShapeInfo)
         origin = newOrigin
 
         val (start, end) = shapeInfo.range
-        val startLeft = shapeInfo.startLeft
-        val startTop = shapeInfo.startTop
-
-        val endRight = shapeInfo.endRight
-        val endTop = shapeInfo.endTop
-
-        val cellHeight = shapeInfo.cellHeight
         val rr = shapeInfo.roundRadius
+
+        val gridYDiff = end.gridY - start.gridY
+
+        updateRects(newShapeInfo, origin)
+
+        if (ignoreRoundRadii || rr == 0f) {
+            buildPathIgnoreRoundRadii()
+            return
+        }
+
+        // If start and end are on the same row, we can draw the shape even without using Path.
+        if (gridYDiff > 0) {
+            val path = getEmptyPath()
+
+            val startGridX = start.gridX
+            val endGridX = end.gridX
+
+            val bottomRect = _bottomRect!!
+
+            Radii.withRadius(rr) {
+                leftTop()
+                rightTop()
+                leftBottom(condition = startGridX != 0)
+                rightBottom(condition = gridYDiff == 1 && endGridX != 6)
+
+                path.addRoundRect(topRect, radii(), Path.Direction.CW)
+            }
+
+            Radii.withRadius(rr) {
+                rightBottom()
+                leftBottom()
+                rightTop(condition = endGridX != 6)
+                leftTop(condition = gridYDiff == 1 && startGridX != 0)
+
+                path.addRoundRect(bottomRect, radii(), Path.Direction.CW)
+            }
+
+            if (gridYDiff > 1) {
+                Radii.withRadius(rr) {
+                    leftTop(condition = startGridX != 0)
+                    rightBottom(condition = endGridX != 6)
+
+                    path.addRoundRectCompat(
+                        bottomRect.left,
+                        topRect.bottom,
+                        topRect.right,
+                        bottomRect.top,
+                        radii()
+                    )
+                }
+            }
+        } else {
+            if (forcePath) {
+                getEmptyPath().addRoundRect(topRect, rr, rr, Path.Direction.CW)
+            }
+        }
+    }
+
+    private fun updateRects(info: SelectionShapeInfo, origin: Int) {
+        val (start, end) = info.range
+        val startLeft = info.startLeft
+        val startTop = info.startTop
+
+        val endRight = info.endRight
+        val endTop = info.endTop
+
+        val cellHeight = info.cellHeight
 
         val endBottom = endTop + cellHeight
 
@@ -59,131 +126,76 @@ internal class SelectionShape {
 
         // If start and end are on the same row, we can draw the shape even without using Path.
         if (gridYDiff > 0) {
-            val path = getEmptyPath()
-
-            val firstCellLeft = shapeInfo.firstCellOnRowLeft
-            val lastCellRight = shapeInfo.lastCellOnRowRight
+            val firstCellLeft = info.firstCellOnRowLeft
+            val lastCellRight = info.lastCellOnRowRight
 
             // If there are more than 1 row, then the shape will always occupy space between first and last cells on a row.
             bounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
 
-            val rowWidth = lastCellRight - firstCellLeft
-
-            val startGridX = start.gridX
-            val endGridX = end.gridX
-
-            val topPartLeft: Float
-            val topPartTop: Float
-            val topPartRight: Float
-            val topPartBottom: Float
-
-            val bottomPartLeft: Float
-            val bottomPartTop: Float
-            val bottomPartRight: Float
-            val bottomPartBottom: Float
-
-            val centerPartLeft: Float
-            val centerPartTop: Float
-            val centerPartRight: Float
-            val centerPartBottom: Float
+            val bottomRect = getOrInitBottomRect()
 
             if (origin == ORIGIN_LOCAL) {
                 val startBottom = startTop + cellHeight
 
-                topPartLeft = startLeft
-                topPartTop = startTop
-                topPartRight = lastCellRight
-                topPartBottom = startBottom
-
-                bottomPartLeft = firstCellLeft
-                bottomPartTop = endTop
-                bottomPartRight = endRight
-                bottomPartBottom = endBottom
-
-                centerPartLeft = firstCellLeft
-                centerPartTop = startBottom
-                centerPartRight = lastCellRight
-                centerPartBottom = endTop
+                topRect.set(startLeft, startTop, lastCellRight, startBottom)
+                bottomRect.set(firstCellLeft, endTop, endRight, endBottom)
             } else {
-                topPartLeft = startLeft - firstCellLeft
-                topPartTop = 0f
-                topPartRight = rowWidth
-                topPartBottom = cellHeight
+                val rowWidth = lastCellRight - firstCellLeft
+                val bottomPartTop = endTop - startTop
 
-                bottomPartLeft = 0f
-                bottomPartTop = endTop - startTop
-                bottomPartRight = endRight - firstCellLeft
-                bottomPartBottom = bottomPartTop + cellHeight
-
-                centerPartLeft = 0f
-                centerPartTop = cellHeight
-                centerPartRight = rowWidth
-                centerPartBottom = bottomPartTop
-            }
-
-            if (ignoreRoundRadii) {
-                path.addRect(topPartLeft, topPartTop, topPartRight, topPartBottom, Path.Direction.CW)
-                path.addRect(bottomPartLeft, bottomPartTop, bottomPartRight, bottomPartBottom, Path.Direction.CW)
-
-                if (gridYDiff > 1) {
-                    path.addRect(centerPartLeft, centerPartTop, centerPartRight, centerPartBottom, Path.Direction.CW)
-                }
-            } else {
-                Radii.withRadius(rr) {
-                    leftTop()
-                    rightTop()
-                    leftBottom(condition = startGridX != 0)
-                    rightBottom(condition = gridYDiff == 1 && endGridX != 6)
-
-                    path.addRoundRectCompat(topPartLeft, topPartTop, topPartRight, topPartBottom, radii())
-                }
-
-                Radii.withRadius(rr) {
-                    rightBottom()
-                    leftBottom()
-                    rightTop(condition = endGridX != 6)
-                    leftTop(condition = gridYDiff == 1 && startGridX != 0)
-
-                    path.addRoundRectCompat(bottomPartLeft, bottomPartTop, bottomPartRight, bottomPartBottom, radii())
-                }
-
-                if (gridYDiff > 1) {
-                    Radii.withRadius(rr) {
-                        leftTop(condition = startGridX != 0)
-                        rightBottom(condition = endGridX != 6)
-
-                        path.addRoundRectCompat(centerPartLeft, centerPartTop, centerPartRight, centerPartBottom, radii())
-                    }
-                }
+                topRect.set(startLeft - firstCellLeft, 0f, rowWidth, cellHeight)
+                bottomRect.set(0f, bottomPartTop, endRight - firstCellLeft, bottomPartTop + cellHeight)
             }
         } else {
-            // If start and end cells are on the same row, endBottom is startTop + cellHeight.
             bounds.set(startLeft, startTop, endRight, endBottom)
 
-            if (forcePath) {
-                val path = getEmptyPath()
+            if (origin == ORIGIN_LOCAL) {
+                topRect.set(bounds)
+            } else {
+                topRect.set(0f, 0f, endRight - startLeft, cellHeight)
+            }
+        }
+    }
 
-                val left: Float
-                val top: Float
-                val right: Float
-                val bottom: Float
+    private fun buildPathIgnoreRoundRadii() {
+        val (start, end) = shapeInfo.range
+        val gridYDiff = end.gridY - start.gridY
 
-                if (origin == ORIGIN_LOCAL) {
-                    left = startLeft
-                    top = startTop
-                    right = endRight
-                    bottom = endBottom
+        val path = getEmptyPath()
+
+        path.apply {
+            if (gridYDiff == 0) {
+                addRect(topRect, Path.Direction.CW)
+            } else {
+                val bottomRect = _bottomRect!!
+
+                if (gridYDiff == 1 && topRect.left >= bottomRect.right) {
+                    // 5 for each rect = 10
+                    incReserve(10)
+
+                    addRect(topRect, Path.Direction.CW)
+                    addRect(bottomRect, Path.Direction.CW)
                 } else {
-                    left = 0f
-                    top = 0f
-                    right = endRight - startLeft
-                    bottom = cellHeight
-                }
+                    // 1 moveTo + 3 lineTo + 1 close + 4 lineTo (in special cases)
+                    incReserve(9)
 
-                if (ignoreRoundRadii) {
-                    path.addRect(left, top, right, bottom, Path.Direction.CW)
-                } else {
-                    path.addRoundRectCompat(left, top, right, bottom, rr)
+                    moveTo(topRect.left, topRect.top)
+                    lineTo(topRect.right, topRect.top)
+
+                    if (bottomRect.right != topRect.right) {
+                        lineTo(topRect.right, bottomRect.top)
+                        lineTo(bottomRect.right, bottomRect.top)
+                    }
+
+                    lineTo(bottomRect.right, bottomRect.bottom)
+                    lineTo(bottomRect.left, bottomRect.bottom)
+
+                    if (bottomRect.left != topRect.left) {
+                        lineTo(bottomRect.left, topRect.bottom)
+                        lineTo(topRect.left, topRect.bottom)
+                    }
+
+                    close()
                 }
             }
         }
@@ -200,19 +212,7 @@ internal class SelectionShape {
         if (startCell.sameY(endCell)) {
             val rr = shapeInfo.roundRadius
 
-            if (origin == ORIGIN_LOCAL) {
-                // Draw in local coordinates.
-                canvas.drawRoundRect(bounds, rr, rr, paint)
-            } else {
-                // Draw in 'bounds' coordinates -- the caller should translate the canvas to (bounds.left, bounds.top) point before
-                // calling this method. Width and height of the shape remain the same.
-                val width = bounds.width()
-
-                // As the shape is on a single row, height is always the height of a cell.
-                val height = shapeInfo.cellHeight
-
-                canvas.drawRoundRectCompat(0f, 0f, width, height, rr, paint)
-            }
+            canvas.drawRoundRect(topRect, rr, rr, paint)
         } else {
             // _path should not be null if updateShape() has been called.
             canvas.drawPath(_path!!, paint)
