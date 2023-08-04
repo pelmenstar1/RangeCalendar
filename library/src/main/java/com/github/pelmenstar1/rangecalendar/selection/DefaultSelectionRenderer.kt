@@ -3,6 +3,7 @@ package com.github.pelmenstar1.rangecalendar.selection
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
@@ -224,22 +225,13 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                     // for drawable fills
                     canvas.clipPath(it)
                 }
+            }
 
-                drawable.alpha = alpha.toIntAlpha()
-                drawable.draw(canvas)
-            } else {
-                if (inMonthShape == null) {
-                    drawRoundRectWithFill(canvas, shapeBounds, rr, alpha, fillState)
+            drawObjectInMonthAware(canvas, inMonthShape, alpha, outMonthAlpha) { a ->
+                if (drawable != null) {
+                    drawDrawableWithAlpha(canvas, drawable, a)
                 } else {
-                    val inMonthPath = inMonthShape.path!!
-
-                    canvas.withClip(inMonthPath) {
-                        drawRoundRectWithFill(canvas, shapeBounds, rr, alpha, fillState)
-                    }
-
-                    canvas.withOutClip(inMonthPath) {
-                        drawRoundRectWithFill(canvas, shapeBounds, rr, outMonthAlpha * alpha, fillState)
-                    }
+                    drawRoundRectWithFill(canvas, shapeBounds, rr, a, fillState)
                 }
             }
         } finally {
@@ -321,27 +313,40 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 // As isDrawableFill is true, it means that SelectionShape.update() was called with forcePath=true,
                 // that makes the logic to create a path.
                 canvas.clipPath(shape.path!!)
+            }
 
-                drawable.alpha = alpha.toIntAlpha()
-                drawable.draw(canvas)
-            } else {
-                if (inMonthShape == null) {
-                    drawShapeWithFill(canvas, translatedBounds, shape, fillState, alpha)
+            drawObjectInMonthAware(canvas, inMonthShape, alpha, outMonthAlpha) { a ->
+                if (drawable != null) {
+                    drawDrawableWithAlpha(canvas, drawable, a)
                 } else {
-                    val inMonthPath = inMonthShape.path!!
-
-                    canvas.withClip(inMonthPath) {
-                        drawShapeWithFill(canvas, translatedBounds, shape, fillState, alpha)
-                    }
-
-                    canvas.withOutClip(inMonthPath) {
-                        drawShapeWithFill(canvas, translatedBounds, shape, fillState, outMonthAlpha * alpha)
-                    }
+                    drawShapeWithFill(canvas, translatedBounds, shape, fillState, a)
                 }
             }
         } finally {
             if (count >= 0) {
                 canvas.restoreToCount(count)
+            }
+        }
+    }
+
+    private inline fun drawObjectInMonthAware(
+        canvas: Canvas,
+        inMonthShape: SelectionShape?,
+        alpha: Float,
+        outMonthAlpha: Float,
+        drawObject: Canvas.(alpha: Float) -> Unit
+    ) {
+        if (inMonthShape == null) {
+            canvas.drawObject(alpha)
+        } else {
+            val inMonthPath = inMonthShape.path!!
+
+            canvas.withClip(inMonthPath) {
+                drawObject(alpha)
+            }
+
+            canvas.withOutClip(inMonthPath) {
+                drawObject(outMonthAlpha * alpha)
             }
         }
     }
@@ -364,6 +369,11 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         fillState: Fill.State
     ) {
         fillState.drawWith(canvas, bounds, paint, alpha) { drawRoundRect(bounds, rr, rr, paint) }
+    }
+
+    private fun drawDrawableWithAlpha(canvas: Canvas, drawable: Drawable, alpha: Float) {
+        drawable.alpha = alpha.toIntAlpha()
+        drawable.draw(canvas)
     }
 
     private fun useTranslationToBounds(fill: Fill, boundsType: SelectionFillGradientBoundsType): Boolean {
