@@ -30,7 +30,7 @@ internal fun Canvas.clipOutPathCompat(path: Path) {
     clipPath(path, Region.Op.DIFFERENCE)
 }
 
-internal inline fun Canvas.withOutClip(path: Path, block: Canvas.() -> Unit) {
+internal inline fun Canvas.withClipOut(path: Path, block: Canvas.() -> Unit) {
     withSave {
         clipOutPathCompat(path)
         block()

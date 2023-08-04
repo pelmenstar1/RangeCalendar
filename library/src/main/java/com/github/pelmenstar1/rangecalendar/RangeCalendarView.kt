@@ -1131,6 +1131,8 @@ class RangeCalendarView @JvmOverloads constructor(
      *
      * This can be used to accent the selection or its part is not for the current month but for the adjacent one.
      * The default value is `1`, which means selection on all grid is rendered with the same alpha.
+     *
+     * **Drawable fills is currently not supported**
      */
     var outMonthSelectionAlpha: Float
         get() = adapter.getStyleFloat { OUT_MONTH_SELECTION_ALPHA }

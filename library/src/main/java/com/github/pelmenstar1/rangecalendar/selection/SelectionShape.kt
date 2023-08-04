@@ -18,7 +18,7 @@ internal class SelectionShape {
 
     val bounds = RectF()
 
-    private val topRect = RectF()
+    val topRect = RectF()
 
     private var _bottomRect: RectF? = null
 

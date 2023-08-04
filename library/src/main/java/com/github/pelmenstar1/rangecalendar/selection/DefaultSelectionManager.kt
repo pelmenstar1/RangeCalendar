@@ -69,8 +69,6 @@ internal class DefaultSelectionManager : SelectionManager {
 
         endRight += cellWidth
 
-        val range = CellRange(rangeStart, rangeEnd)
-
         outShapeInfo.range = CellRange(rangeStart, rangeEnd)
         outShapeInfo.startLeft = startLeft
         outShapeInfo.startTop = startTop
@@ -93,7 +91,6 @@ internal class DefaultSelectionManager : SelectionManager {
         if (inMonthRange.completelyContains(shapeInfo.range)) {
             shapeInfo.useInMonthShape = false
         } else {
-
             var inMonthShapeInfo = shapeInfo.inMonthShapeInfo
 
             if (inMonthShapeInfo == null) {
