@@ -91,8 +91,15 @@ internal class YearMonthGridInfo {
     }
 
     fun getCellRangeByDateRange(dateRange: PackedDateRange): CellRange {
-        val startCell = getCellByDate(dateRange.start).orIfUndefined(Cell.Min)
-        val endCell = getCellByDate(dateRange.end).orIfUndefined(Cell.Max)
+        var startCell = getCellByDate(dateRange.start)
+        var endCell = getCellByDate(dateRange.end)
+
+        if (startCell.isUndefined && endCell.isUndefined) {
+            return CellRange.Invalid
+        }
+
+        startCell = startCell.orIfUndefined(Cell.Min)
+        endCell = endCell.orIfUndefined(Cell.Max)
 
         return CellRange(startCell, endCell)
     }

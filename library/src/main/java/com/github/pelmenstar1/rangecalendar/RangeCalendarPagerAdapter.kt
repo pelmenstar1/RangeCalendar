@@ -25,7 +25,7 @@ internal class RangeCalendarPagerAdapter(
         // Mainly for tests
         override fun toString(): String = buildString {
             append("Payload(type=")
-            when(type) {
+            when (type) {
                 UPDATE_ENABLED_RANGE -> append("UPDATE_ENABLED_RANGE")
                 SELECT -> {
                     append("SELECT, range=")
@@ -35,29 +35,34 @@ internal class RangeCalendarPagerAdapter(
                     append(", withAnimation=")
                     append(arg3 == 1L)
                 }
+
                 UPDATE_TODAY_INDEX -> append("UPDATE_TODAY_INDEX")
                 ON_STYLE_PROP_CHANGED -> {
                     append("ON_STYLE_PROP_CHANGED, styleIndex=")
                     append(RangeCalendarStyleData.propertyToString(arg1.toInt()))
                 }
+
                 ON_CELL_SIZE_CHANGED -> append("ON_CELL_SIZE_CHANGED")
                 CLEAR_HOVER -> append("CLEAR_HOVER")
                 CLEAR_SELECTION -> {
                     append("CLEAR_SELECTION, withAnimation=")
                     append(arg1 == 1L)
                 }
+
                 ON_DECOR_ADDED -> {
                     append("ON_DECOR_ADDED, newDecorRange=")
                     append(PackedIntRange(arg1).toString())
                     append(", affectedRange=")
                     append(PackedIntRange(arg2).toString())
                 }
+
                 ON_DECOR_REMOVED -> {
                     append("ON_DECOR_REMOVED, newDecorRange=")
                     append(PackedIntRange(arg1).toString())
                     append(", affectedRange=")
                     append(PackedIntRange(arg2).toString())
                 }
+
                 SET_DECOR_LAYOUT_OPTIONS -> {
                     append("SET_DECOR_LAYOUT_OPTIONS, cell=")
                     append(Cell(arg1.toInt()).toString())
@@ -66,6 +71,7 @@ internal class RangeCalendarPagerAdapter(
                     append(", options=")
                     append(obj1 as DecorLayoutOptions)
                 }
+
                 ON_FIRST_DAY_OF_WEEK_CHANGED -> append("ON_FIRST_DAY_OF_WEEK_CHANGED")
                 else -> append("UNKNOWN")
             }
@@ -110,13 +116,23 @@ internal class RangeCalendarPagerAdapter(
             fun select(
                 range: CellRange,
                 requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-                withAnimation: Boolean
+                withAnimation: Boolean,
+                checkGate: Boolean = true
             ): Payload {
+                var flags = 0
+                if (withAnimation) {
+                    flags = flags or SELECT_FLAG_WITH_ANIMATION
+                }
+
+                if (checkGate) {
+                    flags or SELECT_FLAG_CHECK_GATE
+                }
+
                 return Payload(
                     type = SELECT,
                     arg1 = range.bits.toLong(),
                     arg2 = requestRejectedBehaviour.ordinal.toLong(),
-                    arg3 = if (withAnimation) 1 else 0
+                    arg3 = flags.toLong()
                 )
             }
 
@@ -386,7 +402,7 @@ internal class RangeCalendarPagerAdapter(
     fun setFirstDayOfWeek(firstDayOfWeek: CompatDayOfWeek) {
         if (this.firstDayOfWeek != firstDayOfWeek) {
             this.firstDayOfWeek = firstDayOfWeek
-            
+
             clearSelection(fireEvent = true, withAnimation = false)
 
             notifyAllPages(Payload.onFirstDayOfWeekChanged())
@@ -434,6 +450,8 @@ internal class RangeCalendarPagerAdapter(
                 selectedRange = PackedDateRange.Invalid
 
                 onSelectionListener?.onSelectionCleared()
+
+                clearSelectionExcept(ym, ym)
             }
 
             override fun onSelection(range: CellRange) {
@@ -451,7 +469,39 @@ internal class RangeCalendarPagerAdapter(
                         endDate.year, endDate.month, endDate.dayOfMonth
                     )
                 }
+
+                trySelectOnAdjacentPages(ym, dateRange)
             }
+        }
+    }
+
+    // Assumes that both start and end dates of dateRange conforms the statement:
+    // date.month ∈ [anchorYm-1; anchorYm+1]
+    private fun trySelectOnAdjacentPages(anchorYm: YearMonth, dateRange: PackedDateRange) {
+        val prevPageYm = anchorYm - 1
+        if (prevPageYm >= minDate.yearMonth) {
+            trySelectRangeOnPage(prevPageYm, dateRange)
+        }
+
+        val nextPageYm = anchorYm + 1
+        if (nextPageYm <= maxDate.yearMonth) {
+            trySelectRangeOnPage(nextPageYm, dateRange)
+        }
+    }
+
+    private fun trySelectRangeOnPage(pageYm: YearMonth, dateRange: PackedDateRange) {
+        updateGridInfo(pageYm)
+
+        val possibleCellRange = gridInfo.getCellRangeByDateRange(dateRange)
+        if (possibleCellRange.isValid) {
+            val payload = Payload.select(
+                possibleCellRange,
+                requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                withAnimation = false,
+                checkGate = false
+            )
+
+            notifyPageChanged(pageYm, payload)
         }
     }
 
@@ -483,16 +533,31 @@ internal class RangeCalendarPagerAdapter(
         val selRange = selectedRange
 
         if (selRange.isValid) {
-            val otherRange = YearMonthRange(startYm, endYm)
             val selYmRange = selRange.toYearMonthRange()
+            val (selStartYm, selEndYm) = selYmRange
 
-            val intersection = selYmRange.intersectionWith(otherRange)
+            if (selStartYm == startYm && selEndYm == endYm) {
+                return
+            }
 
-            if (intersection.isValid) {
-                val payload = Payload.clearSelection(withAnimation = false)
+            val otherRange = YearMonthRange(startYm, endYm)
 
-                notifyPageRangeChanged(selYmRange.start, intersection.start - 1, payload)
-                notifyPageRangeChanged(intersection.end + 1, selYmRange.end, payload)
+            val payload = Payload.clearSelection(withAnimation = false)
+
+            if (selYmRange.hasIntersectionWith(otherRange)) {
+                notifyPageRangeChanged(
+                    min(selStartYm, startYm),
+                    max(selStartYm, startYm) - 1,
+                    payload
+                )
+
+                notifyPageRangeChanged(
+                    min(selEndYm, endYm) + 1,
+                    max(selEndYm, endYm),
+                    payload
+                )
+            } else {
+                notifyPageRangeChanged(selYmRange.start, selYmRange.end, payload)
             }
         }
     }
@@ -539,7 +604,7 @@ internal class RangeCalendarPagerAdapter(
                 // Notify the page about selection.
                 notifyPageChanged(
                     ym,
-                    Payload.select(cellRange, requestRejectedBehaviour, withAnimation)
+                    Payload.select(cellRange, requestRejectedBehaviour, withAnimation, checkGate = false)
                 )
             }
 
@@ -865,18 +930,18 @@ internal class RangeCalendarPagerAdapter(
 
         gridView.onAllStylePropertiesPossiblyChanged()
 
-        val (selStart, selEnd) = selectedRange
+        val possibleCellRange = gridInfo.getCellRangeByDateRange(selectedRange)
 
-        if (gridInfo.contains(selStart) || gridInfo.contains(selEnd)) {
-            val cellRange = gridInfo.getCellRangeByDateRange(selectedRange)
-
+        if (possibleCellRange.isValid) {
             // Animation should be seen because animation should be started when selection *changed*,
-            // but in this case, it's actually *restored*
+            // but in this case, it's actually *restored*. We also don't check if gate accepts given
+            // range because this check should be performed before.
             gridView.select(
-                cellRange,
+                possibleCellRange,
                 SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                 withAnimation = false,
-                fireEvent = false
+                fireEvent = false,
+                checkGate = false
             )
         } else {
             gridView.clearSelection(fireEvent = false, withAnimation = false)
@@ -903,9 +968,12 @@ internal class RangeCalendarPagerAdapter(
                     val requestRejectedBehaviour =
                         SelectionRequestRejectedBehaviour.fromOrdinal(payload.arg2.toInt())
 
-                    val withAnimation = payload.arg3 == 1L
+                    val flags = payload.arg3.toInt()
 
-                    gridView.select(range, requestRejectedBehaviour, withAnimation, fireEvent = false)
+                    val withAnimation = (flags and SELECT_FLAG_WITH_ANIMATION) != 0
+                    val checkGate = (flags and SELECT_FLAG_CHECK_GATE) != 0
+
+                    gridView.select(range, requestRejectedBehaviour, withAnimation, fireEvent = false, checkGate)
                 }
 
                 Payload.UPDATE_TODAY_INDEX -> {
@@ -980,5 +1048,8 @@ internal class RangeCalendarPagerAdapter(
     companion object {
         // Precomputed value
         internal const val PAGES_BETWEEN_ABS_MIN_MAX = 786432
+
+        internal const val SELECT_FLAG_WITH_ANIMATION = 1
+        internal const val SELECT_FLAG_CHECK_GATE = 1 shl 1
     }
 }

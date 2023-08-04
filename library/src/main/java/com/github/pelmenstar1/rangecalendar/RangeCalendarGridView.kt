@@ -815,10 +815,18 @@ internal class RangeCalendarGridView(
         range: CellRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean,
-        fireEvent: Boolean
+        fireEvent: Boolean,
+        checkGate: Boolean
     ) {
         // Do not check whether the gate accepts the selection as the RangeCalendarPagerAdapter checked it before.
-        selectRange(range, requestRejectedBehaviour, checkGate = false, gestureType = null, withAnimation)
+        selectRange(
+            range,
+            requestRejectedBehaviour,
+            checkGate,
+            gestureType = null,
+            fireEvent,
+            withAnimation
+        )
     }
 
     private fun selectRange(

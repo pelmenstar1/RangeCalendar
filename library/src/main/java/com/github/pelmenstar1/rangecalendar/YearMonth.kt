@@ -63,6 +63,10 @@ internal value class YearMonthRange(private val bits: Long) {
     operator fun component1() = start
     operator fun component2() = end
 
+    fun hasIntersectionWith(other: YearMonthRange): Boolean {
+        return other.rawStart <= rawEnd && rawStart <= other.rawEnd
+    }
+
     fun intersectionWith(other: YearMonthRange): YearMonthRange {
         val start = rawStart
         val end = rawEnd
@@ -85,6 +89,9 @@ internal value class YearMonthRange(private val bits: Long) {
         val Invalid = YearMonthRange(0x00000000_00000001)
     }
 }
+
+internal fun min(a: YearMonth, b: YearMonth) = YearMonth(min(a.totalMonths, b.totalMonths))
+internal fun max(a: YearMonth, b: YearMonth) = YearMonth(max(a.totalMonths, b.totalMonths))
 
 internal inline fun iterateYearMonth(start: YearMonth, end: YearMonth, block: (YearMonth) -> Unit) {
     for (totalMonths in start.totalMonths..end.totalMonths) {
