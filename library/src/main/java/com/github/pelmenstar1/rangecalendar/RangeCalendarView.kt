@@ -1125,6 +1125,13 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleObject({ SELECTION_FILL }, value)
         }
 
+    /**
+     * Gets or sets an alpha value of selection or its part that is not inside current month's range.
+     * The alpha is a float in range `[0..1]`. To pass integer alpha in range `[0..255]`, divide the value by `255`
+     *
+     * This can be used to accent the selection or its part is not for the current month but for the adjacent one.
+     * The default value is `1`, which means selection on all grid is rendered with the same alpha.
+     */
     var outMonthSelectionAlpha: Float
         get() = adapter.getStyleFloat { OUT_MONTH_SELECTION_ALPHA }
         set(value) {
