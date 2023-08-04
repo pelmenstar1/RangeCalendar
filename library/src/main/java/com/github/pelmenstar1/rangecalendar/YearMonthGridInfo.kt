@@ -86,10 +86,6 @@ internal class YearMonthGridInfo {
         return Cell.Undefined
     }
 
-    fun contains(date: PackedDate): Boolean {
-        return date.isBetween(firstCellInGridDate, lastCellInGridDate)
-    }
-
     fun getCellRangeByDateRange(dateRange: PackedDateRange): CellRange {
         var startCell = getCellByDate(dateRange.start)
         var endCell = getCellByDate(dateRange.end)
