@@ -517,10 +517,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun onWeekdayTypeChanged(_type: WeekdayType) {
-        // There is no narrow weekdays before API < 24, so we need to resolve it
-        val type = _type.resolved()
-
+    private fun onWeekdayTypeChanged(type: WeekdayType) {
         if (weekdayRow.type != type) {
             weekdayRow.type = type
 
@@ -529,14 +526,12 @@ internal class RangeCalendarGridView(
     }
 
     private fun onWeekdayPropertiesChanged(
-        _type: WeekdayType,
+        type: WeekdayType,
         textSize: Float,
         textColor: Int,
         typeface: Typeface?,
         weekdays: Array<out String>?
     ) {
-        val type = _type.resolved()
-
         var isMeasurementsChanged = false
 
         if (weekdayPaint.textSize != textSize) {

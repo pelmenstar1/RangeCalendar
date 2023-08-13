@@ -1,12 +1,10 @@
 package com.github.pelmenstar1.rangecalendar
 
-import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.Locale
 import kotlin.test.assertContentEquals
-import kotlin.test.assertSame
 
 @RunWith(AndroidJUnit4::class)
 class WeekdayDataTests {
@@ -20,14 +18,20 @@ class WeekdayDataTests {
     fun getTest() {
         val data = WeekdayData(Locale.ENGLISH)
 
-        val expectedShortWeekdays = arrayOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        val expectedShortWeekdays = arrayOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+        val expectedNarrowWeekdays = arrayOf("M", "T", "W", "T", "F", "S", "S")
 
         assertContentEquals(expectedShortWeekdays, data.getWeekdays(WeekdayType.SHORT))
+        assertContentEquals(expectedNarrowWeekdays, data.getWeekdays(WeekdayType.NARROW))
+    }
 
-        if (Build.VERSION.SDK_INT >= 24) {
-            val expectedNarrowWeekdays = arrayOf( "M", "T", "W", "T", "F", "S", "S")
+    @Test
+    fun extractNarrowWeekdaysThroughFormatterTest() {
+        val data = WeekdayData(Locale.ENGLISH)
 
-            assertContentEquals(expectedNarrowWeekdays, data.getWeekdays(WeekdayType.NARROW))
-        }
+        val expectedNarrowWeekdays = arrayOf("M", "T", "W", "T", "F", "S", "S")
+        val actualNarrowWeekdays = data.extractNarrowWeekdaysThroughFormatter()
+
+        assertContentEquals(expectedNarrowWeekdays, actualNarrowWeekdays)
     }
 }

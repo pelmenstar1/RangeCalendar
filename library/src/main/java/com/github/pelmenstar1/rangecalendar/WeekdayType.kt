@@ -1,11 +1,9 @@
 package com.github.pelmenstar1.rangecalendar
 
-import android.os.Build
-
 /**
  * Defines all supported formats of weekday. The format is very dependent on locale.
  * For example, English:
- * - [WeekdayType.SHORT] - weekdays look like Mon, Tue, Wed...
+ * - [WeekdayType.SHORT] - weekdays look like Mo, Tu, We...
  * - [WeekdayType.NARROW] - weekdays look like M, T, W...
  */
 enum class WeekdayType {
@@ -13,7 +11,7 @@ enum class WeekdayType {
      * Short-weekday.
      *
      * The format is very dependent on locale.
-     * For example, when locale is English, weekdays look like Mon, Tue, Wed...
+     * For example, when locale is English, weekdays look like Mo, Tu, We...
      */
     SHORT,
 
@@ -22,22 +20,8 @@ enum class WeekdayType {
      *
      * The format is very dependent on locale.
      * For example, when locale is English, weekdays look like M, T, W...
-     *
-     * Although it's supported if API level is 24 and higher, it can be used on lower API levels:
-     * it will be replaced with [SHORT]
      */
     NARROW;
-
-    /**
-     * If API level is lower than 24, returns [SHORT], otherwise it returns this reference.
-     */
-    fun resolved(): WeekdayType {
-        return if (Build.VERSION.SDK_INT < 24) {
-            SHORT
-        } else {
-            this
-        }
-    }
 
     companion object {
         /**

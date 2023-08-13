@@ -1369,13 +1369,7 @@ class RangeCalendarView @JvmOverloads constructor(
     /**
      * Gets or sets weekday type.
      *
-     * If [WeekdayType.SHORT], then weekdays will be: Mo, Tue, Wed, Thu, Fri.
-     * If [WeekdayType.NARROW], then weekdays will be: M, T, W, T, F.
-     * Note:
-     * - Narrow weekdays depend on user locale and are not always one-letter.
-     * - **If API level is less than 24, [WeekdayType.NARROW] won't work.**
-     *
-     * Changing weekday type when custom weekdays array was set (via [weekdays]) won't have any effect, even though when
+     * Changing weekday type when custom weekdays array was set (via [weekdays]) won't have any effect. Though, when
      * `null` value is passed to the setter of [weekdays], the latest value of [weekdayType] will be used.
      */
     var weekdayType: WeekdayType

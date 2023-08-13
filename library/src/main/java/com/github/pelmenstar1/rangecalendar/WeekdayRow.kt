@@ -25,7 +25,7 @@ internal class WeekdayRow(
         }
 
     /**
-     * Gets or sets type of weekdays in the row. In setter the value should be "resolved" (via [WeekdayType.resolved])
+     * Gets or sets type of weekdays in the row.
      */
     var type = WeekdayType.SHORT
         set(value) {

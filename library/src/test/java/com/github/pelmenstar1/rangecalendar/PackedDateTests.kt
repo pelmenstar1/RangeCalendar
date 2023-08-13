@@ -25,6 +25,13 @@ class PackedDateTests {
     }
 
     @Test
+    fun mondayEpochDayTest() {
+        val date = PackedDate.fromEpochDay(PackedDate.MONDAY_EPOCH_DAY)
+
+        assertEquals(CompatDayOfWeek.Monday, date.dayOfWeek)
+    }
+
+    @Test
     fun minMaxEpochDayTest() {
         val expectedMinEpochDay = LocalDate.of(0, 1, 1).toEpochDay()
         val expectedMaxEpochDay = LocalDate.of(65535, 12, 31).toEpochDay()

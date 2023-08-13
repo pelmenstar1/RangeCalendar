@@ -174,6 +174,13 @@ internal value class PackedDate(val bits: Int) {
         const val YEAR_SHIFT = 16
         const val MONTH_SHIFT = 8
 
+        /**
+         * Specifies epoch day of any date whose weekday is Monday
+         */
+        const val MONDAY_EPOCH_DAY = -3L
+
+        const val MONDAY_EPOCH_MILLIS = MONDAY_EPOCH_DAY * MILLIS_IN_DAY
+
         // year: 0 month: 1 dayOfMonth: 1
         val MIN_DATE = PackedDate((0 shl YEAR_SHIFT) or (1 shl MONTH_SHIFT) or 1)
 

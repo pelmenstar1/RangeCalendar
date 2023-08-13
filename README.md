@@ -257,8 +257,8 @@ observer.register() // The observer should be registered manually.
 
 By default, the calendar will use localized weekdays in 'short' format. The format of localized weekdays can be changed via `weekdayType`. Currently there's only two options:
 
-- `WeekdayType.SHORT`. If user locale is English, weekdays will look like: Mon, Tue, Wed, Thu, Fri, Sat, Sun
-- `WeekdayType.NARROW`. If user locale is English, weekdays will look like: M, T, W, T, F, S, S. **This option only works when API level >= 24. If API level is lower, weekdays in 'short' format will be used.**
+- `WeekdayType.SHORT`. If user locale is English, weekdays will look like: Mo, Tu, We, Th, Fr, Sa, Su
+- `WeekdayType.NARROW`. If user locale is English, weekdays will look like: M, T, W, T, F, S, S.
 
 If you want to change weekdays, it can be done via `weekdays`:
 
@@ -332,7 +332,7 @@ You can directly access info textview via `infoTextView` property.
 | rangeCalendar_cellSize                        | Size of cell                                                                                                                                                                                                                                                                                         |
 | rangeCalendar_cellWidth                       | Width of cell. This value takes precedence over rangeCalendar_cellSize                                                                                                                                                                                                                               |
 | rangeCalendar_cellHeight                      | Height of cell. This value takes precedence over rangeCalendar_cellSize                                                                                                                                                                                                                              |
-| rangeCalendar_weekdayType                     | Type of weekday. Format of weekdays depends on locale. In examples, English locale is used. <ul><li>shortName - weekdays will look like Mon, Tue, Wed. </li><li>narrowName - weekdays will look like M, T, W,. </li></ul>                                                                            |
+| rangeCalendar_weekdayType                     | Type of weekday.                                                                                                                                                                                                                                                                                     |
 | rangeCalendar_weekdays                        | Custom weekdays. The value should be a string array, whose length is 7.                                                                                                                                                                                                                              |
 | rangeCalendar_clickOnCellSelectionBehavior    | Specifies behaviour when **user** clicks on already selected cell. It can be one of these values: <ul><li>none - nothing happens</li><li>clear - selection is cleared</li></ul>                                                                                                                      |
 | rangeCalendar_cellRoundRadius                 | Round radius of the cell. By default it's positive infinity which means the shape is circle regardless the size of it.                                                                                                                                                                               |
