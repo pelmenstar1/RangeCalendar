@@ -34,6 +34,10 @@ internal value class YearMonth(val totalMonths: Int) {
         return YearMonth(totalMonths - months)
     }
 
+    override fun toString(): String {
+        return "YearMonth(year=$year, month=$month)"
+    }
+
     companion object {
         fun forDate(date: PackedDate) = YearMonth(date.year, date.month)
     }

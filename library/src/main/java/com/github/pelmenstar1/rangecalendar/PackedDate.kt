@@ -273,6 +273,14 @@ internal value class PackedDate(val bits: Int) {
     }
 }
 
+internal fun min(a: PackedDate, b: PackedDate): PackedDate {
+    return if (a < b) a else b
+}
+
+internal fun max(a: PackedDate, b: PackedDate): PackedDate {
+    return if (a > b) a else b
+}
+
 internal fun PackedDateRange(start: PackedDate, end: PackedDate): PackedDateRange {
     return PackedDateRange(packInts(start.bits, end.bits))
 }
@@ -297,6 +305,17 @@ internal value class PackedDateRange(val bits: Long) {
 
     inline fun iterateYearMonth(block: (ym: YearMonth) -> Unit) {
         iterateYearMonth(start.yearMonth, end.yearMonth, block)
+    }
+
+    fun intersectionWith(otherStart: PackedDate, otherEnd: PackedDate): PackedDateRange {
+        val thisStart = start
+        val thisEnd = end
+
+        if (otherStart > thisEnd || thisStart > otherEnd) {
+            return Invalid
+        }
+
+        return PackedDateRange(max(thisStart, otherStart), min(thisEnd, otherEnd))
     }
 
     override fun toString(): String {
