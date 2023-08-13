@@ -1968,7 +1968,7 @@ class RangeCalendarView @JvmOverloads constructor(
     companion object {
         private val TAG = RangeCalendarView::class.java.simpleName
 
-        private const val DEFAULT_INFO_FORMAT = "MMMM y"
+        private const val DEFAULT_INFO_FORMAT = "LLLL y"
 
         private const val INVALID_DURATION_MSG = "Duration should be non-negative"
 

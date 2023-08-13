@@ -1,13 +1,21 @@
 package com.github.pelmenstar1.rangecalendar
 
+import android.icu.text.DisplayContext
+import android.icu.util.TimeZone
+import android.os.Build
 import java.text.FieldPosition
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 internal class CompatDateFormatter(locale: Locale, pattern: String) {
-    private var dateFormatter: SimpleDateFormat
-    private val tempDate = Date()
+    // If API level >= 24, the type is android.icu.text.SimpleDateFormat
+    // Otherwise, java.text.SimpleDateFormat
+    private var dateFormatter: Any
+
+    // If API level >= 24, the type is
+    // Otherwise, java.util.Date
+    private val tempDateOrCalendar: Any
 
     private val stringBuffer = StringBuffer(32)
 
@@ -15,18 +23,41 @@ internal class CompatDateFormatter(locale: Locale, pattern: String) {
         set(value) {
             field = value
 
-            dateFormatter = SimpleDateFormat(pattern, value)
+            dateFormatter = createFormatter(pattern, value)
         }
 
     var pattern = pattern
         set(value) {
             field = value
 
-            dateFormatter.applyPattern(value)
+            if (Build.VERSION.SDK_INT >= 24) {
+                (dateFormatter as android.icu.text.SimpleDateFormat).applyPattern(value)
+            } else {
+                (dateFormatter as SimpleDateFormat).applyPattern(value)
+            }
         }
 
     init {
-        dateFormatter = SimpleDateFormat(pattern, locale)
+        dateFormatter = createFormatter(pattern, locale)
+
+        tempDateOrCalendar = if (Build.VERSION.SDK_INT >= 24) {
+            android.icu.util.Calendar.getInstance()
+        } else {
+            Date()
+        }
+    }
+
+    private fun createFormatter(pattern: String, locale: Locale): Any {
+        return if (Build.VERSION.SDK_INT >= 24) {
+            android.icu.text.SimpleDateFormat(pattern, locale).apply {
+                // CompatDateFormatter is only used in "standalone" context.
+                // This is basically needed for standalone months because on some
+                // devices the capitalization is wrong.
+                setContext(DisplayContext.CAPITALIZATION_FOR_STANDALONE)
+            }
+        } else {
+            SimpleDateFormat(pattern, locale)
+        }
     }
 
     fun format(date: PackedDate): String {
@@ -37,9 +68,19 @@ internal class CompatDateFormatter(locale: Locale, pattern: String) {
             it.setLength(0)
         }
 
-        val utilDate = tempDate.also { it.time = millis }
+        if (Build.VERSION.SDK_INT >= 24) {
+            val calendar = tempDateOrCalendar as android.icu.util.Calendar
+            calendar.timeInMillis = millis
 
-        return dateFormatter.format(utilDate, buffer, FIELD_POS).toString()
+            (dateFormatter as android.icu.text.SimpleDateFormat).format(calendar, buffer, FIELD_POS)
+        } else {
+            val utilDate = tempDateOrCalendar as Date
+            utilDate.time = millis
+
+            (dateFormatter as SimpleDateFormat).format(utilDate, buffer, FIELD_POS)
+        }
+
+        return buffer.toString()
     }
 
     companion object {

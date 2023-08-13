@@ -27,7 +27,7 @@ internal class WeekdayData(locale: Locale) {
         val weekdays = if (Build.VERSION.SDK_INT >= 24) {
             (symbols as DateFormatSymbols).getWeekdays(DateFormatSymbols.STANDALONE, DateFormatSymbols.SHORT)
         } else {
-            (symbols as java.text.DateFormatSymbols).weekdays
+            (symbols as java.text.DateFormatSymbols).shortWeekdays
         }
 
         return fixWeekdaysOrder(weekdays)
