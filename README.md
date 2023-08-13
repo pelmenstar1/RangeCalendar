@@ -127,22 +127,6 @@ They are enabled by default (currently they cannot be disabled).
 - `setYearAndMonth(year, month, withAnimation=true)` to slide to given year & month with animation or not (it's
   controlled by `withAnimation` flag). If given page is out of enabled range, selected page will remain the same
 
-## Managing selection through the code
-
-- `selectDay()` to select a day. If the day is out of enabled range, it won't be selected and listeners won't be fired.
-- `selectWeek(year, month, weekIndex)` to select a week.
-    - year should be in range [0; 65535]
-    - month is 1-based
-    - weekIndex is 0-based
-- `selectMonth(year, month)` to select a month.
-    - year should be in range of [0; 65535]
-    - month is 1-based
-- `selectRange(startDate, endDate)` to select a date range. Start and end dates of the range should have same year and month, otherwise exception will be thrown.
-- `clearSelection()` to clear selection.
-
-Any 'selection' method accepts optional parameter `SelectionRequestRejectedBehaviour` which specifies expected behaviour
-when a selection request is rejected.
-
 ## Custom selection manager
 
 If you want to draw the selection in other way than the library does, you can implement `SelectionManager` on your own.
@@ -284,7 +268,7 @@ rangeCalendarView.weekdays = arrayOf("0", "1", "2", "3", "4", "5", "6")
 
 If you want back to using localized weekdays, pass null to `weekdays`.
 
-# The first day of the week
+## The first day of the week
 
 By default, information about the first day of the week is extracted from current locale's data. If the locale is changed, the first day of the week is re-computed.
 
