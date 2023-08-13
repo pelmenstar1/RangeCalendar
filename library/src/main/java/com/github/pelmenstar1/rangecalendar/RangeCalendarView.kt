@@ -603,10 +603,8 @@ class RangeCalendarView @JvmOverloads constructor(
 
     override fun onSaveInstanceState(): Parcelable {
         return SavedState(super.onSaveInstanceState()!!).apply {
-            selectionYm = adapter.selectionYm
-            selectionRange = adapter.selectionRange
+            selectionRange = adapter.selectedRange
             ym = currentCalendarYm
-            firstDayOfWeek = _firstDayOfWeek
         }
     }
 
@@ -624,9 +622,12 @@ class RangeCalendarView @JvmOverloads constructor(
 
             val selRange = state.selectionRange
 
-            // Restore selection if one is present and first day of week is the same.
-            if (selRange.isValid && _firstDayOfWeek == state.firstDayOfWeek) {
-                adapter.selectOnRestore(state.selectionYm, selRange)
+            if (selRange.isValid) {
+                adapter.selectRange(
+                    selRange,
+                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                    withAnimation = false
+                )
             }
         } else {
             super.onRestoreInstanceState(state)
@@ -1041,21 +1042,21 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun setMinDate(date: PackedDate) {
-        validateDateRange(date, _maxDate)
+        validateMinMaxDateRange(date, _maxDate)
 
         _minDate = date
         onMinMaxChanged()
     }
 
     private fun setMaxDate(date: PackedDate) {
-        validateDateRange(_minDate, date)
+        validateMinMaxDateRange(_minDate, date)
 
         _maxDate = date
         onMinMaxChanged()
     }
 
     private fun setMinMaxDate(newMinDate: PackedDate, newMaxDate: PackedDate) {
-        validateDateRange(newMinDate, newMaxDate)
+        validateMinMaxDateRange(newMinDate, newMaxDate)
 
         _minDate = newMinDate
         _maxDate = newMaxDate
@@ -1122,6 +1123,23 @@ class RangeCalendarView @JvmOverloads constructor(
         get() = adapter.getStyleObject { SELECTION_FILL }
         set(value) {
             adapter.setStyleObject({ SELECTION_FILL }, value)
+        }
+
+    /**
+     * Gets or sets an alpha value of selection or its part that is not inside current month's range.
+     * The alpha is a float in range `[0..1]`. To pass integer alpha in range `[0..255]`, divide the value by `255`
+     *
+     * This can be used to accent the selection or its part is not for the current month but for the adjacent one.
+     * The default value is `1`, which means selection on all grid is rendered with the same alpha.
+     *
+     * **Drawable fills are currently not supported**
+     */
+    var outMonthSelectionAlpha: Float
+        get() = adapter.getStyleFloat { OUT_MONTH_SELECTION_ALPHA }
+        set(value) {
+            validateFloatAlpha(value)
+
+            adapter.setStyleFloat({ OUT_MONTH_SELECTION_ALPHA }, value)
         }
 
     /**
@@ -1293,7 +1311,7 @@ class RangeCalendarView @JvmOverloads constructor(
     var hoverAlpha: Float
         get() = adapter.getStyleFloat { HOVER_ALPHA }
         set(value) {
-            require(value in 0f..1f) { "alpha is out of range" }
+            validateFloatAlpha(value)
 
             adapter.setStyleFloat({ HOVER_ALPHA }, value)
         }
@@ -1643,7 +1661,6 @@ class RangeCalendarView @JvmOverloads constructor(
         withAnimation: Boolean
     ) {
         selectRangeInternal(
-            YearMonth(date.year, date.month),
             PackedDateRange(date, date),
             selectionRequestRejectedBehaviour,
             withAnimation
@@ -1670,8 +1687,7 @@ class RangeCalendarView @JvmOverloads constructor(
         require(weekIndex in 0..5) { "Invalid week index" }
 
         selectRangeInternal(
-            ym = YearMonth(year, month),
-            range = PackedDateRange.week(year, month, weekIndex, _firstDayOfWeek),
+            PackedDateRange.week(year, month, weekIndex, _firstDayOfWeek),
             selectionRequestRejectedBehaviour,
             withAnimation
         )
@@ -1694,8 +1710,7 @@ class RangeCalendarView @JvmOverloads constructor(
         validateYearMonth(year, month)
 
         selectRangeInternal(
-            YearMonth(year, month),
-            range = PackedDateRange.month(year, month),
+            PackedDateRange.month(year, month),
             selectionRequestRejectedBehaviour,
             withAnimation
         )
@@ -1780,10 +1795,11 @@ class RangeCalendarView @JvmOverloads constructor(
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ) {
-        validateDateRangeSameYearMonth(startDate, endDate)
+        if (startDate > endDate) {
+            throw IllegalArgumentException("Start date cannot be after end date")
+        }
 
         selectRangeInternal(
-            YearMonth(startDate.year, startDate.month),
             PackedDateRange(startDate, endDate),
             requestRejectedBehaviour,
             withAnimation
@@ -1791,15 +1807,14 @@ class RangeCalendarView @JvmOverloads constructor(
     }
 
     private fun selectRangeInternal(
-        ym: YearMonth,
         range: PackedDateRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ) {
-        val actuallySelected = adapter.selectRange(ym, range, requestRejectedBehaviour, withAnimation)
+        val actuallySelected = adapter.selectRange(range, requestRejectedBehaviour, withAnimation)
 
         if (actuallySelected) {
-            val position = adapter.getItemPositionForYearMonth(ym)
+            val position = adapter.getItemPositionForDate(range.start)
 
             pager.setCurrentItem(position, withAnimation)
         }
@@ -1957,14 +1972,13 @@ class RangeCalendarView @JvmOverloads constructor(
 
         private const val INVALID_DURATION_MSG = "Duration should be non-negative"
 
-        private fun validateDateRangeSameYearMonth(start: PackedDate, end: PackedDate) {
-            require(start.year == end.year && start.month == end.month) { "Date range should have same year and month" }
-            require(start <= end) { "Start date is greater than end date" }
+        private fun validateFloatAlpha(alpha: Float) {
+            require(alpha in 0f..1f) { "Alpha value should be in range [0, 1]" }
         }
 
-        private fun validateDateRange(minDate: PackedDate, maxDate: PackedDate) {
-            if (maxDate > minDate) {
-                throw IllegalStateException("Maximum date cannot be before minimum date")
+        private fun validateMinMaxDateRange(minDate: PackedDate, maxDate: PackedDate) {
+            if (minDate > maxDate) {
+                throw IllegalArgumentException("Maximum date cannot be before minimum date")
             }
         }
 

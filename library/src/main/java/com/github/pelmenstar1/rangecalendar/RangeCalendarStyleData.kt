@@ -54,7 +54,7 @@ internal class RangeCalendarStyleData {
     }
 
     companion object {
-        const val INT_PROPS_COUNT = 21
+        const val INT_PROPS_COUNT = 22
         const val OBJECT_PROPS_COUNT = 10
 
         const val OBJECT_PROP_START = 32
@@ -81,6 +81,7 @@ internal class RangeCalendarStyleData {
         const val SHOW_ADJACENT_MONTHS = 18
         const val IS_SELECTION_ANIMATED_BY_DEFAULT = 19
         const val IS_HOVER_ANIMATION_ENABLED = 20
+        const val OUT_MONTH_SELECTION_ALPHA = 21
 
         // These are properties that can be stored as an object
         const val COMMON_ANIMATION_INTERPOLATOR = 32
@@ -95,6 +96,42 @@ internal class RangeCalendarStyleData {
         const val GESTURE_CONFIGURATION = 41
 
         fun isObjectProperty(propIndex: Int) = propIndex >= OBJECT_PROP_START
+
+        fun propertyToString(propIndex: Int) = when (propIndex) {
+            DAY_NUMBER_TEXT_SIZE -> "DAY_NUMBER_TEXT_SIZE"
+            WEEKDAY_TEXT_SIZE -> "WEEKDAY_TEXT_SIZE"
+            CELL_ROUND_RADIUS -> "CELL_ROUND_RADIUS"
+            CELL_WIDTH -> "CELL_WIDTH"
+            CELL_HEIGHT -> "CELL_HEIGHT"
+            WEEKDAY_TYPE -> "WEEKDAY_TYPE"
+            CLICK_ON_CELL_SELECTION_BEHAVIOR -> "CLICK_ON_CELL_SELECTION_BEHAVIOR"
+            COMMON_ANIMATION_DURATION -> "COMMON_ANIMATION_DURATION"
+            HOVER_ANIMATION_DURATION -> "HOVER_ANIMATION_DURATION"
+            VIBRATE_ON_SELECTING_RANGE -> "VIBRATE_ON_SELECTING_RANGE"
+            SELECTION_FILL_GRADIENT_BOUNDS_TYPE -> "SELECTION_FILL_GRADIENT_BOUNDS_TYPE"
+            CELL_ANIMATION_TYPE -> "CELL_ANIMATION_TYPE"
+            IN_MONTH_TEXT_COLOR -> "IN_MONTH_TEXT_COLOR"
+            OUT_MONTH_TEXT_COLOR -> "OUT_MONTH_TEXT_COLOR"
+            DISABLED_TEXT_COLOR -> "DISABLED_TEXT_COLOR"
+            TODAY_TEXT_COLOR -> "TODAY_TEXT_COLOR"
+            WEEKDAY_TEXT_COLOR -> "WEEKDAY_TEXT_COLOR"
+            HOVER_ALPHA -> "HOVER_ALPHA"
+            SHOW_ADJACENT_MONTHS -> "SHOW_ADJACENT_MONTHS"
+            IS_SELECTION_ANIMATED_BY_DEFAULT -> "IS_SELECTION_ANIMATED_BY_DEFAULT"
+            IS_HOVER_ANIMATION_ENABLED -> "IS_HOVER_ANIMATION_ENABLED"
+            COMMON_ANIMATION_INTERPOLATOR -> "COMMON_ANIMATION_INTERPOLATOR"
+            HOVER_ANIMATION_INTERPOLATOR -> "HOVER_ANIMATION_INTERPOLATOR"
+            DECOR_DEFAULT_LAYOUT_OPTIONS -> "DECOR_DEFAULT_LAYOUT_OPTIONS"
+            SELECTION_FILL -> "SELECTION_FILL"
+            SELECTION_MANAGER -> "SELECTION_MANAGER"
+            CELL_ACCESSIBILITY_INFO_PROVIDER -> "CELL_ACCESSIBILITY_INFO_PROVIDER"
+            WEEKDAY_TYPEFACE -> "WEEKDAY_TYPEFACE"
+            WEEKDAYS -> "WEEKDAYS"
+            GESTURE_DETECTOR_FACTORY -> "GESTURE_DETECTOR_FACTORY"
+            GESTURE_CONFIGURATION -> "GESTURE_CONFIGURATION"
+            OUT_MONTH_SELECTION_ALPHA -> "OUT_MONTH_SELECTION_ALPHA"
+            else -> "<UNKNOWN>"
+        }
 
         fun default(cr: CalendarResources): RangeCalendarStyleData {
             return RangeCalendarStyleData().apply {
@@ -148,6 +185,8 @@ internal class RangeCalendarStyleData {
 
                 set(GESTURE_DETECTOR_FACTORY, RangeCalendarGestureDetectorImpl.Factory)
                 set(GESTURE_CONFIGURATION, RangeCalendarGestureConfiguration.default())
+
+                set(OUT_MONTH_SELECTION_ALPHA, 1f)
             }
         }
     }

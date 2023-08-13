@@ -4,7 +4,9 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Region
 import android.os.Build
+import androidx.core.graphics.withSave
 
 private val tempRect: RectF? = if (Build.VERSION.SDK_INT < 21) RectF() else null
 
@@ -20,6 +22,18 @@ internal fun Canvas.drawRoundRectCompat(
 
         rect.set(left, top, right, bottom)
         drawRoundRect(rect, radius, radius, paint)
+    }
+}
+
+@Suppress("DEPRECATION")
+internal fun Canvas.clipOutPathCompat(path: Path) {
+    clipPath(path, Region.Op.DIFFERENCE)
+}
+
+internal inline fun Canvas.withClipOut(path: Path, block: Canvas.() -> Unit) {
+    withSave {
+        clipOutPathCompat(path)
+        block()
     }
 }
 

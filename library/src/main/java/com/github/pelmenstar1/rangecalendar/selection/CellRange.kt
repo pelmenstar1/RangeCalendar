@@ -33,6 +33,8 @@ internal value class CellRange(val bits: Int) {
     inline operator fun component1() = start
     inline operator fun component2() = end
 
+    fun onSameRow(): Boolean = start.sameY(end)
+
     fun hasIntersectionWith(other: CellRange): Boolean {
         return other.start.index <= end.index && start.index <= other.end.index
     }
@@ -52,6 +54,10 @@ internal value class CellRange(val bits: Int) {
 
     operator fun contains(cell: Cell): Boolean {
         return cell.index in start.index..end.index
+    }
+
+    fun completelyContains(range: CellRange): Boolean {
+        return contains(range.start) && contains(range.end)
     }
 
     fun normalize(): CellRange {

@@ -60,21 +60,6 @@ class MoveButtonDrawableTests {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    @Suppress("UNCHECKED_CAST")
-    private fun getPathPoints(path: Path): Array<PointF> {
-        val rawPoints = path.approximate(0.0001f)
-        val points = arrayOfNulls<PointF>(rawPoints.size / 3)
-
-        for (i in points.indices) {
-            val x = rawPoints[i * 3 + 1]
-            val y = rawPoints[i * 3 + 2]
-
-            points[i] = PointF(x, y)
-        }
-
-        return points as Array<PointF>
-    }
-
     private fun arrowAnimationTestHelper(
         direction: Int,
         type: Int,
@@ -95,7 +80,7 @@ class MoveButtonDrawableTests {
             drawable.setAnimationFraction(fraction)
 
             val points = if (drawable.arrowUsePath) {
-                getPathPoints(drawable.arrowPath)
+                PathTestHelper.getPathPoints(drawable.arrowPath)
             } else {
                 val rawPoints = drawable.arrowLinePoints
 

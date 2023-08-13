@@ -1,17 +1,22 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
+import androidx.core.graphics.withClip
+import androidx.core.graphics.withSave
 import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.RoundRectVisualInfo
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.toIntAlpha
+import com.github.pelmenstar1.rangecalendar.utils.withClipOut
 
 internal class DefaultSelectionRenderer : SelectionRenderer {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -19,7 +24,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     }
 
     private val primaryShape = SelectionShape()
-    private val secondaryShape = SelectionShape()
+    private var secondaryShape: SelectionShape? = null
+    private var inMonthShape: SelectionShape? = null
 
     private val tempRect = RectF()
 
@@ -27,6 +33,12 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
     private fun getRoundRectPathInfo(): RoundRectVisualInfo =
         getLazyValue(roundRectPathInfo, ::RoundRectVisualInfo) { roundRectPathInfo = it }
+
+    private fun getSecondaryShape(): SelectionShape =
+        getLazyValue(secondaryShape, ::SelectionShape) { secondaryShape = it }
+
+    private fun getInMonthShape(): SelectionShape =
+        getLazyValue(inMonthShape, ::SelectionShape) { inMonthShape = it }
 
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
         state as DefaultSelectionState
@@ -50,12 +62,33 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             }
 
             is DefaultSelectionState.CellAppearBubble -> {
-                drawOpaqueRect(canvas, state.bounds, options)
+                val shapeInfo = state.baseState.shapeInfo
+
+                drawOpaqueRect(
+                    canvas,
+                    state.bounds,
+                    options,
+                    shapeInfo.useInMonthShape, shapeInfo.inMonthShapeInfo
+                )
             }
 
             is DefaultSelectionState.CellDualBubble -> {
-                drawOpaqueRect(canvas, state.startBounds, options)
-                drawOpaqueRect(canvas, state.endBounds, options)
+                val startShapeInfo = state.start.shapeInfo
+                val endShapeInfo = state.end.shapeInfo
+
+                drawOpaqueRect(
+                    canvas,
+                    state.startBounds,
+                    options,
+                    startShapeInfo.useInMonthShape, startShapeInfo.inMonthShapeInfo
+                )
+
+                drawOpaqueRect(
+                    canvas,
+                    state.endBounds,
+                    options,
+                    endShapeInfo.useInMonthShape, endShapeInfo.inMonthShapeInfo
+                )
             }
 
             is DefaultSelectionState.CellMoveToCell -> {
@@ -63,7 +96,13 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 val width = shapeInfo.cellWidth
                 val height = shapeInfo.cellHeight
 
-                drawRect(canvas, shapeInfo.startLeft, shapeInfo.startTop, width, height, options, alpha = 1f)
+                drawRect(
+                    canvas,
+                    shapeInfo.startLeft, shapeInfo.startTop, width, height,
+                    options,
+                    alpha = 1f,
+                    shapeInfo.useInMonthShape, shapeInfo.inMonthShapeInfo
+                )
             }
 
             is DefaultSelectionState.RangeToRange -> {
@@ -89,7 +128,13 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             val width = shapeInfo.endRight - left
             val height = shapeInfo.cellHeight
 
-            drawRect(canvas, left, top, width, height, options, alpha)
+            drawRect(
+                canvas,
+                left, top, width, height,
+                options,
+                alpha,
+                shapeInfo.useInMonthShape, shapeInfo.inMonthShapeInfo
+            )
         } else {
             drawGeneralRange(canvas, shapeInfo, options, alpha, isPrimary)
         }
@@ -108,9 +153,17 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private fun drawOpaqueRect(
         canvas: Canvas,
         bounds: RectF,
-        options: SelectionRenderOptions
+        options: SelectionRenderOptions,
+        useInMonthShape: Boolean,
+        inMonthShapeInfo: SelectionShapeInfo?
     ) {
-        drawRect(canvas, bounds.left, bounds.top, bounds.width(), bounds.height(), options, alpha = 1f)
+        drawRect(
+            canvas,
+            bounds.left, bounds.top, bounds.width(), bounds.height(),
+            options,
+            alpha = 1f,
+            useInMonthShape, inMonthShapeInfo
+        )
     }
 
     private fun drawRect(
@@ -118,25 +171,46 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         left: Float, top: Float,
         width: Float, height: Float,
         options: SelectionRenderOptions,
-        alpha: Float
+        alpha: Float,
+        useInMonthShape: Boolean,
+        inMonthShapeInfo: SelectionShapeInfo?
     ) {
         val fill = options.fill
         val fillState = options.fillState
 
         val rr = options.roundRadius
         val shapeBounds = tempRect
+        val outMonthAlpha = options.outMonthAlpha
 
+        val origin: Int
         var count = -1
 
-        if (useTranslationToBounds(fill, options.fillGradientBoundsType)) {
+        val useTranslationToBounds = useTranslationToBounds(fill, options.fillGradientBoundsType)
+
+        if (useTranslationToBounds) {
             fillState.setSize(width, height)
 
             count = canvas.save()
             canvas.translate(left, top)
 
             shapeBounds.set(0f, 0f, width, height)
+
+            origin = SelectionShape.ORIGIN_BOUNDS
         } else {
             shapeBounds.set(left, top, left + width, top + height)
+
+            origin = SelectionShape.ORIGIN_LOCAL
+        }
+
+        var inMonthShape: SelectionShape? = null
+
+        if (useInMonthShape && outMonthAlpha < 1f) {
+            inMonthShape = getInMonthShape()
+            inMonthShape.update(
+                inMonthShapeInfo!!,
+                origin,
+                SelectionShape.FLAG_FORCE_PATH or SelectionShape.FLAG_IGNORE_ROUND_RADII
+            )
         }
 
         try {
@@ -156,15 +230,14 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                     canvas.clipPath(it)
                 }
 
-                drawable.alpha = alpha.toIntAlpha()
-                drawable.draw(canvas)
+                drawDrawableWithAlpha(canvas, drawable, alpha)
             } else {
-                fillState.drawWith(canvas, shapeBounds, paint, alpha) {
-                    drawRoundRect(shapeBounds, rr, rr, paint)
+                drawObjectInMonthAware(canvas, inMonthShape, alpha, outMonthAlpha) { a ->
+                    drawRoundRectWithFill(canvas, shapeBounds, rr, a, fillState)
                 }
             }
         } finally {
-            if (count >= 0) {
+            if (useTranslationToBounds) {
                 canvas.restoreToCount(count)
             }
         }
@@ -177,23 +250,39 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         alpha: Float,
         isPrimary: Boolean
     ) {
-        val shape = if (isPrimary) primaryShape else secondaryShape
+        val shape = if (isPrimary) primaryShape else getSecondaryShape()
         val fill = options.fill
         val fillState = options.fillState
 
-        var forcePath = false
+        val outMonthAlpha = options.outMonthAlpha
+
+        var flags = 0
         val origin: Int
 
         val useTranslationToBounds = useTranslationToBounds(fill, options.fillGradientBoundsType)
 
         if (useTranslationToBounds) {
             origin = SelectionShape.ORIGIN_BOUNDS
-            forcePath = fill.isDrawableType
+
+            if (fill.isDrawableType) {
+                flags = SelectionShape.FLAG_FORCE_PATH
+            }
         } else {
             origin = SelectionShape.ORIGIN_LOCAL
         }
 
-        shape.update(shapeInfo, origin, forcePath)
+        shape.update(shapeInfo, origin, flags)
+
+        var inMonthShape: SelectionShape? = null
+
+        if (shapeInfo.useInMonthShape && outMonthAlpha < 1f) {
+            inMonthShape = getInMonthShape()
+            inMonthShape.update(
+                shapeInfo.inMonthShapeInfo!!,
+                origin,
+                SelectionShape.FLAG_FORCE_PATH or SelectionShape.FLAG_IGNORE_ROUND_RADII
+            )
+        }
 
         val bounds = shape.bounds
         val translatedBounds: RectF
@@ -227,16 +316,64 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 // that makes the logic to create a path.
                 canvas.clipPath(shape.path!!)
 
-                drawable.alpha = alpha.toIntAlpha()
-                drawable.draw(canvas)
+                drawDrawableWithAlpha(canvas, drawable, alpha)
             } else {
-                fillState.drawWith(canvas, translatedBounds, paint, alpha) { shape.draw(canvas, paint) }
+                drawObjectInMonthAware(canvas, inMonthShape, alpha, outMonthAlpha) { a ->
+                    drawShapeWithFill(canvas, translatedBounds, shape, fillState, a)
+                }
             }
         } finally {
-            if (count >= 0) {
+            if (useTranslationToBounds) {
                 canvas.restoreToCount(count)
             }
         }
+    }
+
+    private inline fun drawObjectInMonthAware(
+        canvas: Canvas,
+        inMonthShape: SelectionShape?,
+        alpha: Float,
+        outMonthAlpha: Float,
+        drawObject: Canvas.(alpha: Float) -> Unit
+    ) {
+        if (inMonthShape == null) {
+            canvas.drawObject(alpha)
+        } else {
+            val inMonthPath = inMonthShape.path!!
+
+            canvas.withClip(inMonthPath) {
+                drawObject(alpha)
+            }
+
+            canvas.withClipOut(inMonthPath) {
+                drawObject(outMonthAlpha * alpha)
+            }
+        }
+    }
+
+    private fun drawShapeWithFill(
+        canvas: Canvas,
+        bounds: RectF,
+        shape: SelectionShape,
+        fillState: Fill.State,
+        alpha: Float,
+    ) {
+        fillState.drawWith(canvas, bounds, paint, alpha) { shape.draw(canvas, paint) }
+    }
+
+    private fun drawRoundRectWithFill(
+        canvas: Canvas,
+        bounds: RectF,
+        rr: Float,
+        alpha: Float,
+        fillState: Fill.State
+    ) {
+        fillState.drawWith(canvas, bounds, paint, alpha) { drawRoundRect(bounds, rr, rr, paint) }
+    }
+
+    private fun drawDrawableWithAlpha(canvas: Canvas, drawable: Drawable, alpha: Float) {
+        drawable.alpha = alpha.toIntAlpha()
+        drawable.draw(canvas)
     }
 
     private fun useTranslationToBounds(fill: Fill, boundsType: SelectionFillGradientBoundsType): Boolean {

@@ -12,16 +12,15 @@ import kotlin.test.assertEquals
 class SavedStateTests {
     @Test
     fun readWriteTest() {
-        val expectedSelYm = YearMonth(2023, 7)
-        val expectedSelRange = CellRange(3, 4)
+        val expectedSelRange = PackedDateRange(
+            PackedDate(2023, 8, 7),
+            PackedDate(2023, 8, 10)
+        )
         val expectedYm = YearMonth(2023, 8)
-        val expectedFirstDow = CompatDayOfWeek.Friday
 
         val savedState = SavedState(AbsSavedState.EMPTY_STATE).apply {
-            selectionYm = expectedSelYm
             selectionRange = expectedSelRange
             ym = expectedYm
-            firstDayOfWeek = expectedFirstDow
         }
 
         val parcel = Parcel.obtain()
@@ -30,9 +29,7 @@ class SavedStateTests {
 
         val actualState = SavedState.CREATOR.createFromParcel(parcel)
 
-        assertEquals(expectedSelYm, actualState.selectionYm, "selectionYm")
         assertEquals(expectedSelRange, actualState.selectionRange, "selectionRange")
         assertEquals(expectedYm, actualState.ym, "ym")
-        assertEquals(expectedFirstDow, actualState.firstDayOfWeek, "firstDayOfWeek")
     }
 }

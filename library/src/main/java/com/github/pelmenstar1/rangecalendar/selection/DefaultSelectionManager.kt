@@ -1,6 +1,8 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
+import com.github.pelmenstar1.rangecalendar.CalendarGridInfo
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
+import com.github.pelmenstar1.rangecalendar.GridConstants
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 internal class DefaultSelectionManager : SelectionManager {
@@ -19,30 +21,37 @@ internal class DefaultSelectionManager : SelectionManager {
     override fun createState(
         rangeStart: Int,
         rangeEnd: Int,
-        measureManager: CellMeasureManager
+        measureManager: CellMeasureManager,
+        gridInfo: CalendarGridInfo
     ): SelectionState {
         val shapeInfo = SelectionShapeInfo()
-        fillSelectionShapeInfo(rangeStart, rangeEnd, measureManager, shapeInfo)
+        fillSelectionShapeInfo(rangeStart, rangeEnd, measureManager, gridInfo, shapeInfo)
 
         return DefaultSelectionState(shapeInfo)
     }
 
-    override fun updateConfiguration(state: SelectionState, measureManager: CellMeasureManager) {
+    override fun updateConfiguration(
+        state: SelectionState,
+        measureManager: CellMeasureManager,
+        gridInfo: CalendarGridInfo
+    ) {
         state as DefaultSelectionState
 
         val shapeInfo = state.shapeInfo
         val (rangeStart, rangeEnd) = shapeInfo.range
 
-        fillSelectionShapeInfo(rangeStart.index, rangeEnd.index, measureManager, shapeInfo)
+        fillSelectionShapeInfo(rangeStart.index, rangeEnd.index, measureManager, gridInfo, shapeInfo)
     }
 
     private fun fillSelectionShapeInfo(
         rangeStart: Int,
         rangeEnd: Int,
         measureManager: CellMeasureManager,
+        gridInfo: CalendarGridInfo,
         outShapeInfo: SelectionShapeInfo
     ) {
         val cellWidth = measureManager.cellWidth
+        val cellHeight = measureManager.cellHeight
 
         val startLeft = measureManager.getCellLeft(rangeStart)
         val startTop = measureManager.getCellTop(rangeStart)
@@ -66,10 +75,47 @@ internal class DefaultSelectionManager : SelectionManager {
         outShapeInfo.endRight = endRight
         outShapeInfo.endTop = endTop
         outShapeInfo.firstCellOnRowLeft = measureManager.getCellLeft(0)
-        outShapeInfo.lastCellOnRowRight = measureManager.getCellLeft(6) + cellWidth
+        outShapeInfo.lastCellOnRowRight = measureManager.getCellLeft(GridConstants.COLUMN_COUNT - 1) + cellWidth
         outShapeInfo.cellWidth = cellWidth
-        outShapeInfo.cellHeight = measureManager.cellHeight
+        outShapeInfo.cellHeight = cellHeight
         outShapeInfo.roundRadius = measureManager.roundRadius
+
+        initInMonthShapeIfNecessary(outShapeInfo, gridInfo.inMonthRange, measureManager)
+    }
+
+    private fun initInMonthShapeIfNecessary(
+        shapeInfo: SelectionShapeInfo,
+        inMonthRange: CellRange,
+        measureManager: CellMeasureManager
+    ) {
+        if (inMonthRange.completelyContains(shapeInfo.range)) {
+            shapeInfo.useInMonthShape = false
+        } else {
+            var inMonthShapeInfo = shapeInfo.inMonthShapeInfo
+
+            if (inMonthShapeInfo == null) {
+                inMonthShapeInfo = SelectionShapeInfo()
+                shapeInfo.inMonthShapeInfo = inMonthShapeInfo
+            }
+
+            shapeInfo.useInMonthShape = true
+
+            val inMonthRangeStart = inMonthRange.start.index
+            val inMonthRangeEnd = inMonthRange.end.index
+
+            val cellWidth = measureManager.cellWidth
+
+            inMonthShapeInfo.range = inMonthRange
+            inMonthShapeInfo.startLeft = measureManager.getCellLeft(inMonthRangeStart)
+            inMonthShapeInfo.startTop = measureManager.getCellTop(inMonthRangeStart)
+            inMonthShapeInfo.endRight = measureManager.getCellLeft(inMonthRangeEnd) + cellWidth
+            inMonthShapeInfo.endTop = measureManager.getCellTop(inMonthRangeEnd)
+            inMonthShapeInfo.firstCellOnRowLeft = measureManager.getCellLeft(0)
+            inMonthShapeInfo.lastCellOnRowRight =
+                measureManager.getCellLeft(GridConstants.COLUMN_COUNT - 1) + cellWidth
+            inMonthShapeInfo.cellWidth = cellWidth
+            inMonthShapeInfo.cellHeight = measureManager.cellHeight
+        }
     }
 
     override fun createTransition(
@@ -255,6 +301,7 @@ internal class DefaultSelectionManager : SelectionManager {
         endState: SelectionShapeBasedState
     ): DefaultSelectionState.CellMoveToCell {
         val startShapeInfo = startState.shapeInfo
+        val endShapeInfo = endState.shapeInfo
 
         val startLeft = startShapeInfo.startLeft
         val startTop = startShapeInfo.startTop
@@ -267,7 +314,9 @@ internal class DefaultSelectionManager : SelectionManager {
             firstCellOnRowLeft = 0f, lastCellOnRowRight = 0f,
 
             cellWidth, cellHeight = startShapeInfo.cellHeight,
-            roundRadius = startShapeInfo.roundRadius
+            roundRadius = startShapeInfo.roundRadius,
+            useInMonthShape = startShapeInfo.useInMonthShape || endShapeInfo.useInMonthShape,
+            inMonthShapeInfo = startShapeInfo.inMonthShapeInfo ?: endShapeInfo.inMonthShapeInfo
         )
 
         return DefaultSelectionState.CellMoveToCell(startState, endState, shapeInfo)
@@ -286,6 +335,7 @@ internal class DefaultSelectionManager : SelectionManager {
             val (currentStart, currentEnd) = currentRange
 
             val prevShapeInfo = prevState.shapeInfo
+            val currentShapeInfo = currentState.shapeInfo
             val cw = prevShapeInfo.cellWidth
 
             // Do not compute the cell distance if we already know one.
@@ -320,7 +370,9 @@ internal class DefaultSelectionManager : SelectionManager {
                 firstCellOnRowLeft = prevShapeInfo.firstCellOnRowLeft,
                 lastCellOnRowRight = prevShapeInfo.lastCellOnRowRight,
                 cellWidth = cw, cellHeight = prevShapeInfo.cellHeight,
-                roundRadius = prevShapeInfo.roundRadius
+                roundRadius = prevShapeInfo.roundRadius,
+                useInMonthShape = prevShapeInfo.useInMonthShape || currentShapeInfo.useInMonthShape,
+                inMonthShapeInfo = prevShapeInfo.inMonthShapeInfo ?: currentShapeInfo.inMonthShapeInfo
             )
 
             DefaultSelectionState.RangeToRange(

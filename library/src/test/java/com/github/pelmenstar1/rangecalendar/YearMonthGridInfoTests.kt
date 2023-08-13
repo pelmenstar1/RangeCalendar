@@ -241,6 +241,61 @@ class YearMonthGridInfoTests {
     }
 
     @Test
+    fun getCellRangeByDateRangeTest() {
+        fun testHelper(
+            year: Int, month: Int,
+            firstDayOfWeek: CompatDayOfWeek,
+            dateRange: PackedDateRange,
+            expectedCellRange: CellRange
+        ) {
+            val info = createGridInfo(year, month, firstDayOfWeek)
+            val actualRange = info.getCellRangeByDateRange(dateRange)
+
+            assertEquals(expectedCellRange, actualRange)
+        }
+
+        testHelper(
+            year = 2023, month = 8,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            dateRange = PackedDateRange(
+                PackedDate(year = 2023, month = 8, dayOfMonth = 1),
+                PackedDate(year = 2023, month = 8, dayOfMonth = 2),
+            ),
+            expectedCellRange = CellRange(1, 2)
+        )
+
+        testHelper(
+            year = 2023, month = 8,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            dateRange = PackedDateRange(
+                PackedDate(year = 2023, month = 7, dayOfMonth = 25),
+                PackedDate(year = 2023, month = 8, dayOfMonth = 2),
+            ),
+            expectedCellRange = CellRange(0, 2)
+        )
+
+        testHelper(
+            year = 2023, month = 8,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            dateRange = PackedDateRange(
+                PackedDate(year = 2023, month = 9, dayOfMonth = 3),
+                PackedDate(year = 2023, month = 9, dayOfMonth = 12),
+            ),
+            expectedCellRange = CellRange(34, 41)
+        )
+
+        testHelper(
+            year = 2023, month = 8,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            dateRange = PackedDateRange(
+                PackedDate(year = 2023, month = 7, dayOfMonth = 1),
+                PackedDate(year = 2023, month = 7, dayOfMonth = 2),
+            ),
+            expectedCellRange = CellRange.Invalid
+        )
+    }
+
+    @Test
     fun getDateAtCellTest() {
         fun testCase(
             year: Int, month: Int,

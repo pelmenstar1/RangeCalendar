@@ -257,6 +257,7 @@ internal class RangeCalendarGridView(
     private var hoverAnimationHandler: TickCallback? = null
 
     private val cellMeasureManager = CellMeasureManagerImpl(this)
+    private val gridInfo = CalendarGridInfo()
     private val cellPropertiesProvider = CellPropertiesProviderImpl(this)
     private val gestureEventHandler = GestureEventHandlerImpl(this)
 
@@ -345,12 +346,12 @@ internal class RangeCalendarGridView(
 
         prevSelState?.let {
             needsToInvalidate = true
-            manager.updateConfiguration(it, cellMeasureManager)
+            manager.updateConfiguration(it, cellMeasureManager, gridInfo)
         }
 
         currentSelState?.let {
             needsToInvalidate = true
-            manager.updateConfiguration(it, cellMeasureManager)
+            manager.updateConfiguration(it, cellMeasureManager, gridInfo)
         }
 
         if (needsToInvalidate) {
@@ -378,6 +379,7 @@ internal class RangeCalendarGridView(
         onDecorationDefaultLayoutOptionsChanged(style.getObject { DECOR_DEFAULT_LAYOUT_OPTIONS })
 
         onSelectionFillChanged(style.getObject { SELECTION_FILL })
+        onOutMonthSelectionAlphaChanged(style.getFloat { OUT_MONTH_SELECTION_ALPHA })
         onSelectionFillGradientBoundsTypeChanged(
             style.getEnum({ SELECTION_FILL_GRADIENT_BOUNDS_TYPE }, SelectionFillGradientBoundsType::ofOrdinal)
         )
@@ -407,6 +409,8 @@ internal class RangeCalendarGridView(
                 CELL_WIDTH, CELL_HEIGHT -> onCellSizeComponentChanged()
                 CELL_ROUND_RADIUS -> onCellRoundRadiusChanged(data.float())
                 CELL_ANIMATION_TYPE -> onCellAnimationTypeChanged(data.enum(CellAnimationType::ofOrdinal))
+
+                OUT_MONTH_SELECTION_ALPHA -> onOutMonthSelectionAlphaChanged(data.float())
 
                 SELECTION_FILL_GRADIENT_BOUNDS_TYPE ->
                     onSelectionFillGradientBoundsTypeChanged(data.enum(SelectionFillGradientBoundsType::ofOrdinal))
@@ -458,7 +462,9 @@ internal class RangeCalendarGridView(
     }
 
     private fun copySelectionState(manager: SelectionManager, state: SelectionState?): SelectionState? {
-        return state?.let { manager.createState(it.rangeStart, it.rangeEnd, cellMeasureManager) }
+        return state?.let {
+            manager.createState(it.rangeStart, it.rangeEnd, cellMeasureManager, gridInfo)
+        }
     }
 
     private fun setNewSelectionState(state: SelectionState?) {
@@ -591,6 +597,14 @@ internal class RangeCalendarGridView(
         }
     }
 
+    private fun onOutMonthSelectionAlphaChanged(alpha: Float) {
+        if (selectionRenderOptions.outMonthAlpha != alpha) {
+            selectionRenderOptions.outMonthAlpha = alpha
+
+            invalidate()
+        }
+    }
+
     private fun onSelectionFillGradientBoundsTypeChanged(type: SelectionFillGradientBoundsType) {
         if (selectionRenderOptions.getFillGradientBoundsTypeOrNull() != type) {
             selectionRenderOptions.fillGradientBoundsType = type
@@ -665,6 +679,7 @@ internal class RangeCalendarGridView(
     fun setInMonthRange(range: CellRange) {
         if (inMonthRange != range) {
             inMonthRange = range
+            gridInfo.inMonthRange = range
 
             updateSelectionRange()
         }
@@ -799,10 +814,19 @@ internal class RangeCalendarGridView(
     fun select(
         range: CellRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
-        withAnimation: Boolean
+        withAnimation: Boolean,
+        fireEvent: Boolean,
+        checkGate: Boolean
     ) {
         // Do not check whether the gate accepts the selection as the RangeCalendarPagerAdapter checked it before.
-        selectRange(range, requestRejectedBehaviour, checkGate = false, gestureType = null, withAnimation)
+        selectRange(
+            range,
+            requestRejectedBehaviour,
+            checkGate,
+            gestureType = null,
+            fireEvent,
+            withAnimation
+        )
     }
 
     private fun selectRange(
@@ -810,6 +834,7 @@ internal class RangeCalendarGridView(
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         checkGate: Boolean,
         gestureType: SelectionByGestureType? = null,
+        fireEvent: Boolean = true,
         withAnimation: Boolean = isSelectionAnimatedByDefault(),
     ): SelectionAcceptanceStatus {
         val currentSelRange = currentSelState?.range ?: CellRange.Invalid
@@ -846,10 +871,12 @@ internal class RangeCalendarGridView(
             return SelectionAcceptanceStatus.ACCEPTED_SAME_RANGE
         }
 
-        val newState = selectionManager.createState(intersection, cellMeasureManager)
+        val newState = selectionManager.createState(intersection, cellMeasureManager, gridInfo)
         setNewSelectionState(newState)
 
-        onSelectionListener?.onSelection(intersection)
+        if (fireEvent) {
+            onSelectionListener?.onSelection(intersection)
+        }
 
         invalidateAccessibilityOutIntersectionRanges(
             currentSelRange,

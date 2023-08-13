@@ -74,7 +74,7 @@ internal class DefaultSelectionManagerTests {
             val manager = DefaultSelectionManager()
             val cellMeasureManager = CellMeasureManagerImpl()
 
-            val state = manager.createState(rangeStart, rangeEnd, cellMeasureManager) as DefaultSelectionState
+            val state = manager.createState(rangeStart, rangeEnd, cellMeasureManager, CalendarGridInfo()) as DefaultSelectionState
             val shapeInfo = state.shapeInfo
 
             Log.i("ManagerTests", shapeInfo.toString())
@@ -117,8 +117,8 @@ internal class DefaultSelectionManagerTests {
         val cellMeasureManager = CellMeasureManagerImpl()
 
         val opts = options ?: SelectionRenderOptions()
-        val prevState = if (prevRange.isValid) manager.createState(prevRange, cellMeasureManager) else null
-        val currentState = if (currentRange.isValid) manager.createState(currentRange, cellMeasureManager) else null
+        val prevState = if (prevRange.isValid) manager.createState(prevRange, cellMeasureManager, CalendarGridInfo()) else null
+        val currentState = if (currentRange.isValid) manager.createState(currentRange, cellMeasureManager, CalendarGridInfo()) else null
 
         val transitiveState = manager.createTransition(prevState, currentState, cellMeasureManager, opts)
 
