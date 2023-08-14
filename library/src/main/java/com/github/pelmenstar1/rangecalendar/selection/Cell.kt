@@ -22,6 +22,9 @@ internal value class Cell(val index: Int) {
     val isDefined: Boolean
         get() = index >= 0
 
+    operator fun component1() = gridX
+    operator fun component2() = gridY
+
     fun orIfUndefined(value: Cell): Cell {
         return if (isUndefined) value else this
     }

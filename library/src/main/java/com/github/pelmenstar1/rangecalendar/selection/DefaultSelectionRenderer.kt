@@ -1,7 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
@@ -10,7 +9,6 @@ import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import androidx.core.graphics.withClip
-import androidx.core.graphics.withSave
 import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.RoundRectVisualInfo
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
@@ -206,11 +204,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
         if (useInMonthShape && outMonthAlpha < 1f) {
             inMonthShape = getInMonthShape()
-            inMonthShape.update(
-                inMonthShapeInfo!!,
-                origin,
-                SelectionShape.FLAG_FORCE_PATH or SelectionShape.FLAG_IGNORE_ROUND_RADII
-            )
+            inMonthShape.update(inMonthShapeInfo!!, origin, forcePath = true)
         }
 
         try {
@@ -256,32 +250,19 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
 
         val outMonthAlpha = options.outMonthAlpha
 
-        var flags = 0
-        val origin: Int
+        val forcePath = fill.isDrawableType
 
         val useTranslationToBounds = useTranslationToBounds(fill, options.fillGradientBoundsType)
 
-        if (useTranslationToBounds) {
-            origin = SelectionShape.ORIGIN_BOUNDS
+        val origin = if (useTranslationToBounds) SelectionShape.ORIGIN_BOUNDS else SelectionShape.ORIGIN_LOCAL
 
-            if (fill.isDrawableType) {
-                flags = SelectionShape.FLAG_FORCE_PATH
-            }
-        } else {
-            origin = SelectionShape.ORIGIN_LOCAL
-        }
-
-        shape.update(shapeInfo, origin, flags)
+        shape.update(shapeInfo, origin, forcePath)
 
         var inMonthShape: SelectionShape? = null
 
         if (shapeInfo.useInMonthShape && outMonthAlpha < 1f) {
             inMonthShape = getInMonthShape()
-            inMonthShape.update(
-                shapeInfo.inMonthShapeInfo!!,
-                origin,
-                SelectionShape.FLAG_FORCE_PATH or SelectionShape.FLAG_IGNORE_ROUND_RADII
-            )
+            inMonthShape.update(shapeInfo.inMonthShapeInfo!!, origin, forcePath = true)
         }
 
         val bounds = shape.bounds
@@ -299,9 +280,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
             count = canvas.save()
             canvas.translate(left, top)
 
-            translatedBounds = tempRect.apply {
-                set(0f, 0f, width, height)
-            }
+            translatedBounds = tempRect.apply { set(0f, 0f, width, height) }
         } else {
             translatedBounds = bounds
         }
