@@ -5,7 +5,6 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.util.Log
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
@@ -20,14 +19,16 @@ internal class SelectionShape {
 
     private val shapeInfo = SelectionShapeInfo()
     private var origin = -1
+    private var type = -1
 
     val bounds = RectF()
 
     val upperRect = RectF()
-
     private var _lowerRect: RectF? = null
 
-    private var roundRadiiFlags = 0
+    private fun getOrInitPath(): Path {
+        return getLazyValue(_path, ::Path) { _path = it }
+    }
 
     private fun getEmptyPath(): Path {
         var p = _path
@@ -40,6 +41,10 @@ internal class SelectionShape {
         }
 
         return p
+    }
+
+    private fun clearPath() {
+        _path?.rewind()
     }
 
     private fun getOrInitLowerRect(): RectF =
@@ -65,8 +70,10 @@ internal class SelectionShape {
         if (gridYDiff > 0) {
             rr = min(rr, shapeInfo.cellHeight * 0.5f)
 
-            buildPath(rr)
+            buildPath(rr, forcePath)
         } else {
+            type = TYPE_STANDALONE_RECT
+
             if (forcePath) {
                 getEmptyPath().addRoundRect(upperRect, rr, rr, Path.Direction.CW)
             }
@@ -121,28 +128,39 @@ internal class SelectionShape {
     }
 
     // Expects that end.gridY - start.gridY > 0
-    private fun buildPath(rr: Float) {
+    private fun buildPath(rr: Float, forcePath: Boolean) {
         if (rr > 0f) {
-            buildPathWithRoundRadii(rr)
+            buildPathWithRoundRadii(rr, forcePath)
         } else {
-            buildPathNoRoundRadii()
+            buildPathNoRoundRadii(forcePath)
         }
     }
 
-    private fun buildPathNoRoundRadii() {
+    private fun buildPathNoRoundRadii(forcePath: Boolean) {
         val (start, end) = shapeInfo.range
         val gridYDiff = end.gridY - start.gridY
 
-        getEmptyPath().apply {
-            val lowerRect = _lowerRect!!
+        // Clear the path if it's created.
+        clearPath()
 
-            val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
-            val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
+        val lowerRect = _lowerRect!!
 
-            if (gridYDiff == 1 && upperPartLeft >= lowerPartRight) {
-                addRect(upperRect, Path.Direction.CW)
-                addRect(lowerRect, Path.Direction.CW)
-            } else {
+        val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
+        val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
+
+        if (gridYDiff == 1 && upperPartLeft >= lowerPartRight) {
+            if (forcePath) {
+                val path = getOrInitPath()
+
+                path.addRect(upperRect, Path.Direction.CW)
+                path.addRect(lowerRect, Path.Direction.CW)
+            }
+
+            type = TYPE_TWO_STANDALONE_RECTS
+        } else {
+            type = TYPE_COMPLEX
+
+            getOrInitPath().apply {
                 moveTo(upperPartLeft, upperPartTop)
                 lineTo(upperPartRight, upperPartTop)
 
@@ -154,36 +172,51 @@ internal class SelectionShape {
                 lineTo(lowerPartRight, lowerPartBottom)
                 lineTo(lowerPartLeft, lowerPartBottom)
 
-            }
-            if (lowerPartLeft != upperPartLeft) {
-                lineTo(lowerPartLeft, upperPartBottom)
-                lineTo(upperPartLeft, upperPartBottom)
-            }
+                if (lowerPartLeft != upperPartLeft) {
+                    lineTo(lowerPartLeft, upperPartBottom)
+                    lineTo(upperPartLeft, upperPartBottom)
+                }
 
-            close()
+                close()
+            }
         }
     }
 
-    // Expects that end.gridY - start.gridY > 0 and rr > 0f && rr <= gridInfo.cellHeight * 0.5f
-    private fun buildPathWithRoundRadii(rr: Float) {
+    /**
+     * Clears the previous path data and builds the new one.
+     * Expects that end.gridY - start.gridY > 0 and rr > 0f && rr <= gridInfo.cellHeight * 0.5f
+     * The method doesn't build path if possible, though it can be forced by [forcePath].
+     */
+    private fun buildPathWithRoundRadii(rr: Float, forcePath: Boolean) {
         // The logic of building the path totally relies on the fact that
         // the x-radius of ellipse in the corners equals to the y-radius
 
         val (start, end) = shapeInfo.range
         val gridYDiff = end.gridY - start.gridY
 
-        getEmptyPath().apply {
-            val lowerRect = _lowerRect!!
+        // Clear the path if it's created.
+        clearPath()
 
-            val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
-            val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
+        val lowerRect = _lowerRect!!
 
-            // Check if there's a common part between top and bottom parts
-            // This shortcut doesn't work if gridYDiff > 1 because in that case, there's also a center part
-            if (gridYDiff == 1 && upperPartLeft + rr >= lowerPartRight - rr) {
-                addRoundRect(upperRect, rr, rr, Path.Direction.CW)
-                addRoundRect(lowerRect, rr, rr, Path.Direction.CW)
-            } else {
+        val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
+        val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
+
+        // Check if there's a common part between top and bottom parts
+        // This shortcut doesn't work if gridYDiff > 1 because in that case, there's also a center part
+        if (gridYDiff == 1 && upperPartLeft + rr >= lowerPartRight - rr) {
+            if (forcePath) {
+                val path = getOrInitPath()
+
+                path.addRoundRect(upperRect, rr, rr, Path.Direction.CW)
+                path.addRoundRect(lowerRect, rr, rr, Path.Direction.CW)
+            }
+
+            type = TYPE_TWO_STANDALONE_RECTS
+        } else {
+            type = TYPE_COMPLEX
+
+            getOrInitPath().apply {
                 val start1X = upperPartRight - rr
                 val end1Y = upperPartTop + rr
 
@@ -273,23 +306,29 @@ internal class SelectionShape {
      * Draws the selection shape on [canvas] using [paint]. The shape will be drawn relative to the [bounds].
      */
     fun draw(canvas: Canvas, paint: Paint) {
-        val (startCell, endCell) = shapeInfo.range
+        val rr = shapeInfo.roundRadius
 
-        // If startCell and endCell are on the same row, the shape is a simple rect with round corners that can be rendered
-        // even without using a Path.
-        if (startCell.sameY(endCell)) {
-            val rr = shapeInfo.roundRadius
-
-            canvas.drawRoundRect(upperRect, rr, rr, paint)
-        } else {
-            // _path should not be null if updateShape() has been called.
-            canvas.drawPath(_path!!, paint)
+        when (type) {
+            TYPE_STANDALONE_RECT -> {
+                canvas.drawRoundRect(upperRect, rr, rr, paint)
+            }
+            TYPE_TWO_STANDALONE_RECTS -> {
+                canvas.drawRoundRect(upperRect, rr, rr, paint)
+                canvas.drawRoundRect(_lowerRect!!, rr, rr, paint)
+            }
+            TYPE_COMPLEX -> {
+                canvas.drawPath(_path!!, paint)
+            }
         }
     }
 
     companion object {
         const val ORIGIN_LOCAL = 0
         const val ORIGIN_BOUNDS = 1
+
+        private const val TYPE_STANDALONE_RECT = 0
+        private const val TYPE_TWO_STANDALONE_RECTS = 1
+        private const val TYPE_COMPLEX = 2
 
         // "Approximation of a cubic bezier curve by circular arcs and vice versa", by Aleksas Riškus.
         // In the paper, this constant is called 'k'
