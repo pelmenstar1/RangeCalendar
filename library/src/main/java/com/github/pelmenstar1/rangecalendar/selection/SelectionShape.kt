@@ -1,7 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -149,14 +148,14 @@ internal class SelectionShape {
         val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
 
         if (gridYDiff == 1 && upperPartLeft >= lowerPartRight) {
+            type = TYPE_TWO_STANDALONE_RECTS
+
             if (forcePath) {
                 val path = getOrInitPath()
 
                 path.addRect(upperRect, Path.Direction.CW)
                 path.addRect(lowerRect, Path.Direction.CW)
             }
-
-            type = TYPE_TWO_STANDALONE_RECTS
         } else {
             type = TYPE_COMPLEX
 
@@ -188,9 +187,6 @@ internal class SelectionShape {
      * The method doesn't build path if possible, though it can be forced by [forcePath].
      */
     private fun buildPathWithRoundRadii(rr: Float, forcePath: Boolean) {
-        // The logic of building the path totally relies on the fact that
-        // the x-radius of ellipse in the corners equals to the y-radius
-
         val (start, end) = shapeInfo.range
         val gridYDiff = end.gridY - start.gridY
 
@@ -205,40 +201,40 @@ internal class SelectionShape {
         // Check if there's a common part between top and bottom parts
         // This shortcut doesn't work if gridYDiff > 1 because in that case, there's also a center part
         if (gridYDiff == 1 && upperPartLeft + rr >= lowerPartRight - rr) {
+            type = TYPE_TWO_STANDALONE_RECTS
+
             if (forcePath) {
                 val path = getOrInitPath()
 
                 path.addRoundRect(upperRect, rr, rr, Path.Direction.CW)
                 path.addRoundRect(lowerRect, rr, rr, Path.Direction.CW)
             }
-
-            type = TYPE_TWO_STANDALONE_RECTS
         } else {
             type = TYPE_COMPLEX
 
             getOrInitPath().apply {
-                val start1X = upperPartRight - rr
+                val upperPartRx = min(rr, (upperPartRight - upperPartLeft) * 0.5f)
+                val lowerPartRx = min(rr, (lowerPartRight - lowerPartLeft) * 0.5f)
+
                 val end1Y = upperPartTop + rr
-
                 val start2Y = lowerPartTop - rr
-                val end2X = start1X
-
-                val start3X = lowerPartRight - rr
                 val end3Y = lowerPartTop + rr
-
                 val start4Y = lowerPartBottom - rr
-                val end4X = start3X
-
-                val start5X = lowerPartLeft + rr
                 val end5Y = start4Y
-
                 val start6Y = upperPartBottom + rr
-                val end6X = start5X
-
-                val start7X = upperPartLeft + rr
                 val end7Y = upperPartBottom - rr
-
                 val start8Y = end1Y
+
+                val secondCornerRx = if (start2Y == end1Y) upperPartRx else rr
+                val sixthCornerRx = if (start6Y == end5Y) lowerPartRx else rr
+
+                val start1X = upperPartRight - upperPartRx
+                val end2X = upperPartRight - secondCornerRx
+                val start3X = lowerPartRight - lowerPartRx
+                val end4X = start3X
+                val start5X = lowerPartLeft + lowerPartRx
+                val end6X = lowerPartLeft + sixthCornerRx
+                val start7X = upperPartLeft + upperPartRx
                 val end8X = start7X
 
                 moveTo(end8X, upperPartTop)
@@ -246,7 +242,8 @@ internal class SelectionShape {
 
                 // 1st corner
                 addRoundCorner(
-                    start1X, end1Y, upperPartRight, end1Y, rr,
+                    start1X, end1Y, upperPartRight, end1Y,
+                    upperPartRx, rr,
                     CORNER_RT
                 )
 
@@ -257,14 +254,16 @@ internal class SelectionShape {
 
                     // 2nd corner
                     addRoundCorner(
-                        end2X, start2Y, end2X, lowerPartTop, rr,
+                        end2X, start2Y, end2X, lowerPartTop,
+                        secondCornerRx, rr,
                         CORNER_RB
                     )
                     lineTo(start3X, lowerPartTop)
 
                     // 3rd corner
                     addRoundCorner(
-                        start3X, end3Y, lowerPartRight, end3Y, rr,
+                        start3X, end3Y, lowerPartRight, end3Y,
+                        lowerPartRx, rr,
                         CORNER_RT
                     )
                 }
@@ -272,12 +271,20 @@ internal class SelectionShape {
                 lineTo(lowerPartRight, start4Y)
 
                 // 4th corner
-                addRoundCorner(end4X, start4Y, end4X, lowerPartBottom, rr, CORNER_RB)
+                addRoundCorner(
+                    end4X, start4Y, end4X, lowerPartBottom,
+                    lowerPartRx, rr,
+                    CORNER_RB
+                )
 
                 lineTo(start5X, lowerPartBottom)
 
                 // 5th corner
-                addRoundCorner(start5X, end5Y, lowerPartLeft, end5Y, rr, CORNER_LB)
+                addRoundCorner(
+                    start5X, end5Y, lowerPartLeft, end5Y,
+                    lowerPartRx, rr,
+                    CORNER_LB
+                )
 
                 if (lowerPartLeft != upperPartLeft) {
                     if (start6Y != end5Y) {
@@ -285,17 +292,30 @@ internal class SelectionShape {
                     }
 
                     // 6th corner
-                    addRoundCorner(end6X, start6Y, end6X, upperPartBottom, rr, CORNER_LT)
+                    addRoundCorner(
+                        end6X, start6Y, end6X, upperPartBottom,
+                        sixthCornerRx, rr,
+                        CORNER_LT
+                    )
+
                     lineTo(start7X, upperPartBottom)
 
                     // 7th corner
-                    addRoundCorner(start7X, end7Y, upperPartLeft, end7Y, rr, CORNER_LB)
+                    addRoundCorner(
+                        start7X, end7Y, upperPartLeft, end7Y,
+                        upperPartRx, rr,
+                        CORNER_LB
+                    )
                 }
 
                 lineTo(upperPartLeft, start8Y)
 
                 // 8th corner
-                addRoundCorner(end8X, start8Y, end8X, upperPartTop, rr, CORNER_LT)
+                addRoundCorner(
+                    end8X, start8Y, end8X, upperPartTop,
+                    upperPartRx, rr,
+                    CORNER_LT
+                )
 
                 close()
             }
@@ -345,17 +365,17 @@ internal class SelectionShape {
         private fun Path.addRoundCorner(
             originX: Float, originY: Float,
             endX: Float, endY: Float,
-            rr: Float,
+            rx: Float, ry: Float,
             cornerType: Int
         ) {
-            val rx = if ((cornerType and CORNER_X_POSITIVE_FLAG) != 0) rr else -rr
-            val ry = if ((cornerType and CORNER_Y_POSITIVE_FLAG) != 0) -rr else rr
+            val rrx = if ((cornerType and CORNER_X_POSITIVE_FLAG) != 0) rx else -rx
+            val rry = if ((cornerType and CORNER_Y_POSITIVE_FLAG) != 0) -ry else ry
 
-            val c1x = originX + rx * BEZIER_CIRCULAR_ARC_COEFFICIENT
-            val c1y = originY + ry
+            val c1x = originX + rrx * BEZIER_CIRCULAR_ARC_COEFFICIENT
+            val c1y = originY + rry
 
-            val c2x = originX + rx
-            val c2y = originY + ry * BEZIER_CIRCULAR_ARC_COEFFICIENT
+            val c2x = originX + rrx
+            val c2y = originY + rry * BEZIER_CIRCULAR_ARC_COEFFICIENT
 
             if (cornerType == CORNER_RT || cornerType == CORNER_LB) {
                 cubicTo(c1x, c1y, c2x, c2y, endX, endY)
