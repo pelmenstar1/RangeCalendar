@@ -9,6 +9,7 @@ import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import androidx.core.graphics.withClip
+import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.RoundRectVisualInfo
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
@@ -175,6 +176,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     ) {
         val fill = options.fill
         val fillState = options.fillState
+        val border = options.border
 
         val rr = options.roundRadius
         val shapeBounds = tempRect
@@ -227,7 +229,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 drawDrawableWithAlpha(canvas, drawable, alpha)
             } else {
                 drawObjectInMonthAware(canvas, inMonthShape, alpha, outMonthAlpha) { a ->
-                    drawRoundRectWithFill(canvas, shapeBounds, rr, a, fillState)
+                    drawRoundRectWithFill(canvas, shapeBounds, rr, a, fillState, border)
                 }
             }
         } finally {
@@ -247,13 +249,12 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         val shape = if (isPrimary) primaryShape else getSecondaryShape()
         val fill = options.fill
         val fillState = options.fillState
+        val border = options.border
 
         val outMonthAlpha = options.outMonthAlpha
 
         val forcePath = fill.isDrawableType
-
         val useTranslationToBounds = useTranslationToBounds(fill, options.fillGradientBoundsType)
-
         val origin = if (useTranslationToBounds) SelectionShape.ORIGIN_BOUNDS else SelectionShape.ORIGIN_LOCAL
 
         shape.update(shapeInfo, origin, forcePath)
@@ -288,6 +289,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         try {
             val drawable = fill.drawable
 
+
             // We use a different approach of drawing if fill is drawable-type.
             // In that case, we draw a drawable with clipping over the shape.
             if (drawable != null) {
@@ -298,7 +300,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 drawDrawableWithAlpha(canvas, drawable, alpha)
             } else {
                 drawObjectInMonthAware(canvas, inMonthShape, alpha, outMonthAlpha) { a ->
-                    drawShapeWithFill(canvas, translatedBounds, shape, fillState, a)
+                    drawShapeWithFill(canvas, translatedBounds, shape, fillState, border, a)
                 }
             }
         } finally {
@@ -320,13 +322,8 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         } else {
             val inMonthPath = inMonthShape.path!!
 
-            canvas.withClip(inMonthPath) {
-                drawObject(alpha)
-            }
-
-            canvas.withClipOut(inMonthPath) {
-                drawObject(outMonthAlpha * alpha)
-            }
+            canvas.withClip(inMonthPath) { drawObject(alpha) }
+            canvas.withClipOut(inMonthPath) { drawObject(outMonthAlpha * alpha) }
         }
     }
 
@@ -335,9 +332,12 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         bounds: RectF,
         shape: SelectionShape,
         fillState: Fill.State,
+        border: Border?,
         alpha: Float,
     ) {
-        fillState.drawWith(canvas, bounds, paint, alpha) { shape.draw(canvas, paint) }
+        drawObjectWithFillAndStroke(canvas, bounds, alpha, fillState, border) {
+            shape.draw(canvas, paint)
+        }
     }
 
     private fun drawRoundRectWithFill(
@@ -345,9 +345,29 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         bounds: RectF,
         rr: Float,
         alpha: Float,
-        fillState: Fill.State
+        fillState: Fill.State,
+        border: Border?
     ) {
-        fillState.drawWith(canvas, bounds, paint, alpha) { drawRoundRect(bounds, rr, rr, paint) }
+        drawObjectWithFillAndStroke(canvas, bounds, alpha, fillState, border) {
+            drawRoundRect(bounds, rr, rr, paint)
+        }
+    }
+
+    private inline fun drawObjectWithFillAndStroke(
+        canvas: Canvas,
+        bounds: RectF,
+        alpha: Float,
+        fillState: Fill.State,
+        border: Border?,
+        drawObject: Canvas.() -> Unit
+    ) {
+        fillState.drawWith(canvas, bounds, paint, alpha, drawObject)
+
+        if (border != null) {
+            border.applyToPaint(paint)
+
+            canvas.drawObject()
+        }
     }
 
     private fun drawDrawableWithAlpha(canvas: Canvas, drawable: Drawable, alpha: Float) {

@@ -2,14 +2,16 @@ package com.github.pelmenstar1.rangecalendar
 
 import android.graphics.DashPathEffect
 import android.graphics.Paint
+import android.graphics.PathEffect
 import android.graphics.RectF
 import androidx.annotation.ColorInt
+import com.github.pelmenstar1.rangecalendar.utils.appendColor
 
 /**
  * Represents information needed for drawing border around some shape.
  */
 class Border {
-    private var pathEffect: DashPathEffect? = null
+    val pathEffect: PathEffect?
 
     /**
      * Stroke width of border
@@ -27,10 +29,7 @@ class Border {
     val dashPathPhase: Float
 
     /**
-     * Color of border expressed by color int.
-     *
-     * If border color is initially specified by color long, color is converted to sRGB color space
-     * and it causes additional allocations.
+     * Color of the border.
      */
     @get:ColorInt
     val color: Int
@@ -46,6 +45,7 @@ class Border {
         this.width = width
         dashPathIntervals = null
         dashPathPhase = 0f
+        pathEffect = null
     }
 
     /**
@@ -66,20 +66,80 @@ class Border {
         this.width = width
         this.dashPathIntervals = dashPathIntervals
         this.dashPathPhase = dashPathPhase
+
+        pathEffect = DashPathEffect(dashPathIntervals, dashPathPhase)
+    }
+
+    constructor(@ColorInt color: Int, width: Float, effect: PathEffect) {
+        this.color = color
+        this.width = width
+        pathEffect = effect
+
+        dashPathIntervals = null
+        dashPathPhase = 0f
     }
 
     /**
      * Mutates [Paint] instance to apply [Border] to the paint setting its style, stroke width, color, and path effect.
      */
     fun applyToPaint(paint: Paint) {
-        if (pathEffect == null && dashPathIntervals != null) {
-            pathEffect = DashPathEffect(dashPathIntervals, dashPathPhase)
-        }
-
         paint.color = color
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = width
         paint.pathEffect = pathEffect
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other === this) return true
+        if (other == null || javaClass != other.javaClass) return false
+
+        other as Border
+
+        if (color != other.color || width != other.width) {
+            return false
+        }
+
+        return if (dashPathIntervals == null) {
+            // Compare pathEffect's only if both borders are not "dash" ones.
+            other.dashPathIntervals == null && pathEffect == other.pathEffect
+        } else {
+            dashPathIntervals.contentEquals(other.dashPathIntervals) && dashPathPhase == other.dashPathPhase
+        }
+    }
+
+    override fun hashCode(): Int {
+        var result = color
+        result = result * 31 + width.toBits()
+
+        if (dashPathIntervals == null) {
+            result = result * 31 + pathEffect.hashCode()
+        } else {
+            result = result * 31 + dashPathIntervals.contentHashCode()
+            result = result * 31 + dashPathPhase.hashCode()
+        }
+
+        return result
+    }
+
+    override fun toString(): String {
+        return buildString(64) {
+            append("Border(color=")
+            appendColor(color)
+            append(", width=")
+            append(width)
+
+            if (dashPathIntervals == null) {
+                append(", pathEffect=")
+                append(pathEffect)
+            } else {
+                append(", dashPathIntervals=")
+                append(dashPathIntervals.contentToString())
+                append(", dashPathPhase=")
+                append(dashPathPhase)
+            }
+
+            append(')')
+        }
     }
 }
 

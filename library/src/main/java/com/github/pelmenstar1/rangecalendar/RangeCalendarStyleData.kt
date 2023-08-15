@@ -55,7 +55,7 @@ internal class RangeCalendarStyleData {
 
     companion object {
         const val INT_PROPS_COUNT = 22
-        const val OBJECT_PROPS_COUNT = 10
+        const val OBJECT_PROPS_COUNT = 11
 
         const val OBJECT_PROP_START = 32
 
@@ -94,6 +94,7 @@ internal class RangeCalendarStyleData {
         const val WEEKDAYS = 39
         const val GESTURE_DETECTOR_FACTORY = 40
         const val GESTURE_CONFIGURATION = 41
+        const val SELECTION_BORDER = 42
 
         fun isObjectProperty(propIndex: Int) = propIndex >= OBJECT_PROP_START
 
@@ -130,6 +131,7 @@ internal class RangeCalendarStyleData {
             GESTURE_DETECTOR_FACTORY -> "GESTURE_DETECTOR_FACTORY"
             GESTURE_CONFIGURATION -> "GESTURE_CONFIGURATION"
             OUT_MONTH_SELECTION_ALPHA -> "OUT_MONTH_SELECTION_ALPHA"
+            SELECTION_BORDER -> "SELECTION_BORDER"
             else -> "<UNKNOWN>"
         }
 

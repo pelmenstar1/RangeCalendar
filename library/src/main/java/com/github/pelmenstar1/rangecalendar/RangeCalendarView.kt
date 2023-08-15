@@ -1164,6 +1164,12 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleEnum({ SELECTION_FILL_GRADIENT_BOUNDS_TYPE }, value)
         }
 
+    var selectionBorder: Border?
+        get() = adapter.getStyleObject { SELECTION_BORDER }
+        set(value) {
+            adapter.setStyleObject({ SELECTION_BORDER }, value)
+        }
+
     /**
      * Gets or sets a text size of day number, in pixels
      */

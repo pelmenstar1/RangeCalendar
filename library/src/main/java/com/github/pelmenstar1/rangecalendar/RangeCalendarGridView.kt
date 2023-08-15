@@ -389,6 +389,7 @@ internal class RangeCalendarGridView(
 
         onGestureConfigurationChanged(style.getObject { GESTURE_CONFIGURATION })
         onGestureDetectorFactoryChanged(style.getObject { GESTURE_DETECTOR_FACTORY })
+        onSelectionBorderChanged(style.getObject { SELECTION_BORDER })
     }
 
     fun onStylePropertyChanged(propIndex: Int) {
@@ -441,6 +442,7 @@ internal class RangeCalendarGridView(
 
                 GESTURE_DETECTOR_FACTORY -> onGestureDetectorFactoryChanged(data.value())
                 GESTURE_CONFIGURATION -> onGestureConfigurationChanged(data.value())
+                SELECTION_BORDER -> onSelectionBorderChanged(data.value())
             }
         }
     }
@@ -612,6 +614,14 @@ internal class RangeCalendarGridView(
         updateGradientBoundsIfNeeded()
 
         invalidate()
+    }
+
+    private fun onSelectionBorderChanged(value: Border?) {
+        if (selectionRenderOptions.border != value) {
+            selectionRenderOptions.border = value
+
+            invalidate()
+        }
     }
 
     private fun onCellAnimationTypeChanged(type: CellAnimationType) {

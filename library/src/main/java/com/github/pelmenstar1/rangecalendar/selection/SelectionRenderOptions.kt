@@ -1,5 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.selection
 
+import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.SelectionFillGradientBoundsType
 
@@ -60,6 +61,8 @@ class SelectionRenderOptions {
             _cellAnimType = value
         }
 
+    var border: Border? = null
+
     internal fun getFillOrNull() = _fill
     internal fun getFillStateOrNull() = _fillState
     internal fun getFillGradientBoundsTypeOrNull() = _fillGradientBoundsType
@@ -75,7 +78,8 @@ class SelectionRenderOptions {
                 _fillGradientBoundsType == other._fillGradientBoundsType &&
                 roundRadius == other.roundRadius &&
                 outMonthAlpha == other.outMonthAlpha &&
-                _cellAnimType == other._cellAnimType
+                _cellAnimType == other._cellAnimType &&
+                border == other.border
     }
 
     override fun hashCode(): Int {
@@ -84,12 +88,13 @@ class SelectionRenderOptions {
         result = result * 31 + roundRadius.toBits()
         result = result * 31 + outMonthAlpha.toBits()
         result = result * 31 + _cellAnimType.hashCode()
+        result = result * 31 + border.hashCode()
 
         return result
     }
 
     override fun toString(): String {
-        return "SelectionRenderOptions(fill=${_fill}, fillGradientBoundsType=${_fillGradientBoundsType}, roundRadius=$roundRadius, outMonthAlpha=$outMonthAlpha, cellAnimationType=${_cellAnimType})"
+        return "SelectionRenderOptions(fill=${_fill}, fillGradientBoundsType=${_fillGradientBoundsType}, roundRadius=$roundRadius, outMonthAlpha=$outMonthAlpha, cellAnimationType=${_cellAnimType}, border=$border)"
     }
 
     private fun throwPropertyValueNotSet(): Nothing {
