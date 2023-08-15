@@ -9,6 +9,7 @@ import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import androidx.core.graphics.withClip
+import androidx.core.graphics.withSave
 import com.github.pelmenstar1.rangecalendar.Border
 import com.github.pelmenstar1.rangecalendar.Fill
 import com.github.pelmenstar1.rangecalendar.RoundRectVisualInfo
@@ -218,15 +219,16 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 info.setBounds(0f, 0f, width, height)
                 info.setRoundedCorners(rr)
 
-                info.getPath()?.also {
-                    // Clip path if info.getPath() is not null. It returns null if round radius is 0.
-                    //
-                    // We can clip without an additional save because we already have a save for translation that is always used
-                    // for drawable fills
-                    canvas.clipPath(it)
+                canvas.withSave {
+                    info.clip(canvas)
+                    drawDrawableWithAlpha(canvas, drawable, alpha)
                 }
 
-                drawDrawableWithAlpha(canvas, drawable, alpha)
+                if (border != null) {
+                    border.applyToPaint(paint, alpha)
+
+                    info.draw(canvas, paint)
+                }
             } else {
                 drawObjectInMonthAware(canvas, inMonthShape, alpha, outMonthAlpha) { a ->
                     drawRoundRectWithFill(canvas, shapeBounds, rr, a, fillState, border)
@@ -289,15 +291,20 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         try {
             val drawable = fill.drawable
 
-
             // We use a different approach of drawing if fill is drawable-type.
             // In that case, we draw a drawable with clipping over the shape.
             if (drawable != null) {
-                // As isDrawableFill is true, it means that SelectionShape.update() was called with forcePath=true,
-                // that makes the logic to create a path.
-                canvas.clipPath(shape.path!!)
+                val path = shape.path!!
 
-                drawDrawableWithAlpha(canvas, drawable, alpha)
+                canvas.withClip(path) {
+                    drawDrawableWithAlpha(canvas, drawable, alpha)
+                }
+
+                if (border != null) {
+                    border.applyToPaint(paint, alpha)
+
+                    shape.draw(canvas, paint)
+                }
             } else {
                 drawObjectInMonthAware(canvas, inMonthShape, alpha, outMonthAlpha) { a ->
                     drawShapeWithFill(canvas, translatedBounds, shape, fillState, border, a)

@@ -535,10 +535,7 @@ class LineDecor(val style: Style) : CellDecor() {
                 setBounds(0f, 0f, width, height)
                 initRoundedCorners(style)
 
-                getPath()?.also {
-                    // getPath() returns null if a round rect is simply a rect. In that case, we don't need to clip.
-                    canvas.clipPath(it)
-                }
+                clip(canvas)
             }
         }
 
