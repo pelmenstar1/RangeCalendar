@@ -213,6 +213,10 @@ internal class SelectionShape {
             type = TYPE_COMPLEX
 
             getOrInitPath().apply {
+                // The logic treats y-radius as equal to x-radius
+                // y-radius is always less or equal to the half of cell height - height of the part,
+                // but x-radius can be greater than width of the respective part. It causes
+                // visual artifacts.
                 val upperPartRx = min(rr, (upperPartRight - upperPartLeft) * 0.5f)
                 val lowerPartRx = min(rr, (lowerPartRight - lowerPartLeft) * 0.5f)
 
@@ -225,6 +229,8 @@ internal class SelectionShape {
                 val end7Y = upperPartBottom - rr
                 val start8Y = end1Y
 
+                // Second and sixth corner can belong to either center part or upper/below part
+                // based on these conditions.
                 val secondCornerRx = if (start2Y == end1Y) upperPartRx else rr
                 val sixthCornerRx = if (start6Y == end5Y) lowerPartRx else rr
 
