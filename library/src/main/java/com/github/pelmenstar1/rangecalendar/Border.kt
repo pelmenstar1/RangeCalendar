@@ -6,6 +6,7 @@ import android.graphics.PathEffect
 import android.graphics.RectF
 import androidx.annotation.ColorInt
 import com.github.pelmenstar1.rangecalendar.utils.appendColor
+import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
 
 /**
  * Represents information needed for drawing border around some shape.
@@ -82,8 +83,9 @@ class Border {
     /**
      * Mutates [Paint] instance to apply [Border] to the paint setting its style, stroke width, color, and path effect.
      */
-    fun applyToPaint(paint: Paint) {
-        paint.color = color
+    @JvmOverloads
+    fun applyToPaint(paint: Paint, alpha: Float = 1f) {
+        paint.color = color.withCombinedAlpha(alpha)
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = width
         paint.pathEffect = pathEffect

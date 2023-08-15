@@ -364,7 +364,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         fillState.drawWith(canvas, bounds, paint, alpha, drawObject)
 
         if (border != null) {
-            border.applyToPaint(paint)
+            border.applyToPaint(paint, alpha)
 
             canvas.drawObject()
         }

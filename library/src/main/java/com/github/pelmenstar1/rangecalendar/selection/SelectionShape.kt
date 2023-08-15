@@ -322,9 +322,6 @@ internal class SelectionShape {
         }
     }
 
-    /**
-     * Draws the selection shape on [canvas] using [paint]. The shape will be drawn relative to the [bounds].
-     */
     fun draw(canvas: Canvas, paint: Paint) {
         val rr = shapeInfo.roundRadius
 
