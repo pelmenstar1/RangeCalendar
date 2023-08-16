@@ -4,11 +4,13 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.util.Log
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
 import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
+import kotlin.math.abs
 import kotlin.math.min
 
 internal class SelectionShape {
@@ -147,7 +149,7 @@ internal class SelectionShape {
         val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
         val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
 
-        if (gridYDiff == 1 && upperPartLeft >= lowerPartRight) {
+        if (gridYDiff == 1 && isTwoStandaloneRects(upperRect, lowerRect, roundRadius = 0f)) {
             type = TYPE_TWO_STANDALONE_RECTS
 
             if (forcePath) {
@@ -163,7 +165,7 @@ internal class SelectionShape {
                 moveTo(upperPartLeft, upperPartTop)
                 lineTo(upperPartRight, upperPartTop)
 
-                if (lowerPartRight != upperPartRight) {
+                if (abs(lowerPartRight - upperPartRight) >= EPSILON) {
                     lineTo(upperPartRight, lowerPartTop)
                     lineTo(lowerPartRight, lowerPartTop)
                 }
@@ -171,7 +173,7 @@ internal class SelectionShape {
                 lineTo(lowerPartRight, lowerPartBottom)
                 lineTo(lowerPartLeft, lowerPartBottom)
 
-                if (lowerPartLeft != upperPartLeft) {
+                if (abs(lowerPartLeft - upperPartLeft) >= EPSILON) {
                     lineTo(lowerPartLeft, upperPartBottom)
                     lineTo(upperPartLeft, upperPartBottom)
                 }
@@ -200,7 +202,8 @@ internal class SelectionShape {
 
         // Check if there's a common part between top and bottom parts
         // This shortcut doesn't work if gridYDiff > 1 because in that case, there's also a center part
-        if (gridYDiff == 1 && upperPartLeft + rr >= lowerPartRight - rr) {
+
+        if (gridYDiff == 1 && isTwoStandaloneRects(upperRect, lowerRect, rr)) {
             type = TYPE_TWO_STANDALONE_RECTS
 
             if (forcePath) {
@@ -253,7 +256,7 @@ internal class SelectionShape {
                     CORNER_RT
                 )
 
-                if (lowerPartRight != upperPartRight) {
+                if (abs(lowerPartRight - upperPartRight) >= EPSILON) {
                     if (start2Y != end1Y) {
                         lineTo(upperPartRight, start2Y)
                     }
@@ -292,7 +295,7 @@ internal class SelectionShape {
                     CORNER_LB
                 )
 
-                if (lowerPartLeft != upperPartLeft) {
+                if (abs(lowerPartLeft - upperPartLeft) >= EPSILON) {
                     if (start6Y != end5Y) {
                         lineTo(lowerPartLeft, start6Y)
                     }
@@ -335,10 +338,12 @@ internal class SelectionShape {
             TYPE_STANDALONE_RECT -> {
                 canvas.drawRoundRect(upperRect, rr, rr, paint)
             }
+
             TYPE_TWO_STANDALONE_RECTS -> {
                 canvas.drawRoundRect(upperRect, rr, rr, paint)
                 canvas.drawRoundRect(_lowerRect!!, rr, rr, paint)
             }
+
             TYPE_COMPLEX -> {
                 canvas.drawPath(_path!!, paint)
             }
@@ -364,6 +369,19 @@ internal class SelectionShape {
         private const val CORNER_RT = CORNER_X_POSITIVE_FLAG or CORNER_Y_POSITIVE_FLAG
         private const val CORNER_RB = CORNER_X_POSITIVE_FLAG
         private const val CORNER_LB = 0
+
+        private const val EPSILON = 0.1
+
+        private fun isTwoStandaloneRects(upper: RectF, lower: RectF, roundRadius: Float): Boolean {
+            val upperLeft = upper.left
+            val upperRight = upper.right
+            val lowerLeft = lower.left
+            val lowerRight = lower.right
+
+            return upperLeft + roundRadius >= lowerRight - roundRadius &&
+                    abs(upperLeft - lowerLeft) >= EPSILON &&
+                    abs(upperRight - lowerRight) >= EPSILON
+        }
 
         private fun Path.addRoundCorner(
             originX: Float, originY: Float,
