@@ -1164,6 +1164,10 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleEnum({ SELECTION_FILL_GRADIENT_BOUNDS_TYPE }, value)
         }
 
+    /**
+     * Gets or sets the [Border] instance, that specifies a line around the selection shape.
+     * If `null`, it means that the selection shape has no border (the default behaviour).
+     */
     var selectionBorder: Border?
         get() = adapter.getStyleObject { SELECTION_BORDER }
         set(value) {
