@@ -4,7 +4,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.util.Log
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
@@ -60,29 +59,23 @@ internal class SelectionShape {
         shapeInfo.set(newShapeInfo)
         origin = newOrigin
 
-        val (start, end) = shapeInfo.range
         var rr = shapeInfo.roundRadius
+        rr = min(rr, shapeInfo.cellHeight * 0.5f)
 
-        val gridYDiff = end.gridY - start.gridY
+        updateRectsAndType(newShapeInfo, origin, rr)
 
-        updateRects(newShapeInfo, origin)
-
-        // If start and end are on the same row, we can draw the shape even without using Path.
-        if (gridYDiff > 0) {
-            rr = min(rr, shapeInfo.cellHeight * 0.5f)
-
-            buildPath(rr, forcePath)
-        } else {
-            type = TYPE_STANDALONE_RECT
-
+        if (type == TYPE_STANDALONE_RECT) {
+            // When type is TYPE_STANDALONE_RECT, we build the path only when it's requested,
+            // because it's possible to draw a shape without using Path.
             if (forcePath) {
                 getEmptyPath().addRoundRect(upperRect, rr, rr, Path.Direction.CW)
             }
+        } else {
+            buildPath(rr, forcePath)
         }
     }
 
-    private fun updateRects(info: SelectionShapeInfo, origin: Int) {
-        val (start, end) = info.range
+    private fun updateRectsAndType(info: SelectionShapeInfo, origin: Int, rr: Float) {
         val startLeft = info.startLeft
         val startTop = info.startTop
 
@@ -93,31 +86,10 @@ internal class SelectionShape {
 
         val endBottom = endTop + cellHeight
 
-        val gridYDiff = end.gridY - start.gridY
-
         // If start and end are on the same row, we can draw the shape even without using Path.
-        if (gridYDiff > 0) {
-            val firstCellLeft = info.firstCellOnRowLeft
-            val lastCellRight = info.lastCellOnRowRight
+        if (abs(startTop - endTop) < EPSILON) { // startTop == endTop
+            type = TYPE_STANDALONE_RECT
 
-            // If there are more than 1 row, then the shape will always occupy space between first and last cells on a row.
-            bounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
-
-            val bottomRect = getOrInitLowerRect()
-
-            if (origin == ORIGIN_LOCAL) {
-                val startBottom = startTop + cellHeight
-
-                upperRect.set(startLeft, startTop, lastCellRight, startBottom)
-                bottomRect.set(firstCellLeft, endTop, endRight, endBottom)
-            } else {
-                val rowWidth = lastCellRight - firstCellLeft
-                val bottomPartTop = endTop - startTop
-
-                upperRect.set(startLeft - firstCellLeft, 0f, rowWidth, cellHeight)
-                bottomRect.set(0f, bottomPartTop, endRight - firstCellLeft, bottomPartTop + cellHeight)
-            }
-        } else {
             bounds.set(startLeft, startTop, endRight, endBottom)
 
             if (origin == ORIGIN_LOCAL) {
@@ -125,10 +97,37 @@ internal class SelectionShape {
             } else {
                 upperRect.set(0f, 0f, endRight - startLeft, cellHeight)
             }
+        } else {
+            val firstCellLeft = info.firstCellOnRowLeft
+            val lastCellRight = info.lastCellOnRowRight
+
+            // If there are more than 1 row, then the shape will always occupy space between first and last cells on a row.
+            bounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
+
+            val lowerRect = getOrInitLowerRect()
+
+            if (origin == ORIGIN_LOCAL) {
+                val startBottom = startTop + cellHeight
+
+                upperRect.set(startLeft, startTop, lastCellRight, startBottom)
+                lowerRect.set(firstCellLeft, endTop, endRight, endBottom)
+            } else {
+                val rowWidth = lastCellRight - firstCellLeft
+                val lowerPartTop = endTop - startTop
+
+                upperRect.set(startLeft - firstCellLeft, 0f, rowWidth, cellHeight)
+                lowerRect.set(0f, lowerPartTop, endRight - firstCellLeft, lowerPartTop + cellHeight)
+            }
+
+            type = if (isTwoStandaloneRects(upperRect, lowerRect, rr)) {
+                TYPE_TWO_STANDALONE_RECTS
+            } else {
+                TYPE_COMPLEX
+            }
         }
     }
 
-    // Expects that end.gridY - start.gridY > 0
+    // Expects that type != TYPE_STANDALONE_RECT
     private fun buildPath(rr: Float, forcePath: Boolean) {
         if (rr > 0f) {
             buildPathWithRoundRadii(rr, forcePath)
@@ -138,20 +137,12 @@ internal class SelectionShape {
     }
 
     private fun buildPathNoRoundRadii(forcePath: Boolean) {
-        val (start, end) = shapeInfo.range
-        val gridYDiff = end.gridY - start.gridY
-
         // Clear the path if it's created.
         clearPath()
 
         val lowerRect = _lowerRect!!
 
-        val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
-        val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
-
-        if (gridYDiff == 1 && isTwoStandaloneRects(upperRect, lowerRect, roundRadius = 0f)) {
-            type = TYPE_TWO_STANDALONE_RECTS
-
+        if (type == TYPE_TWO_STANDALONE_RECTS) {
             if (forcePath) {
                 val path = getOrInitPath()
 
@@ -161,10 +152,14 @@ internal class SelectionShape {
         } else {
             type = TYPE_COMPLEX
 
+            val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
+            val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
+
             getOrInitPath().apply {
                 moveTo(upperPartLeft, upperPartTop)
                 lineTo(upperPartRight, upperPartTop)
 
+                // lowerPartRight != upperPartRight
                 if (abs(lowerPartRight - upperPartRight) >= EPSILON) {
                     lineTo(upperPartRight, lowerPartTop)
                     lineTo(lowerPartRight, lowerPartTop)
@@ -173,6 +168,7 @@ internal class SelectionShape {
                 lineTo(lowerPartRight, lowerPartBottom)
                 lineTo(lowerPartLeft, lowerPartBottom)
 
+                // lowerPartLeft != upperPartLeft
                 if (abs(lowerPartLeft - upperPartLeft) >= EPSILON) {
                     lineTo(lowerPartLeft, upperPartBottom)
                     lineTo(upperPartLeft, upperPartBottom)
@@ -185,27 +181,16 @@ internal class SelectionShape {
 
     /**
      * Clears the previous path data and builds the new one.
-     * Expects that end.gridY - start.gridY > 0 and rr > 0f && rr <= gridInfo.cellHeight * 0.5f
+     * Expects that type != [TYPE_STANDALONE_RECT] and rr > 0 && rr <= gridInfo.cellHeight * 0.5.
      * The method doesn't build path if possible, though it can be forced by [forcePath].
      */
     private fun buildPathWithRoundRadii(rr: Float, forcePath: Boolean) {
-        val (start, end) = shapeInfo.range
-        val gridYDiff = end.gridY - start.gridY
-
         // Clear the path if it's created.
         clearPath()
 
         val lowerRect = _lowerRect!!
 
-        val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
-        val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
-
-        // Check if there's a common part between top and bottom parts
-        // This shortcut doesn't work if gridYDiff > 1 because in that case, there's also a center part
-
-        if (gridYDiff == 1 && isTwoStandaloneRects(upperRect, lowerRect, rr)) {
-            type = TYPE_TWO_STANDALONE_RECTS
-
+        if (type == TYPE_TWO_STANDALONE_RECTS) {
             if (forcePath) {
                 val path = getOrInitPath()
 
@@ -213,7 +198,8 @@ internal class SelectionShape {
                 path.addRoundRect(lowerRect, rr, rr, Path.Direction.CW)
             }
         } else {
-            type = TYPE_COMPLEX
+            val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
+            val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
 
             getOrInitPath().apply {
                 // The logic treats y-radius as equal to x-radius
@@ -256,6 +242,7 @@ internal class SelectionShape {
                     CORNER_RT
                 )
 
+                // lowerPartRight != upperPartRight
                 if (abs(lowerPartRight - upperPartRight) >= EPSILON) {
                     if (start2Y != end1Y) {
                         lineTo(upperPartRight, start2Y)
@@ -295,6 +282,7 @@ internal class SelectionShape {
                     CORNER_LB
                 )
 
+                // lowerPartLeft != upperPartLeft
                 if (abs(lowerPartLeft - upperPartLeft) >= EPSILON) {
                     if (start6Y != end5Y) {
                         lineTo(lowerPartLeft, start6Y)
@@ -379,8 +367,9 @@ internal class SelectionShape {
             val lowerRight = lower.right
 
             return upperLeft + roundRadius >= lowerRight - roundRadius &&
-                    abs(upperLeft - lowerLeft) >= EPSILON &&
-                    abs(upperRight - lowerRight) >= EPSILON
+                    abs(upper.bottom - lower.top) <= EPSILON && // upper.bottom == lower.top
+                    abs(upperLeft - lowerLeft) >= EPSILON && // upperLeft != lowerLeft
+                    abs(upperRight - lowerRight) >= EPSILON // upperRight != lowerRight
         }
 
         private fun Path.addRoundCorner(
@@ -390,6 +379,8 @@ internal class SelectionShape {
             cornerType: Int
         ) {
             val rrx = if ((cornerType and CORNER_X_POSITIVE_FLAG) != 0) rx else -rx
+
+            // y-axis in graphics is inverted in relation to y-axis in geometry
             val rry = if ((cornerType and CORNER_Y_POSITIVE_FLAG) != 0) -ry else ry
 
             val c1x = originX + rrx * BEZIER_CIRCULAR_ARC_COEFFICIENT
