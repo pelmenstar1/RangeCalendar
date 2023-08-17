@@ -56,17 +56,14 @@ internal class RoundRectVisualInfo {
         isPathDirty = true
     }
 
-    /**
-     * Returns a path that contains round rect with properties specified by the instance.
-     * It returns `null` if the round rect is not actually a rect with round corners.
-     */
-    fun getPath(): Path? {
-        if (isPathDirty) {
+    private fun getPath(): Path {
+        var path = roundRectPath
+        if (path == null || isPathDirty) {
             isPathDirty = false
-            updatePath()
+            path = createOrUpdatePath()
         }
 
-        return if (isRealRoundRect()) roundRectPath else null
+        return path
     }
 
     /**
@@ -78,11 +75,18 @@ internal class RoundRectVisualInfo {
         return roundRadii != null || roundRadius > 0f
     }
 
+    fun clip(canvas: Canvas) {
+        if (isRealRoundRect()) {
+            canvas.clipPath(getPath())
+        } else {
+            canvas.clipRect(left, top, right, bottom)
+        }
+    }
+
     fun draw(canvas: Canvas, paint: Paint) {
-        val radii = roundRadii
-        if (radii != null) {
+        if (roundRadii != null) {
             // getPath() returns a not-null path if roundRadii is not null.
-            canvas.drawPath(getPath()!!, paint)
+            canvas.drawPath(getPath(), paint)
         } else {
             val rr = min(roundRadius, getMaxRoundRadius())
 
@@ -102,10 +106,12 @@ internal class RoundRectVisualInfo {
         return path
     }
 
-    private fun updatePath() {
+    private fun createOrUpdatePath(): Path {
         val maxRoundRadius = getMaxRoundRadius()
         val radii = roundRadii
         var rr = roundRadius
+
+        val path = getEmptyPath()
 
         if (radii != null) {
             val normRadii = getLazyValue(normalizedRadii, { FloatArray(8) }) { normalizedRadii = it }
@@ -114,16 +120,14 @@ internal class RoundRectVisualInfo {
                 normRadii[i] = min(radii[i], maxRoundRadius)
             }
 
-            getEmptyPath().addRoundRectCompat(left, top, right, bottom, normRadii)
-        } else if (rr > 0f) {
+            path.addRoundRectCompat(left, top, right, bottom, normRadii)
+        } else {
             rr = min(rr, maxRoundRadius)
 
-            getEmptyPath().addRoundRectCompat(left, top, right, bottom, rr)
-        } else {
-            // If rr = 0, the round rect is not actually a rect with round corners. The path won't be used at all.
-            // We can clear all the data.
-            roundRectPath?.reset()
+            path.addRoundRectCompat(left, top, right, bottom, rr)
         }
+
+        return path
     }
 
     private fun getMaxRoundRadius(): Float {

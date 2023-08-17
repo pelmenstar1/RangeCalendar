@@ -4,9 +4,13 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import com.github.pelmenstar1.rangecalendar.utils.Radii
-import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
+import androidx.core.graphics.component1
+import androidx.core.graphics.component2
+import androidx.core.graphics.component3
+import androidx.core.graphics.component4
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
+import kotlin.math.abs
+import kotlin.math.min
 
 internal class SelectionShape {
     private var _path: Path? = null
@@ -15,12 +19,16 @@ internal class SelectionShape {
 
     private val shapeInfo = SelectionShapeInfo()
     private var origin = -1
+    private var type = -1
 
     val bounds = RectF()
 
-    val topRect = RectF()
+    val upperRect = RectF()
+    private var _lowerRect: RectF? = null
 
-    private var _bottomRect: RectF? = null
+    private fun getOrInitPath(): Path {
+        return getLazyValue(_path, ::Path) { _path = it }
+    }
 
     private fun getEmptyPath(): Path {
         var p = _path
@@ -35,13 +43,14 @@ internal class SelectionShape {
         return p
     }
 
-    private fun getOrInitBottomRect(): RectF =
-        getLazyValue(_bottomRect, ::RectF) { _bottomRect = it }
+    private fun clearPath() {
+        _path?.rewind()
+    }
 
-    fun update(newShapeInfo: SelectionShapeInfo, newOrigin: Int, flags: Int) {
-        val forcePath = (flags and FLAG_FORCE_PATH) != 0
-        val ignoreRoundRadii = (flags and FLAG_IGNORE_ROUND_RADII) != 0
+    private fun getOrInitLowerRect(): RectF =
+        getLazyValue(_lowerRect, ::RectF) { _lowerRect = it }
 
+    fun update(newShapeInfo: SelectionShapeInfo, newOrigin: Int, forcePath: Boolean) {
         // If path is not created and the caller wants it to be created, do not early exit
         if (shapeInfo == newShapeInfo && origin == newOrigin && !(_path == null && forcePath)) {
             return
@@ -50,68 +59,23 @@ internal class SelectionShape {
         shapeInfo.set(newShapeInfo)
         origin = newOrigin
 
-        val (start, end) = shapeInfo.range
-        val rr = shapeInfo.roundRadius
+        var rr = shapeInfo.roundRadius
+        rr = min(rr, shapeInfo.cellHeight * 0.5f)
 
-        val gridYDiff = end.gridY - start.gridY
+        updateRectsAndType(newShapeInfo, origin, rr)
 
-        updateRects(newShapeInfo, origin)
-
-        if (ignoreRoundRadii || rr == 0f) {
-            buildPathIgnoreRoundRadii()
-            return
-        }
-
-        // If start and end are on the same row, we can draw the shape even without using Path.
-        if (gridYDiff > 0) {
-            val path = getEmptyPath()
-
-            val startGridX = start.gridX
-            val endGridX = end.gridX
-
-            val bottomRect = _bottomRect!!
-
-            Radii.withRadius(rr) {
-                leftTop()
-                rightTop()
-                leftBottom(condition = startGridX != 0)
-                rightBottom(condition = gridYDiff == 1 && endGridX != 6)
-
-                path.addRoundRect(topRect, radii(), Path.Direction.CW)
-            }
-
-            Radii.withRadius(rr) {
-                rightBottom()
-                leftBottom()
-                rightTop(condition = endGridX != 6)
-                leftTop(condition = gridYDiff == 1 && startGridX != 0)
-
-                path.addRoundRect(bottomRect, radii(), Path.Direction.CW)
-            }
-
-            if (gridYDiff > 1) {
-                Radii.withRadius(rr) {
-                    leftTop(condition = startGridX != 0)
-                    rightBottom(condition = endGridX != 6)
-
-                    path.addRoundRectCompat(
-                        bottomRect.left,
-                        topRect.bottom,
-                        topRect.right,
-                        bottomRect.top,
-                        radii()
-                    )
-                }
+        if (type == TYPE_STANDALONE_RECT) {
+            // When type is TYPE_STANDALONE_RECT, we build the path only when it's requested,
+            // because it's possible to draw a shape without using Path.
+            if (forcePath) {
+                getEmptyPath().addRoundRect(upperRect, rr, rr, Path.Direction.CW)
             }
         } else {
-            if (forcePath) {
-                getEmptyPath().addRoundRect(topRect, rr, rr, Path.Direction.CW)
-            }
+            buildPath(rr, forcePath)
         }
     }
 
-    private fun updateRects(info: SelectionShapeInfo, origin: Int) {
-        val (start, end) = info.range
+    private fun updateRectsAndType(info: SelectionShapeInfo, origin: Int, rr: Float) {
         val startLeft = info.startLeft
         val startTop = info.startTop
 
@@ -122,100 +86,255 @@ internal class SelectionShape {
 
         val endBottom = endTop + cellHeight
 
-        val gridYDiff = end.gridY - start.gridY
-
         // If start and end are on the same row, we can draw the shape even without using Path.
-        if (gridYDiff > 0) {
+        if (abs(startTop - endTop) < EPSILON) { // startTop == endTop
+            type = TYPE_STANDALONE_RECT
+
+            bounds.set(startLeft, startTop, endRight, endBottom)
+
+            if (origin == ORIGIN_LOCAL) {
+                upperRect.set(bounds)
+            } else {
+                upperRect.set(0f, 0f, endRight - startLeft, cellHeight)
+            }
+        } else {
             val firstCellLeft = info.firstCellOnRowLeft
             val lastCellRight = info.lastCellOnRowRight
 
             // If there are more than 1 row, then the shape will always occupy space between first and last cells on a row.
             bounds.set(firstCellLeft, startTop, lastCellRight, endBottom)
 
-            val bottomRect = getOrInitBottomRect()
+            val lowerRect = getOrInitLowerRect()
 
             if (origin == ORIGIN_LOCAL) {
                 val startBottom = startTop + cellHeight
 
-                topRect.set(startLeft, startTop, lastCellRight, startBottom)
-                bottomRect.set(firstCellLeft, endTop, endRight, endBottom)
+                upperRect.set(startLeft, startTop, lastCellRight, startBottom)
+                lowerRect.set(firstCellLeft, endTop, endRight, endBottom)
             } else {
                 val rowWidth = lastCellRight - firstCellLeft
-                val bottomPartTop = endTop - startTop
+                val lowerPartTop = endTop - startTop
 
-                topRect.set(startLeft - firstCellLeft, 0f, rowWidth, cellHeight)
-                bottomRect.set(0f, bottomPartTop, endRight - firstCellLeft, bottomPartTop + cellHeight)
+                upperRect.set(startLeft - firstCellLeft, 0f, rowWidth, cellHeight)
+                lowerRect.set(0f, lowerPartTop, endRight - firstCellLeft, lowerPartTop + cellHeight)
             }
-        } else {
-            bounds.set(startLeft, startTop, endRight, endBottom)
 
-            if (origin == ORIGIN_LOCAL) {
-                topRect.set(bounds)
+            type = if (isTwoStandaloneRects(upperRect, lowerRect, rr)) {
+                TYPE_TWO_STANDALONE_RECTS
             } else {
-                topRect.set(0f, 0f, endRight - startLeft, cellHeight)
+                TYPE_COMPLEX
             }
         }
     }
 
-    private fun buildPathIgnoreRoundRadii() {
-        val (start, end) = shapeInfo.range
-        val gridYDiff = end.gridY - start.gridY
+    // Expects that type != TYPE_STANDALONE_RECT
+    private fun buildPath(rr: Float, forcePath: Boolean) {
+        if (rr > 0f) {
+            buildPathWithRoundRadii(rr, forcePath)
+        } else {
+            buildPathNoRoundRadii(forcePath)
+        }
+    }
 
-        val path = getEmptyPath()
+    private fun buildPathNoRoundRadii(forcePath: Boolean) {
+        // Clear the path if it's created.
+        clearPath()
 
-        path.apply {
-            if (gridYDiff == 0) {
-                addRect(topRect, Path.Direction.CW)
-            } else {
-                val bottomRect = _bottomRect!!
+        val lowerRect = _lowerRect!!
 
-                if (gridYDiff == 1 && topRect.left >= bottomRect.right) {
-                    // 5 for each rect = 10
-                    incReserve(10)
+        if (type == TYPE_TWO_STANDALONE_RECTS) {
+            if (forcePath) {
+                val path = getOrInitPath()
 
-                    addRect(topRect, Path.Direction.CW)
-                    addRect(bottomRect, Path.Direction.CW)
-                } else {
-                    // 1 moveTo + 3 lineTo + 1 close + 4 lineTo (in special cases)
-                    incReserve(9)
+                path.addRect(upperRect, Path.Direction.CW)
+                path.addRect(lowerRect, Path.Direction.CW)
+            }
+        } else {
+            type = TYPE_COMPLEX
 
-                    moveTo(topRect.left, topRect.top)
-                    lineTo(topRect.right, topRect.top)
+            val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
+            val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
 
-                    if (bottomRect.right != topRect.right) {
-                        lineTo(topRect.right, bottomRect.top)
-                        lineTo(bottomRect.right, bottomRect.top)
-                    }
+            getOrInitPath().apply {
+                moveTo(upperPartLeft, upperPartTop)
+                lineTo(upperPartRight, upperPartTop)
 
-                    lineTo(bottomRect.right, bottomRect.bottom)
-                    lineTo(bottomRect.left, bottomRect.bottom)
-
-                    if (bottomRect.left != topRect.left) {
-                        lineTo(bottomRect.left, topRect.bottom)
-                        lineTo(topRect.left, topRect.bottom)
-                    }
-
-                    close()
+                // lowerPartRight != upperPartRight
+                if (abs(lowerPartRight - upperPartRight) >= EPSILON) {
+                    lineTo(upperPartRight, lowerPartTop)
+                    lineTo(lowerPartRight, lowerPartTop)
                 }
+
+                lineTo(lowerPartRight, lowerPartBottom)
+                lineTo(lowerPartLeft, lowerPartBottom)
+
+                // lowerPartLeft != upperPartLeft
+                if (abs(lowerPartLeft - upperPartLeft) >= EPSILON) {
+                    lineTo(lowerPartLeft, upperPartBottom)
+                    lineTo(upperPartLeft, upperPartBottom)
+                }
+
+                close()
             }
         }
     }
 
     /**
-     * Draws the selection shape on [canvas] using [paint]. The shape will be drawn relative to the [bounds].
+     * Clears the previous path data and builds the new one.
+     * Expects that type != [TYPE_STANDALONE_RECT] and rr > 0 && rr <= gridInfo.cellHeight * 0.5.
+     * The method doesn't build path if possible, though it can be forced by [forcePath].
      */
-    fun draw(canvas: Canvas, paint: Paint) {
-        val (startCell, endCell) = shapeInfo.range
+    private fun buildPathWithRoundRadii(rr: Float, forcePath: Boolean) {
+        // Clear the path if it's created.
+        clearPath()
 
-        // If startCell and endCell are on the same row, the shape is a simple rect with round corners that can be rendered
-        // even without using a Path.
-        if (startCell.sameY(endCell)) {
-            val rr = shapeInfo.roundRadius
+        val lowerRect = _lowerRect!!
 
-            canvas.drawRoundRect(topRect, rr, rr, paint)
+        if (type == TYPE_TWO_STANDALONE_RECTS) {
+            if (forcePath) {
+                val path = getOrInitPath()
+
+                path.addRoundRect(upperRect, rr, rr, Path.Direction.CW)
+                path.addRoundRect(lowerRect, rr, rr, Path.Direction.CW)
+            }
         } else {
-            // _path should not be null if updateShape() has been called.
-            canvas.drawPath(_path!!, paint)
+            val (upperPartLeft, upperPartTop, upperPartRight, upperPartBottom) = upperRect
+            val (lowerPartLeft, lowerPartTop, lowerPartRight, lowerPartBottom) = lowerRect
+
+            getOrInitPath().apply {
+                // The logic treats y-radius as equal to x-radius
+                // y-radius is always less or equal to the half of cell height - height of the part,
+                // but x-radius can be greater than width of the respective part. It causes
+                // visual artifacts.
+                val upperPartRx = min(rr, (upperPartRight - upperPartLeft) * 0.5f)
+                val lowerPartRx = min(rr, (lowerPartRight - lowerPartLeft) * 0.5f)
+
+                val end1Y = upperPartTop + rr
+                val start2Y = lowerPartTop - rr
+                val end3Y = lowerPartTop + rr
+                val start4Y = lowerPartBottom - rr
+                val end5Y = start4Y
+                val start6Y = upperPartBottom + rr
+                val end7Y = upperPartBottom - rr
+                val start8Y = end1Y
+
+                // Second and sixth corner can belong to either center part or upper/below part
+                // based on these conditions.
+                val secondCornerRx = if (start2Y == end1Y) upperPartRx else rr
+                val sixthCornerRx = if (start6Y == end5Y) lowerPartRx else rr
+
+                val start1X = upperPartRight - upperPartRx
+                val end2X = upperPartRight - secondCornerRx
+                val start3X = lowerPartRight - lowerPartRx
+                val end4X = start3X
+                val start5X = lowerPartLeft + lowerPartRx
+                val end6X = lowerPartLeft + sixthCornerRx
+                val start7X = upperPartLeft + upperPartRx
+                val end8X = start7X
+
+                moveTo(end8X, upperPartTop)
+                lineTo(start1X, upperPartTop)
+
+                // 1st corner
+                addRoundCorner(
+                    start1X, end1Y, upperPartRight, end1Y,
+                    upperPartRx, rr,
+                    CORNER_RT
+                )
+
+                // lowerPartRight != upperPartRight
+                if (abs(lowerPartRight - upperPartRight) >= EPSILON) {
+                    if (start2Y != end1Y) {
+                        lineTo(upperPartRight, start2Y)
+                    }
+
+                    // 2nd corner
+                    addRoundCorner(
+                        end2X, start2Y, end2X, lowerPartTop,
+                        secondCornerRx, rr,
+                        CORNER_RB
+                    )
+                    lineTo(start3X, lowerPartTop)
+
+                    // 3rd corner
+                    addRoundCorner(
+                        start3X, end3Y, lowerPartRight, end3Y,
+                        lowerPartRx, rr,
+                        CORNER_RT
+                    )
+                }
+
+                lineTo(lowerPartRight, start4Y)
+
+                // 4th corner
+                addRoundCorner(
+                    end4X, start4Y, end4X, lowerPartBottom,
+                    lowerPartRx, rr,
+                    CORNER_RB
+                )
+
+                lineTo(start5X, lowerPartBottom)
+
+                // 5th corner
+                addRoundCorner(
+                    start5X, end5Y, lowerPartLeft, end5Y,
+                    lowerPartRx, rr,
+                    CORNER_LB
+                )
+
+                // lowerPartLeft != upperPartLeft
+                if (abs(lowerPartLeft - upperPartLeft) >= EPSILON) {
+                    if (start6Y != end5Y) {
+                        lineTo(lowerPartLeft, start6Y)
+                    }
+
+                    // 6th corner
+                    addRoundCorner(
+                        end6X, start6Y, end6X, upperPartBottom,
+                        sixthCornerRx, rr,
+                        CORNER_LT
+                    )
+
+                    lineTo(start7X, upperPartBottom)
+
+                    // 7th corner
+                    addRoundCorner(
+                        start7X, end7Y, upperPartLeft, end7Y,
+                        upperPartRx, rr,
+                        CORNER_LB
+                    )
+                }
+
+                lineTo(upperPartLeft, start8Y)
+
+                // 8th corner
+                addRoundCorner(
+                    end8X, start8Y, end8X, upperPartTop,
+                    upperPartRx, rr,
+                    CORNER_LT
+                )
+
+                close()
+            }
+        }
+    }
+
+    fun draw(canvas: Canvas, paint: Paint) {
+        val rr = shapeInfo.roundRadius
+
+        when (type) {
+            TYPE_STANDALONE_RECT -> {
+                canvas.drawRoundRect(upperRect, rr, rr, paint)
+            }
+
+            TYPE_TWO_STANDALONE_RECTS -> {
+                canvas.drawRoundRect(upperRect, rr, rr, paint)
+                canvas.drawRoundRect(_lowerRect!!, rr, rr, paint)
+            }
+
+            TYPE_COMPLEX -> {
+                canvas.drawPath(_path!!, paint)
+            }
         }
     }
 
@@ -223,7 +342,58 @@ internal class SelectionShape {
         const val ORIGIN_LOCAL = 0
         const val ORIGIN_BOUNDS = 1
 
-        const val FLAG_FORCE_PATH = 1
-        const val FLAG_IGNORE_ROUND_RADII = 1 shl 1
+        private const val TYPE_STANDALONE_RECT = 0
+        private const val TYPE_TWO_STANDALONE_RECTS = 1
+        private const val TYPE_COMPLEX = 2
+
+        // "Approximation of a cubic bezier curve by circular arcs and vice versa", by Aleksas Riškus.
+        // In the paper, this constant is called 'k'
+        private const val BEZIER_CIRCULAR_ARC_COEFFICIENT = 0.5522848f
+
+        private const val CORNER_X_POSITIVE_FLAG = 1
+        private const val CORNER_Y_POSITIVE_FLAG = 1 shl 1
+
+        private const val CORNER_LT = CORNER_Y_POSITIVE_FLAG
+        private const val CORNER_RT = CORNER_X_POSITIVE_FLAG or CORNER_Y_POSITIVE_FLAG
+        private const val CORNER_RB = CORNER_X_POSITIVE_FLAG
+        private const val CORNER_LB = 0
+
+        private const val EPSILON = 0.1
+
+        private fun isTwoStandaloneRects(upper: RectF, lower: RectF, roundRadius: Float): Boolean {
+            val upperLeft = upper.left
+            val upperRight = upper.right
+            val lowerLeft = lower.left
+            val lowerRight = lower.right
+
+            return upperLeft + roundRadius >= lowerRight - roundRadius &&
+                    abs(upper.bottom - lower.top) <= EPSILON && // upper.bottom == lower.top
+                    abs(upperLeft - lowerLeft) >= EPSILON && // upperLeft != lowerLeft
+                    abs(upperRight - lowerRight) >= EPSILON // upperRight != lowerRight
+        }
+
+        private fun Path.addRoundCorner(
+            originX: Float, originY: Float,
+            endX: Float, endY: Float,
+            rx: Float, ry: Float,
+            cornerType: Int
+        ) {
+            val rrx = if ((cornerType and CORNER_X_POSITIVE_FLAG) != 0) rx else -rx
+
+            // y-axis in graphics is inverted in relation to y-axis in geometry
+            val rry = if ((cornerType and CORNER_Y_POSITIVE_FLAG) != 0) -ry else ry
+
+            val c1x = originX + rrx * BEZIER_CIRCULAR_ARC_COEFFICIENT
+            val c1y = originY + rry
+
+            val c2x = originX + rrx
+            val c2y = originY + rry * BEZIER_CIRCULAR_ARC_COEFFICIENT
+
+            if (cornerType == CORNER_RT || cornerType == CORNER_LB) {
+                cubicTo(c1x, c1y, c2x, c2y, endX, endY)
+            } else {
+                cubicTo(c2x, c2y, c1x, c1y, endX, endY)
+            }
+        }
     }
 }

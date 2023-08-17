@@ -1,11 +1,14 @@
 package com.github.pelmenstar1.rangecalendar
 
 import android.content.res.ColorStateList
-import android.graphics.Path
 import android.graphics.Point
 import android.graphics.PointF
+import android.os.Build
+import androidx.annotation.ChecksSdkIntAtLeast
+import androidx.annotation.RequiresApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assume
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertContentEquals
@@ -60,6 +63,7 @@ class MoveButtonDrawableTests {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
+    @RequiresApi(26)
     private fun arrowAnimationTestHelper(
         direction: Int,
         type: Int,
@@ -100,6 +104,8 @@ class MoveButtonDrawableTests {
 
     @Test
     fun arrowAnimationTest_directionRight_arrowCross() {
+        skipOnInsufficientApiLevelForAnimationTests()
+
         arrowAnimationTestHelper(
             direction = MoveButtonDrawable.DIRECTION_RIGHT,
             type = MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
@@ -135,6 +141,8 @@ class MoveButtonDrawableTests {
 
     @Test
     fun arrowAnimationTest_directionRight_voidArrow() {
+        skipOnInsufficientApiLevelForAnimationTests()
+
         arrowAnimationTestHelper(
             direction = MoveButtonDrawable.DIRECTION_RIGHT,
             type = MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
@@ -170,6 +178,8 @@ class MoveButtonDrawableTests {
 
     @Test
     fun arrowAnimationTest_directionLeft_arrowCross() {
+        skipOnInsufficientApiLevelForAnimationTests()
+
         arrowAnimationTestHelper(
             direction = MoveButtonDrawable.DIRECTION_LEFT,
             type = MoveButtonDrawable.ANIM_TYPE_ARROW_TO_CROSS
@@ -205,6 +215,8 @@ class MoveButtonDrawableTests {
 
     @Test
     fun arrowAnimationTest_directionLeft_voidArrow() {
+        skipOnInsufficientApiLevelForAnimationTests()
+
         arrowAnimationTestHelper(
             direction = MoveButtonDrawable.DIRECTION_LEFT,
             type = MoveButtonDrawable.ANIM_TYPE_VOID_TO_ARROW
@@ -256,6 +268,13 @@ class MoveButtonDrawableTests {
         val expectedColor = 0x08AABBCC
 
         assertEquals(expectedColor, actualColor)
+    }
+
+    @ChecksSdkIntAtLeast(api = 26)
+    private fun skipOnInsufficientApiLevelForAnimationTests() {
+        // PathTestHelper.getPathPoints requires API level 26.
+        // Currently, there's no way to replace Path.approximate on lower API levels
+        Assume.assumeTrue(Build.VERSION.SDK_INT >= 26)
     }
 
     companion object {

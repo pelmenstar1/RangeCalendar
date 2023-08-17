@@ -61,18 +61,6 @@ class RoundRectVisualInfoTests {
     }
 
     @Test
-    fun getPathReturnsNullOnRectTest() {
-        val visualInfo = RoundRectVisualInfo()
-        val box = RectF(1f, 2f, 3f, 4f)
-
-        visualInfo.setBounds(box)
-        visualInfo.setRoundedCorners(radius = 0f)
-
-        val actualPath = visualInfo.getPath()
-        assertNull(actualPath)
-    }
-
-    @Test
     fun drawDoNotUsePathWhenPossibleTest() {
         val visualInfo = RoundRectVisualInfo()
         val box = RectF(1f, 2f, 3f, 4f)

@@ -2,10 +2,13 @@ package com.github.pelmenstar1.rangecalendar
 
 import android.graphics.PointF
 import android.graphics.RectF
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.selection.SelectionShape
 import com.github.pelmenstar1.rangecalendar.selection.SelectionShapeInfo
+import org.junit.Assume
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertContentEquals
@@ -28,16 +31,27 @@ class SelectionShapeTests {
             point(left, top)
         }
 
-        fun toArray(): Array<PointF> {
-            return list.toTypedArray()
+        // For some unknown reason, Path.addRoundRect (when rx=ry=0) adds lines in different order than addRect.
+        // It seems like a correct behaviour, because it's not changed among the releases, but it's a little
+        // counterintuitive.
+        //
+        // Path.addRect(..., Path.Direction.CW) starts from left-top corner and goes clockwise, meanwhile
+        // Path.addRoundRect(..., 0f, 0f, Path.Direction.CW) starts from left-bottom corner and goes clockwise.
+        fun rectCreatedByRoundRect(left: Float, top: Float, right: Float, bottom: Float) {
+            point(left, bottom)
+            point(left, top)
+            point(right, top)
+            point(right, bottom)
+            point(left, bottom)
         }
+
+        fun toArray() = list.toTypedArray()
     }
 
     private fun createShapeInfo(
         range: CellRange,
         startLeft: Float, startTop: Float,
-        endRight: Float, endTop: Float,
-        roundRadius: Float = 0f
+        endRight: Float, endTop: Float
     ): SelectionShapeInfo {
         return SelectionShapeInfo(
             range,
@@ -45,11 +59,12 @@ class SelectionShapeTests {
             endRight, endTop,
             FIRST_CELL_LEFT, LAST_CELL_RIGHT,
             CELL_WIDTH, CELL_HEIGHT,
-            roundRadius,
+            roundRadius = 0f,
             useInMonthShape = false, inMonthShapeInfo = null
         )
     }
 
+    @RequiresApi(26)
     private fun pathNoRoundRadiiTestHelper(
         shapeInfo: SelectionShapeInfo,
         expectedBounds: RectF,
@@ -59,7 +74,7 @@ class SelectionShapeTests {
         shape.update(
             shapeInfo,
             SelectionShape.ORIGIN_LOCAL,
-            SelectionShape.FLAG_IGNORE_ROUND_RADII or SelectionShape.FLAG_FORCE_PATH
+            forcePath = true
         )
 
         assertEquals(expectedBounds, shape.bounds)
@@ -72,6 +87,10 @@ class SelectionShapeTests {
 
     @Test
     fun pathNoRoundRadiiTest() {
+        // PathTestHelper.getPathPoints requires API level 26.
+        // Currently, there's no way to replace Path.approximate on lower API levels
+        Assume.assumeTrue(Build.VERSION.SDK_INT >= 26)
+
         // 1 row
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
@@ -81,7 +100,7 @@ class SelectionShapeTests {
             ),
             expectedBounds = RectF(17f, 5f, 30f, 15f)
         ) {
-            rect(17f, 5f, 30f, 15f)
+            rectCreatedByRoundRect(17f, 5f, 30f, 15f)
         }
 
         // 2 rows

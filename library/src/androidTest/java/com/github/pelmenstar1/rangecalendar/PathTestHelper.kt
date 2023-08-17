@@ -2,9 +2,11 @@ package com.github.pelmenstar1.rangecalendar
 
 import android.graphics.Path
 import android.graphics.PointF
+import androidx.annotation.RequiresApi
 
 object PathTestHelper {
     @Suppress("UNCHECKED_CAST")
+    @RequiresApi(26)
     fun getPathPoints(path: Path): Array<PointF> {
         val rawPoints = path.approximate(0.0001f)
         val points = arrayOfNulls<PointF>(rawPoints.size / 3)

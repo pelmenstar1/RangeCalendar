@@ -1165,6 +1165,16 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
     /**
+     * Gets or sets the [Border] instance, that specifies a line around the selection shape.
+     * If `null`, it means that the selection shape has no border (the default behaviour).
+     */
+    var selectionBorder: Border?
+        get() = adapter.getStyleObject { SELECTION_BORDER }
+        set(value) {
+            adapter.setStyleObject({ SELECTION_BORDER }, value)
+        }
+
+    /**
      * Gets or sets a text size of day number, in pixels
      */
     var dayNumberTextSize: Float

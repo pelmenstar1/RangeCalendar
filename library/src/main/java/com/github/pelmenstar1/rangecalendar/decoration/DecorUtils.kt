@@ -15,6 +15,7 @@ internal fun Border.doDrawPreparation(
     paint: Paint,
     outRect: RectF
 ) {
+    paint.style = Paint.Style.STROKE
     applyToPaint(paint)
 
     val animatedBorderWidth: Float
