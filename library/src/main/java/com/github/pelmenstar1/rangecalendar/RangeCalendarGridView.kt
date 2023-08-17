@@ -14,6 +14,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.*
+import android.util.SparseArray
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -283,8 +284,8 @@ internal class RangeCalendarGridView(
     internal var decorations: DecorGroupedList? = null
     private var decorRegion = PackedIntRange.Undefined
 
-    private val decorVisualStates = LazyCellDataArray<CellDecor.VisualState>()
-    private val decorLayoutOptionsArray = LazyCellDataArray<DecorLayoutOptions>()
+    private val decorVisualStates = CellDataArray<CellDecor.VisualState>()
+    private val decorLayoutOptionsArray = CellDataArray<DecorLayoutOptions>()
     private val cellInfo = CellInfo()
 
     private var decorAnimFractionInterpolator: DecorAnimationFractionInterpolator? = null
