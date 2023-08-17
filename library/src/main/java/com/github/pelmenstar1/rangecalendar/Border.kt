@@ -12,20 +12,22 @@ import com.github.pelmenstar1.rangecalendar.utils.withCombinedAlpha
  * Represents information needed for drawing border around some shape.
  */
 class Border {
-    val pathEffect: PathEffect?
-
     /**
      * Stroke width of border
      */
     val width: Float
 
     /**
-     * Array with even length of floats specifying "on" and "off" length intervals of dashes
+     * Array with even length of floats specifying "on" and "off" length intervals of dashes.
+     *
+     * If the border is "dash" one, the array is `null`.
      */
     val dashPathIntervals: FloatArray?
 
     /**
-     * An offset into the [dashPathIntervals] array (mod the sum of all of the intervals)
+     * An offset into the [dashPathIntervals] array (mod the sum of all of the intervals).
+     *
+     * If the border is "dash" one, the property is `0`
      */
     val dashPathPhase: Float
 
@@ -34,6 +36,15 @@ class Border {
      */
     @get:ColorInt
     val color: Int
+
+    /**
+     * The path effect of the border.
+     *
+     * If the border is "dash" one, the property is not null and of type [DashPathEffect].
+     * If the border is created via constructor with custom [PathEffect], the property stores given path effect.
+     * In other cases, it's `null`.
+     */
+    val pathEffect: PathEffect?
 
     /**
      * Constructs [Border] instance using color specified by color int and stroke width.
@@ -71,6 +82,13 @@ class Border {
         pathEffect = DashPathEffect(dashPathIntervals, dashPathPhase)
     }
 
+    /**
+     * Constructs [Border] instance with custom path effect.
+     *
+     * @param color color of the border
+     * @param width stroke width of the border, in pixels
+     * @param effect custom path effect of the border
+     */
     constructor(@ColorInt color: Int, width: Float, effect: PathEffect) {
         this.color = color
         this.width = width
@@ -131,8 +149,10 @@ class Border {
             append(width)
 
             if (dashPathIntervals == null) {
-                append(", pathEffect=")
-                append(pathEffect)
+                pathEffect?.also {
+                    append(", pathEffect=")
+                    append(it)
+                }
             } else {
                 append(", dashPathIntervals=")
                 append(dashPathIntervals.contentToString())
