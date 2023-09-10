@@ -6,16 +6,14 @@ plugins {
 
 android {
     namespace = "com.github.pelmenstar1.rangecalendar"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         minSdk = 16
 
         // Tests don't run when targetSdk is not set.
         @Suppress("DEPRECATION")
-        targetSdk = 33
-
-        multiDexEnabled = true
+        targetSdk = 34
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -28,8 +26,6 @@ android {
     }
 
     compileOptions {
-        isCoreLibraryDesugaringEnabled = true
-
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -40,8 +36,6 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring(libs.desugar.jdk.libs)
-
     implementation(libs.androidx.viewpager2)
     implementation(libs.androidx.appcompat)
 

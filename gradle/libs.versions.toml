@@ -1,9 +1,9 @@
 [versions]
-kotlin = "1.8.22"
-androidGradlePlugin = "8.1.0"
+kotlin = "1.9.0"
+androidGradlePlugin = "8.1.1"
 
 [libraries]
-androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.10.1" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.12.0" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version = "1.6.1" }
 androidx-viewpager2 = { group = "androidx.viewpager2", name = "viewpager2", version = "1.0.0" }
 android-material = { group = "com.google.android.material", name = "material", version = "1.9.0" }
@@ -22,6 +22,4 @@ android-library = { id = "com.android.library", version.ref = "androidGradlePlug
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-
-[bundles]
 

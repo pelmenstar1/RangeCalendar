@@ -5,13 +5,15 @@ plugins {
 
 android {
     namespace = "com.github.pelmenstar1.rangecalendar.demo"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         minSdk = 16
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        multiDexEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -24,6 +26,8 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -34,6 +38,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(project(":library"))
 
     implementation(libs.androidx.core.ktx)

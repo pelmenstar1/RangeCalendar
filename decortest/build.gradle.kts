@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.github.pelmenstar1.rangecalendar.decortest"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.github.pelmenstar1.rangecalendar.decortest"
         minSdk = 21
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 

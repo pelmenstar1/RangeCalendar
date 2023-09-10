@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.github.pelmenstar1.rangecalendar.movebuttontest"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.github.pelmenstar1.rangecalendar.movebuttontest"
         minSdk = 16
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
