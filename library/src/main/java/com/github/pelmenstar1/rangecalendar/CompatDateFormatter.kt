@@ -1,7 +1,6 @@
 package com.github.pelmenstar1.rangecalendar
 
 import android.icu.text.DisplayContext
-import android.icu.util.TimeZone
 import android.os.Build
 import java.text.FieldPosition
 import java.text.SimpleDateFormat

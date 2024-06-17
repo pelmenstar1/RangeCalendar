@@ -314,15 +314,7 @@ class Fill private constructor(
                 // Can't use Float.toIntAlpha() because it's internal
                 val iAlpha = (alpha * 255f + 0.5f).toInt()
 
-                count = if (Build.VERSION.SDK_INT >= 21) {
-                    canvas.saveLayerAlpha(shapeBounds, iAlpha)
-                } else {
-                    paint.alpha = iAlpha
-
-                    // Use deprecated method because it's the only available method when API < 21
-                    @Suppress("DEPRECATION")
-                    canvas.saveLayer(shapeBounds, paint, Canvas.ALL_SAVE_FLAG)
-                }
+                count = canvas.saveLayerAlpha(shapeBounds, iAlpha)
             }
 
             try {

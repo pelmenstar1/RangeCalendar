@@ -1,10 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.decoration
 
 import android.util.SparseArray
-import com.github.pelmenstar1.rangecalendar.GridConstants
 import com.github.pelmenstar1.rangecalendar.selection.Cell
-import com.github.pelmenstar1.rangecalendar.utils.iterateSetBits
-import java.util.*
 
 internal fun<T : Any> CellDataArray(): CellDataArray<T> {
     return CellDataArray(SparseArray())

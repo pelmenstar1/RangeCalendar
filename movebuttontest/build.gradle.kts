@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.github.pelmenstar1.rangecalendar.movebuttontest"
-        minSdk = 16
+        minSdk = 21
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"

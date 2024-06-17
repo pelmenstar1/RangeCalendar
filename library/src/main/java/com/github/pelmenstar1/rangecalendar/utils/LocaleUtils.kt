@@ -21,11 +21,7 @@ internal fun Context.getLocaleCompat(): Locale {
 }
 
 internal fun getBestDatePatternCompat(locale: Locale, pattern: String): String {
-    return if (Build.VERSION.SDK_INT >= 18) {
-        DateFormat.getBestDateTimePattern(locale, pattern)
-    } else {
-        pattern
-    }
+    return DateFormat.getBestDateTimePattern(locale, pattern)
 }
 
 internal fun Locale.getFirstDayOfWeek(): CompatDayOfWeek {

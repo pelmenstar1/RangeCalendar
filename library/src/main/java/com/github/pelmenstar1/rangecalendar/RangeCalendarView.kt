@@ -726,13 +726,7 @@ class RangeCalendarView @JvmOverloads constructor(
                 lr.right = nextLeft
             }
 
-            val absGravity = if (Build.VERSION.SDK_INT >= 17) {
-                Gravity.getAbsoluteGravity(gravity, layoutDirection)
-            } else {
-                // Strip off relative bits to get left/right in case we have no layoutDirection data.
-                gravity and Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK.inv()
-            }
-
+            val absGravity = Gravity.getAbsoluteGravity(gravity, layoutDirection)
             Gravity.apply(absGravity, sv.measuredWidth, sv.measuredHeight, lr, lrOut)
 
             sv.layout(lrOut.left, lrOut.top, lrOut.right, lrOut.bottom)

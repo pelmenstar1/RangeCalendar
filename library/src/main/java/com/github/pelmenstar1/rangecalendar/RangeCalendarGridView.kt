@@ -14,7 +14,6 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.*
-import android.util.SparseArray
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -33,11 +32,9 @@ import com.github.pelmenstar1.rangecalendar.gesture.SelectionByGestureType
 import com.github.pelmenstar1.rangecalendar.selection.*
 import com.github.pelmenstar1.rangecalendar.utils.VibratorCompat
 import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
-import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 import com.github.pelmenstar1.rangecalendar.utils.toIntAlpha
-import java.util.*
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -1407,10 +1404,11 @@ internal class RangeCalendarGridView(
 
             val top = getCellTop(cell)
             val bottom = top + cellHeight
+            val radius = selectionRenderOptions.roundRadius
 
-            c.drawRoundRectCompat(
+            c.drawRoundRect(
                 left, top, right, bottom,
-                selectionRenderOptions.roundRadius,
+                radius, radius,
                 cellHoverPaint
             )
         }

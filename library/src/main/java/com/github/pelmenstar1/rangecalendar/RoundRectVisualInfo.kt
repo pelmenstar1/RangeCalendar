@@ -3,8 +3,6 @@ package com.github.pelmenstar1.rangecalendar
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
-import com.github.pelmenstar1.rangecalendar.utils.addRoundRectCompat
-import com.github.pelmenstar1.rangecalendar.utils.drawRoundRectCompat
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import kotlin.math.min
 
@@ -90,7 +88,7 @@ internal class RoundRectVisualInfo {
         } else {
             val rr = min(roundRadius, getMaxRoundRadius())
 
-            canvas.drawRoundRectCompat(left, top, right, bottom, rr, paint)
+            canvas.drawRoundRect(left, top, right, bottom, rr, rr, paint)
         }
     }
 
@@ -120,11 +118,11 @@ internal class RoundRectVisualInfo {
                 normRadii[i] = min(radii[i], maxRoundRadius)
             }
 
-            path.addRoundRectCompat(left, top, right, bottom, normRadii)
+            path.addRoundRect(left, top, right, bottom, normRadii, Path.Direction.CW)
         } else {
             rr = min(rr, maxRoundRadius)
 
-            path.addRoundRectCompat(left, top, right, bottom, rr)
+            path.addRoundRect(left, top, right, bottom, rr, rr, Path.Direction.CW)
         }
 
         return path
