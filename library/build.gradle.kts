@@ -36,6 +36,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":common"))
+
     implementation(libs.androidx.viewpager2)
     implementation(libs.androidx.appcompat)
 

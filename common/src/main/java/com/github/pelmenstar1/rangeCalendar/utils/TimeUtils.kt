@@ -1,6 +1,6 @@
-package com.github.pelmenstar1.rangecalendar
+package com.github.pelmenstar1.rangecalendar.utils
 
-internal fun getDaysInMonth(year: Int, month: Int): Int {
+fun getDaysInMonth(year: Int, month: Int): Int {
     return when (month) {
         2 -> if (isLeapYear(year)) 29 else 28
         4, 6, 9, 11 -> 30
@@ -8,6 +8,6 @@ internal fun getDaysInMonth(year: Int, month: Int): Int {
     }
 }
 
-internal fun isLeapYear(year: Int): Boolean {
+fun isLeapYear(year: Int): Boolean {
     return (year and 3) == 0 && (year % 100 != 0 || year % 400 == 0)
 }

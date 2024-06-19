@@ -1,8 +1,9 @@
 package com.github.pelmenstar1.rangecalendar
 
-import org.junit.Test
+import com.github.pelmenstar1.rangecalendar.utils.getDaysInMonth
 import java.time.LocalDate
 import java.util.Calendar
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class PackedDateTests {

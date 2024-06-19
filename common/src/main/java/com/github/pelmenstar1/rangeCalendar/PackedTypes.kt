@@ -2,26 +2,26 @@
 
 package com.github.pelmenstar1.rangecalendar
 
-internal fun packInts(first: Int, second: Int): Long {
+fun packInts(first: Int, second: Int): Long {
     return second.toLong() shl 32 or (first.toLong() and 0xffffffffL)
 }
 
-internal fun unpackFirstInt(pair: Long): Int = pair.toInt()
-internal fun unpackSecondInt(pair: Long): Int = (pair shr 32).toInt()
+fun unpackFirstInt(pair: Long): Int = pair.toInt()
+fun unpackSecondInt(pair: Long): Int = (pair shr 32).toInt()
 
-internal fun packShorts(first: Int, second: Int): Int {
+fun packShorts(first: Int, second: Int): Int {
     return second shl 16 or first
 }
 
-internal fun unpackFirstShort(packed: Int): Int = packed and 0xFFFF
-internal fun unpackSecondShort(packed: Int): Int = packed shr 16
+fun unpackFirstShort(packed: Int): Int = packed and 0xFFFF
+fun unpackSecondShort(packed: Int): Int = packed shr 16
 
-internal fun PackedIntRange(start: Int, endInclusive: Int): PackedIntRange {
+fun PackedIntRange(start: Int, endInclusive: Int): PackedIntRange {
     return PackedIntRange(packInts(start, endInclusive))
 }
 
 @JvmInline
-internal value class PackedIntRange(val bits: Long) {
+value class PackedIntRange(val bits: Long) {
     val start: Int
         get() = unpackFirstInt(bits)
 
@@ -47,12 +47,12 @@ internal value class PackedIntRange(val bits: Long) {
     }
 }
 
-internal fun PackedSize(width: Int, height: Int): PackedSize {
+fun PackedSize(width: Int, height: Int): PackedSize {
     return PackedSize(packInts(width, height))
 }
 
 @JvmInline
-internal value class PackedSize(val bits: Long) {
+value class PackedSize(val bits: Long) {
     val width: Int
         get() = unpackFirstInt(bits)
 
@@ -67,12 +67,12 @@ internal value class PackedSize(val bits: Long) {
     }
 }
 
-internal inline fun PackedSizeArray(size: Int): PackedSizeArray {
+inline fun PackedSizeArray(size: Int): PackedSizeArray {
     return PackedSizeArray(LongArray(size))
 }
 
 @JvmInline
-internal value class PackedSizeArray(val array: LongArray) {
+value class PackedSizeArray(val array: LongArray) {
     inline val size: Int
         get() = array.size
 
@@ -83,12 +83,12 @@ internal value class PackedSizeArray(val array: LongArray) {
     }
 }
 
-internal inline fun PackedInt(value: Float) = PackedInt(value.toBits())
-internal inline fun PackedInt(value: Boolean) = PackedInt(if (value) 1 else 0)
-internal inline fun PackedInt(value: Enum<*>) = PackedInt(value.ordinal)
+inline fun PackedInt(value: Float) = PackedInt(value.toBits())
+inline fun PackedInt(value: Boolean) = PackedInt(if (value) 1 else 0)
+inline fun PackedInt(value: Enum<*>) = PackedInt(value.ordinal)
 
 @JvmInline
-internal value class PackedInt(val value: Int) {
+value class PackedInt(val value: Int) {
     inline fun float() = Float.fromBits(value)
     inline fun boolean() = value == 1
     inline fun <T : Enum<T>> enum(fromInt: (Int) -> T) = fromInt(value)
@@ -96,6 +96,6 @@ internal value class PackedInt(val value: Int) {
 
 @Suppress("UNCHECKED_CAST")
 @JvmInline
-internal value class PackedObject(private val value: Any?) {
-    inline fun <T> value() = value as T
+value class PackedObject(private val value: Any?) {
+    fun <T> value() = value as T
 }

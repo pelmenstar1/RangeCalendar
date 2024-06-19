@@ -1,6 +1,6 @@
 package com.github.pelmenstar1.rangecalendar
 
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class PackedDateRangeTests {

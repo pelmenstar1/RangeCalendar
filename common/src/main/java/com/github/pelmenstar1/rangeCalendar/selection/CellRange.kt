@@ -1,5 +1,3 @@
-@file:Suppress("NOTHING_TO_INLINE")
-
 package com.github.pelmenstar1.rangecalendar.selection
 
 import com.github.pelmenstar1.rangecalendar.packShorts
@@ -8,16 +6,16 @@ import com.github.pelmenstar1.rangecalendar.unpackSecondShort
 import kotlin.math.max
 import kotlin.math.min
 
-internal fun CellRange(start: Int, end: Int): CellRange {
+fun CellRange(start: Int, end: Int): CellRange {
     return CellRange(packShorts(start, end))
 }
 
-internal inline fun CellRange(start: Cell, end: Cell): CellRange {
+fun CellRange(start: Cell, end: Cell): CellRange {
     return CellRange(start.index, end.index)
 }
 
 @JvmInline
-internal value class CellRange(val bits: Int) {
+value class CellRange(val bits: Int) {
     val start: Cell
         get() = Cell(unpackFirstShort(bits))
 
@@ -30,8 +28,8 @@ internal value class CellRange(val bits: Int) {
     val isSingleCell: Boolean
         get() = start == end
 
-    inline operator fun component1() = start
-    inline operator fun component2() = end
+    operator fun component1() = start
+    operator fun component2() = end
 
     fun onSameRow(): Boolean = start.sameY(end)
 

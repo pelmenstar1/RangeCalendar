@@ -19,4 +19,11 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Range Calendar"
-include(":library", ":demo", ":decortest", "movebuttontest", ":selectionviewtest")
+include(
+    ":library",
+    ":demo",
+    ":decortest",
+    "movebuttontest",
+    ":selectionviewtest",
+    ":common"
+)

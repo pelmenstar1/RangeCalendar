@@ -1,6 +1,8 @@
 package com.github.pelmenstar1.rangecalendar
 
-import org.junit.Test
+import com.github.pelmenstar1.rangecalendar.utils.getDaysInMonth
+import com.github.pelmenstar1.rangecalendar.utils.isLeapYear
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class TimeUtilsTests {

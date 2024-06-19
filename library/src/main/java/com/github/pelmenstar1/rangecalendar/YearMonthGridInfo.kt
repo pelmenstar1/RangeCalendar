@@ -2,6 +2,7 @@ package com.github.pelmenstar1.rangecalendar
 
 import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
+import com.github.pelmenstar1.rangecalendar.utils.getDaysInMonth
 
 internal class YearMonthGridInfo {
     var year = 0

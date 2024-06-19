@@ -3,10 +3,12 @@
 package com.github.pelmenstar1.rangecalendar
 
 import com.github.pelmenstar1.rangecalendar.utils.floorMod
+import com.github.pelmenstar1.rangecalendar.utils.getDaysInMonth
+import com.github.pelmenstar1.rangecalendar.utils.isLeapYear
 import java.time.LocalDate
 import java.util.*
 
-internal fun PackedDate(year: Int, month: Int, dayOfMonth: Int): PackedDate {
+fun PackedDate(year: Int, month: Int, dayOfMonth: Int): PackedDate {
     PackedDate.checkYear(year)
     PackedDate.checkMonth(month)
     PackedDate.checkDayOfMonth(dayOfMonth, daysInMonth = getDaysInMonth(year, month))
@@ -14,7 +16,7 @@ internal fun PackedDate(year: Int, month: Int, dayOfMonth: Int): PackedDate {
     return PackedDate.createUnchecked(year, month, dayOfMonth)
 }
 
-internal fun PackedDate(ym: YearMonth, dayOfMonth: Int): PackedDate {
+fun PackedDate(ym: YearMonth, dayOfMonth: Int): PackedDate {
     val year = ym.year
     val month = ym.month
 
@@ -27,7 +29,7 @@ internal fun PackedDate(ym: YearMonth, dayOfMonth: Int): PackedDate {
 // Some code was taken from OpenJDK
 // https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/time/LocalDate.java
 @JvmInline
-internal value class PackedDate(val bits: Int) {
+value class PackedDate(val bits: Int) {
     // 0..8 bits - day of month
     // 8..16 bits - month
     // 16..32 bits - year
@@ -196,19 +198,19 @@ internal value class PackedDate(val bits: Int) {
         private const val DAYS_PER_CYCLE = 146097L
         private const val DAYS_0000_TO_1970 = DAYS_PER_CYCLE * 5 - (30 * 365 + 7)
 
-        internal fun checkYear(year: Int) {
+        fun checkYear(year: Int) {
             require(year in 0..MAX_YEAR) { "Invalid year value ($year)" }
         }
 
-        internal fun checkMonth(month: Int) {
+        fun checkMonth(month: Int) {
             require(month in 1..12) { "Invalid month value ($month)" }
         }
 
-        internal fun checkDayOfMonth(day: Int, daysInMonth: Int) {
+        fun checkDayOfMonth(day: Int, daysInMonth: Int) {
             require(day in 1..daysInMonth) { "Invalid day of month value ($day)" }
         }
 
-        internal fun createUnchecked(year: Int, month: Int, dayOfMonth: Int): PackedDate {
+        fun createUnchecked(year: Int, month: Int, dayOfMonth: Int): PackedDate {
             return PackedDate((year shl YEAR_SHIFT) or (month shl MONTH_SHIFT) or dayOfMonth)
         }
 
@@ -280,20 +282,20 @@ internal value class PackedDate(val bits: Int) {
     }
 }
 
-internal fun min(a: PackedDate, b: PackedDate): PackedDate {
+fun min(a: PackedDate, b: PackedDate): PackedDate {
     return if (a < b) a else b
 }
 
-internal fun max(a: PackedDate, b: PackedDate): PackedDate {
+fun max(a: PackedDate, b: PackedDate): PackedDate {
     return if (a > b) a else b
 }
 
-internal fun PackedDateRange(start: PackedDate, end: PackedDate): PackedDateRange {
+fun PackedDateRange(start: PackedDate, end: PackedDate): PackedDateRange {
     return PackedDateRange(packInts(start.bits, end.bits))
 }
 
 @JvmInline
-internal value class PackedDateRange(val bits: Long) {
+value class PackedDateRange(val bits: Long) {
     inline val start: PackedDate
         get() = PackedDate(unpackFirstInt(bits))
 

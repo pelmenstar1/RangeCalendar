@@ -5,14 +5,14 @@ import kotlin.math.ceil
 /**
  * sqrt(2)
  */
-internal const val SQRT_2 = 1.4142135f
+const val SQRT_2 = 1.4142135f
 
 @Suppress("NOTHING_TO_INLINE")
-internal inline fun ceilToInt(value: Float): Int {
+inline fun ceilToInt(value: Float): Int {
     return ceil(value.toDouble()).toInt()
 }
 
-internal fun floorMod(x: Long, y: Long): Long {
+fun floorMod(x: Long, y: Long): Long {
     val r = x / y
     var aligned = r * y
     if (x xor y < 0 && aligned != x) {
@@ -21,15 +21,15 @@ internal fun floorMod(x: Long, y: Long): Long {
     return x - aligned
 }
 
-internal fun lerp(start: Float, end: Float, fraction: Float): Float {
+fun lerp(start: Float, end: Float, fraction: Float): Float {
     return start + (end - start) * fraction
 }
 
-internal fun lerp(start: Int, end: Int, fraction: Float): Int {
+fun lerp(start: Int, end: Int, fraction: Float): Int {
     return lerp(start.toFloat(), end.toFloat(), fraction).toInt()
 }
 
-internal fun getSquareDistance(x0: Float, y0: Float, x1: Float, y1: Float): Float {
+fun getSquareDistance(x0: Float, y0: Float, x1: Float, y1: Float): Float {
     val dx = x0 - x1
     val dy = y0 - y1
 

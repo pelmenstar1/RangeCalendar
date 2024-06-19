@@ -1,15 +1,13 @@
-@file:Suppress("NOTHING_TO_INLINE")
-
 package com.github.pelmenstar1.rangecalendar.selection
 
 import com.github.pelmenstar1.rangecalendar.GridConstants
 
-internal fun Cell(gridX: Int, gridY: Int): Cell {
+fun Cell(gridX: Int, gridY: Int): Cell {
     return Cell(gridY * GridConstants.COLUMN_COUNT + gridX)
 }
 
 @JvmInline
-internal value class Cell(val index: Int) {
+value class Cell(val index: Int) {
     val gridX: Int
         get() = index % GridConstants.COLUMN_COUNT
 
@@ -29,8 +27,8 @@ internal value class Cell(val index: Int) {
         return if (isUndefined) value else this
     }
 
-    inline fun sameX(cell: Cell): Boolean = gridX == cell.gridX
-    inline fun sameY(cell: Cell): Boolean = gridY == cell.gridY
+    fun sameX(cell: Cell): Boolean = gridX == cell.gridX
+    fun sameY(cell: Cell): Boolean = gridY == cell.gridY
 
     override fun toString(): String {
         return "Cell(index=$index)"

@@ -5,12 +5,12 @@ package com.github.pelmenstar1.rangecalendar
 import kotlin.math.max
 import kotlin.math.min
 
-internal fun YearMonth(year: Int, month: Int): YearMonth {
+fun YearMonth(year: Int, month: Int): YearMonth {
     return YearMonth(year * 12 + (month - 1))
 }
 
 @JvmInline
-internal value class YearMonth(val totalMonths: Int) {
+value class YearMonth(val totalMonths: Int) {
     val year: Int
         get() = totalMonths / 12
 
@@ -43,12 +43,12 @@ internal value class YearMonth(val totalMonths: Int) {
     }
 }
 
-internal fun YearMonthRange(start: YearMonth, end: YearMonth): YearMonthRange {
+fun YearMonthRange(start: YearMonth, end: YearMonth): YearMonthRange {
     return YearMonthRange(packInts(start.totalMonths, end.totalMonths))
 }
 
 @JvmInline
-internal value class YearMonthRange(private val bits: Long) {
+value class YearMonthRange(private val bits: Long) {
     private val rawStart: Int
         get() = unpackFirstInt(bits)
 
@@ -94,10 +94,10 @@ internal value class YearMonthRange(private val bits: Long) {
     }
 }
 
-internal fun min(a: YearMonth, b: YearMonth) = YearMonth(min(a.totalMonths, b.totalMonths))
-internal fun max(a: YearMonth, b: YearMonth) = YearMonth(max(a.totalMonths, b.totalMonths))
+fun min(a: YearMonth, b: YearMonth) = YearMonth(min(a.totalMonths, b.totalMonths))
+fun max(a: YearMonth, b: YearMonth) = YearMonth(max(a.totalMonths, b.totalMonths))
 
-internal inline fun iterateYearMonth(start: YearMonth, end: YearMonth, block: (YearMonth) -> Unit) {
+inline fun iterateYearMonth(start: YearMonth, end: YearMonth, block: (YearMonth) -> Unit) {
     for (totalMonths in start.totalMonths..end.totalMonths) {
         block(YearMonth(totalMonths))
     }

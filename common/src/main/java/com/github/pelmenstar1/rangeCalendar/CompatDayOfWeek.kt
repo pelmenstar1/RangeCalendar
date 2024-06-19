@@ -7,7 +7,7 @@ import java.util.Calendar
  * Day of week that starts from Monday. [value] is zero-based.
  */
 @JvmInline
-internal value class CompatDayOfWeek(val value: Int) {
+value class CompatDayOfWeek(val value: Int) {
     /**
      * Returns day of week number compatible with [Calendar] days - [Calendar.MONDAY], [Calendar.TUESDAY] etc.
      */

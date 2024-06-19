@@ -1,6 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.utils
 
-internal inline fun Long.iterateSetBits(block: (bitIndex: Int) -> Unit) {
+inline fun Long.iterateSetBits(block: (bitIndex: Int) -> Unit) {
     // Original source: https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
     var bits = this
 
@@ -14,7 +14,7 @@ internal inline fun Long.iterateSetBits(block: (bitIndex: Int) -> Unit) {
     }
 }
 
-internal inline fun Int.iterateSetBits(block: (bitIndex: Int) -> Unit) {
+inline fun Int.iterateSetBits(block: (bitIndex: Int) -> Unit) {
     // Original source: https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
     var bits = this
 

@@ -1,8 +1,8 @@
 package com.github.pelmenstar1.rangecalendar
 
-import org.junit.Test
 import java.time.DayOfWeek
 import java.util.Calendar
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class CompatDayOfWeekTests {

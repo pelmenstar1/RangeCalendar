@@ -1,7 +1,7 @@
 package com.github.pelmenstar1.rangecalendar
 
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class CellRangeTests {
