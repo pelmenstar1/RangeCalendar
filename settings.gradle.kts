@@ -25,5 +25,6 @@ include(
     ":decortest",
     "movebuttontest",
     ":selectionviewtest",
-    ":common"
+    ":common",
+    ":complexRange"
 )

@@ -2,6 +2,8 @@
 
 package com.github.pelmenstar1.rangecalendar
 
+import com.github.pelmenstar1.rangecalendar.utils.appendFourDigits
+import com.github.pelmenstar1.rangecalendar.utils.appendTwoDigits
 import com.github.pelmenstar1.rangecalendar.utils.floorMod
 import com.github.pelmenstar1.rangecalendar.utils.getDaysInMonth
 import com.github.pelmenstar1.rangecalendar.utils.isLeapYear
@@ -136,6 +138,14 @@ value class PackedDate(val bits: Int) {
         return fromEpochDay(toEpochDay() + days)
     }
 
+    fun hasTomorrow(): Boolean {
+        return this != MAX_DATE
+    }
+
+    fun hasYesterday(): Boolean {
+        return this != MIN_DATE
+    }
+
     fun toLocalDate(): LocalDate {
         return LocalDate.of(year, month, dayOfMonth)
     }
@@ -163,6 +173,16 @@ value class PackedDate(val bits: Int) {
         }
 
         return total - DAYS_0000_TO_1970
+    }
+
+    fun toIsoString(): String {
+        return buildString {
+            appendFourDigits(year)
+            append('-')
+            appendTwoDigits(month)
+            append('-')
+            appendTwoDigits(dayOfMonth)
+        }
     }
 
     override fun toString(): String {
