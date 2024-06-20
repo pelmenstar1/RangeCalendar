@@ -43,14 +43,6 @@ fun CellComplexRange(fragments: Iterable<CellFragment>): CellComplexRange {
     )
 }
 
-fun CellComplexRange(fragments: Iterable<IntRange>): CellComplexRange {
-    return createComplexRange(
-        fragments,
-        IntRange::first, IntRange::last,
-        ::ensureValidCellFragment
-    )
-}
-
 private inline fun<T> createComplexRange(
     values: Array<out T>,
     getStart: (T) -> Int, getEnd: (T) -> Int,

@@ -45,6 +45,14 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
         throw IndexOutOfBoundsException("index")
     }
 
+    internal fun getLastFragmentEndInclusive(): Int {
+        if (bits != 0L) {
+            return 63 - bits.countLeadingZeroBits()
+        }
+
+        return -1
+    }
+
     override fun isEmpty(): Boolean {
         return bits == 0L
     }
@@ -112,6 +120,75 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
         val iterBits = bits and startMask(maskStart).inv()
 
         return ListIteratorImpl(iterBits)
+    }
+
+    fun fragmentIterator(): CellFragmentIterator {
+        return FragmentIteratorImpl(bits)
+    }
+
+    private class FragmentIteratorImpl(private val bits: Long) : CellFragmentIterator {
+        private var _current: CellFragment? = null
+
+        private var lastFragmentStart = -1
+        private var lastFragmentEnd = -1
+
+        private var markedBitIndex = -1
+
+        override val current: CellFragment
+            get() = _current ?: throw NoSuchElementException()
+
+        override fun moveNext(): Boolean {
+            val setBitIndex = findNextSetBitIndex(bits, lastFragmentEnd + 1)
+            if (setBitIndex < 0) {
+                return false
+            }
+
+            var unsetBitIndex = findNextUnsetBitIndex(bits, setBitIndex)
+            if (unsetBitIndex < 0) {
+                unsetBitIndex = 64
+            }
+
+            setFragment(setBitIndex, unsetBitIndex)
+
+            return true
+        }
+
+        override fun movePrevious(): Boolean {
+            val setBitIndex = findPreviousSetBitIndex(bits, lastFragmentStart - 1)
+            if (setBitIndex < 0) {
+                return false
+            }
+
+            val unsetBitIndex = findPreviousSetBitIndex(bits, setBitIndex)
+
+            setFragment(unsetBitIndex + 1, setBitIndex)
+
+            return true
+        }
+
+        private fun setFragment(start: Int, end: Int) {
+            lastFragmentStart = start
+            lastFragmentEnd = end
+
+            _current = CellFragment(start, end)
+        }
+
+        override fun mark() {
+            markedBitIndex = lastFragmentStart
+        }
+
+        override fun subRange(): CellComplexRange {
+            val markedIndex = markedBitIndex
+            if (markedIndex < 0) {
+                throw IllegalStateException("No marked element")
+            }
+
+            val mask = rangeMask(markedIndex, lastFragmentEnd)
+            val newBits = bits and mask
+
+            return CellComplexRange(newBits)
+        }
+
     }
 
     private class ListIteratorImpl(private val bits: Long) : ListIterator<CellFragment> {
