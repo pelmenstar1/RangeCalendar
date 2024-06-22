@@ -6,7 +6,6 @@ import android.content.res.Configuration
 import android.content.res.TypedArray
 import android.graphics.Rect
 import android.graphics.Typeface
-import android.os.Build
 import android.os.Parcelable
 import android.text.format.DateFormat
 import android.util.AttributeSet
@@ -25,6 +24,8 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import com.github.pelmenstar1.rangecalendar.RangeCalendarView.SelectionGate
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
 import com.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import com.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
@@ -78,18 +79,8 @@ class RangeCalendarView @JvmOverloads constructor(
         /**
          * Returns whether the selection range is allowed or not. The start date of the selection specified by [startYear], [startMonth], [startDay] is inclusive.
          * The end date specified by [endYear], [endMonth], [endDay] is inclusive as well, thus if a single cell is selected, the start date is equal to the end date.
-         *
-         * @param startYear year of the start date of the range
-         * @param startMonth month of the start date of the range, 1-based
-         * @param startDay year of the start date of the range, 1-based
-         * @param endYear year of the end date of the range
-         * @param endMonth month of the end date of the range, 1-based
-         * @param endDay year of the end date of the range, 1-based
          */
-        fun accept(
-            startYear: Int, startMonth: Int, startDay: Int,
-            endYear: Int, endMonth: Int, endDay: Int
-        ): Boolean
+        fun accept(complexRange: DateComplexRange): Boolean
     }
 
     /**
@@ -106,17 +97,8 @@ class RangeCalendarView @JvmOverloads constructor(
          * Fires when on date range selection. The start date of the selection specified by [startYear], [startMonth], [startDay] is inclusive.
          * End date specified by [endYear], [endMonth], [endDay] is inclusive as well, thus if a single cell is selected, the start date is equal to the end date.
          *
-         * @param startYear year of the start date
-         * @param startMonth month of the start date, 1-based
-         * @param startDay day of month of the start date, 1-based
-         * @param endYear year of the end date
-         * @param endMonth month of the end date, 1-based
-         * @param endDay day of month of the end date, 1-based
          */
-        fun onSelection(
-            startYear: Int, startMonth: Int, startDay: Int,
-            endYear: Int, endMonth: Int, endDay: Int
-        )
+        fun onSelection(complexRange: DateComplexRange)
     }
 
     /**
@@ -413,19 +395,9 @@ class RangeCalendarView @JvmOverloads constructor(
             onSelectionListener?.onSelectionCleared()
         }
 
-        override fun onSelection(
-            startYear: Int,
-            startMonth: Int,
-            startDay: Int,
-            endYear: Int,
-            endMonth: Int,
-            endDay: Int
-        ) {
+        override fun onSelection(complexRange: DateComplexRange) {
             toolbarManager.onSelection()
-            onSelectionListener?.onSelection(
-                startYear, startMonth, startDay,
-                endYear, endMonth, endDay
-            )
+            onSelectionListener?.onSelection(complexRange)
         }
     }
 
@@ -622,7 +594,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
             val selRange = state.selectionRange
 
-            if (selRange.isValid) {
+            if (!selRange.isEmpty) {
                 adapter.selectRange(
                     selRange,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
@@ -1658,7 +1630,7 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ) {
-        selectRangeInternal(
+        selectCustomRangeInternal(
             PackedDateRange(date, date),
             selectionRequestRejectedBehaviour,
             withAnimation
@@ -1684,7 +1656,7 @@ class RangeCalendarView @JvmOverloads constructor(
         validateYearMonth(year, month)
         require(weekIndex in 0..5) { "Invalid week index" }
 
-        selectRangeInternal(
+        selectCustomRangeInternal(
             PackedDateRange.week(year, month, weekIndex, _firstDayOfWeek),
             selectionRequestRejectedBehaviour,
             withAnimation
@@ -1707,7 +1679,7 @@ class RangeCalendarView @JvmOverloads constructor(
     ) {
         validateYearMonth(year, month)
 
-        selectRangeInternal(
+        selectCustomRangeInternal(
             PackedDateRange.month(year, month),
             selectionRequestRejectedBehaviour,
             withAnimation
@@ -1729,7 +1701,7 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        selectedCustomRangeInternal(
+        selectCustomRangeInternal(
             PackedDate.fromLocalDate(startDate),
             PackedDate.fromLocalDate(endDate),
             selectionRequestRejectedBehaviour,
@@ -1752,7 +1724,7 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        selectedCustomRangeInternal(
+        selectCustomRangeInternal(
             PackedDate.fromCalendar(start),
             PackedDate.fromCalendar(end),
             selectionRequestRejectedBehaviour,
@@ -1779,7 +1751,7 @@ class RangeCalendarView @JvmOverloads constructor(
         selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
         withAnimation: Boolean = isSelectionAnimatedByDefault
     ) {
-        selectedCustomRangeInternal(
+        selectCustomRangeInternal(
             PackedDate(startYear, startMonth, startDay),
             PackedDate(endYear, endMonth, endDay),
             selectionRequestRejectedBehaviour,
@@ -1787,7 +1759,15 @@ class RangeCalendarView @JvmOverloads constructor(
         )
     }
 
-    private fun selectedCustomRangeInternal(
+    private fun selectCustomRangeInternal(
+        range: PackedDateRange,
+        requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+        withAnimation: Boolean
+    ) {
+        selectCustomRangeInternal(range.start, range.end, requestRejectedBehaviour, withAnimation)
+    }
+
+    private fun selectCustomRangeInternal(
         startDate: PackedDate,
         endDate: PackedDate,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
@@ -1798,24 +1778,27 @@ class RangeCalendarView @JvmOverloads constructor(
         }
 
         selectRangeInternal(
-            PackedDateRange(startDate, endDate),
+            DateComplexRange(DateFragment(startDate.toEpochDay(), endDate.toEpochDay())),
             requestRejectedBehaviour,
             withAnimation
         )
     }
 
     private fun selectRangeInternal(
-        range: PackedDateRange,
+        range: DateComplexRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ) {
         val actuallySelected = adapter.selectRange(range, requestRejectedBehaviour, withAnimation)
 
+        // TODO: Implement it
+        /*
         if (actuallySelected) {
-            val position = adapter.getItemPositionForDate(range.start)
+            val position = adapter.getItemPositionForDate(range.)
 
             pager.setCurrentItem(position, withAnimation)
         }
+         */
     }
 
     /**

@@ -3,6 +3,8 @@ package com.github.pelmenstar1.rangecalendar
 import android.util.SparseArray
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
 import com.github.pelmenstar1.rangecalendar.decoration.CellDecor
 import com.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInterpolator
 import com.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
@@ -114,7 +116,7 @@ internal class RangeCalendarPagerAdapter(
             }
 
             fun select(
-                range: CellRange,
+                range: CellComplexRange,
                 requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
                 withAnimation: Boolean,
                 checkGate: Boolean = true
@@ -130,9 +132,9 @@ internal class RangeCalendarPagerAdapter(
 
                 return Payload(
                     type = SELECT,
-                    arg1 = range.bits.toLong(),
                     arg2 = requestRejectedBehaviour.ordinal.toLong(),
-                    arg3 = flags.toLong()
+                    arg3 = flags.toLong(),
+                    obj1 = range
                 )
             }
 
@@ -186,7 +188,7 @@ internal class RangeCalendarPagerAdapter(
     private var minDate = PackedDate.MIN_DATE
     private var maxDate = PackedDate.MAX_DATE
 
-    var selectedRange = PackedDateRange.Invalid
+    var selectedRange = DateComplexRange.empty()
 
     // Rather than just selectedRange.toYearMonthRange(),
     // it stores on what **pages** the selection is visible.
@@ -433,16 +435,12 @@ internal class RangeCalendarPagerAdapter(
 
     private fun createRedirectSelectionGate(ym: YearMonth): RangeCalendarGridView.SelectionGate {
         return object : RangeCalendarGridView.SelectionGate {
-            override fun accept(range: CellRange): Boolean {
+            override fun accept(range: CellComplexRange): Boolean {
                 return selectionGate?.let {
                     updateGridInfo(ym)
 
-                    val (startDate, endDate) = gridInfo.getDateRangeByCellRange(range)
-
-                    it.accept(
-                        startDate.year, startDate.month, startDate.dayOfMonth,
-                        endDate.year, endDate.month, endDate.dayOfMonth
-                    )
+                    val dateRange = gridInfo.getDateRangeByCellRange(range)
+                    it.accept(dateRange)
                 } ?: true
             }
         }
@@ -451,28 +449,21 @@ internal class RangeCalendarPagerAdapter(
     private fun createRedirectSelectionListener(ym: YearMonth): RangeCalendarGridView.OnSelectionListener {
         return object : RangeCalendarGridView.OnSelectionListener {
             override fun onSelectionCleared() {
-                selectedRange = PackedDateRange.Invalid
+                selectedRange = DateComplexRange.empty()
 
                 onSelectionListener?.onSelectionCleared()
 
                 clearSelectionExcept(ym, ym)
             }
 
-            override fun onSelection(range: CellRange) {
+            override fun onSelection(range: CellComplexRange) {
                 clearSelectionExcept(ym, ym)
                 updateGridInfo(ym)
 
                 val dateRange = gridInfo.getDateRangeByCellRange(range)
                 selectedRange = dateRange
 
-                onSelectionListener?.let {
-                    val (startDate, endDate) = dateRange
-
-                    it.onSelection(
-                        startDate.year, startDate.month, startDate.dayOfMonth,
-                        endDate.year, endDate.month, endDate.dayOfMonth
-                    )
-                }
+                onSelectionListener?.onSelection(dateRange)
 
                 trySelectOnAdjacentPages(ym, dateRange)
             }
@@ -481,7 +472,7 @@ internal class RangeCalendarPagerAdapter(
 
     // Assumes that both start and end dates of dateRange conforms the statement:
     // date.month ∈ [anchorYm-1; anchorYm+1]
-    private fun trySelectOnAdjacentPages(anchorYm: YearMonth, dateRange: PackedDateRange) {
+    private fun trySelectOnAdjacentPages(anchorYm: YearMonth, dateRange: DateComplexRange) {
         val prevPageYm = anchorYm - 1
         if (prevPageYm >= minDate.yearMonth) {
             trySelectRangeOnPage(prevPageYm, dateRange)
@@ -493,11 +484,11 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    private fun trySelectRangeOnPage(pageYm: YearMonth, dateRange: PackedDateRange) {
+    private fun trySelectRangeOnPage(pageYm: YearMonth, dateRange: DateComplexRange) {
         updateGridInfo(pageYm)
 
         val possibleCellRange = gridInfo.getCellRangeByDateRange(dateRange)
-        if (possibleCellRange.isValid) {
+        if (!possibleCellRange.isEmpty) {
             val payload = Payload.select(
                 possibleCellRange,
                 requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
@@ -512,10 +503,10 @@ internal class RangeCalendarPagerAdapter(
     fun clearSelection(withAnimation: Boolean) {
         val selRange = selectedRange
 
-        if (selRange.isValid) {
+        if (!selRange.isEmpty) {
             notifyPageRangeChanged(selectionTrueYmRange, Payload.clearSelection(withAnimation))
 
-            selectedRange = PackedDateRange.Invalid
+            selectedRange = DateComplexRange.empty()
             onSelectionListener?.onSelectionCleared()
         }
     }
@@ -523,7 +514,7 @@ internal class RangeCalendarPagerAdapter(
     private fun clearSelectionExcept(startYm: YearMonth, endYm: YearMonth) {
         val selRange = selectedRange
 
-        if (selRange.isValid) {
+        if (!selRange.isEmpty) {
             val trueSelRange = selectionTrueYmRange
             val (selStartYm, selEndYm) = trueSelRange
 
@@ -553,25 +544,20 @@ internal class RangeCalendarPagerAdapter(
         }
     }
 
-    private fun isSelectionAllowed(dateRange: PackedDateRange): Boolean {
-        val (start, end) = dateRange
+    private fun isSelectionAllowed(dateRange: DateComplexRange): Boolean {
         val gate = selectionGate
 
-        return gate == null ||
-                gate.accept(
-                    start.year, start.month, start.dayOfMonth,
-                    end.year, end.month, end.dayOfMonth
-                )
+        return gate == null || gate.accept(dateRange)
     }
 
     fun selectRange(
-        dateRange: PackedDateRange,
+        dateRange: DateComplexRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean,
     ): Boolean {
-        val newDateRange = dateRange.intersectionWith(minDate, maxDate)
+        val newDateRange = dateRange.clamp(minDate, maxDate)
 
-        if (newDateRange.isValid) {
+        if (!newDateRange.isEmpty) {
             if (!isSelectionAllowed(newDateRange)) {
                 if (requestRejectedBehaviour == SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION) {
                     clearSelection(withAnimation)
@@ -580,7 +566,6 @@ internal class RangeCalendarPagerAdapter(
                 return false
             }
 
-            val (startDate, endDate) = newDateRange
             val trueYmRange = getSelectionRangeTrueYmRange(newDateRange)
             val (startYm, endYm) = trueYmRange
 
@@ -589,17 +574,17 @@ internal class RangeCalendarPagerAdapter(
             iterateYearMonth(startYm, endYm) { ym ->
                 updateGridInfo(ym)
 
-                val startCell = gridInfo.getCellByDate(startDate).orIfUndefined(Cell.Min)
-                val endCell = gridInfo.getCellByDate(endDate).orIfUndefined(Cell.Max)
+                val partRange = newDateRange.clamp(gridInfo.firstCellInGridDate, gridInfo.lastCellInGridDate)
+                if (!partRange.isEmpty) {
+                    val cellRange = gridInfo.getCellRangeByDateRange(partRange)
+                    val payload = Payload.select(
+                        cellRange,
+                        requestRejectedBehaviour,
+                        withAnimation, checkGate = false
+                    )
 
-                val cellRange = CellRange(startCell, endCell)
-                val payload = Payload.select(
-                    cellRange,
-                    requestRejectedBehaviour,
-                    withAnimation, checkGate = false
-                )
-
-                notifyPageChanged(ym, payload)
+                    notifyPageChanged(ym, payload)
+                }
             }
 
             selectedRange = dateRange
@@ -611,8 +596,9 @@ internal class RangeCalendarPagerAdapter(
         return false
     }
 
-    internal fun getSelectionRangeTrueYmRange(dateRange: PackedDateRange): YearMonthRange {
-        val (start, end) = dateRange
+    internal fun getSelectionRangeTrueYmRange(dateRange: DateComplexRange): YearMonthRange {
+        val start = dateRange.firstFragment.start
+        val end = dateRange.lastFragment.endInclusive
 
         val startDateYm = start.yearMonth
         val endDateYm = end.yearMonth
@@ -962,7 +948,7 @@ internal class RangeCalendarPagerAdapter(
 
         val possibleCellRange = gridInfo.getCellRangeByDateRange(selectedRange)
 
-        if (possibleCellRange.isValid) {
+        if (!possibleCellRange.isEmpty) {
             // Animation should be seen because animation should be started when selection *changed*,
             // but in this case, it's actually *restored*. We also don't check if gate accepts given
             // range because this check should be performed before.
@@ -994,7 +980,7 @@ internal class RangeCalendarPagerAdapter(
                 }
 
                 Payload.SELECT -> {
-                    val range = CellRange(payload.arg1.toInt())
+                    val range = payload.obj1 as CellComplexRange
                     val requestRejectedBehaviour =
                         SelectionRequestRejectedBehaviour.fromOrdinal(payload.arg2.toInt())
 

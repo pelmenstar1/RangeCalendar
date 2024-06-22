@@ -261,6 +261,28 @@ class RawLinkedListTests {
     }
 
     @Test
+    fun copyOfRangeTest() {
+        fun testCase(elements: IntArray, copyRange: IntRange) {
+            val origin = createList(elements)
+            val originCopyStartNode = origin.getNode(copyRange.first)
+            val originCopyEndNode = origin.getNode(copyRange.last)
+
+            val copy = origin.copyOf(originCopyStartNode, originCopyEndNode)
+
+            val expectedCopyElements = elements.slice(copyRange).toIntArray()
+            validateList(copy, expectedCopyElements)
+        }
+
+        testCase(elements = intArrayOf(0), copyRange = 0..0)
+        testCase(elements = intArrayOf(0, 1), copyRange = 0..1)
+        testCase(elements = intArrayOf(0, 1, 2), copyRange = 0..2)
+        testCase(elements = intArrayOf(0, 1, 2), copyRange = 0..1)
+        testCase(elements = intArrayOf(0, 1, 2), copyRange = 1..1)
+        testCase(elements = intArrayOf(0, 1, 2), copyRange = 2..2)
+        testCase(elements = intArrayOf(0, 1, 2, 3), copyRange = 1..2)
+    }
+
+    @Test
     fun subListTest() {
         fun testCase(elements: IntArray, subRange: IntRange) {
             val list = createList(elements)

@@ -43,72 +43,15 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
         state as DefaultSelectionState
 
-        drawRange(canvas, state, options, alpha = 1f, isPrimary = true)
+        drawFragments(canvas, state.fragments, options, alpha = 1f, isPrimary = true)
     }
 
-    override fun drawTransition(
+    override fun drawTransitionStage(
         canvas: Canvas,
-        state: SelectionState.Transitive,
+        stage: SelectionTransitionStage,
         options: SelectionRenderOptions
     ) {
-        when (state) {
-            is DefaultSelectionState.AppearAlpha -> {
-                drawRange(canvas, state.baseState, options, state.alpha, isPrimary = true)
-            }
-
-            is DefaultSelectionState.DualAlpha -> {
-                drawRange(canvas, state.start, options, state.startAlpha, isPrimary = true)
-                drawRange(canvas, state.end, options, state.endAlpha, isPrimary = false)
-            }
-
-            is DefaultSelectionState.CellAppearBubble -> {
-                val shapeInfo = state.baseState.shapeInfo
-
-                drawOpaqueRect(
-                    canvas,
-                    state.bounds,
-                    options,
-                    shapeInfo.useInMonthShape, shapeInfo.inMonthShapeInfo
-                )
-            }
-
-            is DefaultSelectionState.CellDualBubble -> {
-                val startShapeInfo = state.start.shapeInfo
-                val endShapeInfo = state.end.shapeInfo
-
-                drawOpaqueRect(
-                    canvas,
-                    state.startBounds,
-                    options,
-                    startShapeInfo.useInMonthShape, startShapeInfo.inMonthShapeInfo
-                )
-
-                drawOpaqueRect(
-                    canvas,
-                    state.endBounds,
-                    options,
-                    endShapeInfo.useInMonthShape, endShapeInfo.inMonthShapeInfo
-                )
-            }
-
-            is DefaultSelectionState.CellMoveToCell -> {
-                val shapeInfo = state.shapeInfo
-                val width = shapeInfo.cellWidth
-                val height = shapeInfo.cellHeight
-
-                drawRect(
-                    canvas,
-                    shapeInfo.startLeft, shapeInfo.startTop, width, height,
-                    options,
-                    alpha = 1f,
-                    shapeInfo.useInMonthShape, shapeInfo.inMonthShapeInfo
-                )
-            }
-
-            is DefaultSelectionState.RangeToRange -> {
-                drawGeneralRange(canvas, state.shapeInfo, options, alpha = 1f, isPrimary = true)
-            }
-        }
+        // TODO: Implement it
     }
 
     private fun drawRange(
@@ -140,15 +83,20 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         }
     }
 
-    private fun drawRange(
+    private fun drawFragments(
         canvas: Canvas,
-        state: SelectionShapeBasedState,
+        fragments: List<SelectionFragmentState>,
         options: SelectionRenderOptions,
         alpha: Float,
         isPrimary: Boolean
     ) {
-        drawRange(canvas, state.shapeInfo, options, alpha, isPrimary)
+        for (fragment in fragments) {
+            fragment as DefaultSelectionFragmentState
+
+            drawRange(canvas, fragment.shapeInfo, options, alpha, isPrimary)
+        }
     }
+
 
     private fun drawOpaqueRect(
         canvas: Canvas,

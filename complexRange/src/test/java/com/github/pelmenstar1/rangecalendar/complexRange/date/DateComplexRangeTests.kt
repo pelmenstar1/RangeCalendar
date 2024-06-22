@@ -1,22 +1,14 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.date
 
+import com.github.pelmenstar1.rangecalendar.PackedDate
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
-class LinkedListDateComplexRangeTests {
-    class DifferentClassComplexRange(
-        private val fragments: List<DateFragment>
-    ) : DateComplexRange {
-        override fun modify(block: DateComplexRangeModify.() -> Unit): DateComplexRange {
-            throw NotImplementedError()
-        }
-
-        override fun fragments(): List<DateFragment> {
-            return fragments
-        }
-    }
+class DateComplexRangeTests {
+    private fun intToPackedDate(value: Int) =
+        PackedDate.fromEpochDay(value.toLong())
 
     private fun createComplexRange(ranges: Array<IntRange>): DateComplexRange {
         return DateComplexRange {
@@ -167,6 +159,59 @@ class LinkedListDateComplexRangeTests {
         )
     }
 
+    @Test
+    fun clampTest() {
+        fun testCase(fragments: Array<IntRange>, clampRange: IntRange, expected: Array<IntRange>) {
+            val complexRange = createComplexRange(fragments)
+            val actualRange = complexRange.clamp(intToPackedDate(clampRange.first), intToPackedDate(clampRange.last))
+            val expectedRange = createComplexRange(expected)
+
+            assertEquals(expectedRange, actualRange)
+        }
+
+        testCase(
+            fragments = emptyArray(),
+            clampRange = 0..5,
+            expected = emptyArray()
+        )
+
+        testCase(
+            fragments = arrayOf(1..5),
+            clampRange = 2..4,
+            expected = arrayOf(2..4)
+        )
+
+        testCase(
+            fragments = arrayOf(1..5),
+            clampRange = 2..5,
+            expected = arrayOf(2..5)
+        )
+
+        testCase(
+            fragments = arrayOf(1..5, 7..8),
+            clampRange = 0..10,
+            expected = arrayOf(1..5, 7..8)
+        )
+
+        testCase(
+            fragments = arrayOf(1..5, 7..8),
+            clampRange = 1..8,
+            expected = arrayOf(1..5, 7..8)
+        )
+
+        testCase(
+            fragments = arrayOf(1..5, 7..8, 10..12),
+            clampRange = 6..9,
+            expected = arrayOf(7..8)
+        )
+
+        testCase(
+            fragments = arrayOf(1..5, 7..8, 10..12),
+            clampRange = 6..10,
+            expected = arrayOf(7..8, 10..10)
+        )
+    }
+
     // We're testing whether the equals() correctly handles the 'equals to null' case
     @Suppress("SENSELESS_COMPARISON")
     @Test
@@ -184,34 +229,6 @@ class LinkedListDateComplexRangeTests {
             val otherComplexRange = createComplexRange(otherFragments)
 
             val actual = complexRange == otherComplexRange
-            assertEquals(expected, actual)
-        }
-
-        val fragments0 = emptyArray<IntRange>()
-        val fragments1 = arrayOf(1..2)
-        val fragments2 = arrayOf(1..2, 5..7)
-        val fragments3 = arrayOf(2..3)
-
-        testCase(fragments0, fragments0, expected = true)
-        testCase(fragments1, fragments1, expected = true)
-        testCase(fragments1, fragments2, expected = false)
-        testCase(fragments2, fragments1, expected = false)
-        testCase(fragments2, fragments3, expected = false)
-        testCase(fragments2, fragments2, expected = true)
-    }
-
-    @Test
-    fun equalsDifferentClassTest() {
-        fun testCase(fragments: Array<IntRange>, otherFragments: Array<IntRange>, expected: Boolean) {
-            val complexRange = createComplexRange(fragments)
-            val otherComplexRange = DifferentClassComplexRange(otherFragments.map {
-                DateFragment(it.first.toLong(), it.last.toLong())
-            })
-
-            // Order of operations is important.
-            // GenericComplexRange must be compared to DifferentClassComplexRange and not vice versa.
-            val actual = complexRange == otherComplexRange
-
             assertEquals(expected, actual)
         }
 

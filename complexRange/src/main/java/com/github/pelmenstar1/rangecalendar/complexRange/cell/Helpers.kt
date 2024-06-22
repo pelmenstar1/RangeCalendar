@@ -7,3 +7,9 @@ internal fun ensureValidCellFragment(start: Int, end: Int) {
         throw IllegalArgumentException("Invalid given fragment")
     }
 }
+
+internal fun ensureValidCell(value: Int) {
+    if (value !in 0..<GridConstants.CELL_COUNT) {
+        throw IllegalArgumentException("Invalid cell index")
+    }
+}

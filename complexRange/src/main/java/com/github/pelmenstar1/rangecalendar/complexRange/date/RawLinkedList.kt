@@ -453,6 +453,39 @@ internal class RawLinkedList<T> : MutableList<T> {
         return RawLinkedList(newHead, newCurrent, _size)
     }
 
+    fun copyOf(startNode: Node<T>, endNodeInclusive: Node<T>): RawLinkedList<T> {
+        if (startNode === endNodeInclusive) {
+            val node = Node(startNode.value)
+
+            return RawLinkedList(node, node, size = 1)
+        }
+
+        val newHead = Node(startNode.value)
+        var newCurrent = newHead
+        var current = startNode.next
+        var newSize = 1
+
+        while(current != null) {
+            val newNode = Node(current.value).apply {
+                previous = newCurrent
+            }
+
+            newCurrent.next = newNode
+            newCurrent = newNode
+            newSize++
+
+            if (current === endNodeInclusive) {
+                break
+            }
+
+            current = current.next
+        }
+
+        //val newSize = countBetweenNodes(startNode, endNodeInclusive)
+
+        return RawLinkedList(newHead, newCurrent, newSize)
+    }
+
     override fun equals(other: Any?): Boolean {
         if (other !is RawLinkedList<*>) {
             return false

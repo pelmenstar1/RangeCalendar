@@ -1,5 +1,8 @@
 package com.github.pelmenstar1.rangecalendar
 
+import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
 import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getDaysInMonth
@@ -65,6 +68,10 @@ internal class YearMonthGridInfo {
         set(ym.year, ym.month, firstDayOfWeek)
     }
 
+    fun getCellByDate(epochDay: Long): Cell {
+        return getCellByDate(PackedDate.fromEpochDay(epochDay))
+    }
+
     fun getCellByDate(date: PackedDate): Cell {
         val firstIndex = firstDayOfMonthCellIndex
         val (firstYear, firstMonth, firstDay) = firstCellInGridDate
@@ -103,6 +110,24 @@ internal class YearMonthGridInfo {
         endCell = endCell.orIfUndefined(Cell.Max)
 
         return CellRange(startCell, endCell)
+    }
+
+    fun getCellRangeByDateRange(dateRange: DateComplexRange): CellComplexRange {
+        // TODO: Optimize it
+
+        return CellComplexRange {
+            for (dateFragment in dateRange.fragments()) {
+                var startCell = getCellByDate(dateFragment.startEpochDays)
+                var endCell = getCellByDate(dateFragment.endEpochDays)
+
+                if (startCell.isDefined || endCell.isDefined) {
+                    startCell = startCell.orIfUndefined(Cell.Min)
+                    endCell = endCell.orIfUndefined(Cell.Max)
+
+                    fragment(startCell.index, endCell.index)
+                }
+            }
+        }
     }
 
     fun getDateAtCell(cell: Cell): PackedDate {
@@ -150,6 +175,18 @@ internal class YearMonthGridInfo {
 
     fun getDateRangeByCellRange(cellRange: CellRange): PackedDateRange {
         return PackedDateRange(getDateAtCell(cellRange.start), getDateAtCell(cellRange.end))
+    }
+
+    fun getDateRangeByCellRange(cellComplexRange: CellComplexRange): DateComplexRange {
+        return DateComplexRange {
+            for (fragment in cellComplexRange.fragments()) {
+                val startDate = getDateAtCell(Cell(fragment.start))
+                val endDate = getDateAtCell(Cell(fragment.endInclusive))
+
+                val dateFragment = DateFragment(startDate.toEpochDay(), endDate.toEpochDay())
+                fragment(dateFragment)
+            }
+        }
     }
 
     fun fillGrid(cells: ByteArray) {

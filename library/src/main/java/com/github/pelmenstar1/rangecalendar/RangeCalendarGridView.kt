@@ -23,6 +23,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityEventCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
+import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
 import com.github.pelmenstar1.rangecalendar.decoration.*
 import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureConfiguration
 import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetector
@@ -48,11 +49,11 @@ internal class RangeCalendarGridView(
 ) : View(context) {
     interface OnSelectionListener {
         fun onSelectionCleared()
-        fun onSelection(range: CellRange)
+        fun onSelection(range: CellComplexRange)
     }
 
     interface SelectionGate {
-        fun accept(range: CellRange): Boolean
+        fun accept(range: CellComplexRange): Boolean
     }
 
     private fun interface TickCallback {
@@ -94,7 +95,7 @@ internal class RangeCalendarGridView(
                 contentDescription = getDayDescriptionForIndex(virtualViewId)
                 text = CalendarResources.getDayText(grid.cells[virtualViewId].toInt())
 
-                isSelected = grid.currentSelState.contains(cell)
+                isSelected = grid.currentSelState?.contains(cell.index) ?: false
                 isClickable = true
 
                 isEnabled = if (grid.enabledCellRange.contains(cell)) {
@@ -113,8 +114,8 @@ internal class RangeCalendarGridView(
             arguments: Bundle?
         ): Boolean {
             return if (action == AccessibilityNodeInfoCompat.ACTION_CLICK) {
-                grid.selectRange(
-                    range = CellRange.single(virtualViewId),
+                grid.selectionComplexRange(
+                    range = CellComplexRange.singleCell(virtualViewId),
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                     gestureType = SelectionByGestureType.SINGLE_CELL_ON_CLICK,
                     withAnimation = false,
@@ -187,8 +188,8 @@ internal class RangeCalendarGridView(
         private val view: RangeCalendarGridView
     ) : RangeCalendarGestureEventHandler {
         override fun selectRange(start: Int, end: Int, gestureType: SelectionByGestureType): SelectionAcceptanceStatus {
-            return view.selectRange(
-                range = CellRange(start, end),
+            return view.selectionComplexRange(
+                range = CellComplexRange(start, end),
                 requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                 checkGate = true,
                 gestureType
@@ -242,7 +243,7 @@ internal class RangeCalendarGridView(
     private var selectionTransitionHandler: TickCallback? = null
     private var onSelectionTransitionEnd: (() -> Unit)? = null
 
-    private var selectionTransitiveState: SelectionState.Transitive? = null
+    private var selectionTransition: SelectionTransition? = null
 
     private var selectionManager: SelectionManager = DefaultSelectionManager()
     private var selectionRenderer = selectionManager.renderer
@@ -463,7 +464,7 @@ internal class RangeCalendarGridView(
 
     private fun copySelectionState(manager: SelectionManager, state: SelectionState?): SelectionState? {
         return state?.let {
-            manager.createState(it.rangeStart, it.rangeEnd, cellMeasureManager, gridInfo)
+            manager.createState(it.complexRange, cellMeasureManager, gridInfo)
         }
     }
 
@@ -695,6 +696,7 @@ internal class RangeCalendarGridView(
             enabledCellRange = range
 
             updateSelectionRange()
+
             invalidateAccessibilityOutIntersectionRanges(
                 oldRange,
                 range,
@@ -771,6 +773,30 @@ internal class RangeCalendarGridView(
     }
 
     private fun invalidateAccessibilityOutIntersectionRanges(
+        oldRange: CellComplexRange,
+        newRange: CellComplexRange,
+        changeTypes: Int
+    ) {
+        val helper = touchHelper
+
+        if (oldRange.hasIntersectionWith(newRange)) {
+            val diffRange = oldRange xor newRange
+
+            for (cellIndex in diffRange.elements()) {
+                helper.invalidateVirtualView(cellIndex, changeTypes)
+            }
+        } else {
+            for (cellIndex in oldRange.elements()) {
+                helper.invalidateVirtualView(cellIndex, changeTypes)
+            }
+
+            for (cellIndex in newRange.elements()) {
+                helper.invalidateVirtualView(cellIndex, changeTypes)
+            }
+        }
+    }
+
+    private fun invalidateAccessibilityOutIntersectionRanges(
         oldRange: CellRange,
         newRange: CellRange,
         changeTypes: Int
@@ -800,8 +826,8 @@ internal class RangeCalendarGridView(
 
     private fun updateSelectionRange() {
         currentSelState?.let {
-            selectRange(
-                it.range,
+            selectionComplexRange(
+                it.complexRange,
                 requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                 checkGate = true
             )
@@ -815,14 +841,14 @@ internal class RangeCalendarGridView(
     }
 
     fun select(
-        range: CellRange,
+        range: CellComplexRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean,
         fireEvent: Boolean,
         checkGate: Boolean
     ) {
         // Do not check whether the gate accepts the selection as the RangeCalendarPagerAdapter checked it before.
-        selectRange(
+        selectionComplexRange(
             range,
             requestRejectedBehaviour,
             checkGate,
@@ -832,17 +858,17 @@ internal class RangeCalendarGridView(
         )
     }
 
-    private fun selectRange(
-        range: CellRange,
+    private fun selectionComplexRange(
+        range: CellComplexRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         checkGate: Boolean,
         gestureType: SelectionByGestureType? = null,
         fireEvent: Boolean = true,
         withAnimation: Boolean = isSelectionAnimatedByDefault(),
     ): SelectionAcceptanceStatus {
-        val currentSelRange = currentSelState?.range ?: CellRange.Invalid
+        val currentSelRange = currentSelState?.complexRange ?: CellComplexRange.Empty
 
-        val isSameCellSelection = currentSelRange.isSingleCell && currentSelRange == range
+        val isSameCellSelection = currentSelRange.isSingleCell() && currentSelRange == range
 
         // Check if user clicks on the same cell and clear selection if necessary.
         if (gestureType == SelectionByGestureType.SINGLE_CELL_ON_CLICK && isSameCellSelection && clickOnCellSelectionBehavior() == ClickOnCellSelectionBehavior.CLEAR) {
@@ -861,12 +887,12 @@ internal class RangeCalendarGridView(
         // hover will be cleared but it shouldn't.
         clearHoverCell()
 
-        var intersection = range.intersectionWith(enabledCellRange)
+        var intersection = range.clamp(enabledCellRange.start.index, enabledCellRange.end.index)
         if (!showAdjacentMonths) {
-            intersection = intersection.intersectionWith(inMonthRange)
+            intersection = intersection.clamp(inMonthRange.start.index, inMonthRange.end.index)
         }
 
-        if (intersection == CellRange.Invalid) {
+        if (intersection.isEmpty) {
             clearSelectionToMatchBehaviour(requestRejectedBehaviour, withAnimation)
 
             return SelectionAcceptanceStatus.REJECTED
@@ -897,8 +923,8 @@ internal class RangeCalendarGridView(
     }
 
     fun selectMonthByGesture(): SelectionAcceptanceStatus {
-        return selectRange(
-            range = inMonthRange,
+        return selectionComplexRange(
+            range = CellComplexRange(inMonthRange.start.index, inMonthRange.end.index),
             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
             checkGate = true,
             gestureType = SelectionByGestureType.OTHER
@@ -916,7 +942,7 @@ internal class RangeCalendarGridView(
 
     private fun createSelectionTransitionHandler(): TickCallback {
         return TickCallback { fraction ->
-            selectionTransitiveState?.let { state ->
+            selectionTransition?.let { state ->
                 selectionManager.transitionController.handleTransition(
                     state,
                     cellMeasureManager,
@@ -936,7 +962,7 @@ internal class RangeCalendarGridView(
     private fun getSelectionOnEndHandler(): () -> Unit {
         return getLazyValue(
             onSelectionTransitionEnd,
-            { { selectionTransitiveState = null } },
+            { { selectionTransition = null } },
             { onSelectionTransitionEnd = it }
         )
     }
@@ -952,23 +978,23 @@ internal class RangeCalendarGridView(
 
         val prevSelState = prevSelState
         val currentSelState = currentSelState
-        val prevTransitiveState = selectionTransitiveState
+        val prevTransitiveState = selectionTransition
 
-        var newTransitiveState: SelectionState.Transitive? = null
+        var newTransition: SelectionTransition? = null
 
         if (isSelectionAnimRunning && prevTransitiveState != null) {
-            newTransitiveState = selManager.joinTransition(prevTransitiveState, currentSelState, measureManager)
+            newTransition = selManager.joinTransition(prevTransitiveState, currentSelState, measureManager)
         }
 
-        if (newTransitiveState == null) {
-            newTransitiveState = selManager.createTransition(
+        if (newTransition == null) {
+            newTransition = selManager.createTransition(
                 prevSelState, currentSelState,
                 measureManager,
                 selectionRenderOptions
             )
         }
 
-        if (newTransitiveState == null) {
+        if (newTransition == null) {
             // We can't create simple transition between states. We have nothing to do except calling invalidate()
             // to redraw.
             invalidate()
@@ -983,7 +1009,7 @@ internal class RangeCalendarGridView(
         // which is undesired.
         cancelCalendarAnimation()
 
-        selectionTransitiveState = newTransitiveState
+        selectionTransition = newTransition
 
         startCalendarAnimation(
             SELECTION_ANIMATION,
@@ -994,7 +1020,7 @@ internal class RangeCalendarGridView(
     }
 
     private fun setHoverCell(cell: Cell) {
-        if (currentSelState.isSingleCell(cell) || hoverCell == cell) {
+        if (currentSelState?.isSingleCell(cell.index) == true || hoverCell == cell) {
             return
         }
 
@@ -1369,11 +1395,13 @@ internal class RangeCalendarGridView(
         val renderer = selectionRenderer
 
         if (animType == SELECTION_ANIMATION) {
-            selectionTransitiveState?.let {
+            /*
+            selectionTransition?.let {
                 canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
                     renderer.drawTransition(canvas, it, selectionRenderOptions)
                 }
             }
+            */
         } else {
             currentSelState?.let { state ->
                 canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
@@ -1434,8 +1462,8 @@ internal class RangeCalendarGridView(
         val cellHeight = cellHeight
         val halfCellHeight = cellHeight * 0.5f
 
-        val transitiveSelState = selectionTransitiveState
-        val currentSelRange = currentSelState?.range ?: CellRange.Invalid
+        val transitiveSelState = selectionTransition
+        val currentSelRange = currentSelState?.complexRange ?: CellComplexRange.Empty
 
         val rect = tempRect
 
@@ -1463,9 +1491,11 @@ internal class RangeCalendarGridView(
                     // Coordinates in selection are relative to the grid. Translate the rect.
                     rect.offset(-cr.hPadding, -gridTop())
 
-                    transitiveSelState.overlaysRect(rect)
+                    false
+                    // TODO: Implement it
+                    // transitiveSelState.overlaysRect(rect)
                 } else {
-                    cell in currentSelRange
+                    cell.index in currentSelRange
                 }
 
                 val cellType = when {

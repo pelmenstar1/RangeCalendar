@@ -27,9 +27,9 @@ interface SelectionRenderer {
      * @param state a [SelectionState.Transitive] instance to draw on [canvas].
      * @param options contains essential for drawing values.
      */
-    fun drawTransition(
+    fun drawTransitionStage(
         canvas: Canvas,
-        state: SelectionState.Transitive,
+        stage: SelectionTransitionStage,
         options: SelectionRenderOptions
     )
 }

@@ -2,6 +2,7 @@ package com.github.pelmenstar1.rangecalendar.selection
 
 import com.github.pelmenstar1.rangecalendar.CalendarGridInfo
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
+import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
 
 /**
  * Responsible for providing [SelectionRenderer], [SelectionTransitionController], creating selection states and transitions between them.
@@ -33,8 +34,7 @@ interface SelectionManager {
      * @param measureManager [CellMeasureManager] instance that provides a way to get information about measurements
      */
     fun createState(
-        rangeStart: Int,
-        rangeEnd: Int,
+        complexRange: CellComplexRange,
         measureManager: CellMeasureManager,
         gridInfo: CalendarGridInfo
     ): SelectionState
@@ -57,7 +57,7 @@ interface SelectionManager {
         currentState: SelectionState?,
         measureManager: CellMeasureManager,
         options: SelectionRenderOptions
-    ): SelectionState.Transitive?
+    ): SelectionTransition?
 
     /**
      * Transforms the [current] transition and [end] state in such way that the end state of [current] transition become given [end] state.
@@ -68,16 +68,8 @@ interface SelectionManager {
      * Thus, after creating the joined transition, the calling code can't use [current] and [end] states.
      */
     fun joinTransition(
-        current: SelectionState.Transitive,
+        current: SelectionTransition,
         end: SelectionState?,
         measureManager: CellMeasureManager
-    ): SelectionState.Transitive?
-}
-
-internal fun SelectionManager.createState(
-    range: CellRange,
-    measureManager: CellMeasureManager,
-    gridInfo: CalendarGridInfo
-): SelectionState {
-    return createState(range.start.index, range.end.index, measureManager, gridInfo)
+    ): SelectionTransition?
 }

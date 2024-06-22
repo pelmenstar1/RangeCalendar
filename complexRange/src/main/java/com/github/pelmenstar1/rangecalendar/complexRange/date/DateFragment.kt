@@ -5,8 +5,8 @@ import java.time.LocalDate
 import java.util.Calendar
 
 class DateFragment {
-    internal val start: PackedDate
-    internal val endInclusive: PackedDate
+    val start: PackedDate
+    val endInclusive: PackedDate
 
     internal val endExclusive: PackedDate
         get() = endInclusive.plusDays(1)

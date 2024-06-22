@@ -37,6 +37,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    api(project(":complexRange"))
 
     implementation(libs.androidx.viewpager2)
     implementation(libs.androidx.appcompat)

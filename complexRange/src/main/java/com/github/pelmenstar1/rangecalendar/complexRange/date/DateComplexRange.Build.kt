@@ -1,7 +1,11 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.date
 
 fun DateComplexRange(fragment: DateFragment): DateComplexRange {
-    return SingleFragmentDateComplexRange(fragment)
+    val list = RawLinkedList<DateFragment>().also {
+        it.add(fragment)
+    }
+
+    return DateComplexRange(list)
 }
 
 fun DateComplexRange(vararg fragments: DateFragment): DateComplexRange {

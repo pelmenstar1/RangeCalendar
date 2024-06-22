@@ -1,8 +1,13 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.cell
 
+import com.github.pelmenstar1.rangecalendar.GridConstants
+import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 class CellComplexRange internal constructor(internal val bits: Long) {
+    val isEmpty: Boolean
+        get() = bits == 0L
+
     private var fragments: CellComplexRangeFragmentList? = null
     private var elements: CellComplexRangeElementCollection? = null
 
@@ -28,6 +33,43 @@ class CellComplexRange internal constructor(internal val bits: Long) {
         val newBits = aggregate(bits, mask)
 
         return CellComplexRange(newBits)
+    }
+
+    operator fun contains(value: Int): Boolean {
+        return value in 0..<GridConstants.CELL_COUNT && (bits and (1L shl value)) != 0L
+    }
+
+    fun isSingleCell(): Boolean {
+        val b = bits
+
+        // Check if there's only one set bit
+        return b and (b - 1) == 0L
+    }
+
+    fun isSingleCell(cellIndex: Int): Boolean {
+        if (cellIndex !in 0..GridConstants.CELL_COUNT) {
+            return false
+        }
+
+        val b = bits
+
+        // Check if there's only one bit set and that bit is equal to cellIndex's bit
+        return b and (b - 1) == 0L && b and (1L shl cellIndex) != 0L
+    }
+
+    fun hasIntersectionWith(other: CellComplexRange): Boolean {
+        return bits and other.bits != 0L
+    }
+
+    fun clamp(limitStart: Int, limitEndInclusive: Int): CellComplexRange {
+        ensureValidCellFragment(limitStart, limitEndInclusive)
+
+        val mask = rangeMask(limitStart, limitEndInclusive)
+        return CellComplexRange(bits and mask)
+    }
+
+    infix fun xor(other: CellComplexRange): CellComplexRange {
+        return CellComplexRange(bits xor other.bits)
     }
 
     fun fragments(): CellComplexRangeFragmentList {
@@ -74,6 +116,16 @@ class CellComplexRange internal constructor(internal val bits: Long) {
                 append(']')
             }
             append(')')
+        }
+    }
+
+    companion object {
+        val Empty = CellComplexRange(0L)
+
+        fun singleCell(cellIndex: Int): CellComplexRange {
+            ensureValidCell(cellIndex)
+
+            return CellComplexRange(1L shl cellIndex)
         }
     }
 }

@@ -16,6 +16,9 @@ class CellFragment {
 
     constructor(range: IntRange) : this(range.first, range.last)
 
+    fun component1() = start
+    fun component2() = endInclusive
+
     fun overlapsWith(other: CellFragment): Boolean {
         return overlapsWith(other.start, other.endInclusive)
     }
