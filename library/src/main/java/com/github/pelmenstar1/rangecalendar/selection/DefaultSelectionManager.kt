@@ -25,9 +25,10 @@ internal class DefaultSelectionManager : SelectionManager {
         gridInfo: CalendarGridInfo
     ): SelectionState {
         val selFragmentList = ArrayList<SelectionFragmentState>()
-        for (fragment in complexRange.fragments()) {
+
+        complexRange.forEachFragment { start, endInclusive ->
             val shapeInfo = SelectionShapeInfo()
-            fillSelectionShapeInfo(fragment.start, fragment.endInclusive, measureManager, gridInfo, shapeInfo)
+            fillSelectionShapeInfo(start, endInclusive, measureManager, gridInfo, shapeInfo)
 
             val selFragment = DefaultSelectionFragmentState(shapeInfo)
             selFragmentList.add(selFragment)

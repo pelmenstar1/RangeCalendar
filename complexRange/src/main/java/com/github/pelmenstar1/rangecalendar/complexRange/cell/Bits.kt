@@ -9,10 +9,12 @@ internal fun rangeMask(startIndex: Int, endIndex: Int): Long {
     return startMask(startIndex) and endMask(endIndex)
 }
 
+@PublishedApi
 internal fun findNextSetBitIndex(bits: Long, startIndex: Int): Int {
     return findNextBitBase(bits, startIndex, mapWord = { it })
 }
 
+@PublishedApi
 internal fun findNextUnsetBitIndex(bits: Long, startIndex: Int): Int {
     return findNextBitBase(bits, startIndex, mapWord = Long::inv)
 }
@@ -48,6 +50,7 @@ private inline fun findPreviousBitBase(bits: Long, startIndex: Int, mapWord: (Lo
     return -1
 }
 
+@PublishedApi
 internal inline fun forEachRange(bits: Long, block: (start: Int, endInclusive: Int) -> Unit) {
     var start = 0
 

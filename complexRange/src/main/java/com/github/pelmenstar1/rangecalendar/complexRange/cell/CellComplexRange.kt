@@ -4,12 +4,16 @@ import com.github.pelmenstar1.rangecalendar.GridConstants
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
-class CellComplexRange internal constructor(internal val bits: Long) {
+class CellComplexRange internal constructor(@PublishedApi internal val bits: Long) {
     val isEmpty: Boolean
         get() = bits == 0L
 
     private var fragments: CellComplexRangeFragmentList? = null
     private var elements: CellComplexRangeElementCollection? = null
+
+    inline fun forEachFragment(block: (start: Int, endInclusive: Int) -> Unit) {
+        forEachRange(bits, block)
+    }
 
     inline fun modify(block: CellComplexRangeModify.() -> Unit): CellComplexRange {
         return CellComplexRangeModify(this).also(block).build()
@@ -70,6 +74,14 @@ class CellComplexRange internal constructor(internal val bits: Long) {
 
     infix fun xor(other: CellComplexRange): CellComplexRange {
         return CellComplexRange(bits xor other.bits)
+    }
+
+    inline fun forEachXorFragment(other: CellComplexRange, block: (start: Int, endInclusive: Int) -> Unit) {
+        forEachRange(bits xor other.bits, block)
+    }
+
+    inline fun forEachOrFragment(other: CellComplexRange, block: (start: Int, endInclusive: Int) -> Unit) {
+        forEachRange(bits or other.bits, block)
     }
 
     fun fragments(): CellComplexRangeFragmentList {

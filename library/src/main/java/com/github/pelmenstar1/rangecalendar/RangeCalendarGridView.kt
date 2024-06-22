@@ -777,21 +777,13 @@ internal class RangeCalendarGridView(
         newRange: CellComplexRange,
         changeTypes: Int
     ) {
-        val helper = touchHelper
-
         if (oldRange.hasIntersectionWith(newRange)) {
-            val diffRange = oldRange xor newRange
-
-            for (cellIndex in diffRange.elements()) {
-                helper.invalidateVirtualView(cellIndex, changeTypes)
+            oldRange.forEachXorFragment(newRange) { start, endInclusive ->
+                invalidateAccessibilityNodesRange(start, endInclusive, changeTypes)
             }
         } else {
-            for (cellIndex in oldRange.elements()) {
-                helper.invalidateVirtualView(cellIndex, changeTypes)
-            }
-
-            for (cellIndex in newRange.elements()) {
-                helper.invalidateVirtualView(cellIndex, changeTypes)
+            oldRange.forEachOrFragment(newRange) { start, endInclusive ->
+                invalidateAccessibilityNodesRange(start, endInclusive, changeTypes)
             }
         }
     }

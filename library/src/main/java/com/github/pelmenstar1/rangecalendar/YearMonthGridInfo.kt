@@ -116,9 +116,9 @@ internal class YearMonthGridInfo {
         // TODO: Optimize it
 
         return CellComplexRange {
-            for (dateFragment in dateRange.fragments()) {
-                var startCell = getCellByDate(dateFragment.startEpochDays)
-                var endCell = getCellByDate(dateFragment.endEpochDays)
+            dateRange.forEachFragment { dateFragment ->
+                var startCell = getCellByDate(dateFragment.start)
+                var endCell = getCellByDate(dateFragment.endInclusive)
 
                 if (startCell.isDefined || endCell.isDefined) {
                     startCell = startCell.orIfUndefined(Cell.Min)
@@ -179,9 +179,9 @@ internal class YearMonthGridInfo {
 
     fun getDateRangeByCellRange(cellComplexRange: CellComplexRange): DateComplexRange {
         return DateComplexRange {
-            for (fragment in cellComplexRange.fragments()) {
-                val startDate = getDateAtCell(Cell(fragment.start))
-                val endDate = getDateAtCell(Cell(fragment.endInclusive))
+            cellComplexRange.forEachFragment { start, endInclusive ->
+                val startDate = getDateAtCell(Cell(start))
+                val endDate = getDateAtCell(Cell(endInclusive))
 
                 val dateFragment = DateFragment(startDate.toEpochDay(), endDate.toEpochDay())
                 fragment(dateFragment)

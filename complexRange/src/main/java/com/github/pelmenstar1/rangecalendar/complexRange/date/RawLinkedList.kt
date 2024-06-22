@@ -6,7 +6,7 @@ import kotlin.NoSuchElementException
  * Represents a linked list that exposes its underlying [RawLinkedList.Node] class
  * (unlike standard Java's LinkedList class) that allows some operations to be more efficient.
  */
-internal class RawLinkedList<T> : MutableList<T> {
+class RawLinkedList<T> : MutableList<T> {
     /**
      * A node of the linked list.
      */

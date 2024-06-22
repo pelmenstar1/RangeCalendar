@@ -38,7 +38,7 @@ internal class SavedState : AbsSavedState {
             val fragments = complexRange.fragments()
             parcel.writeInt(fragments.size)
 
-            for (fragment in fragments) {
+            complexRange.forEachFragment { fragment ->
                 parcel.writeLong(fragment.startEpochDays)
                 parcel.writeLong(fragment.endEpochDays)
             }

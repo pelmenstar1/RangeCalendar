@@ -3,7 +3,7 @@ package com.github.pelmenstar1.rangecalendar.complexRange.date
 import com.github.pelmenstar1.rangecalendar.PackedDate
 
 class DateComplexRange internal constructor(
-    private val fragments: RawLinkedList<DateFragment>
+    @PublishedApi internal val fragments: RawLinkedList<DateFragment>
 ) {
     val isEmpty: Boolean
         get() = fragments.isEmpty()
@@ -82,6 +82,10 @@ class DateComplexRange internal constructor(
 
     private fun findLastFragmentBefore(date: PackedDate): RawLinkedList.Node<DateFragment>? {
         return fragments.findLastNode { date >= it.start }
+    }
+
+    inline fun forEachFragment(block: (DateFragment) -> Unit) {
+        fragments.forEachForward(block)
     }
 
     fun fragments(): List<DateFragment> {
