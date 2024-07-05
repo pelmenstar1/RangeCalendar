@@ -3,6 +3,8 @@ package com.github.pelmenstar1.rangecalendar
 import android.os.Parcel
 import android.view.AbsSavedState
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -12,10 +14,10 @@ import kotlin.test.assertEquals
 class SavedStateTests {
     @Test
     fun readWriteTest() {
-        val expectedSelRange = PackedDateRange(
+        val expectedSelRange = DateComplexRange(DateFragment(
             PackedDate(2023, 8, 7),
             PackedDate(2023, 8, 10)
-        )
+        ))
         val expectedYm = YearMonth(2023, 8)
 
         val savedState = SavedState(AbsSavedState.EMPTY_STATE).apply {

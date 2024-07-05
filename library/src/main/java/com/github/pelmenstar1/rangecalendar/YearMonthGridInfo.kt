@@ -113,21 +113,32 @@ internal class YearMonthGridInfo {
     }
 
     fun getCellRangeByDateRange(dateRange: DateComplexRange): CellComplexRange {
-        // TODO: Optimize it
+        var bits = 0L
+        val gridStart = firstCellInGridDate
+        val gridEnd = lastCellInGridDate
 
-        return CellComplexRange {
+        run {
             dateRange.forEachFragment { dateFragment ->
-                var startCell = getCellByDate(dateFragment.start)
-                var endCell = getCellByDate(dateFragment.endInclusive)
+                val startDate = dateFragment.start
+                val endDate = dateFragment.endInclusive
 
-                if (startCell.isDefined || endCell.isDefined) {
-                    startCell = startCell.orIfUndefined(Cell.Min)
-                    endCell = endCell.orIfUndefined(Cell.Max)
+                // If grid date range and given fragment intersects, then there's
+                // an intersection we can add to the complex cell range.
+                if (startDate <= gridEnd && gridStart <= endDate) {
+                    val startCell = getCellByDate(startDate).orIfUndefined(Cell.Min)
+                    val endCell = getCellByDate(endDate).orIfUndefined(Cell.Max)
 
-                    fragment(startCell.index, endCell.index)
+                    bits = bits or CellComplexRange.rawRangeMask(startCell, endCell)
+
+                    if (bits == CellComplexRange.AllBits) {
+                        // Bail out. Following fragments won't change the bits.
+                        return@run
+                    }
                 }
             }
         }
+
+        return CellComplexRange.createRaw(bits)
     }
 
     fun getDateAtCell(cell: Cell): PackedDate {

@@ -1,5 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.date
 
+import com.github.pelmenstar1.rangecalendar.complexRange.BaseListIteratorTests
+
 class RawLinkedListIteratorTests : BaseListIteratorTests<Int>() {
     override fun createIterator(elements: Array<Int>): MutableListIterator<Int> {
         return RawLinkedList<Int>().apply {

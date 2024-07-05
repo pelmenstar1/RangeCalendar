@@ -34,6 +34,9 @@ value class PackedIntRange(val bits: Long) {
     val isDefined: Boolean
         get() = this != Undefined
 
+    operator fun component1() = start
+    operator fun component2() = endInclusive
+
     fun contains(value: Int): Boolean {
         return value in start..endInclusive
     }

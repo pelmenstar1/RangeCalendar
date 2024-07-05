@@ -1,4 +1,4 @@
-package com.github.pelmenstar1.rangecalendar.complexRange.date
+package com.github.pelmenstar1.rangecalendar.complexRange
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -7,11 +7,11 @@ import kotlin.test.assertSame
 abstract class BaseListIteratorTests<T> {
     class SubListData<T>(val elements: Array<T>, val subRange: IntRange)
 
-    abstract fun createIterator(elements: Array<T>): MutableListIterator<T>
+    abstract fun createIterator(elements: Array<T>): ListIterator<T>
     abstract fun iterateForwardBackwardDataset(): List<Array<T>>
 
     abstract fun iterateSubListForwardBackwardDataset(): List<SubListData<T>>
-    abstract fun createSubIterator(elements: Array<T>, subRange: IntRange): MutableListIterator<T>
+    abstract fun createSubIterator(elements: Array<T>, subRange: IntRange): ListIterator<T>
 
     private fun forwardIteratorTest(iter: ListIterator<T>, expectedValues: Array<T>) {
         var index = 0
@@ -22,7 +22,7 @@ abstract class BaseListIteratorTests<T> {
             val iterValue = iter.next()
             val expectedValue = expectedValues[index++]
 
-            assertSame(expectedValue, iterValue, "next value")
+            assertEquals(expectedValue, iterValue, "next value")
         }
 
         assertEquals(expectedValues.size, index)
@@ -38,7 +38,7 @@ abstract class BaseListIteratorTests<T> {
             val iterValue = iter.previous()
             val expectedValue = expectedValues[index--]
 
-            assertSame(expectedValue, iterValue, "previous value")
+            assertEquals(expectedValue, iterValue, "previous value")
         }
 
         assertEquals(-1, index)

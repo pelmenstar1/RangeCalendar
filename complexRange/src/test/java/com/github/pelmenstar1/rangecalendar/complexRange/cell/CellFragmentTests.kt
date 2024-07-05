@@ -51,6 +51,40 @@ class CellFragmentTests {
     }
 
     @Test
+    fun containsTest() {
+        fun testCase(range: IntRange, value: Int) {
+            val fragment = CellFragment(range)
+            val actual = fragment.contains(value)
+            val expected = range.contains(value)
+
+            assertEquals(expected, actual)
+        }
+
+        testCase(range = 1..5, value = 1)
+        testCase(range = 1..5, value = 5)
+        testCase(range = 1..5, value = -1)
+        testCase(range = 1..5, value = 0)
+        testCase(range = 5..41, value = 41)
+        testCase(range = 5..41, value = 42)
+    }
+
+    @Test
+    fun elementCountTest() {
+        fun testCase(range: IntRange) {
+            val fragment = CellFragment(range)
+            val actual = fragment.elementCount
+            val expected = range.count()
+
+            assertEquals(expected, actual)
+        }
+
+        testCase(1..1)
+        testCase(1..2)
+        testCase(5..8)
+        testCase(40..41)
+    }
+
+    @Test
     fun getDistanceToTest() {
         fun testCase(r1: IntRange, r2: IntRange, expected: Int) {
             commutativeMemberTestHelper(r1, r2, expected, CellFragment::getDistanceTo)

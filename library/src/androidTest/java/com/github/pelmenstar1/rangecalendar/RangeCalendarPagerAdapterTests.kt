@@ -4,7 +4,10 @@ import androidx.appcompat.view.ContextThemeWrapper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.github.pelmenstar1.rangecalendar.selection.CellRange
+import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
+import com.github.pelmenstar1.rangecalendar.test.R
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertContentEquals
@@ -27,6 +30,31 @@ class RangeCalendarPagerAdapterTests {
         val payload: RangeCalendarPagerAdapter.Payload? = null
     )
 
+    internal object PayloadScope {
+        fun select(
+            range: CellComplexRange,
+            requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+            withAnimation: Boolean
+        ) = payload { select(range, requestRejectedBehaviour, withAnimation) }
+
+        fun select(
+            range: IntRange,
+            requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
+            withAnimation: Boolean
+        ) = select(CellComplexRange(range), requestRejectedBehaviour, withAnimation)
+
+        fun clearSelection(withAnimation: Boolean) =
+            payload { clearSelection(withAnimation) }
+
+        fun updateTodayIndex() = payload { updateTodayIndex() }
+
+        private fun payload(
+            block: RangeCalendarPagerAdapter.Payload.Companion.() -> RangeCalendarPagerAdapter.Payload
+        ): RangeCalendarPagerAdapter.Payload {
+            return RangeCalendarPagerAdapter.Payload.block()
+        }
+    }
+
     internal class RangeListBuilder {
         private val list = ArrayList<TypedRange>()
 
@@ -41,6 +69,14 @@ class RangeCalendarPagerAdapterTests {
 
         fun changed(ym: YearMonth, count: Int = 1, payload: RangeCalendarPagerAdapter.Payload? = null) =
             add(NotifyType.CHANGED, position = ym.totalMonths, count, payload)
+
+        fun changed(ym: YearMonth, count: Int = 1, payloadSelect: PayloadScope.() -> RangeCalendarPagerAdapter.Payload) {
+            changed(ym, count, PayloadScope.payloadSelect())
+        }
+
+        fun changed(year: Int, month: Int, count: Int = 1, payloadSelect: PayloadScope.() -> RangeCalendarPagerAdapter.Payload) {
+            changed(YearMonth(year, month), count, payloadSelect)
+        }
 
         private fun add(
             type: NotifyType,
@@ -91,8 +127,7 @@ class RangeCalendarPagerAdapterTests {
     }
 
     private val context = InstrumentationRegistry.getInstrumentation().context
-    private val themedContext =
-        ContextThemeWrapper(context, androidx.appcompat.R.style.Theme_AppCompat)
+    private val themedContext = ContextThemeWrapper(context, R.style.Theme_TestTheme)
     private val cr = CalendarResources(themedContext)
 
     @Test
@@ -284,52 +319,42 @@ class RangeCalendarPagerAdapterTests {
             oldToday = PackedDate.INVALID,
             newToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5)
         ) {
-            changed(
-                YearMonth(year = 2023, month = 5),
-                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
-            )
+            changed(year = 2023, month = 5) { updateTodayIndex() }
         }
 
         testCase(
             oldToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5),
             newToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5)
         ) {
-            changed(
-                YearMonth(year = 2023, month = 5),
-                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
-            )
+            changed(year = 2023, month = 5) { updateTodayIndex() }
         }
 
         testCase(
             oldToday = PackedDate(year = 2023, month = 5, dayOfMonth = 5),
             newToday = PackedDate(year = 2023, month = 6, dayOfMonth = 5)
         ) {
-            changed(
-                YearMonth(year = 2023, month = 6),
-                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
-            )
-
-            changed(
-                YearMonth(year = 2023, month = 5),
-                payload = RangeCalendarPagerAdapter.Payload.updateTodayIndex()
-            )
+            changed(year = 2023, month = 6) { updateTodayIndex() }
+            changed(year = 2023, month = 5) { updateTodayIndex() }
         }
     }
 
     @Test
     fun clearSelectionTest() {
         fun testCase(
-            selectionRange: PackedDateRange,
+            selectionRange: DateComplexRange,
             withAnimation: Boolean,
             expectedEventFired: Boolean,
             buildRanges: RangeListBuilder.() -> Unit
         ) {
             val adapter = RangeCalendarPagerAdapter(cr)
-            adapter.selectedRange = selectionRange
+            val isSelected = adapter.selectRange(
+                selectionRange,
+                SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                withAnimation = false
+            )
 
-            if (selectionRange.isValid) {
-                adapter.selectionTrueYmRange = adapter.getSelectionRangeTrueYmRange(selectionRange)
-            }
+            // isSelected is false when selectionRange is empty
+            assertEquals(!selectionRange.isEmpty, isSelected)
 
             var isEventFired = false
 
@@ -338,17 +363,14 @@ class RangeCalendarPagerAdapterTests {
                     isEventFired = true
                 }
 
-                override fun onSelection(
-                    startYear: Int, startMonth: Int, startDay: Int,
-                    endYear: Int, endMonth: Int, endDay: Int
-                ) {
+                override fun onSelection(complexRange: DateComplexRange) {
                 }
             }
 
             val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
             adapter.clearSelection(withAnimation)
 
-            assertEquals(PackedDateRange.Invalid, adapter.selectedRange)
+            assertTrue(adapter.selectedRange.isEmpty)
             assertEquals(isEventFired, expectedEventFired, "event")
 
             val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
@@ -358,37 +380,33 @@ class RangeCalendarPagerAdapterTests {
         }
 
         testCase(
-            selectionRange = PackedDateRange(
-                PackedDate(year = 2023, month = 6, dayOfMonth = 7),
-                PackedDate(year = 2023, month = 6, dayOfMonth = 10),
+            selectionRange = DateComplexRange(
+                DateFragment(
+                    PackedDate(year = 2023, month = 6, dayOfMonth = 7),
+                    PackedDate(year = 2023, month = 6, dayOfMonth = 10)
+                )
             ),
             withAnimation = true,
             expectedEventFired = true
         ) {
-            changed(
-                YearMonth(year = 2023, month = 5),
-                count = 2,
-                payload = RangeCalendarPagerAdapter.Payload.clearSelection(withAnimation = true)
-            )
+            changed(year = 2023, month = 5, count = 2) { clearSelection(withAnimation = true) }
         }
 
         testCase(
-            selectionRange = PackedDateRange(
-                PackedDate(year = 2023, month = 6, dayOfMonth = 7),
-                PackedDate(year = 2023, month = 7, dayOfMonth = 10),
+            selectionRange = DateComplexRange(
+                DateFragment(
+                    PackedDate(year = 2023, month = 6, dayOfMonth = 7),
+                    PackedDate(year = 2023, month = 7, dayOfMonth = 10),
+                )
             ),
             withAnimation = true,
             expectedEventFired = true
         ) {
-            changed(
-                YearMonth(year = 2023, month = 5),
-                count = 3,
-                payload = RangeCalendarPagerAdapter.Payload.clearSelection(withAnimation = true)
-            )
+            changed(year = 2023, month = 5, count = 3) { clearSelection(withAnimation = true) }
         }
 
         testCase(
-            selectionRange = PackedDateRange.Invalid,
+            selectionRange = DateComplexRange.empty(),
             withAnimation = false,
             expectedEventFired = false
         ) {
@@ -398,7 +416,7 @@ class RangeCalendarPagerAdapterTests {
 
     @Test
     fun selectRangeTest() {
-        fun testHelper(dateRange: PackedDateRange, buildRanges: RangeListBuilder.() -> Unit) {
+        fun testHelper(dateRange: DateComplexRange, buildRanges: RangeListBuilder.() -> Unit) {
             val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
 
             val adapter = RangeCalendarPagerAdapter(cr).apply {
@@ -419,128 +437,119 @@ class RangeCalendarPagerAdapterTests {
             assertTrue(isSelected)
         }
 
-        testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 7, dayOfMonth = 10),
-                PackedDate(year = 2023, month = 7, dayOfMonth = 15),
-            )
-        ) {
-            changed(
-                YearMonth(year = 2023, month = 7),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange(14, 19),
-                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                    withAnimation = true
-                )
-            )
+        fun testHelper(startDate: PackedDate, endDate: PackedDate, buildRanges: RangeListBuilder.() -> Unit) {
+            testHelper(DateComplexRange(DateFragment(startDate, endDate)), buildRanges)
         }
 
         testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 7, dayOfMonth = 10),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 1),
-            )
+            startDate = PackedDate(year = 2023, month = 7, dayOfMonth = 10),
+            endDate = PackedDate(year = 2023, month = 7, dayOfMonth = 15)
         ) {
-            changed(
-                YearMonth(year = 2023, month = 7),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange(14, 36),
+            changed(year = 2023, month = 7) {
+                select(
+                    range = 14..19,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     withAnimation = true
                 )
-            )
-
-            changed(
-                YearMonth(year = 2023, month = 8),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange(0, 1),
-                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                    withAnimation = true
-                )
-            )
+            }
         }
 
         testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 6, dayOfMonth = 26),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 1),
-            )
+            startDate = PackedDate(year = 2023, month = 7, dayOfMonth = 10),
+            endDate = PackedDate(year = 2023, month = 8, dayOfMonth = 1),
         ) {
-            changed(
-                YearMonth(year = 2023, month = 6),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange(28, 41),
+            changed(year = 2023, month = 7) {
+                select(
+                    range = 14..36,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     withAnimation = true
                 )
-            )
+            }
 
-            changed(
-                YearMonth(year = 2023, month = 7),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange(0, 36),
+            changed(year = 2023, month = 8) {
+                select(
+                    range = 0..1,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     withAnimation = true
                 )
-            )
-
-            changed(
-                YearMonth(year = 2023, month = 8),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange(0, 1),
-                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
-                    withAnimation = true
-                )
-            )
+            }
         }
 
         testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 6, dayOfMonth = 25),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 7),
-            )
+            startDate = PackedDate(year = 2023, month = 6, dayOfMonth = 26),
+            endDate = PackedDate(year = 2023, month = 8, dayOfMonth = 1)
         ) {
-            changed(
-                YearMonth(year = 2023, month = 6),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange(27, 41),
+            changed(year = 2023, month = 6) {
+                select(
+                    range = 28..41,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     withAnimation = true
                 )
-            )
+            }
 
-            changed(
-                YearMonth(year = 2023, month = 7),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange.All,
+            changed(year = 2023, month = 7) {
+                select(
+                    range = 0..36,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     withAnimation = true
                 )
-            )
+            }
 
-            changed(
-                YearMonth(year = 2023, month = 8),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    range = CellRange(0, 7),
+            changed(year = 2023, month = 8) {
+                select(
+                    range = 0..1,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     withAnimation = true
                 )
-            )
+            }
+        }
+
+        testHelper(
+            startDate = PackedDate(year = 2023, month = 6, dayOfMonth = 25),
+            endDate = PackedDate(year = 2023, month = 8, dayOfMonth = 7),
+        ) {
+            changed(year = 2023, month = 6) {
+                select(
+                    range = 27..41,
+                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                    withAnimation = true
+                )
+            }
+
+            changed(year = 2023, month = 7) {
+                select(
+                    range = CellComplexRange.All,
+                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                    withAnimation = true
+                )
+            }
+
+            changed(year = 2023, month = 8) {
+                select(
+                    range = 0..7,
+                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                    withAnimation = true
+                )
+            }
         }
     }
 
     @Test
     fun selectRangeShouldClearOtherSelectionTest() {
         fun testHelper(
-            previousDateRange: PackedDateRange,
-            newDateRange: PackedDateRange,
+            previousDateRange: DateComplexRange,
+            newDateRange: DateComplexRange,
             buildRanges: RangeListBuilder.() -> Unit
         ) {
             val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
 
             val adapter = RangeCalendarPagerAdapter(cr).apply {
                 setFirstDayOfWeek(CompatDayOfWeek.Monday)
-                selectedRange = previousDateRange
+                selectRange(
+                    previousDateRange,
+                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
+                    withAnimation = false
+                )
             }
 
             val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
@@ -558,6 +567,18 @@ class RangeCalendarPagerAdapterTests {
             assertTrue(isSelected)
         }
 
+        fun testHelper(
+            previousDateRange: PackedDateRange,
+            newDateRange: PackedDateRange,
+            buildRanges: RangeListBuilder.() -> Unit
+        ) {
+            testHelper(
+                DateComplexRange(DateFragment(previousDateRange)),
+                DateComplexRange(DateFragment(newDateRange)),
+                buildRanges
+            )
+        }
+
         testHelper(
             previousDateRange = PackedDateRange(
                 PackedDate(year = 2023, month = 7, dayOfMonth = 1),
@@ -568,51 +589,35 @@ class RangeCalendarPagerAdapterTests {
                 PackedDate(year = 2023, month = 7, dayOfMonth = 2),
             )
         ) {
-            changed(
-                YearMonth(year = 2023, month = 6),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    CellRange(start = 33, end = 34),
+            changed(year = 2023, month = 6) {
+                select(
+                    range = 33..34,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     withAnimation = true
                 )
-            )
+            }
 
-            changed(
-                YearMonth(year = 2023, month = 7),
-                payload = RangeCalendarPagerAdapter.Payload.select(
-                    CellRange(start = 5, end = 6),
+            changed(year = 2023, month = 7) {
+                select(
+                    range = 5..6,
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                     withAnimation = true
                 )
-            )
+            }
         }
     }
 
     @Test
     fun selectRangeRespectsGateTest() {
-        fun assertDate(year: Int, month: Int, dayOfMonth: Int, expectedDate: PackedDate) {
-            assertEquals(year, expectedDate.year, "year")
-            assertEquals(month, expectedDate.month, "month")
-            assertEquals(dayOfMonth, expectedDate.dayOfMonth, "dayOfMonth")
-        }
-
         val ym = YearMonth(year = 2023, month = 6)
-        val dateRange = PackedDateRange(
+        val expectedRange = DateComplexRange(DateFragment(
             PackedDate(ym, dayOfMonth = 5),
             PackedDate(ym, dayOfMonth = 6)
-        )
+        ))
 
         val gate = object : RangeCalendarView.SelectionGate {
-            override fun accept(
-                startYear: Int,
-                startMonth: Int,
-                startDay: Int,
-                endYear: Int,
-                endMonth: Int,
-                endDay: Int
-            ): Boolean {
-                assertDate(startYear, startMonth, startDay, dateRange.start)
-                assertDate(endYear, endMonth, endDay, dateRange.end)
+            override fun accept(complexRange: DateComplexRange): Boolean {
+                assertEquals(expectedRange, complexRange)
 
                 return false
             }
@@ -623,7 +628,7 @@ class RangeCalendarPagerAdapterTests {
 
         val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
         val isSelected = adapter.selectRange(
-            dateRange,
+            expectedRange,
             SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
             withAnimation = false
         )
@@ -657,101 +662,4 @@ class RangeCalendarPagerAdapterTests {
             expectedResult = true
         )
     }
-
-    @Test
-    fun getSelectionTrueYmRangeTest() {
-        fun testHelper(dateRange: PackedDateRange, expectedYmRange: YearMonthRange) {
-            val adapter = RangeCalendarPagerAdapter(cr).apply {
-                setFirstDayOfWeek(CompatDayOfWeek.Monday)
-            }
-
-            val actualYmRange = adapter.getSelectionRangeTrueYmRange(dateRange)
-            assertEquals(expectedYmRange, actualYmRange)
-        }
-
-        testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 8, dayOfMonth = 1),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 2),
-            ),
-            expectedYmRange = YearMonthRange(
-                YearMonth(year = 2023, month = 7),
-                YearMonth(year = 2023, month = 8)
-            )
-        )
-
-        testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 8, dayOfMonth = 1),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 31),
-            ),
-            expectedYmRange = YearMonthRange(
-                YearMonth(year = 2023, month = 7),
-                YearMonth(year = 2023, month = 9)
-            )
-        )
-
-        testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 7, dayOfMonth = 31),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 1),
-            ),
-            expectedYmRange = YearMonthRange(
-                YearMonth(year = 2023, month = 7),
-                YearMonth(year = 2023, month = 8)
-            )
-        )
-
-        testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 8, dayOfMonth = 17),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 17),
-            ),
-            expectedYmRange = YearMonthRange(
-                YearMonth(year = 2023, month = 8),
-                YearMonth(year = 2023, month = 8)
-            )
-        )
-
-        testHelper(
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 6, dayOfMonth = 7),
-                PackedDate(year = 2023, month = 6, dayOfMonth = 10),
-            ),
-            expectedYmRange = YearMonthRange(
-                YearMonth(year = 2023, month = 5),
-                YearMonth(year = 2023, month = 6)
-            )
-        )
-    }
-
-    /*
-    @Test
-    fun clearSelectionExceptTest() {
-        fun testHelper(
-            selectedRange: PackedDateRange,
-            ymRange: YearMonthRange,
-            buildRanges: RangeListBuilder.() -> Unit
-        ) {
-            val expectedRanges = RangeListBuilder().also(buildRanges).toArray()
-
-            val adapter = RangeCalendarPagerAdapter(cr).apply {
-                setFirstDayOfWeek(CompatDayOfWeek.Monday)
-                this.selectedRange = selectedRange
-            }
-
-            val notifications = CapturedAdapterNotifications(adapter, capturePayloads = true)
-            adapter.clearSelectionExcept(ymRange.start, ymRange.end)
-
-            val actualRanges = notifications.getRanges()
-            assertContentEquals(expectedRanges, actualRanges)
-        }
-
-        testHelper(
-            selectedRange = PackedDateRange(
-
-            )
-        )
-    }
-    */
 }

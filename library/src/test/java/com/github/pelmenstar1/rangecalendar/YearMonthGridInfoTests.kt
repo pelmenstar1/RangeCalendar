@@ -1,5 +1,8 @@
 package com.github.pelmenstar1.rangecalendar
 
+import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
 import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import org.junit.Test
@@ -245,53 +248,105 @@ class YearMonthGridInfoTests {
         fun testHelper(
             year: Int, month: Int,
             firstDayOfWeek: CompatDayOfWeek,
-            dateRange: PackedDateRange,
-            expectedCellRange: CellRange
+            dateRange: DateComplexRange,
+            expectedCellRanges: Array<IntRange>
         ) {
             val info = createGridInfo(year, month, firstDayOfWeek)
             val actualRange = info.getCellRangeByDateRange(dateRange)
+            val expectedCellComplexRange = CellComplexRange(expectedCellRanges)
 
-            assertEquals(expectedCellRange, actualRange)
+            assertEquals(expectedCellComplexRange, actualRange)
         }
 
+        // No fragment range.
         testHelper(
             year = 2023, month = 8,
             firstDayOfWeek = CompatDayOfWeek.Monday,
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 8, dayOfMonth = 1),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 2),
+            dateRange = DateComplexRange.empty(),
+            expectedCellRanges = emptyArray()
+        )
+
+        // One fragment complex ranges.
+        testHelper(
+            year = 2023, month = 8,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            dateRange = DateComplexRange(
+                DateFragment(
+                    PackedDate(year = 2023, month = 8, dayOfMonth = 1),
+                    PackedDate(year = 2023, month = 8, dayOfMonth = 2)
+                )
             ),
-            expectedCellRange = CellRange(1, 2)
+            expectedCellRanges = arrayOf(1..2)
         )
 
         testHelper(
             year = 2023, month = 8,
             firstDayOfWeek = CompatDayOfWeek.Monday,
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 7, dayOfMonth = 25),
-                PackedDate(year = 2023, month = 8, dayOfMonth = 2),
+            dateRange = DateComplexRange(
+                DateFragment(
+                    PackedDate(year = 2023, month = 7, dayOfMonth = 25),
+                    PackedDate(year = 2023, month = 8, dayOfMonth = 2),
+                )
             ),
-            expectedCellRange = CellRange(0, 2)
+            expectedCellRanges = arrayOf(0..2)
         )
 
         testHelper(
             year = 2023, month = 8,
             firstDayOfWeek = CompatDayOfWeek.Monday,
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 9, dayOfMonth = 3),
-                PackedDate(year = 2023, month = 9, dayOfMonth = 12),
+            dateRange = DateComplexRange(
+                DateFragment(
+                    PackedDate(year = 2023, month = 9, dayOfMonth = 3),
+                    PackedDate(year = 2023, month = 9, dayOfMonth = 12),
+                )
             ),
-            expectedCellRange = CellRange(34, 41)
+            expectedCellRanges = arrayOf(34..41)
         )
 
         testHelper(
             year = 2023, month = 8,
             firstDayOfWeek = CompatDayOfWeek.Monday,
-            dateRange = PackedDateRange(
-                PackedDate(year = 2023, month = 7, dayOfMonth = 1),
-                PackedDate(year = 2023, month = 7, dayOfMonth = 2),
+            dateRange = DateComplexRange(
+                DateFragment(
+                    PackedDate(year = 2023, month = 7, dayOfMonth = 1),
+                    PackedDate(year = 2023, month = 7, dayOfMonth = 2),
+                )
             ),
-            expectedCellRange = CellRange.Invalid
+            expectedCellRanges = emptyArray()
+        )
+
+        // Multiple fragment ranges.
+
+        testHelper(
+            year = 2023, month = 8,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            dateRange = DateComplexRange(
+                DateFragment(
+                    PackedDate(year = 2023, month = 7, dayOfMonth = 25),
+                    PackedDate(year = 2023, month = 8, dayOfMonth = 2),
+                ),
+                DateFragment(
+                    PackedDate(year = 2023, month = 9, dayOfMonth = 3),
+                    PackedDate(year = 2023, month = 9, dayOfMonth = 12),
+                )
+            ),
+            expectedCellRanges = arrayOf(0..2, 34..41)
+        )
+
+        testHelper(
+            year = 2023, month = 8,
+            firstDayOfWeek = CompatDayOfWeek.Monday,
+            dateRange = DateComplexRange(
+                DateFragment(
+                    PackedDate(year = 2023, month = 7, dayOfMonth = 25),
+                    PackedDate(year = 2023, month = 8, dayOfMonth = 2),
+                ),
+                DateFragment(
+                    PackedDate(year = 2023, month = 9, dayOfMonth = 3),
+                    PackedDate(year = 2023, month = 9, dayOfMonth = 12),
+                )
+            ),
+            expectedCellRanges = arrayOf(0..2, 34..41)
         )
     }
 

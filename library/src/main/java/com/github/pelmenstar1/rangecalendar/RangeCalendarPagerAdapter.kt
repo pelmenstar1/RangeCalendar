@@ -10,6 +10,7 @@ import com.github.pelmenstar1.rangecalendar.decoration.DecorAnimationFractionInt
 import com.github.pelmenstar1.rangecalendar.decoration.DecorGroupedList
 import com.github.pelmenstar1.rangecalendar.decoration.DecorLayoutOptions
 import com.github.pelmenstar1.rangecalendar.selection.*
+import com.github.pelmenstar1.rangecalendar.utils.MutableYearMonthComplexRange
 
 internal class RangeCalendarPagerAdapter(
     private val cr: CalendarResources
@@ -31,11 +32,11 @@ internal class RangeCalendarPagerAdapter(
                 UPDATE_ENABLED_RANGE -> append("UPDATE_ENABLED_RANGE")
                 SELECT -> {
                     append("SELECT, range=")
-                    append(CellRange(arg1.toInt()).toString())
+                    append((obj1 as CellComplexRange).toString())
                     append(", requestRejectedBehaviour=")
-                    append(SelectionRequestRejectedBehaviour.fromOrdinal(arg2.toInt()))
+                    append(SelectionRequestRejectedBehaviour.fromOrdinal(arg1.toInt()))
                     append(", withAnimation=")
-                    append(arg3 == 1L)
+                    append(arg2 == 1L)
                 }
 
                 UPDATE_TODAY_INDEX -> append("UPDATE_TODAY_INDEX")
@@ -132,8 +133,8 @@ internal class RangeCalendarPagerAdapter(
 
                 return Payload(
                     type = SELECT,
-                    arg2 = requestRejectedBehaviour.ordinal.toLong(),
-                    arg3 = flags.toLong(),
+                    arg1 = requestRejectedBehaviour.ordinal.toLong(),
+                    arg2 = flags.toLong(),
                     obj1 = range
                 )
             }
@@ -190,9 +191,10 @@ internal class RangeCalendarPagerAdapter(
 
     var selectedRange = DateComplexRange.empty()
 
-    // Rather than just selectedRange.toYearMonthRange(),
-    // it stores on what **pages** the selection is visible.
-    internal var selectionTrueYmRange = YearMonthRange.Invalid
+    // Stores on what **pages** the selection is visible.
+    internal val selectionTrueYmRange = MutableYearMonthComplexRange()
+
+    private val selectionTrueYmRangeTemp = MutableYearMonthComplexRange()
 
     // internal as used in tests
     internal var today = PackedDate.INVALID
@@ -504,42 +506,33 @@ internal class RangeCalendarPagerAdapter(
         val selRange = selectedRange
 
         if (!selRange.isEmpty) {
-            notifyPageRangeChanged(selectionTrueYmRange, Payload.clearSelection(withAnimation))
+            notifyOnTrueSelection(Payload.clearSelection(withAnimation))
 
             selectedRange = DateComplexRange.empty()
             onSelectionListener?.onSelectionCleared()
         }
     }
 
+    private fun notifyOnTrueSelection(payload: Payload) {
+        selectionTrueYmRange.forEachRange { start, endInclusive ->
+            notifyPageRangeChanged(start, endInclusive, payload)
+        }
+    }
+
     private fun clearSelectionExcept(startYm: YearMonth, endYm: YearMonth) {
-        val selRange = selectedRange
-
-        if (!selRange.isEmpty) {
-            val trueSelRange = selectionTrueYmRange
-            val (selStartYm, selEndYm) = trueSelRange
-
-            if (selStartYm == startYm && selEndYm == endYm) {
-                return
-            }
-
-            val otherRange = YearMonthRange(startYm, endYm)
-
+        if (!selectionTrueYmRange.isEmpty) {
             val payload = Payload.clearSelection(withAnimation = false)
+            selectionTrueYmRange.forEachRangeExcept(startYm, endYm) { rangeStart, rangeEnd ->
+                notifyPageRangeChanged(rangeStart, rangeEnd, payload)
+            }
+        }
+    }
 
-            if (trueSelRange.hasIntersectionWith(otherRange)) {
-                notifyPageRangeChanged(
-                    min(selStartYm, startYm),
-                    max(selStartYm, startYm) - 1,
-                    payload
-                )
-
-                notifyPageRangeChanged(
-                    min(selEndYm, endYm) + 1,
-                    max(selEndYm, endYm),
-                    payload
-                )
-            } else {
-                notifyPageRangeChanged(trueSelRange.start, trueSelRange.end, payload)
+    private fun clearSelectionExcept(complexRange: MutableYearMonthComplexRange) {
+        if (!selectionTrueYmRange.isEmpty) {
+            val payload = Payload.clearSelection(withAnimation = false)
+            selectionTrueYmRange.forEachValueExcept(complexRange) { rangeStart, rangeEnd ->
+                notifyPageRangeChanged(rangeStart, rangeEnd, payload)
             }
         }
     }
@@ -566,29 +559,29 @@ internal class RangeCalendarPagerAdapter(
                 return false
             }
 
-            val trueYmRange = getSelectionRangeTrueYmRange(newDateRange)
-            val (startYm, endYm) = trueYmRange
+            updateSelectionRangeTrueYmRangeOn(newDateRange, selectionTrueYmRangeTemp)
+            clearSelectionExcept(selectionTrueYmRangeTemp)
 
-            clearSelectionExcept(startYm, endYm)
+            selectionTrueYmRangeTemp.forEachRange { start, endInclusive ->
+                iterateYearMonth(start, endInclusive) { ym ->
+                    updateGridInfo(ym)
 
-            iterateYearMonth(startYm, endYm) { ym ->
-                updateGridInfo(ym)
+                    // getCellRangeByDateRange will reject any cells that lie outside the grid
+                    val cellRange = gridInfo.getCellRangeByDateRange(newDateRange)
+                    if (!cellRange.isEmpty) {
+                        val payload = Payload.select(
+                            cellRange,
+                            requestRejectedBehaviour,
+                            withAnimation, checkGate = false
+                        )
 
-                val partRange = newDateRange.clamp(gridInfo.firstCellInGridDate, gridInfo.lastCellInGridDate)
-                if (!partRange.isEmpty) {
-                    val cellRange = gridInfo.getCellRangeByDateRange(partRange)
-                    val payload = Payload.select(
-                        cellRange,
-                        requestRejectedBehaviour,
-                        withAnimation, checkGate = false
-                    )
-
-                    notifyPageChanged(ym, payload)
+                        notifyPageChanged(ym, payload)
+                    }
                 }
             }
 
+            selectionTrueYmRangeTemp.copyTo(selectionTrueYmRange)
             selectedRange = dateRange
-            selectionTrueYmRange = trueYmRange
 
             return true
         }
@@ -596,34 +589,38 @@ internal class RangeCalendarPagerAdapter(
         return false
     }
 
-    internal fun getSelectionRangeTrueYmRange(dateRange: DateComplexRange): YearMonthRange {
-        val start = dateRange.firstFragment.start
-        val end = dateRange.lastFragment.endInclusive
+    internal fun updateSelectionRangeTrueYmRangeOn(
+        dateRange: DateComplexRange,
+        ymComplexRange: MutableYearMonthComplexRange
+    ) {
+        dateRange.forEachFragment {
+            val start = it.start
+            val endInclusive = it.endInclusive
+            val startDateYm = start.yearMonth
+            val endDateYm = endInclusive.yearMonth
 
-        val startDateYm = start.yearMonth
-        val endDateYm = end.yearMonth
+            val prevStartDateYm = startDateYm - 1
+            val trueStart = if (
+                prevStartDateYm >= minDate.yearMonth &&
+                isDateVisibleOnPage(start, prevStartDateYm)
+            ) {
+                prevStartDateYm
+            } else {
+                startDateYm
+            }
 
-        val prevStartDateYm = startDateYm - 1
-        val trueStart = if (
-            prevStartDateYm >= minDate.yearMonth &&
-            isDateVisibleOnPage(start, prevStartDateYm)
-        ) {
-            prevStartDateYm
-        } else {
-            startDateYm
+            val followingEndDateYm = endDateYm + 1
+            val trueEnd = if (
+                followingEndDateYm <= maxDate.yearMonth &&
+                isDateVisibleOnPage(endInclusive, followingEndDateYm)
+            ) {
+                followingEndDateYm
+            } else {
+                endDateYm
+            }
+
+            ymComplexRange.addRange(trueStart, trueEnd)
         }
-
-        val followingEndDateYm = endDateYm + 1
-        val trueEnd = if (
-            followingEndDateYm <= maxDate.yearMonth &&
-            isDateVisibleOnPage(end, followingEndDateYm)
-        ) {
-            followingEndDateYm
-        } else {
-            endDateYm
-        }
-
-        return YearMonthRange(trueStart, trueEnd)
     }
 
     internal fun isDateVisibleOnPage(date: PackedDate, pageYm: YearMonth): Boolean {
@@ -982,9 +979,9 @@ internal class RangeCalendarPagerAdapter(
                 Payload.SELECT -> {
                     val range = payload.obj1 as CellComplexRange
                     val requestRejectedBehaviour =
-                        SelectionRequestRejectedBehaviour.fromOrdinal(payload.arg2.toInt())
+                        SelectionRequestRejectedBehaviour.fromOrdinal(payload.arg1.toInt())
 
-                    val flags = payload.arg3.toInt()
+                    val flags = payload.arg2.toInt()
 
                     val withAnimation = (flags and SELECT_FLAG_WITH_ANIMATION) != 0
                     val checkGate = (flags and SELECT_FLAG_CHECK_GATE) != 0

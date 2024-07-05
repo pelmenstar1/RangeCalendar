@@ -1,6 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.date
 
 import com.github.pelmenstar1.rangecalendar.PackedDate
+import com.github.pelmenstar1.rangecalendar.PackedDateRange
 import java.time.LocalDate
 import java.util.Calendar
 
@@ -23,9 +24,14 @@ class DateFragment {
     val endDate: LocalDate
         get() = endInclusive.toLocalDate()
 
-    internal constructor(startDate: PackedDate, endDate: PackedDate) {
+    constructor(startDate: PackedDate, endDate: PackedDate) {
         start = startDate
         endInclusive = endDate
+    }
+
+    constructor(range: PackedDateRange) {
+        start = range.start
+        endInclusive = range.end
     }
 
     constructor(startEpochDays: Long, endEpochDays: Long) {

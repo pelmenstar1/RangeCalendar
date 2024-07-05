@@ -1,6 +1,7 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.cell
 
 import com.github.pelmenstar1.rangecalendar.GridConstants
+import com.github.pelmenstar1.rangecalendar.selection.Cell
 import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
@@ -47,11 +48,11 @@ class CellComplexRange internal constructor(@PublishedApi internal val bits: Lon
         val b = bits
 
         // Check if there's only one set bit
-        return b and (b - 1) == 0L
+        return b != 0L && b and (b - 1) == 0L
     }
 
     fun isSingleCell(cellIndex: Int): Boolean {
-        if (cellIndex !in 0..GridConstants.CELL_COUNT) {
+        if (cellIndex !in 0..<GridConstants.CELL_COUNT) {
             return false
         }
 
@@ -133,6 +134,23 @@ class CellComplexRange internal constructor(@PublishedApi internal val bits: Lon
 
     companion object {
         val Empty = CellComplexRange(0L)
+
+        const val AllBits = 0x3FFFFFFFFFFL
+
+        // All 42 bits set
+        val All = CellComplexRange(AllBits)
+
+        fun createRaw(bits: Long): CellComplexRange {
+            return CellComplexRange(bits and AllBits)
+        }
+
+        fun rawRangeMask(start: Int, endInclusive: Int): Long {
+            return rangeMask(start, endInclusive)
+        }
+
+        fun rawRangeMask(start: Cell, endInclusive: Cell): Long {
+            return rawRangeMask(start.index, endInclusive.index)
+        }
 
         fun singleCell(cellIndex: Int): CellComplexRange {
             ensureValidCell(cellIndex)

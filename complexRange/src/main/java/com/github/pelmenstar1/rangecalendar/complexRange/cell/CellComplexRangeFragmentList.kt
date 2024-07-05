@@ -66,25 +66,22 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
             index++
         }
 
-        return index
+        return -1
     }
 
     override fun lastIndexOf(element: CellFragment): Int {
-        var index = 0
-        forEachRangeReversed(bits) { start, end ->
-            if (element.start == start && element.endInclusive == end) {
-                return size - index - 1
-            }
-            index++
-        }
-
-        return index
+        // Fragments in the list do not repeat. So lastIndexOf() is equal to indexOf()
+        return indexOf(element)
     }
 
     override fun contains(element: CellFragment): Boolean {
-        val mask = rangeMask(element.start, element.endInclusive)
+        val (start, endInclusive) = element
+        val mask = rangeMask(start, endInclusive)
+        var wideMask = mask
+        wideMask = wideMask or (1L shl maxOf(0, start - 1))
+        wideMask = wideMask or (1L shl (endInclusive + 1))
 
-        return bits and mask == mask
+        return bits and wideMask == mask
     }
 
     override fun containsAll(elements: Collection<CellFragment>): Boolean {
@@ -148,7 +145,7 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
                 unsetBitIndex = 64
             }
 
-            setFragment(setBitIndex, unsetBitIndex)
+            setFragment(setBitIndex, unsetBitIndex - 1)
 
             return true
         }
@@ -159,7 +156,7 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
                 return false
             }
 
-            val unsetBitIndex = findPreviousSetBitIndex(bits, setBitIndex)
+            val unsetBitIndex = findPreviousUnsetBitIndex(bits, setBitIndex)
 
             setFragment(unsetBitIndex + 1, setBitIndex)
 
@@ -188,40 +185,48 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
 
             return CellComplexRange(newBits)
         }
-
     }
 
     private class ListIteratorImpl(private val bits: Long) : ListIterator<CellFragment> {
         private var currentFragmentIndex = -1
-        private var lastFragmentStart = -1
-        private var lastFragmentEnd = -1
+        private var currentBitIndex = -1
 
         override fun hasNext(): Boolean {
-            return findNextSetBitIndex(bits, lastFragmentEnd) >= 0
+            return bits and startMask(currentBitIndex + 1) != 0L
         }
 
         override fun hasPrevious(): Boolean {
-            return findPreviousSetBitIndex(bits, lastFragmentStart) >= 0
+            return currentFragmentIndex >= 0
+        }
+
+        private inline fun hasInternal(index: Int, mapWord: (Long) -> Long): Boolean {
+            return (mapWord(bits) and startMask(index)) != 0L
         }
 
         override fun next(): CellFragment {
-            val setBitIndex = findNextSetBitIndex(bits, lastFragmentEnd)
+            val setBitIndex = findNextSetBitIndex(bits, currentBitIndex + 1)
             if (setBitIndex < 0) {
                 throw NoSuchElementException()
             }
 
             val unsetBitIndex = findNextUnsetBitIndex(bits, setBitIndex)
 
+            currentFragmentIndex++
+            currentBitIndex = unsetBitIndex
+
             return CellFragment(setBitIndex, unsetBitIndex - 1)
         }
 
         override fun previous(): CellFragment {
-            val setBitIndex = findPreviousSetBitIndex(bits, lastFragmentStart)
+            val setBitIndex = findPreviousSetBitIndex(bits, currentBitIndex)
             if (setBitIndex < 0) {
                 throw NoSuchElementException()
             }
 
             val unsetBitIndex = findPreviousUnsetBitIndex(bits, setBitIndex)
+
+            currentFragmentIndex--
+            currentBitIndex = unsetBitIndex
 
             return CellFragment(unsetBitIndex + 1, setBitIndex)
         }

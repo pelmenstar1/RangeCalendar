@@ -6,15 +6,15 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-abstract class CellComplexRangeTransitionManagerTests {
-    protected abstract fun createComplexRange(ranges: List<IntRange>): CellComplexRange
-
-    private fun createEmptyComplexRange() = createComplexRange(emptyList())
+class CellComplexRangeTransitionManagerTests {
+    private fun createComplexRange(ranges: List<IntRange>): CellComplexRange {
+        return CellComplexRange(ranges.map { CellFragment(it) })
+    }
 
     @Test
     fun createEmptyToEmptyTest() {
-        val origin = createEmptyComplexRange()
-        val dest = createEmptyComplexRange()
+        val origin = CellComplexRange.Empty
+        val dest = CellComplexRange.Empty
 
         val transition = createTransition(origin, dest)
 
@@ -23,7 +23,7 @@ abstract class CellComplexRangeTransitionManagerTests {
 
     @Test
     fun createEmptyToNonEmptyTest() {
-        val origin = createEmptyComplexRange()
+        val origin = CellComplexRange.Empty
         val dest = createComplexRange(listOf(0..2, 4..5))
         val actualTransition = createTransition(origin, dest)
 
@@ -41,7 +41,7 @@ abstract class CellComplexRangeTransitionManagerTests {
     @Test
     fun createNonEmptyToEmptyTest() {
         val origin = createComplexRange(listOf(0..2, 4..5))
-        val dest = createEmptyComplexRange()
+        val dest = CellComplexRange.Empty
         val actualTransition = createTransition(origin, dest)
 
         assertGroupsEquals(actualTransition) {
