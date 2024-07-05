@@ -1759,6 +1759,15 @@ class RangeCalendarView @JvmOverloads constructor(
         )
     }
 
+    @JvmOverloads
+    fun selectRange(
+        range: DateComplexRange,
+        selectionRequestRejectedBehaviour: SelectionRequestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+        withAnimation: Boolean = isSelectionAnimatedByDefault
+    ) {
+        selectRangeInternal(range, selectionRequestRejectedBehaviour, withAnimation)
+    }
+
     private fun selectCustomRangeInternal(
         range: PackedDateRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
