@@ -61,11 +61,12 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         alpha: Float,
         isPrimary: Boolean
     ) {
-        val (rangeStart, rangeEnd) = shapeInfo.range
+        val rangeStart = shapeInfo.rangeStart
+        val rangeEnd = shapeInfo.rangeEnd
 
         // If start and end of the range are on the same row, there could be applied some optimizations
         // that allow drawing the range without using Path.
-        if (rangeStart.sameY(rangeEnd)) {
+        if (Cell.gridY(rangeStart) == Cell.gridY(rangeEnd)) {
             val left = shapeInfo.startLeft
             val top = shapeInfo.startTop
             val width = shapeInfo.endRight - left

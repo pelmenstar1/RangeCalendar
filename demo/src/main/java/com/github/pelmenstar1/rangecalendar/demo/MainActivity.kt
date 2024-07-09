@@ -5,6 +5,9 @@ import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import com.github.pelmenstar1.rangecalendar.RangeCalendarView
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
+import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
+import java.time.LocalDate
 
 class MainActivity : AppCompatActivity(R.layout.activity_main) {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,6 +27,10 @@ class MainActivity : AppCompatActivity(R.layout.activity_main) {
         }
 
         val rangeCalendar = findViewById<RangeCalendarView>(R.id.rangeCalendar)
+        rangeCalendar.selectRange(DateComplexRange {
+            fragment(DateFragment(LocalDate.of(2024, 7, 5), LocalDate.of(2024, 7, 6)))
+            fragment(DateFragment(LocalDate.of(2024, 7, 10), LocalDate.of(2024, 7, 11)))
+        })
 
         findViewById<Button>(R.id.clearSelectionButton).apply {
             setOnClickListener {

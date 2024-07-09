@@ -1,8 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.cell
 
 import com.github.pelmenstar1.rangecalendar.GridConstants
-import com.github.pelmenstar1.rangecalendar.selection.Cell
-import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 
 class CellComplexRange internal constructor(@PublishedApi internal val bits: Long) {
@@ -78,6 +76,10 @@ class CellComplexRange internal constructor(@PublishedApi internal val bits: Lon
 
         val mask = rangeMask(limitStart, limitEndInclusive)
         return CellComplexRange(bits and mask)
+    }
+
+    fun clamp(limitRange: IntRange): CellComplexRange {
+        return clamp(limitRange.first, limitRange.last)
     }
 
     infix fun xor(other: CellComplexRange): CellComplexRange {
@@ -168,10 +170,6 @@ class CellComplexRange internal constructor(@PublishedApi internal val bits: Lon
 
         fun rawRangeMask(start: Int, endInclusive: Int): Long {
             return rangeMask(start, endInclusive)
-        }
-
-        fun rawRangeMask(start: Cell, endInclusive: Cell): Long {
-            return rawRangeMask(start.index, endInclusive.index)
         }
 
         fun singleCell(cellIndex: Int): CellComplexRange {

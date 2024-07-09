@@ -3,8 +3,6 @@ package com.github.pelmenstar1.rangecalendar
 import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
 import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
 import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
-import com.github.pelmenstar1.rangecalendar.selection.Cell
-import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import com.github.pelmenstar1.rangecalendar.utils.getDaysInMonth
 
 internal class YearMonthGridInfo {
@@ -18,11 +16,11 @@ internal class YearMonthGridInfo {
     var daysInMonth = 0
     var daysInPrevMonth = 0
 
-    val inMonthRange: CellRange
+    val inMonthRange: IntRange
         get() {
             val start = firstDayOfMonthCellIndex
 
-            return CellRange(start, start + daysInMonth - 1)
+            return start..(start + daysInMonth - 1)
         }
 
     fun set(year: Int, month: Int, firstDayOfWeek: CompatDayOfWeek) {
@@ -68,48 +66,34 @@ internal class YearMonthGridInfo {
         set(ym.year, ym.month, firstDayOfWeek)
     }
 
-    fun getCellByDate(epochDay: Long): Cell {
+    fun getCellByDate(epochDay: Long): Int {
         return getCellByDate(PackedDate.fromEpochDay(epochDay))
     }
 
-    fun getCellByDate(date: PackedDate): Cell {
+    fun getCellByDate(date: PackedDate, defaultValue: Int = -1): Int {
         val firstIndex = firstDayOfMonthCellIndex
         val (firstYear, firstMonth, firstDay) = firstCellInGridDate
         val (currentYear, currentMonth, currentDay) = date
 
         if (firstYear == currentYear && firstMonth == currentMonth && currentDay >= firstDay) {
-            return Cell(currentDay - firstDay)
+            return currentDay - firstDay
         }
 
         if (currentYear == year && currentMonth == month) {
-            return Cell(firstIndex + currentDay - 1)
+            return firstIndex + currentDay - 1
         }
 
         val (lastYear, lastMonth, lastDay) = lastCellInGridDate
 
         if (lastYear == currentYear && lastMonth == currentMonth && currentDay <= lastDay) {
-            return Cell(firstIndex + daysInMonth + currentDay - 1)
+            return firstIndex + daysInMonth + currentDay - 1
         }
 
-        return Cell.Undefined
+        return defaultValue
     }
 
     fun contains(date: PackedDate): Boolean {
         return date.isBetween(firstCellInGridDate, lastCellInGridDate)
-    }
-
-    fun getCellRangeByDateRange(dateRange: PackedDateRange): CellRange {
-        var startCell = getCellByDate(dateRange.start)
-        var endCell = getCellByDate(dateRange.end)
-
-        if (startCell.isUndefined && endCell.isUndefined) {
-            return CellRange.Invalid
-        }
-
-        startCell = startCell.orIfUndefined(Cell.Min)
-        endCell = endCell.orIfUndefined(Cell.Max)
-
-        return CellRange(startCell, endCell)
     }
 
     fun getCellRangeByDateRange(dateRange: DateComplexRange): CellComplexRange {
@@ -125,8 +109,8 @@ internal class YearMonthGridInfo {
                 // If grid date range and given fragment intersects, then there's
                 // an intersection we can add to the complex cell range.
                 if (startDate <= gridEnd && gridStart <= endDate) {
-                    val startCell = getCellByDate(startDate).orIfUndefined(Cell.Min)
-                    val endCell = getCellByDate(endDate).orIfUndefined(Cell.Max)
+                    val startCell = getCellByDate(startDate, defaultValue = 0)
+                    val endCell = getCellByDate(endDate, defaultValue = GridConstants.CELL_COUNT - 1)
 
                     bits = bits or CellComplexRange.rawRangeMask(startCell, endCell)
 
@@ -141,14 +125,12 @@ internal class YearMonthGridInfo {
         return CellComplexRange.createRaw(bits)
     }
 
-    fun getDateAtCell(cell: Cell): PackedDate {
-        val index = cell.index
-
+    fun getDateAtCell(cellIndex: Int): PackedDate {
         val start = firstDayOfMonthCellIndex
         val monthEnd = start + daysInMonth - 1
 
         return when {
-            index < start -> {
+            cellIndex < start -> {
                 var prevYear = year
                 var prevMonth = month - 1
 
@@ -157,19 +139,19 @@ internal class YearMonthGridInfo {
                     prevMonth = 1
                 }
 
-                val day = daysInPrevMonth - start + index + 1
+                val day = daysInPrevMonth - start + cellIndex + 1
 
                 PackedDate(prevYear, prevMonth, day)
             }
 
-            index <= monthEnd -> {
-                val day = index - start + 1
+            cellIndex <= monthEnd -> {
+                val day = cellIndex - start + 1
 
                 PackedDate(year, month, day)
             }
 
             else -> {
-                val day = index - monthEnd
+                val day = cellIndex - monthEnd
 
                 var nextYear = year
                 var nextMonth = month + 1
@@ -184,15 +166,11 @@ internal class YearMonthGridInfo {
         }
     }
 
-    fun getDateRangeByCellRange(cellRange: CellRange): PackedDateRange {
-        return PackedDateRange(getDateAtCell(cellRange.start), getDateAtCell(cellRange.end))
-    }
-
     fun getDateRangeByCellRange(cellComplexRange: CellComplexRange): DateComplexRange {
         return DateComplexRange {
             cellComplexRange.forEachFragment { start, endInclusive ->
-                val startDate = getDateAtCell(Cell(start))
-                val endDate = getDateAtCell(Cell(endInclusive))
+                val startDate = getDateAtCell(start)
+                val endDate = getDateAtCell(endInclusive)
 
                 val dateFragment = DateFragment(startDate.toEpochDay(), endDate.toEpochDay())
                 fragment(dateFragment)

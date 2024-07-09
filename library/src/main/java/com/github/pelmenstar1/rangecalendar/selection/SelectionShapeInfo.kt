@@ -3,7 +3,8 @@ package com.github.pelmenstar1.rangecalendar.selection
 import android.graphics.RectF
 
 internal data class SelectionShapeInfo(
-    var range: CellRange,
+    var rangeStart: Int,
+    var rangeEnd: Int,
     var startLeft: Float,
     var startTop: Float,
     var endRight: Float,
@@ -16,10 +17,19 @@ internal data class SelectionShapeInfo(
     var useInMonthShape: Boolean,
     var inMonthShapeInfo: SelectionShapeInfo?
 ) {
-    constructor() : this(CellRange.Invalid, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, false,null)
+    constructor() : this(
+        rangeStart = 0, rangeEnd = -1,
+        startLeft = 0f, startTop = 0f, endRight = 0f, endTop = 0f,
+        firstCellOnRowLeft = 0f, lastCellOnRowRight = 0f,
+        cellWidth = 0f, cellHeight = 0f,
+        roundRadius = 0f,
+        useInMonthShape = false,
+        inMonthShapeInfo = null
+    )
 
     fun set(other: SelectionShapeInfo) {
-        range = other.range
+        rangeStart = other.rangeStart
+        rangeEnd = other.rangeEnd
         startLeft = other.startLeft
         startTop = other.startTop
         endRight = other.endRight
@@ -34,7 +44,7 @@ internal data class SelectionShapeInfo(
     }
 
     fun overlaysRect(bounds: RectF): Boolean {
-        val gridYDiff = range.end.gridY - range.start.gridY
+        val gridYDiff = Cell.gridY(rangeStart) - Cell.gridY(rangeEnd)
 
         val startTop = startTop
         val startBottom = startTop + cellHeight

@@ -14,7 +14,6 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.*
-import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -38,6 +37,7 @@ import com.github.pelmenstar1.rangecalendar.utils.ceilToInt
 import com.github.pelmenstar1.rangecalendar.utils.getLazyValue
 import com.github.pelmenstar1.rangecalendar.utils.getTextBoundsArray
 import com.github.pelmenstar1.rangecalendar.utils.toIntAlpha
+import com.github.pelmenstar1.rangecalendar.utils.useDifference
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -88,9 +88,7 @@ internal class RangeCalendarGridView(
             node: AccessibilityNodeInfoCompat
         ) {
             node.apply {
-                val cell = Cell(virtualViewId)
-
-                grid.fillCellBounds(cell, tempRect)
+                grid.fillCellBounds(virtualViewId, tempRect)
 
                 @Suppress("DEPRECATION")
                 setBoundsInParent(tempRect)
@@ -98,10 +96,10 @@ internal class RangeCalendarGridView(
                 contentDescription = getDayDescriptionForIndex(virtualViewId)
                 text = CalendarResources.getDayText(grid.cells[virtualViewId].toInt())
 
-                isSelected = grid.currentSelState?.contains(cell.index) ?: false
+                isSelected = grid.currentSelState?.contains(virtualViewId) ?: false
                 isClickable = true
 
-                isEnabled = if (grid.enabledCellRange.contains(cell)) {
+                isEnabled = if (grid.enabledCellRange.contains(virtualViewId)) {
                     addAction(AccessibilityNodeInfoCompat.ACTION_CLICK)
 
                     true
@@ -132,12 +130,14 @@ internal class RangeCalendarGridView(
         private fun getDayDescriptionForIndex(index: Int): CharSequence {
             val provider = grid.cellAccessibilityProvider!!
 
-            val (monthStart, monthEnd) = grid.inMonthRange
+            val inMonthRange = grid.inMonthRange
+            val monthStart = inMonthRange.first
+            val monthEnd = inMonthRange.last
 
             var ym = grid.ym
-            if (index < monthStart.index) {
+            if (index < monthStart) {
                 ym -= 1
-            } else if (index > monthEnd.index) {
+            } else if (index > monthEnd) {
                 ym += 1
             }
 
@@ -159,13 +159,13 @@ internal class RangeCalendarGridView(
             get() = view.cellRoundRadius()
 
         override fun getCellLeft(cellIndex: Int): Float =
-            view.getCellLeftRelativeToGrid(Cell(cellIndex))
+            view.getCellLeftRelativeToGrid(cellIndex)
 
         override fun getCellTop(cellIndex: Int): Float =
-            view.getCellTopRelativeToGrid(Cell(cellIndex))
+            view.getCellTopRelativeToGrid(cellIndex)
 
         override fun getCellDistance(cellIndex: Int): Float =
-            view.getCellDistance(Cell(cellIndex))
+            view.getCellDistance(cellIndex)
 
         override fun getCellAndPointByDistance(distance: Float, outPoint: PointF): Int =
             view.getCellAndPointByCellDistanceRelativeToGrid(distance, outPoint)
@@ -187,8 +187,7 @@ internal class RangeCalendarGridView(
     private class CellPropertiesProviderImpl(
         private val view: RangeCalendarGridView
     ) : RangeCalendarCellPropertiesProvider {
-        override fun isSelectableCell(cell: Int) =
-            view.isSelectableCell(Cell(cell))
+        override fun isSelectableCell(cell: Int) = view.isSelectableCell(cell)
     }
 
     private class GestureEventHandlerImpl(
@@ -223,7 +222,7 @@ internal class RangeCalendarGridView(
         }
 
         override fun reportStartHovering(cell: Int) {
-            view.setHoverCell(Cell(cell))
+            view.setHoverCell(cell)
         }
 
         override fun reportStopHovering() {
@@ -238,16 +237,16 @@ internal class RangeCalendarGridView(
     private val selectionPaint: Paint
     private val cellHoverPaint: Paint
 
-    private var inMonthRange = CellRange.Invalid
-    private var enabledCellRange = CellRange.All
-    private var todayCell = Cell.Undefined
-    private var hoverCell = Cell.Undefined
+    private var inMonthRange = IntRange.EMPTY
+    private var enabledCellRange = 0..<(GridConstants.CELL_COUNT)
+    private var todayCell = -1
+    private var hoverCell = -1
 
     private var cellWidth: Float = 0f
     private var cellHeight: Float = 0f
 
     // In case of clearing hover cell with animation, we need to know the previous cell before the clearing.
-    private var animatedHoverCell = Cell.Undefined
+    private var animatedHoverCell = -1
 
     var ym = YearMonth(0)
 
@@ -302,7 +301,7 @@ internal class RangeCalendarGridView(
     private val cellInfo = CellInfo()
 
     private var decorAnimFractionInterpolator: DecorAnimationFractionInterpolator? = null
-    private var decorAnimatedCell = Cell.Undefined
+    private var decorAnimatedCell = -1
     private var decorAnimatedRange = PackedIntRange(0)
     private var decorAnimationHandler: TickCallback? = null
     private var decorDefaultLayoutOptions: DecorLayoutOptions? = null
@@ -728,16 +727,16 @@ internal class RangeCalendarGridView(
         )
     }
 
-    fun setInMonthRange(range: CellRange) {
+    fun setInMonthRange(range: IntRange) {
         if (inMonthRange != range) {
             inMonthRange = range
-            gridInfo.inMonthRange = range
+            gridInfo.setInMonthRange(range.first, range.last)
 
             updateSelectionRange()
         }
     }
 
-    fun setEnabledCellRange(range: CellRange) {
+    fun setEnabledCellRange(range: IntRange) {
         val oldRange = enabledCellRange
 
         if (oldRange != range) {
@@ -753,7 +752,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    fun setTodayCell(cell: Cell) {
+    fun setTodayCell(cell: Int) {
         if (todayCell != cell) {
             todayCell = cell
 
@@ -808,8 +807,8 @@ internal class RangeCalendarGridView(
         return detector.processEvent(e)
     }
 
-    private fun sendClickEventToAccessibility(cell: Cell) {
-        touchHelper.sendEventForVirtualView(cell.index, AccessibilityEvent.TYPE_VIEW_CLICKED)
+    private fun sendClickEventToAccessibility(cell: Int) {
+        touchHelper.sendEventForVirtualView(cell, AccessibilityEvent.TYPE_VIEW_CLICKED)
     }
 
     private fun invalidateAccessibilityNodesRange(start: Int, endInclusive: Int, changeTypes: Int) {
@@ -825,42 +824,18 @@ internal class RangeCalendarGridView(
         newRange: CellComplexRange,
         changeTypes: Int
     ) {
-        if (oldRange.hasIntersectionWith(newRange)) {
-            oldRange.forEachXorFragment(newRange) { start, endInclusive ->
-                invalidateAccessibilityNodesRange(start, endInclusive, changeTypes)
-            }
-        } else {
-            oldRange.forEachOrFragment(newRange) { start, endInclusive ->
-                invalidateAccessibilityNodesRange(start, endInclusive, changeTypes)
-            }
+        oldRange.forEachXorFragment(newRange) { start, endInclusive ->
+            invalidateAccessibilityNodesRange(start, endInclusive, changeTypes)
         }
     }
 
     private fun invalidateAccessibilityOutIntersectionRanges(
-        oldRange: CellRange,
-        newRange: CellRange,
+        oldRange: IntRange,
+        newRange: IntRange,
         changeTypes: Int
     ) {
-        val oldStart = oldRange.start.index
-        val oldEnd = oldRange.end.index
-        val newStart = newRange.start.index
-        val newEnd = newRange.end.index
-
-        if (oldRange.hasIntersectionWith(newRange)) {
-            invalidateAccessibilityNodesRange(
-                start = min(oldStart, newStart),
-                endInclusive = max(oldStart, newStart) - 1,
-                changeTypes
-            )
-
-            invalidateAccessibilityNodesRange(
-                start = min(oldEnd, newEnd) + 1,
-                endInclusive = max(oldEnd, newEnd) - 1,
-                changeTypes
-            )
-        } else {
-            invalidateAccessibilityNodesRange(oldStart, oldEnd, changeTypes)
-            invalidateAccessibilityNodesRange(newStart, newEnd, changeTypes)
+        oldRange.useDifference(newRange) { start, endInclusive ->
+            invalidateAccessibilityNodesRange(start, endInclusive, changeTypes)
         }
     }
 
@@ -927,9 +902,9 @@ internal class RangeCalendarGridView(
         // hover will be cleared but it shouldn't.
         clearHoverCell()
 
-        var intersection = range.clamp(enabledCellRange.start.index, enabledCellRange.end.index)
+        var intersection = range.clamp(enabledCellRange)
         if (!showAdjacentMonths) {
-            intersection = intersection.clamp(inMonthRange.start.index, inMonthRange.end.index)
+            intersection = intersection.clamp(inMonthRange)
         }
 
         if (intersection.isEmpty) {
@@ -964,7 +939,7 @@ internal class RangeCalendarGridView(
 
     fun selectMonthByGesture(): SelectionAcceptanceStatus {
         return selectComplexRange(
-            range = CellComplexRange(inMonthRange.start.index, inMonthRange.end.index),
+            range = CellComplexRange(inMonthRange),
             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
             checkGate = true,
             gestureType = SelectionByGestureType.OTHER
@@ -1081,8 +1056,8 @@ internal class RangeCalendarGridView(
         )
     }
 
-    private fun setHoverCell(cell: Cell) {
-        if (currentSelState?.isSingleCell(cell.index) == true || hoverCell == cell) {
+    private fun setHoverCell(cell: Int) {
+        if (currentSelState?.isSingleCell(cell) == true || hoverCell == cell) {
             return
         }
 
@@ -1097,8 +1072,8 @@ internal class RangeCalendarGridView(
     }
 
     fun clearHoverCell() {
-        if (hoverCell.isDefined) {
-            hoverCell = Cell.Undefined
+        if (hoverCell >= 0) {
+            hoverCell = -1
 
             if (isHoverAnimationEnabled()) {
                 startHoverAnimation(isReversed = true)
@@ -1143,7 +1118,7 @@ internal class RangeCalendarGridView(
 
     private fun createDecorVisualState(
         stateHandler: CellDecor.VisualStateHandler,
-        cell: Cell
+        cell: Int
     ): CellDecor.VisualState {
         val decors = decorations!!
 
@@ -1211,7 +1186,7 @@ internal class RangeCalendarGridView(
     }
 
     fun setDecorationLayoutOptions(
-        cell: Cell,
+        cell: Int,
         options: DecorLayoutOptions,
         withAnimation: Boolean
     ) {
@@ -1320,7 +1295,7 @@ internal class RangeCalendarGridView(
     fun onDecorRemoved(
         newDecorRegion: PackedIntRange,
         affectedRange: PackedIntRange,
-        cell: Cell,
+        cell: Int,
         visual: CellDecor.Visual,
         fractionInterpolator: DecorAnimationFractionInterpolator?
     ) {
@@ -1360,7 +1335,7 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun updateDecorVisualStateOnRemove(cell: Cell, endState: CellDecor.VisualState) {
+    private fun updateDecorVisualStateOnRemove(cell: Int, endState: CellDecor.VisualState) {
         decorVisualStates[cell] = if (endState.isEmpty) null else endState
     }
 
@@ -1480,7 +1455,7 @@ internal class RangeCalendarGridView(
     private fun drawHover(c: Canvas) {
         val isHoverAnimation = animType == HOVER_ANIMATION
 
-        if (hoverCell.isDefined || isHoverAnimation) {
+        if (hoverCell >= 0 || isHoverAnimation) {
             // If this is hover-animation, we need to use animatedHoverCell instead of hoverCell in case the animation
             // is triggered because of clearing the hover.
             val cell = if (isHoverAnimation) animatedHoverCell else hoverCell
@@ -1514,10 +1489,8 @@ internal class RangeCalendarGridView(
             startIndex = 0
             endIndex = GridConstants.CELL_COUNT - 1
         } else {
-            val (start, end) = inMonthRange
-
-            startIndex = start.index
-            endIndex = end.index
+            startIndex = inMonthRange.first
+            endIndex = inMonthRange.last
         }
 
         val columnWidth = columnWidth()
@@ -1529,9 +1502,8 @@ internal class RangeCalendarGridView(
 
         val rect = tempRect
 
-        for (i in startIndex..endIndex) {
-            val cell = Cell(i)
-            val day = cells[i].toInt()
+        for (cell in startIndex..endIndex) {
+            val day = cells[cell].toInt()
 
             if (day > 0) {
                 val centerX = getCellCenterX(cell, columnWidth)
@@ -1557,7 +1529,7 @@ internal class RangeCalendarGridView(
                     // TODO: Implement it
                     // transitiveSelState.overlaysRect(rect)
                 } else {
-                    cell.index in currentSelRange
+                    cell in currentSelRange
                 }
 
                 val cellType = when {
@@ -1676,39 +1648,39 @@ internal class RangeCalendarGridView(
         return rowWidth() * (1f / GridConstants.COLUMN_COUNT)
     }
 
-    private fun getCellCenterX(cell: Cell) = getCellCenterX(cell, columnWidth())
+    private fun getCellCenterX(cell: Int) = getCellCenterX(cell, columnWidth())
 
-    private fun getCellCenterX(cell: Cell, columnWidth: Float): Float {
-        return cr.hPadding + columnWidth * (cell.gridX + 0.5f)
+    private fun getCellCenterX(cell: Int, columnWidth: Float): Float {
+        return cr.hPadding + columnWidth * (Cell.gridX(cell) + 0.5f)
     }
 
-    private fun getCellLeft(cell: Cell) = getCellLeft(cell, columnWidth())
+    private fun getCellLeft(cell: Int) = getCellLeft(cell, columnWidth())
 
-    private fun getCellLeft(cell: Cell, columnWidth: Float): Float {
+    private fun getCellLeft(cell: Int, columnWidth: Float): Float {
         return getCellCenterX(cell, columnWidth) - cellWidth * 0.5f
     }
 
-    private fun getCellRight(cell: Cell, columnWidth: Float): Float {
+    private fun getCellRight(cell: Int, columnWidth: Float): Float {
         return getCellCenterX(cell, columnWidth) + cellWidth * 0.5f
     }
 
-    private fun getCellTop(cell: Cell): Float {
-        return gridTop() + cell.gridY * cellHeight
+    private fun getCellTop(cell: Int): Float {
+        return gridTop() + Cell.gridY(cell) * cellHeight
     }
 
-    private fun getCellLeftRelativeToGrid(cell: Cell): Float {
-        return columnWidth() * (cell.gridX + 0.5f) - cellWidth * 0.5f
+    private fun getCellLeftRelativeToGrid(cell: Int): Float {
+        return columnWidth() * (Cell.gridX(cell) + 0.5f) - cellWidth * 0.5f
     }
 
     private fun getCellTopRelativeToGridByGridY(gridY: Int): Float {
         return cellHeight * gridY
     }
 
-    private fun getCellTopRelativeToGrid(cell: Cell): Float {
-        return getCellTopRelativeToGridByGridY(cell.gridY)
+    private fun getCellTopRelativeToGrid(cell: Int): Float {
+        return getCellTopRelativeToGridByGridY(Cell.gridY(cell))
     }
 
-    private fun fillCellBounds(cell: Cell, bounds: Rect) {
+    private fun fillCellBounds(cell: Int, bounds: Rect) {
         val halfCw = cellWidth * 0.5f
 
         val centerX = getCellCenterX(cell)
@@ -1722,23 +1694,26 @@ internal class RangeCalendarGridView(
         bounds.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(bottom))
     }
 
-    private fun fillRangeOnRowBounds(start: Cell, end: Cell, bounds: Rect) {
+    private fun fillRangeOnRowBounds(startCell: Int, endCell: Int, bounds: Rect) {
         val columnWidth = columnWidth()
 
-        val left = getCellLeft(start, columnWidth)
-        val top = getCellTop(start)
-        val right = getCellRight(end, columnWidth)
+        val left = getCellLeft(startCell, columnWidth)
+        val top = getCellTop(startCell)
+        val right = getCellRight(endCell, columnWidth)
         val bottom = top + cellHeight
 
         bounds.set(left.toInt(), top.toInt(), ceilToInt(right), ceilToInt(bottom))
     }
 
-    private fun getCellDistance(cell: Cell): Float {
+    private fun getCellDistance(cell: Int): Float {
         val rw = rowWidth()
 
         // Find a x-axis of the cell but without horizontal padding.
         // Also merge rw * cell.gridY to the rw * ((1f / 7f) * (cell.gridX + 0.5f))
-        return rw * ((1f / GridConstants.COLUMN_COUNT) * (cell.gridX + 0.5f) + cell.gridY) - cellWidth * 0.5f
+        var result = rw * ((1f / GridConstants.COLUMN_COUNT) * (Cell.gridX(cell) + 0.5f) + Cell.gridX(cell))
+        result -= cellWidth * 0.5f
+
+        return result
     }
 
     private fun getCellDistanceByPoint(x: Float, y: Float): Float {
@@ -1762,7 +1737,7 @@ internal class RangeCalendarGridView(
         outPoint.x = xOnRow
         outPoint.y = cellTop
 
-        return Cell(gridX, gridY).index
+        return getCellIndex(gridX, gridY)
     }
 
     private fun getCellByPointOnScreen(
@@ -1793,7 +1768,7 @@ internal class RangeCalendarGridView(
         val gridX = ((GridConstants.COLUMN_COUNT * translatedX) / rowWidth).toInt()
         val gridY = (translatedY / cellHeight).toInt()
 
-        return Cell(gridX, gridY).index
+        return getCellIndex(gridX, gridY)
     }
 
     private fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float {
@@ -1811,12 +1786,12 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun isSelectableCell(cell: Cell): Boolean {
+    private fun isSelectableCell(cell: Int): Boolean {
         return enabledCellRange.contains(cell) && (showAdjacentMonths || inMonthRange.contains(cell))
     }
 
     private fun getDayNumberSize(day: Int) = dayNumberSizes[day - 1]
-    private fun getDayNumberSize(cell: Cell) = getDayNumberSize(cells[cell.index].toInt())
+    private fun getDayNumberSizeAtCell(cellIndex: Int) = getDayNumberSize(cells[cellIndex].toInt())
 
     companion object {
         private const val TAG = "RangeCalendarGridView"
@@ -1831,5 +1806,9 @@ internal class RangeCalendarGridView(
         private const val SELECTION_ANIMATION = 1
         private const val HOVER_ANIMATION = 2
         private const val DECOR_ANIMATION = 3
+
+        private fun getCellIndex(gridX: Int, gridY: Int): Int {
+            return gridY * GridConstants.COLUMN_COUNT + gridX
+        }
     }
 }

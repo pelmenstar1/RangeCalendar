@@ -5,7 +5,7 @@ import android.graphics.RectF
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.github.pelmenstar1.rangecalendar.selection.CellRange
+import androidx.test.filters.SdkSuppress
 import com.github.pelmenstar1.rangecalendar.selection.SelectionShape
 import com.github.pelmenstar1.rangecalendar.selection.SelectionShapeInfo
 import org.junit.Assume
@@ -49,12 +49,12 @@ class SelectionShapeTests {
     }
 
     private fun createShapeInfo(
-        range: CellRange,
+        range: IntRange,
         startLeft: Float, startTop: Float,
         endRight: Float, endTop: Float
     ): SelectionShapeInfo {
         return SelectionShapeInfo(
-            range,
+            range.first, range.last,
             startLeft, startTop,
             endRight, endTop,
             FIRST_CELL_LEFT, LAST_CELL_RIGHT,
@@ -64,7 +64,7 @@ class SelectionShapeTests {
         )
     }
 
-    @RequiresApi(26)
+    @SdkSuppress(minSdkVersion = 26)
     private fun pathNoRoundRadiiTestHelper(
         shapeInfo: SelectionShapeInfo,
         expectedBounds: RectF,
@@ -94,7 +94,7 @@ class SelectionShapeTests {
         // 1 row
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                range = CellRange(1, 2),
+                range = 1..2,
                 startLeft = 17f, startTop = 5f,
                 endRight = 30f, endTop = 5f
             ),
@@ -106,7 +106,7 @@ class SelectionShapeTests {
         // 2 rows
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                CellRange(2, 7),
+                range = 2..7,
                 startLeft = 30f, startTop = 5f,
                 endRight = 20f, endTop = 5f + CELL_HEIGHT
             ),
@@ -118,7 +118,7 @@ class SelectionShapeTests {
 
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                range = CellRange(1, 8),
+                range = 1..8,
                 startLeft = 30f, startTop = 5f,
                 endRight = 40f, endTop = 5f + CELL_HEIGHT
             ),
@@ -137,7 +137,7 @@ class SelectionShapeTests {
 
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                range = CellRange(0, 13),
+                range = 0..13,
                 startLeft = FIRST_CELL_LEFT, startTop = 5f,
                 endRight = LAST_CELL_RIGHT, endTop = 5f + CELL_HEIGHT
             ),
@@ -148,7 +148,7 @@ class SelectionShapeTests {
 
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                range = CellRange(1, 13),
+                range = 1..13,
                 startLeft = 15f, startTop = 5f,
                 endRight = LAST_CELL_RIGHT, endTop = 5f + CELL_HEIGHT
             ),
@@ -166,7 +166,7 @@ class SelectionShapeTests {
         // 2+ rows
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                range = CellRange(0, 20),
+                range = 0..20,
                 startLeft = FIRST_CELL_LEFT, startTop = 5f,
                 endRight = LAST_CELL_RIGHT, endTop = 5f + 2f * CELL_HEIGHT
             ),
@@ -177,7 +177,7 @@ class SelectionShapeTests {
 
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                range = CellRange(1, 19),
+                range = 1..19,
                 startLeft = 15f, startTop = 5f,
                 endRight = 50f, endTop = 5f + 2f * CELL_HEIGHT
             ),
@@ -196,7 +196,7 @@ class SelectionShapeTests {
 
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                range = CellRange(1, 20),
+                range = 1..20,
                 startLeft = 15f, startTop = 5f,
                 endRight = LAST_CELL_RIGHT, endTop = 5f + 2f * CELL_HEIGHT
             ),
@@ -213,7 +213,7 @@ class SelectionShapeTests {
 
         pathNoRoundRadiiTestHelper(
             shapeInfo = createShapeInfo(
-                range = CellRange(0, 19),
+                range = 0..19,
                 startLeft = FIRST_CELL_LEFT, startTop = 5f,
                 endRight = 50f, endTop = 5f + 2f * CELL_HEIGHT
             ),

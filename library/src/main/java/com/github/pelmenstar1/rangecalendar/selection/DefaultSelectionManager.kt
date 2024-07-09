@@ -46,15 +46,18 @@ internal class DefaultSelectionManager : SelectionManager {
             fragment as DefaultSelectionFragmentState
 
             val shapeInfo = fragment.shapeInfo
-            val (rangeStart, rangeEnd) = shapeInfo.range
 
-            fillSelectionShapeInfo(rangeStart.index, rangeEnd.index, measureManager, gridInfo, shapeInfo)
+            fillSelectionShapeInfo(
+                shapeInfo.rangeStart, shapeInfo.rangeEnd,
+                measureManager,
+                gridInfo,
+                shapeInfo
+            )
         }
     }
 
     private fun fillSelectionShapeInfo(
-        rangeStart: Int,
-        rangeEnd: Int,
+        rangeStart: Int, rangeEnd: Int,
         measureManager: CellMeasureManager,
         gridInfo: CalendarGridInfo,
         outShapeInfo: SelectionShapeInfo
@@ -78,7 +81,8 @@ internal class DefaultSelectionManager : SelectionManager {
 
         endRight += cellWidth
 
-        outShapeInfo.range = CellRange(rangeStart, rangeEnd)
+        outShapeInfo.rangeStart = rangeStart
+        outShapeInfo.rangeEnd = rangeEnd
         outShapeInfo.startLeft = startLeft
         outShapeInfo.startTop = startTop
         outShapeInfo.endRight = endRight
@@ -89,15 +93,20 @@ internal class DefaultSelectionManager : SelectionManager {
         outShapeInfo.cellHeight = cellHeight
         outShapeInfo.roundRadius = measureManager.roundRadius
 
-        initInMonthShapeIfNecessary(outShapeInfo, gridInfo.inMonthRange, measureManager)
+        initInMonthShapeIfNecessary(
+            outShapeInfo,
+            gridInfo.inMonthRangeStart, gridInfo.inMonthRangeEnd,
+            measureManager
+        )
     }
 
     private fun initInMonthShapeIfNecessary(
         shapeInfo: SelectionShapeInfo,
-        inMonthRange: CellRange,
+        inMonthRangeStart: Int,
+        inMonthRangeEnd: Int,
         measureManager: CellMeasureManager
     ) {
-        if (inMonthRange.completelyContains(shapeInfo.range)) {
+        if (shapeInfo.rangeStart >= inMonthRangeStart && shapeInfo.rangeEnd <= inMonthRangeEnd) {
             shapeInfo.useInMonthShape = false
         } else {
             var inMonthShapeInfo = shapeInfo.inMonthShapeInfo
@@ -109,12 +118,10 @@ internal class DefaultSelectionManager : SelectionManager {
 
             shapeInfo.useInMonthShape = true
 
-            val inMonthRangeStart = inMonthRange.start.index
-            val inMonthRangeEnd = inMonthRange.end.index
-
             val cellWidth = measureManager.cellWidth
 
-            inMonthShapeInfo.range = inMonthRange
+            inMonthShapeInfo.rangeStart = inMonthRangeStart
+            inMonthShapeInfo.rangeStart = inMonthRangeEnd
             inMonthShapeInfo.startLeft = measureManager.getCellLeft(inMonthRangeStart)
             inMonthShapeInfo.startTop = measureManager.getCellTop(inMonthRangeStart)
             inMonthShapeInfo.endRight = measureManager.getCellLeft(inMonthRangeEnd) + cellWidth

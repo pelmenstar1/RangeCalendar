@@ -5,7 +5,6 @@ import android.view.AbsSavedState
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
 import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
-import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertEquals

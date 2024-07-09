@@ -8,10 +8,10 @@ internal class DefaultSelectionFragmentState(
     override val shapeInfo: SelectionShapeInfo
 ) : ShapeBasedSelectionFragmentState {
     override val rangeStart: Int
-        get() = shapeInfo.range.start.index
+        get() = shapeInfo.rangeStart
 
     override val rangeEnd: Int
-        get() = shapeInfo.range.end.index
+        get() = shapeInfo.rangeEnd
 
     override fun equals(other: Any?): Boolean {
         return other is DefaultSelectionFragmentState && shapeInfo == other.shapeInfo

@@ -4,7 +4,6 @@ import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
 import com.github.pelmenstar1.rangecalendar.complexRange.date.DateComplexRange
 import com.github.pelmenstar1.rangecalendar.complexRange.date.DateFragment
 import com.github.pelmenstar1.rangecalendar.selection.Cell
-import com.github.pelmenstar1.rangecalendar.selection.CellRange
 import org.junit.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -141,7 +140,7 @@ class YearMonthGridInfoTests {
 
     @Test
     fun inMonthRangeTest() {
-        fun testCase(year: Int, month: Int, firstDayOfWeek: CompatDayOfWeek, expectedRange: CellRange) {
+        fun testCase(year: Int, month: Int, firstDayOfWeek: CompatDayOfWeek, expectedRange: IntRange) {
             val info = createGridInfo(year, month, firstDayOfWeek)
             val actualRange = info.inMonthRange
 
@@ -151,13 +150,13 @@ class YearMonthGridInfoTests {
         testCase(
             year = 2023, month = 6,
             firstDayOfWeek = CompatDayOfWeek.Monday,
-            expectedRange = CellRange(start = 3, end = 32)
+            expectedRange = 3..32
         )
 
         testCase(
             year = 2023, month = 7,
             firstDayOfWeek = CompatDayOfWeek.Sunday,
-            expectedRange = CellRange(start = 6, end = 36)
+            expectedRange = 6..36
         )
     }
 
@@ -170,7 +169,7 @@ class YearMonthGridInfoTests {
             expectedCell: Int
         ) {
             val info = createGridInfo(year, month, firstDayOfWeek)
-            val actualCell = info.getCellByDate(date).index
+            val actualCell = info.getCellByDate(date)
 
             assertEquals(expectedCell, actualCell, "year: $year month: $month date: $date")
         }
@@ -359,7 +358,7 @@ class YearMonthGridInfoTests {
             expectedDate: PackedDate
         ) {
             val info = createGridInfo(year, month, firstDayOfWeek)
-            val actualDate = info.getDateAtCell(Cell(cell))
+            val actualDate = info.getDateAtCell(cell)
 
             assertEquals(expectedDate, actualDate, "year: $year month: $month cell: $cell")
         }

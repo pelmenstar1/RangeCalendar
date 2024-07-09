@@ -9,18 +9,18 @@ internal fun<T : Any> CellDataArray(): CellDataArray<T> {
 
 @JvmInline
 internal value class CellDataArray<T : Any>(private val sparseArray: SparseArray<T>) {
-    internal inline fun forEachNotNull(crossinline action: (cell: Cell, value: T) -> Unit) {
+    internal inline fun forEachNotNull(crossinline action: (cell: Int, value: T) -> Unit) {
         val arr = sparseArray
 
         for (i in 0 until arr.size()) {
-            action(Cell(arr.keyAt(i)), arr.valueAt(i))
+            action(arr.keyAt(i), arr.valueAt(i))
         }
     }
 
-    operator fun get(cell: Cell): T? = sparseArray[cell.index]
+    operator fun get(cell: Int): T? = sparseArray[cell]
 
-    operator fun set(cell: Cell, value: T?) {
-        sparseArray.put(cell.index, value)
+    operator fun set(cell: Int, value: T?) {
+        sparseArray.put(cell, value)
     }
 
     fun clear() {

@@ -11,7 +11,8 @@
         android:id="@+id/rangeCalendar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:rangeCalendar_isSelectionAnimatedByDefault="true" />
+        app:rangeCalendar_isSelectionAnimatedByDefault="true"
+        app:rangeCalendar_selectionMode="multiFragment"/>
 
     <Button
         android:id="@+id/switchTheme"

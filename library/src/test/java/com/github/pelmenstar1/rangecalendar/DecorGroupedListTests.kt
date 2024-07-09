@@ -52,7 +52,7 @@ class DecorGroupedListTests {
                 addAll(Array(pair.first) {
                     TestDecor().apply {
                         date = pair.second.first
-                        cell = Cell(pair.second.second)
+                        cell = pair.second.second
                     }
                 })
             }
@@ -67,7 +67,7 @@ class DecorGroupedListTests {
 
     private fun DecorGroupedList.addDecorWithDateAndCell(date: PackedDate, index: Int) {
         add(TestDecor().also {
-            it.cell = Cell(index)
+            it.cell = index
             it.date = date
         })
     }

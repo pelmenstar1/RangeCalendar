@@ -203,7 +203,7 @@ abstract class CellDecor {
     // Index of decor in grid.
     @get:JvmSynthetic
     @set:JvmSynthetic
-    internal var cell = Cell.Undefined
+    internal var cell: Int = -1
 
     // Exact date of decoration
     @get:JvmSynthetic

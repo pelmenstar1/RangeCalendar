@@ -106,7 +106,7 @@ internal class DecorGroupedList {
         return getRegionEndInclusiveInternal(start, size - 1) { YearMonth.forDate(it.date) == ym }
     }
 
-    fun getSubregion(region: PackedIntRange, cell: Cell): PackedIntRange {
+    fun getSubregion(region: PackedIntRange, cell: Int): PackedIntRange {
         if (region.isUndefined) {
             return PackedIntRange.Undefined
         }
@@ -117,7 +117,7 @@ internal class DecorGroupedList {
         )
     }
 
-    fun getSubregion(ym: YearMonth, cell: Cell): PackedIntRange {
+    fun getSubregion(ym: YearMonth, cell: Int): PackedIntRange {
         val region = getRegion(ym)
         if (region.isUndefined) {
             return PackedIntRange.Undefined
@@ -126,7 +126,7 @@ internal class DecorGroupedList {
         return getSubregion(region, cell)
     }
 
-    fun getSubregionStart(region: PackedIntRange, cell: Cell): Int {
+    fun getSubregionStart(region: PackedIntRange, cell: Int): Int {
         return getRegionStartInternal(region.start, region.endInclusive) { it.cell == cell }
     }
 

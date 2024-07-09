@@ -1,7 +1,5 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.cell
 
-import com.github.pelmenstar1.rangecalendar.selection.CellRange
-
 class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
     private var _size: Int = -1
 
@@ -23,19 +21,13 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
         return result
     }
 
-    override fun get(index: Int): CellFragment {
-        val range = getCellRange(index)
-
-        return CellFragment(range.start.index, range.end.index)
-    }
-
-    private fun getCellRange(index: Int): CellRange {
+    private inline fun<R> useGetFragment(index: Int, block: (start: Int, endInclusive: Int) -> R): R {
         val s = _size
         if (index >= 0 && (s < 0 || index < s)) {
             var rem = index
             forEachRange(bits) { start, end ->
                 if (rem == 0) {
-                    return CellRange(start, end)
+                    return block(start, end)
                 }
 
                 rem--
@@ -43,6 +35,18 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
         }
 
         throw IndexOutOfBoundsException("index")
+    }
+
+    private fun getFragmentStart(index: Int): Int {
+        return useGetFragment(index) { start, _ -> start }
+    }
+
+    private fun getFragmentEndInclusive(index: Int): Int {
+        return useGetFragment(index) { _, endInclusive -> endInclusive }
+    }
+
+    override fun get(index: Int): CellFragment {
+        return useGetFragment(index, ::CellFragment)
     }
 
     internal fun getLastFragmentEndInclusive(): Int {
@@ -93,10 +97,10 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
             throw IndexOutOfBoundsException()
         }
 
-        val startRange = getCellRange(fromIndex)
-        val endRange = getCellRange(toIndex - 1)
+        val startRangeStart = getFragmentStart(fromIndex)
+        val endRangeEnd = getFragmentEndInclusive(toIndex - 1)
 
-        val mask = rangeMask(startRange.start.index, endRange.end.index)
+        val mask = rangeMask(startRangeStart, endRangeEnd)
         val newBits = bits and mask
 
         return CellComplexRangeFragmentList(newBits)
@@ -111,8 +115,8 @@ class CellComplexRangeFragmentList(val bits: Long): List<CellFragment> {
     }
 
     override fun listIterator(index: Int): ListIterator<CellFragment> {
-        val range = getCellRange(index)
-        val maskStart = maxOf(0, range.start.index - 1)
+        val rangeStart = getFragmentStart(index)
+        val maskStart = maxOf(0, rangeStart - 1)
 
         val iterBits = bits and startMask(maskStart).inv()
 
