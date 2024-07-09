@@ -3,6 +3,8 @@ package com.github.pelmenstar1.rangecalendar.gesture
 import android.view.MotionEvent
 import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 import com.github.pelmenstar1.rangecalendar.RangeCalendarCellPropertiesProvider
+import com.github.pelmenstar1.rangecalendar.SelectionMode
+import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
 
 /**
  * Responsible for detecting various gestures using supplied motion events and reporting about them.
@@ -12,6 +14,7 @@ abstract class RangeCalendarGestureDetector {
     private var _cellPropertiesProvider: RangeCalendarCellPropertiesProvider? = null
     private var _gestureEventHandler: RangeCalendarGestureEventHandler? = null
     private var _configuration: RangeCalendarGestureConfiguration? = null
+    private var _selectionMode: SelectionMode? = null
 
     val measureManager: CellMeasureManager
         get() = _measureManager ?: throwBindNotCalled()
@@ -24,6 +27,9 @@ abstract class RangeCalendarGestureDetector {
 
     val configuration: RangeCalendarGestureConfiguration
         get() = _configuration ?: throwBindNotCalled()
+
+    val selectionMode: SelectionMode
+        get() = _selectionMode ?: throwBindNotCalled()
 
     private fun throwBindNotCalled(): Nothing {
         throw RuntimeException("bind() should be called before accessing the property")
@@ -38,12 +44,14 @@ abstract class RangeCalendarGestureDetector {
         measureManager: CellMeasureManager,
         cellPropertiesProvider: RangeCalendarCellPropertiesProvider,
         gestureEventHandler: RangeCalendarGestureEventHandler,
-        configuration: RangeCalendarGestureConfiguration
+        configuration: RangeCalendarGestureConfiguration,
+        selectionMode: SelectionMode
     ) {
         _measureManager = measureManager
         _cellPropertiesProvider = cellPropertiesProvider
         _gestureEventHandler = gestureEventHandler
         _configuration = configuration
+        _selectionMode = selectionMode
     }
 
     /**
@@ -55,13 +63,22 @@ abstract class RangeCalendarGestureDetector {
      * Shortcut for `gestureEventHandler.selectRange(start, end, gestureType)`
      */
     protected fun selectRange(start: Int, end: Int, gestureType: SelectionByGestureType) =
-        gestureEventHandler.selectRange(start, end, gestureType)
+        selectRange(CellComplexRange(start, end), gestureType)
+
+    protected fun selectRange(cellRange: CellComplexRange, gestureType: SelectionByGestureType) =
+        gestureEventHandler.reportSelect(GestureSelectionOperation.Select(cellRange), gestureType)
+
+    protected fun selectToggleCell(cellIndex: Int, gestureType: SelectionByGestureType) =
+        gestureEventHandler.reportSelect(GestureSelectionOperation.SelectToggle(cellIndex), gestureType)
+
 
     /**
      * Shortcut for `gestureEventHandler.selectMonth()`
      */
-    protected fun selectMonth() =
-        gestureEventHandler.selectMonth()
+    protected fun selectMonth() = gestureEventHandler.reportSelect(
+        GestureSelectionOperation.SelectMonth,
+        SelectionByGestureType.OTHER
+    )
 
     /**
      * Shortcut for `cellPropertiesProvider.isSelectableCell(cell)`

@@ -56,7 +56,7 @@ object RangeCalendarDefaultGestureTypes {
     @JvmField
     val longPressTwoPointersRange = RangeCalendarGestureType<Nothing>(ordinal = 5, displayName = "longPressTwoPointersRange")
 
-    internal const val typeCount = 6
+    internal const val TYPE_COUNT = 6
 
     // The array should be sorted by ordinal
     internal val allTypes: Array<RangeCalendarGestureType<*>> = arrayOf(
@@ -69,7 +69,7 @@ object RangeCalendarDefaultGestureTypes {
     )
 
     // bits is a number where lowest 'typeCount' bits are set.
-    internal val allEnabledSet = RangeCalendarGestureTypeBitsSet(bits = (1 shl typeCount) - 1, allTypes)
+    internal val allEnabledSet = RangeCalendarGestureTypeBitsSet(bits = (1 shl TYPE_COUNT) - 1, allTypes)
 }
 
 /**
@@ -130,7 +130,7 @@ class RangeCalendarDefaultGestureTypeSetBuilder {
         val elementCount = bits.countOneBits()
         val allTypes = RangeCalendarDefaultGestureTypes.allTypes
 
-        if (elementCount == RangeCalendarDefaultGestureTypes.typeCount) {
+        if (elementCount == RangeCalendarDefaultGestureTypes.TYPE_COUNT) {
             return allTypes
         }
 

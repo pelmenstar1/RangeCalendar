@@ -8,7 +8,8 @@ import android.view.ViewConfiguration
 import com.github.pelmenstar1.rangecalendar.Distance
 import com.github.pelmenstar1.rangecalendar.GridConstants
 import com.github.pelmenstar1.rangecalendar.SelectionAcceptanceStatus
-import com.github.pelmenstar1.rangecalendar.selection.CellRange
+import com.github.pelmenstar1.rangecalendar.SelectionMode
+import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
 import com.github.pelmenstar1.rangecalendar.utils.getSquareDistance
 import kotlin.math.PI
 import kotlin.math.abs
@@ -93,37 +94,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                if (!isSelectingCustomRange && pointerCount == 1) {
-                    val cellIndex = getCellAt(event.x, event.y)
-
-                    if (cellIndex >= 0 && isSelectableCell(cellIndex)) {
-                        val eventTime = event.eventTime
-                        val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout()
-
-                        if (lastDownTouchCell == cellIndex) {
-                            val enabledTypes = configuration.enabledGestureTypes
-
-                            if (enabledTypes.contains { doubleTapWeek } &&
-                                eventTime - lastUpTouchTime < doubleTapTimeout &&
-                                lastUpTouchCell == cellIndex
-                            ) {
-                                selectWeek(getWeekIndex(cellIndex))
-                            } else if (enabledTypes.contains { singleTapCell }) {
-                                selectRange(cellIndex, cellIndex, SelectionByGestureType.SINGLE_CELL_ON_CLICK)
-                            }
-                        }
-
-                        lastUpTouchTime = eventTime
-                        lastUpTouchCell = cellIndex
-                    }
-                }
-
-                cancelTimeoutMessages()
-                reportStopHovering()
-
-                pinchInfo.invalidate()
-
-                isSelectingCustomRange = false
+                onPointersUp(event)
             }
 
             MotionEvent.ACTION_CANCEL -> {
@@ -151,7 +122,52 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
         return true
     }
 
+    private fun onPointersUp(event: MotionEvent) {
+        if (!isSelectingCustomRange && event.pointerCount == 1) {
+            val cellIndex = getCellAt(event.x, event.y)
+
+            if (cellIndex >= 0 && isSelectableCell(cellIndex)) {
+                val eventTime = event.eventTime
+                val doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout()
+
+                if (lastDownTouchCell == cellIndex) {
+                    val enabledTypes = configuration.enabledGestureTypes
+
+                    if (enabledTypes.contains { doubleTapWeek } &&
+                        eventTime - lastUpTouchTime < doubleTapTimeout &&
+                        lastUpTouchCell == cellIndex
+                    ) {
+                        selectWeek(getWeekIndex(cellIndex))
+                    } else if (enabledTypes.contains { singleTapCell }) {
+                        if (selectionMode == SelectionMode.SINGLE_FRAGMENT) {
+                            selectRange(
+                                cellIndex, cellIndex,
+                                SelectionByGestureType.SINGLE_CELL_ON_CLICK
+                            )
+                        } else {
+                            selectToggleCell(cellIndex, SelectionByGestureType.SINGLE_CELL_ON_CLICK)
+                        }
+                    }
+                }
+
+                lastUpTouchTime = eventTime
+                lastUpTouchCell = cellIndex
+            }
+        }
+
+        cancelTimeoutMessages()
+        reportStopHovering()
+
+        pinchInfo.invalidate()
+
+        isSelectingCustomRange = false
+    }
+
     private fun onPointersMoveWhenSelectingCustomRange(event: MotionEvent) {
+        if (selectionMode != SelectionMode.SINGLE_FRAGMENT) {
+            return
+        }
+
         val conf = configuration
         val enabledTypes = conf.enabledGestureTypes
 
@@ -169,7 +185,10 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                 val cell = getCellAt(x0, y0)
 
                 if (isSelectableCell(cell)) {
-                    val range = CellRange(longRangeStartCell, cell).normalize()
+                    val range = CellComplexRange.createSingleFragmentNormalized(
+                        longRangeStartCell,
+                        cell
+                    )
 
                     selectRange(range, SelectionByGestureType.LONG_SELECTION)
                 }
@@ -189,7 +208,9 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
                 val cell1 = getCellAt(x1, y1)
 
                 if (isSelectableCell(cell0) && isSelectableCell(cell1)) {
-                    val range = CellRange(cell0, cell1).normalize()
+                    val range = CellComplexRange.createSingleFragmentNormalized(
+                        cell0, cell1
+                    )
 
                     selectRange(range, SelectionByGestureType.LONG_SELECTION)
                 }
@@ -207,7 +228,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             val eventTime = event.eventTime
             val hoverTime = eventTime + ViewConfiguration.getTapTimeout()
 
-            val msg2 = Message.obtain().apply {
+            val msg1 = Message.obtain().apply {
                 what = MSG_HOVER_PRESS
                 obj = this@RangeCalendarGestureDetectorImpl
                 arg1 = cell
@@ -218,24 +239,31 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             // Send messages to future in order to detect long-presses or hovering.
             // If MotionEvent.ACTION_UP/ACTION_CANCEL/ACTION_MOVE (when two pointers down) event happens,
             // these messages are cancelled.
-            timeoutHandler.sendMessageAtTime(msg2, hoverTime)
+            timeoutHandler.sendMessageAtTime(msg1, hoverTime)
 
-            // Detect long presses only when the gesture is enabled.
-            if (isEnabledGesture { longPressRange } || isEnabledGesture { longPressTwoPointersRange }) {
-                val msg1 = Message.obtain().apply {
-                    what = MSG_LONG_PRESS
-                    obj = this@RangeCalendarGestureDetectorImpl
-                    arg1 = cell
+            // Long presses have no function yet when selection mode is not SINGLE_FRAGMENT
+            if (selectionMode == SelectionMode.SINGLE_FRAGMENT) {
+                // Detect long presses only when the gesture is enabled.
+                if (isEnabledGesture { longPressRange } || isEnabledGesture { longPressTwoPointersRange }) {
+                    val msg2 = Message.obtain().apply {
+                        what = MSG_LONG_PRESS
+                        obj = this@RangeCalendarGestureDetectorImpl
+                        arg1 = cell
+                    }
+
+                    val longPressTime = eventTime + ViewConfiguration.getLongPressTimeout()
+
+                    timeoutHandler.sendMessageAtTime(msg2, longPressTime)
                 }
-
-                val longPressTime = eventTime + ViewConfiguration.getLongPressTimeout()
-
-                timeoutHandler.sendMessageAtTime(msg1, longPressTime)
             }
         }
     }
 
     private fun onTwoPointersDownOrMove(event: MotionEvent) {
+        if (selectionMode != SelectionMode.SINGLE_FRAGMENT) {
+            return
+        }
+
         val conf = configuration
         val enabledTypes = conf.enabledGestureTypes
 
@@ -400,7 +428,7 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
     }
 
     private fun selectWeek(weekIndex: Int) {
-        selectRange(CellRange.week(weekIndex), SelectionByGestureType.OTHER)
+        selectRange(CellComplexRange.createWeek(weekIndex), SelectionByGestureType.OTHER)
     }
 
     private fun onStartSelectingRange(cell: Int) {
@@ -411,10 +439,6 @@ internal class RangeCalendarGestureDetectorImpl : RangeCalendarGestureDetector()
             longRangeStartCell = cell
             gestureEventHandler.reportStartSelectingRange()
         }
-    }
-
-    private fun selectRange(range: CellRange, gestureType: SelectionByGestureType): SelectionAcceptanceStatus {
-        return selectRange(range.start.index, range.end.index, gestureType)
     }
 
     private fun cancelTimeoutMessages() {

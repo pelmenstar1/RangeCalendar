@@ -100,19 +100,95 @@ class CellComplexRangeTests {
         }
     }
 
+    private fun testMutationHelper(
+        ranges: Array<IntRange>,
+        expected: Array<IntRange>,
+        mutation: CellComplexRange.() -> CellComplexRange
+    ) {
+        val complexRange = CellComplexRange(ranges)
+        val actualRange = complexRange.mutation()
+        val expectedRange = CellComplexRange(expected)
+
+        assertEquals(expectedRange, actualRange)
+    }
+
     @Test
     fun clampTest() {
         fun testCase(ranges: Array<IntRange>, clampRange: IntRange, expected: Array<IntRange>) {
-            val complexRange = CellComplexRange(ranges)
-            val actualRange = complexRange.clamp(clampRange.first, clampRange.last)
-            val expectedRange = CellComplexRange(expected)
-
-            assertEquals(expectedRange, actualRange)
+            testMutationHelper(ranges, expected) { clamp(clampRange.first, clampRange.last) }
         }
 
         testCase(ranges = arrayOf(1..5), clampRange = 0..6, expected = arrayOf(1..5))
         testCase(ranges = arrayOf(1..5), clampRange = 2..4, expected = arrayOf(2..4))
         testCase(ranges = arrayOf(1..2, 7..9), clampRange = 2..8, expected = arrayOf(2..2, 7..8))
+    }
+
+    @Test
+    fun withSetTest() {
+        fun testCaseBase(ranges: Array<IntRange>, otherRanges: Array<IntRange>, expected: Array<IntRange>) {
+            testMutationHelper(ranges, expected) { withSet(CellComplexRange(otherRanges)) }
+        }
+
+        fun testCase(ranges: Array<IntRange>, otherRanges: Array<IntRange>, expected: Array<IntRange>) {
+            testCaseBase(ranges, otherRanges, expected)
+            testCaseBase(otherRanges, ranges, expected)
+        }
+
+        testCase(
+            ranges = emptyArray(),
+            otherRanges = emptyArray(),
+            expected = emptyArray()
+        )
+
+        testCase(
+            ranges = arrayOf(1..2),
+            otherRanges = emptyArray(),
+            expected = arrayOf(1..2)
+        )
+
+        testCase(
+            ranges = arrayOf(1..2),
+            otherRanges = arrayOf(5..6),
+            expected = arrayOf(1..2, 5..6)
+        )
+
+        testCase(
+            ranges = arrayOf(1..2),
+            otherRanges = arrayOf(1..2),
+            expected = arrayOf(1..2)
+        )
+
+        testCase(
+            ranges = arrayOf(1..2),
+            otherRanges = arrayOf(2..3),
+            expected = arrayOf(1..3)
+        )
+
+        testCase(
+            ranges = arrayOf(1..2, 5..6),
+            otherRanges = arrayOf(9..10, 17..18),
+            expected = arrayOf(1..2, 5..6, 9..10, 17..18)
+        )
+    }
+
+    @Test
+    fun withToggleTest() {
+        fun testCase(ranges: Array<IntRange>, toggleIndex: Int, expected: Array<IntRange>) {
+            testMutationHelper(ranges, expected) { withToggle(toggleIndex) }
+        }
+
+        testCase(ranges = emptyArray(), toggleIndex = 1, expected = arrayOf(1..1))
+        testCase(
+            ranges = arrayOf(1..3),
+            toggleIndex = 2,
+            expected = arrayOf(1..1, 3..3)
+        )
+
+        testCase(
+            ranges = arrayOf(1..3),
+            toggleIndex = 4,
+            expected = arrayOf(1..4)
+        )
     }
 
     @Test
@@ -174,6 +250,9 @@ class CellComplexRangeTests {
         testCase(ranges = emptyArray(), expected = "CellComplexRange()")
         testCase(ranges = arrayOf(1..5), expected = "CellComplexRange([1, 5])")
         testCase(ranges = arrayOf(1..5, 8..9), expected = "CellComplexRange([1, 5], [8, 9])")
-        testCase(ranges = arrayOf(1..5, 8..9, 11..11), expected = "CellComplexRange([1, 5], [8, 9], [11, 11])")
+        testCase(
+            ranges = arrayOf(1..5, 8..9, 11..11),
+            expected = "CellComplexRange([1, 5], [8, 9], [11, 11])"
+        )
     }
 }

@@ -20,6 +20,13 @@ class CellComplexRange internal constructor(@PublishedApi internal val bits: Lon
         return CellComplexRangeModify(this).also(block).build()
     }
 
+    fun withSet(other: CellComplexRange) = CellComplexRange(bits or other.bits)
+    fun withToggle(index: Int): CellComplexRange {
+        ensureValidCell(index)
+
+        return CellComplexRange(bits xor (1L shl index))
+    }
+
     fun withSetFragment(start: Int, end: Int): CellComplexRange {
         return withOperation(start, end) { bits, mask -> bits or mask }
     }
@@ -142,6 +149,21 @@ class CellComplexRange internal constructor(@PublishedApi internal val bits: Lon
 
         fun createRaw(bits: Long): CellComplexRange {
             return CellComplexRange(bits and AllBits)
+        }
+
+        fun createSingleFragmentNormalized(start: Int, endInclusive: Int): CellComplexRange {
+            return if (start <= endInclusive) {
+                CellComplexRange(start, endInclusive)
+            } else {
+                CellComplexRange(endInclusive, start)
+            }
+        }
+
+        fun createWeek(weekIndex: Int): CellComplexRange {
+            val start = weekIndex * 7
+            val end = start + 6
+
+            return CellComplexRange(start, end)
         }
 
         fun rawRangeMask(start: Int, endInclusive: Int): Long {

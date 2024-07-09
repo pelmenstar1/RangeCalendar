@@ -14,6 +14,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.*
+import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -29,6 +30,7 @@ import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureConfigur
 import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetector
 import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureDetectorFactory
 import com.github.pelmenstar1.rangecalendar.gesture.RangeCalendarGestureEventHandler
+import com.github.pelmenstar1.rangecalendar.gesture.GestureSelectionOperation
 import com.github.pelmenstar1.rangecalendar.gesture.SelectionByGestureType
 import com.github.pelmenstar1.rangecalendar.selection.*
 import com.github.pelmenstar1.rangecalendar.utils.VibratorCompat
@@ -66,7 +68,8 @@ internal class RangeCalendarGridView(
         private val tempRect = Rect()
 
         override fun getVirtualViewAt(x: Float, y: Float): Int {
-            val cellIndex = grid.getCellByPointOnScreen(x, y, CellMeasureManager.CoordinateRelativity.VIEW)
+            val cellIndex =
+                grid.getCellByPointOnScreen(x, y, CellMeasureManager.CoordinateRelativity.VIEW)
             if (cellIndex >= 0) {
                 return cellIndex
             }
@@ -114,7 +117,7 @@ internal class RangeCalendarGridView(
             arguments: Bundle?
         ): Boolean {
             return if (action == AccessibilityNodeInfoCompat.ACTION_CLICK) {
-                grid.selectionComplexRange(
+                grid.selectComplexRange(
                     range = CellComplexRange.singleCell(virtualViewId),
                     requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
                     gestureType = SelectionByGestureType.SINGLE_CELL_ON_CLICK,
@@ -170,7 +173,11 @@ internal class RangeCalendarGridView(
         override fun getCellDistanceByPoint(x: Float, y: Float): Float =
             view.getCellDistanceByPoint(x, y)
 
-        override fun getCellAt(x: Float, y: Float, relativity: CellMeasureManager.CoordinateRelativity): Int =
+        override fun getCellAt(
+            x: Float,
+            y: Float,
+            relativity: CellMeasureManager.CoordinateRelativity
+        ): Int =
             view.getCellByPointOnScreen(x, y, relativity)
 
         override fun getRelativeAnchorValue(anchor: Distance.RelativeAnchor): Float =
@@ -187,17 +194,24 @@ internal class RangeCalendarGridView(
     private class GestureEventHandlerImpl(
         private val view: RangeCalendarGridView
     ) : RangeCalendarGestureEventHandler {
-        override fun selectRange(start: Int, end: Int, gestureType: SelectionByGestureType): SelectionAcceptanceStatus {
-            return view.selectionComplexRange(
-                range = CellComplexRange(start, end),
-                requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
-                checkGate = true,
-                gestureType
-            )
-        }
+        override fun reportSelect(
+            operation: GestureSelectionOperation,
+            gestureType: SelectionByGestureType
+        ): SelectionAcceptanceStatus {
+            return when (operation) {
+                is GestureSelectionOperation.Select -> view.selectComplexRange(
+                    operation.cellRange,
+                    requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+                    checkGate = true,
+                    gestureType
+                )
 
-        override fun selectMonth(): SelectionAcceptanceStatus {
-            return view.selectMonthByGesture()
+                is GestureSelectionOperation.SelectMonth -> view.selectMonthByGesture()
+                is GestureSelectionOperation.SelectToggle -> view.selectToggle(
+                    operation.cellIndex,
+                    gestureType
+                )
+            }
         }
 
         override fun disallowParentInterceptEvent() {
@@ -247,6 +261,7 @@ internal class RangeCalendarGridView(
 
     private var selectionManager: SelectionManager = DefaultSelectionManager()
     private var selectionRenderer = selectionManager.renderer
+    private var selectionMode = SelectionMode.SINGLE_FRAGMENT
 
     private var prevSelState: SelectionState? = null
     private var currentSelState: SelectionState? = null
@@ -371,7 +386,12 @@ internal class RangeCalendarGridView(
 
         onCellSizeComponentChanged()
         onCellRoundRadiusChanged(style.getFloat { CELL_ROUND_RADIUS })
-        onCellAnimationTypeChanged(style.getEnum({ CELL_ANIMATION_TYPE }, CellAnimationType::ofOrdinal))
+        onCellAnimationTypeChanged(
+            style.getEnum(
+                { CELL_ANIMATION_TYPE },
+                CellAnimationType::ofOrdinal
+            )
+        )
 
         onShowAdjacentMonthsChanged(style.getBoolean { SHOW_ADJACENT_MONTHS })
 
@@ -380,7 +400,10 @@ internal class RangeCalendarGridView(
         onSelectionFillChanged(style.getObject { SELECTION_FILL })
         onOutMonthSelectionAlphaChanged(style.getFloat { OUT_MONTH_SELECTION_ALPHA })
         onSelectionFillGradientBoundsTypeChanged(
-            style.getEnum({ SELECTION_FILL_GRADIENT_BOUNDS_TYPE }, SelectionFillGradientBoundsType::ofOrdinal)
+            style.getEnum(
+                { SELECTION_FILL_GRADIENT_BOUNDS_TYPE },
+                SelectionFillGradientBoundsType::ofOrdinal
+            )
         )
 
         onSelectionManagerChanged(style.getObject { SELECTION_MANAGER })
@@ -389,6 +412,7 @@ internal class RangeCalendarGridView(
         onGestureConfigurationChanged(style.getObject { GESTURE_CONFIGURATION })
         onGestureDetectorFactoryChanged(style.getObject { GESTURE_DETECTOR_FACTORY })
         onSelectionBorderChanged(style.getObject { SELECTION_BORDER })
+        onSelectionModeChanged(style.getEnum({ SELECTION_MODE }, SelectionMode::ofOrdinal))
     }
 
     fun onStylePropertyChanged(propIndex: Int) {
@@ -413,7 +437,13 @@ internal class RangeCalendarGridView(
                 OUT_MONTH_SELECTION_ALPHA -> onOutMonthSelectionAlphaChanged(data.float())
 
                 SELECTION_FILL_GRADIENT_BOUNDS_TYPE ->
-                    onSelectionFillGradientBoundsTypeChanged(data.enum(SelectionFillGradientBoundsType::ofOrdinal))
+                    onSelectionFillGradientBoundsTypeChanged(
+                        data.enum(
+                            SelectionFillGradientBoundsType::ofOrdinal
+                        )
+                    )
+
+                SELECTION_MODE -> onSelectionModeChanged(data.enum(SelectionMode::ofOrdinal))
 
                 WEEKDAY_TEXT_SIZE -> onWeekdayTextSizeChanged(data.float())
                 WEEKDAY_TYPE -> onWeekdayTypeChanged(data.enum(WeekdayType::ofOrdinal))
@@ -462,7 +492,10 @@ internal class RangeCalendarGridView(
         invalidate()
     }
 
-    private fun copySelectionState(manager: SelectionManager, state: SelectionState?): SelectionState? {
+    private fun copySelectionState(
+        manager: SelectionManager,
+        state: SelectionState?
+    ): SelectionState? {
         return state?.let {
             manager.createState(it.complexRange, cellMeasureManager, gridInfo)
         }
@@ -676,8 +709,23 @@ internal class RangeCalendarGridView(
         }
     }
 
+    private fun onSelectionModeChanged(mode: SelectionMode) {
+        if (selectionMode != mode) {
+            selectionMode = mode
+            bindGestureDetector()
+
+            // MULTI_FRAGMENT -> SINGLE_FRAGMENT transition is handled in RangeCalendarView.
+        }
+    }
+
     private fun bindGestureDetector() {
-        gestureDetector?.bind(cellMeasureManager, cellPropertiesProvider, gestureEventHandler, gestureConfig!!)
+        gestureDetector?.bind(
+            cellMeasureManager,
+            cellPropertiesProvider,
+            gestureEventHandler,
+            gestureConfig!!,
+            selectionMode
+        )
     }
 
     fun setInMonthRange(range: CellRange) {
@@ -818,7 +866,7 @@ internal class RangeCalendarGridView(
 
     private fun updateSelectionRange() {
         currentSelState?.let {
-            selectionComplexRange(
+            selectComplexRange(
                 it.complexRange,
                 requestRejectedBehaviour = SelectionRequestRejectedBehaviour.CLEAR_CURRENT_SELECTION,
                 checkGate = true
@@ -840,7 +888,7 @@ internal class RangeCalendarGridView(
         checkGate: Boolean
     ) {
         // Do not check whether the gate accepts the selection as the RangeCalendarPagerAdapter checked it before.
-        selectionComplexRange(
+        selectComplexRange(
             range,
             requestRejectedBehaviour,
             checkGate,
@@ -850,7 +898,7 @@ internal class RangeCalendarGridView(
         )
     }
 
-    private fun selectionComplexRange(
+    private fun selectComplexRange(
         range: CellComplexRange,
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         checkGate: Boolean,
@@ -915,11 +963,32 @@ internal class RangeCalendarGridView(
     }
 
     fun selectMonthByGesture(): SelectionAcceptanceStatus {
-        return selectionComplexRange(
+        return selectComplexRange(
             range = CellComplexRange(inMonthRange.start.index, inMonthRange.end.index),
             requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
             checkGate = true,
             gestureType = SelectionByGestureType.OTHER
+        )
+    }
+
+    private fun selectToggle(
+        cellIndex: Int,
+        gestureType: SelectionByGestureType
+    ): SelectionAcceptanceStatus {
+        if (selectionMode != SelectionMode.MULTI_FRAGMENT) {
+            throw IllegalStateException("Invalid usage of selectToggle: selectionMode is not MULTI_FRAGMENT")
+        }
+
+        val newCellRange =
+            currentSelState?.complexRange?.withToggle(cellIndex) ?: CellComplexRange.singleCell(
+                cellIndex
+            )
+
+        return selectComplexRange(
+            newCellRange,
+            requestRejectedBehaviour = SelectionRequestRejectedBehaviour.PRESERVE_CURRENT_SELECTION,
+            checkGate = true,
+            gestureType
         )
     }
 
@@ -975,7 +1044,8 @@ internal class RangeCalendarGridView(
         var newTransition: SelectionTransition? = null
 
         if (isSelectionAnimRunning && prevTransitiveState != null) {
-            newTransition = selManager.joinTransition(prevTransitiveState, currentSelState, measureManager)
+            newTransition =
+                selManager.joinTransition(prevTransitiveState, currentSelState, measureManager)
         }
 
         if (newTransition == null) {
@@ -1675,7 +1745,10 @@ internal class RangeCalendarGridView(
         return (y / cellHeight) * rowWidth() + x
     }
 
-    private fun getCellAndPointByCellDistanceRelativeToGrid(distance: Float, outPoint: PointF): Int {
+    private fun getCellAndPointByCellDistanceRelativeToGrid(
+        distance: Float,
+        outPoint: PointF
+    ): Int {
         val rw = rowWidth()
 
         val fGridY = distance / rw
@@ -1692,7 +1765,11 @@ internal class RangeCalendarGridView(
         return Cell(gridX, gridY).index
     }
 
-    private fun getCellByPointOnScreen(x: Float, y: Float, relativity: CellMeasureManager.CoordinateRelativity): Int {
+    private fun getCellByPointOnScreen(
+        x: Float,
+        y: Float,
+        relativity: CellMeasureManager.CoordinateRelativity
+    ): Int {
         var translatedX = x
         var translatedY = y
 

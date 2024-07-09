@@ -433,6 +433,7 @@ class RangeCalendarView @JvmOverloads constructor(
 
                 int(R.styleable.RangeCalendarView_rangeCalendar_selectionFillGradientBoundsType) { SELECTION_FILL_GRADIENT_BOUNDS_TYPE }
                 int(R.styleable.RangeCalendarView_rangeCalendar_cellAnimationType) { CELL_ANIMATION_TYPE }
+                int(R.styleable.RangeCalendarView_rangeCalendar_selectionMode) { SELECTION_MODE }
 
                 boolean(R.styleable.RangeCalendarView_rangeCalendar_showAdjacentMonths) { SHOW_ADJACENT_MONTHS }
                 boolean(R.styleable.RangeCalendarView_rangeCalendar_vibrateOnSelectingCustomRange) { VIBRATE_ON_SELECTING_RANGE }
@@ -1140,6 +1141,25 @@ class RangeCalendarView @JvmOverloads constructor(
             adapter.setStyleObject({ SELECTION_BORDER }, value)
         }
 
+    var selectionMode: SelectionMode
+        get() = adapter.getStyleEnum({ SELECTION_MODE }, SelectionMode::ofOrdinal)
+        set(value) {
+            val oldValue = selectionMode
+
+            // MULTI_FRAGMENT -> SINGLE_FRAGMENT transition is special,
+            // because if we have actually more than one fragment, we should clear all the selection
+            // because there is no single choice what fragment to leave.
+            if (oldValue == SelectionMode.MULTI_FRAGMENT && value == SelectionMode.SINGLE_FRAGMENT) {
+               val selection = adapter.selectedRange
+
+                if (selection.fragments().size > 1) {
+                    adapter.clearSelection(withAnimation = true)
+                }
+            }
+
+            adapter.setStyleEnum({ SELECTION_MODE }, value)
+        }
+
     /**
      * Gets or sets a text size of day number, in pixels
      */
@@ -1798,7 +1818,12 @@ class RangeCalendarView @JvmOverloads constructor(
         requestRejectedBehaviour: SelectionRequestRejectedBehaviour,
         withAnimation: Boolean
     ) {
+        if (selectionMode == SelectionMode.SINGLE_FRAGMENT && range.fragments().size > 1) {
+            throw IllegalArgumentException("Given selection is multi-fragment but the current selection mode is SINGLE_FRAGMENT")
+        }
+
         val actuallySelected = adapter.selectRange(range, requestRejectedBehaviour, withAnimation)
+
 
         // TODO: Implement it
         /*

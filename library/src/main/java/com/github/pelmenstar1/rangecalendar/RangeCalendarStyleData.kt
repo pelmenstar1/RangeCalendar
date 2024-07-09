@@ -54,12 +54,12 @@ internal class RangeCalendarStyleData {
     }
 
     companion object {
-        const val INT_PROPS_COUNT = 22
+        const val INT_PROPS_COUNT = 23
         const val OBJECT_PROPS_COUNT = 11
 
         const val OBJECT_PROP_START = 32
 
-        // These are properties that can be stored in int32
+        // These are properties that can be stored in Int
         const val DAY_NUMBER_TEXT_SIZE = 0
         const val WEEKDAY_TEXT_SIZE = 1
         const val CELL_ROUND_RADIUS = 2
@@ -82,6 +82,7 @@ internal class RangeCalendarStyleData {
         const val IS_SELECTION_ANIMATED_BY_DEFAULT = 19
         const val IS_HOVER_ANIMATION_ENABLED = 20
         const val OUT_MONTH_SELECTION_ALPHA = 21
+        const val SELECTION_MODE = 22
 
         // These are properties that can be stored as an object
         const val COMMON_ANIMATION_INTERPOLATOR = 32
@@ -132,6 +133,7 @@ internal class RangeCalendarStyleData {
             GESTURE_CONFIGURATION -> "GESTURE_CONFIGURATION"
             OUT_MONTH_SELECTION_ALPHA -> "OUT_MONTH_SELECTION_ALPHA"
             SELECTION_BORDER -> "SELECTION_BORDER"
+            SELECTION_MODE -> "SELECTION_MODE"
             else -> "<UNKNOWN>"
         }
 
@@ -172,6 +174,7 @@ internal class RangeCalendarStyleData {
                     SELECTION_FILL_GRADIENT_BOUNDS_TYPE,
                     SelectionFillGradientBoundsType.GRID
                 )
+                set(SELECTION_MODE, SelectionMode.SINGLE_FRAGMENT)
 
                 // other stuff
                 set(VIBRATE_ON_SELECTING_RANGE, true)

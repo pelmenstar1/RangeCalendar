@@ -47,6 +47,10 @@
             <enum name="saturday" value="5"/>
             <enum name="sunday" value="6"/>
         </attr>
+        <attr name="rangeCalendar_selectionMode" format="enum">
+            <enum name="singleFragment" value="0"/>
+            <enum name="multiFragment" value="1"/>
+        </attr>
     </declare-styleable>
 
 </resources>
