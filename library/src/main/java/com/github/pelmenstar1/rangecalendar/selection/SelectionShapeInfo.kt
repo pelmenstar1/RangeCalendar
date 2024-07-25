@@ -27,6 +27,11 @@ internal data class SelectionShapeInfo(
         inMonthShapeInfo = null
     )
 
+    fun setRange(start: Int, endInclusive: Int) {
+        rangeStart = start
+        rangeEnd = endInclusive
+    }
+
     fun set(other: SelectionShapeInfo) {
         rangeStart = other.rangeStart
         rangeEnd = other.rangeEnd

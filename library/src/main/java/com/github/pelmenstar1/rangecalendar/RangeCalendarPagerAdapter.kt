@@ -322,7 +322,7 @@ internal class RangeCalendarPagerAdapter(
     }
 
     private fun createEnabledRange(): IntRange {
-        val start = gridInfo.getCellByDate(minDate, defaultValue = -1)
+        val start = gridInfo.getCellByDate(minDate, defaultValue = 0)
         val endInclusive = gridInfo.getCellByDate(maxDate, defaultValue = GridConstants.CELL_COUNT - 1)
 
         return start..endInclusive

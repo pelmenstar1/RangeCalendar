@@ -55,20 +55,6 @@ class CellComplexRangeTransitionManagerTests {
         }
     }
 
-    private fun transitionTestHelper(
-        origin: List<IntRange>,
-        dest: List<IntRange>,
-        maxMoveDist: Int = -1,
-        transitionBuild: CellTransitionBuilder.() -> Unit
-    ) {
-        val originComplexRange = createComplexRange(origin)
-        val destComplexRange = createComplexRange(dest)
-
-        val actualTransition = createTransition(originComplexRange, destComplexRange, maxMoveDist)
-
-        assertGroupsEquals(actualTransition, transitionBuild)
-    }
-
     @Test
     fun createNonEmptyToNonEmpty_singleGroupTest() {
         // Join + Transform
@@ -99,6 +85,20 @@ class CellComplexRangeTransitionManagerTests {
         ) {
             group {
                 join(originRanges = arrayOf(1..1, 3..3), destRange = 1..3)
+            }
+        }
+
+        transitionTestHelper(
+            origin = listOf(5..6, 10..11),
+            dest = listOf(5..13)
+        ) {
+            group {
+                join(
+                    originRanges = arrayOf(5..6, 10..11),
+                    destRange = 5..11,
+                )
+
+                transform(origin = 5..11, dest = 5..13,)
             }
         }
 
@@ -181,7 +181,7 @@ class CellComplexRangeTransitionManagerTests {
             maxMoveDist = 1
         ) {
             group {
-                move(origin = 1..2, dest = 3..4)
+                transform(origin = 1..2, dest = 3..4)
             }
         }
 
@@ -238,6 +238,28 @@ class CellComplexRangeTransitionManagerTests {
                 transform(origin = 9..10, dest = 10..11)
             }
         }
+
+        transitionTestHelper(
+            origin = listOf(5..6, 11..11),
+            dest = listOf(7 ..13)
+        ) {
+            group {
+                remove(5..6)
+            }
+
+            group {
+                transform(origin = 11..11, dest = 7..13)
+            }
+        }
+
+        transitionTestHelper(
+            origin = listOf(5..6, 10..11, 24..26),
+            dest = listOf(5..6, 10..11, 22..22, 24..26)
+        ) {
+            group {
+                insert(22..22)
+            }
+        }
     }
 
     @Test
@@ -254,11 +276,19 @@ class CellComplexRangeTransitionManagerTests {
         ) {
             val resultGroupElements = groupComplexRange.fragments().toList()
 
-            assertEquals(expectedConsumed, resultGroupElements.size, "$sourceType consumed ($testType)")
+            assertEquals(
+                expectedConsumed,
+                resultGroupElements.size,
+                "$sourceType consumed ($testType)"
+            )
 
             val slicedInput = input.take(expectedConsumed).map { CellFragment(it) }
 
-            assertContentEquals(slicedInput, resultGroupElements, "$sourceType elements ($testType)")
+            assertContentEquals(
+                slicedInput,
+                resultGroupElements,
+                "$sourceType elements ($testType)"
+            )
         }
 
         fun testCaseBase(
@@ -279,7 +309,8 @@ class CellComplexRangeTransitionManagerTests {
             originIter.mark()
             destIter.mark()
 
-            val manager = CellComplexRangeTransitionManager(CellFragmentProximityDetector.neverMove())
+            val manager =
+                CellComplexRangeTransitionManager(CellFragmentProximityDetector.neverMove())
             manager.consumeElementsForTransformGroup(originFirstFrag, originIter, destIter)
 
             val originGroupRange = originIter.subRange()
@@ -294,8 +325,20 @@ class CellComplexRangeTransitionManagerTests {
             expectedOriginConsumed: Int, expectedDestConsumed: Int
         ) {
             // Grouping must be commutative
-            testCaseBase(origin, dest, expectedOriginConsumed, expectedDestConsumed, isForward = true)
-            testCaseBase(dest, origin, expectedDestConsumed, expectedOriginConsumed, isForward = false)
+            testCaseBase(
+                origin,
+                dest,
+                expectedOriginConsumed,
+                expectedDestConsumed,
+                isForward = true
+            )
+            testCaseBase(
+                dest,
+                origin,
+                expectedDestConsumed,
+                expectedOriginConsumed,
+                isForward = false
+            )
         }
 
         testCase(
@@ -355,6 +398,44 @@ class CellComplexRangeTransitionManagerTests {
         )
     }
 
+    private fun transitionTestHelper(
+        origin: List<IntRange>,
+        dest: List<IntRange>,
+        maxMoveDist: Int = -1,
+        transitionBuild: CellTransitionBuilder.() -> Unit
+    ) {
+        val expected = CellComplexRangeTransition(transitionBuild)
+
+        transitionTestHelper(origin, dest, maxMoveDist, expected)
+    }
+
+    private fun transitionTestHelper(
+        origin: List<IntRange>,
+        dest: List<IntRange>,
+        maxMoveDist: Int = -1,
+        expected: CellComplexRangeTransition
+    ) {
+        transitionTestHelperBase(origin, dest, maxMoveDist, expected)
+        transitionTestHelperBase(dest, origin, maxMoveDist, expected.inverted())
+    }
+
+    private fun transitionTestHelperBase(
+        origin: List<IntRange>,
+        dest: List<IntRange>,
+        maxMoveDist: Int,
+        expected: CellComplexRangeTransition
+    ) {
+        val originComplexRange = createComplexRange(origin)
+        val destComplexRange = createComplexRange(dest)
+
+        val actualTransition = createTransition(originComplexRange, destComplexRange, maxMoveDist)
+
+        val expectedGroups = expected.groups.toHashSet()
+        val actualGroups = actualTransition.groups.toHashSet()
+
+        assertEquals(expectedGroups, actualGroups)
+    }
+
     private fun assertGroupsEquals(
         actual: CellComplexRangeTransition,
         expectedBuild: CellTransitionBuilder.() -> Unit
@@ -369,7 +450,11 @@ class CellComplexRangeTransitionManagerTests {
         dest: CellComplexRange,
         maxMoveDist: Int = -1
     ): CellComplexRangeTransition {
-        return CellComplexRangeTransitionManager(CellFragmentProximityDetector.withMoveDistance(maxMoveDist))
-            .createTransition(origin, dest)
+        return CellComplexRangeTransitionManager(
+            CellFragmentProximityDetector.withMoveDistance(
+                maxMoveDist
+            ),
+            emitNoOps = false
+        ).createTransition(origin, dest)
     }
 }

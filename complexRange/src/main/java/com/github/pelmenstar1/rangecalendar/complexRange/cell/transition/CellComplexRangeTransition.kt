@@ -1,6 +1,6 @@
 package com.github.pelmenstar1.rangecalendar.complexRange.cell.transition
 
-data class CellComplexRangeTransition(val groups: Set<CellTransitionGroup>) {
+data class CellComplexRangeTransition(val groups: List<CellTransitionGroup>) {
     override fun toString(): String {
         return buildString {
             append("CellComplexRangeTransition(")

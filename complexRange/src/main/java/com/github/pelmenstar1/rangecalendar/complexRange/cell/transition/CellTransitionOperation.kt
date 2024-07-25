@@ -26,9 +26,15 @@ sealed interface CellTransitionOperation {
 
     data class Transform(val origin: CellFragment, val destination: CellFragment): CellTransitionOperation
 
-    data class Move(val origin: CellFragment, val destination: CellFragment): CellTransitionOperation
+    data class Split(
+        val origin: CellFragment,
+        val destination: CellComplexRange
+    ): CellTransitionOperation
 
-    data class Split(val origin: CellFragment, val destination: CellComplexRange): CellTransitionOperation
+    data class Join(
+        val origin: CellComplexRange,
+        val destination: CellFragment,
+    ): CellTransitionOperation
 
-    data class Join(val origin: CellComplexRange, val destination: CellFragment): CellTransitionOperation
+    data class NoOp(val fragments: List<CellFragment>): CellTransitionOperation
 }

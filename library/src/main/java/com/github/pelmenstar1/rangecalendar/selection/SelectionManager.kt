@@ -5,8 +5,8 @@ import com.github.pelmenstar1.rangecalendar.CellMeasureManager
 import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellComplexRange
 
 /**
- * Responsible for providing [SelectionRenderer], [SelectionTransitionController], creating selection states and transitions between them.
- * The manager is expected to be stateless, except caching in [renderer], [transitionController], as the same instance is used
+ * Responsible for providing [SelectionRenderer], [SelectionTransitionOrchestrator], creating selection states and transitions between them.
+ * The manager is expected to be stateless, except caching in [renderer], [transitionOrchestrator], as the same instance is used
  * among different calendars.
  */
 interface SelectionManager {
@@ -17,14 +17,6 @@ interface SelectionManager {
      * It's expected that the same [SelectionRenderer] instance is returned each time the property is accessed.
      */
     val renderer: SelectionRenderer
-
-    /**
-     * Gets a transition controller that is connected to the current [SelectionManager] in the way that the controller
-     * recognizes the types of transitive selection states that are created by the selection manager.
-     *
-     * It's expected that the same [SelectionTransitionController] instance is returned each time the property is accessed.
-     */
-    val transitionController: SelectionTransitionController
 
     /**
      * Creates selection state using range of selected cells (`[rangeStart; rangeEnd]`) and [measureManager].
@@ -50,13 +42,14 @@ interface SelectionManager {
      * If [previousState] and/or [currentState] are `null`, it means that the respective state doesn't exist.
      * For example, if a range is selected but there was no selection before, [previousState] is `null`.
      *
-     * If there's no transition between states, returns `null`.
+     * If there's no transition between states, returns [SelectionTransition] with empty group list.
      */
     fun createTransition(
         previousState: SelectionState?,
         currentState: SelectionState?,
         measureManager: CellMeasureManager,
-        options: SelectionRenderOptions
+        options: SelectionRenderOptions,
+        gridInfo: CalendarGridInfo
     ): SelectionTransition?
 
     /**
@@ -72,4 +65,9 @@ interface SelectionManager {
         end: SelectionState?,
         measureManager: CellMeasureManager
     ): SelectionTransition?
+
+    fun createTransitionOrchestrator(
+        transition: SelectionTransition,
+        measureManager: CellMeasureManager
+    ): SelectionTransitionOrchestrator
 }

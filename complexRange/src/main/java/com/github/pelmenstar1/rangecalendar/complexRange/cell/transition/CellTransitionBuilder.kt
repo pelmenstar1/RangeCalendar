@@ -4,7 +4,7 @@ package com.github.pelmenstar1.rangecalendar.complexRange.cell.transition
  * A builder for [CellTransitionGroup].
  */
 class CellTransitionBuilder {
-    private val groups = HashSet<CellTransitionGroup>()
+    private val groups = ArrayList<CellTransitionGroup>()
 
     /**
      * Adds a group built by given [block] lambda to the transition.

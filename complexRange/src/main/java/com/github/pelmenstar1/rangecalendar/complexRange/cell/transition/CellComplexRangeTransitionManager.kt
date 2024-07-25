@@ -6,23 +6,29 @@ import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellFragmentIterat
 import com.github.pelmenstar1.rangecalendar.complexRange.cell.CellFragmentProximityDetector
 
 class CellComplexRangeTransitionManager(
-    private val proximityDetector: CellFragmentProximityDetector
+    private val proximityDetector: CellFragmentProximityDetector,
+    private val emitNoOps: Boolean = true
 ) {
-    fun createTransition(origin: CellComplexRange, destination: CellComplexRange): CellComplexRangeTransition {
-        val groups = HashSet<CellTransitionGroup>()
+    fun createTransition(
+        origin: CellComplexRange,
+        destination: CellComplexRange
+    ): CellComplexRangeTransition {
+        val groups = ArrayList<CellTransitionGroup>()
 
         val originIter = origin.fragments().fragmentIterator()
         val destIter = destination.fragments().fragmentIterator()
 
-        while(true) {
-            val originHasNext = originIter.moveNext()
-            val destHasNext = destIter.moveNext()
+        var originHasNext = originIter.moveNext()
+        var destHasNext = destIter.moveNext()
 
+        val noOps = ArrayList<CellFragment>()
+
+        while (true) {
             if (!originHasNext || !destHasNext) {
                 if (originHasNext) {
-                    addRemoveAllTransition(originIter, groups)
+                    groups.addRemoveAllTransition(originIter)
                 } else if (destHasNext) {
-                    addInsertAllTransition(destIter, groups)
+                    groups.addInsertAllTransition(destIter)
                 }
 
                 break
@@ -34,7 +40,12 @@ class CellComplexRangeTransitionManager(
             val originFrag = originIter.current
             val destFrag = destIter.current
 
-            if (originFrag != destFrag) {
+            var shouldMoveOrigin = true
+            var shouldMoveDest = true
+
+            if (originFrag == destFrag) {
+                noOps.add(originFrag)
+            } else {
                 if (originFrag.overlapsWith(destFrag)) {
                     consumeElementsForTransformGroup(originFrag, originIter, destIter)
 
@@ -44,37 +55,42 @@ class CellComplexRangeTransitionManager(
                     groups.add(createTransformGroup(originGroupRange, destGroupRange))
                 } else {
                     if (proximityDetector.canMove(originFrag, destFrag)) {
-                        groups.add(CellTransitionGroup.create(CellTransitionOperation.Move(originFrag, destFrag)))
+                        groups.addSingleOpGroup(
+                            CellTransitionOperation.Transform(
+                                originFrag,
+                                destFrag
+                            )
+                        )
                     } else {
-                        groups.add(CellTransitionGroup.create(CellTransitionOperation.Remove(originFrag)))
-                        groups.add(CellTransitionGroup.create(CellTransitionOperation.Insert(destFrag)))
+                        if (dependsOnOtherGroup(originFrag, destIter)) {
+                            shouldMoveOrigin = false
+                        } else {
+                            groups.addSingleOpGroup(CellTransitionOperation.Remove(originFrag))
+                        }
+
+                        if (dependsOnOtherGroup(destFrag, originIter)) {
+                            shouldMoveDest = false
+                        } else {
+                            groups.addSingleOpGroup(CellTransitionOperation.Insert(destFrag))
+                        }
                     }
                 }
             }
+
+            if (shouldMoveOrigin) {
+                originHasNext = originIter.moveNext()
+            }
+
+            if (shouldMoveDest) {
+                destHasNext = destIter.moveNext()
+            }
+        }
+
+        if (emitNoOps && noOps.isNotEmpty()) {
+            groups.addSingleOpGroup(CellTransitionOperation.NoOp(noOps))
         }
 
         return CellComplexRangeTransition(groups)
-    }
-
-    private fun addInsertAllTransition(iter: CellFragmentIterator, groups: MutableSet<CellTransitionGroup>) {
-        addOperationAllTransition(iter, groups) { CellTransitionOperation.Insert(it) }
-    }
-
-    private fun addRemoveAllTransition(iter: CellFragmentIterator, groups: MutableSet<CellTransitionGroup>) {
-        addOperationAllTransition(iter, groups) { CellTransitionOperation.Remove(it) }
-    }
-
-    private inline fun addOperationAllTransition(
-        iter: CellFragmentIterator,
-        groups: MutableSet<CellTransitionGroup>,
-        createOp: (CellFragment) -> CellTransitionOperation
-    ) {
-        do {
-            val fragment = iter.current
-            val op = createOp(fragment)
-
-            groups.add(CellTransitionGroup.create(op))
-        } while(iter.moveNext())
     }
 
     // Internal for tests
@@ -134,8 +150,11 @@ class CellComplexRangeTransitionManager(
 
     // Returns the first fragment that doesn't overlap with anchorFrag or equal to anchorFrag.
     // If there's no such fragment, returns null
-    private fun consumeLaneForTransform(anchorFrag: CellFragment, iter: CellFragmentIterator): CellFragment? {
-        while(iter.moveNext()) {
+    private fun consumeLaneForTransform(
+        anchorFrag: CellFragment,
+        iter: CellFragmentIterator
+    ): CellFragment? {
+        while (iter.moveNext()) {
             val frag = iter.current
 
             if (frag == anchorFrag || !frag.overlapsWith(anchorFrag)) {
@@ -187,11 +206,11 @@ class CellComplexRangeTransitionManager(
         } else {
             // originSize > 1
             val minOriginFrag = originFrags[0]
-            val maxOriginFrag = originFrags.last()
-            val originTransformFrag = CellFragment(minOriginFrag.start, maxOriginFrag.endInclusive)
+            val maxOriginFragEnd = originFrags.getLastFragmentEndInclusive()
+            val originTransformFrag = CellFragment(minOriginFrag.start, maxOriginFragEnd)
 
             if (destSize == 1) {
-                val destFrag = destFrags.first()
+                val destFrag = destFrags[0]
 
                 // Ops:
                 // - Join
@@ -208,14 +227,19 @@ class CellComplexRangeTransitionManager(
                 // - Split
 
                 val minDestFrag = destFrags[0]
-                val maxDestFrag = destFrags.last()
+                val maxDestFragEnd = destFrags.getLastFragmentEndInclusive()
 
-                val destTransformFrag = CellFragment(minDestFrag.start, maxDestFrag.endInclusive)
+                val destTransformFrag = CellFragment(minDestFrag.start, maxDestFragEnd)
 
                 ops.add(CellTransitionOperation.Join(originGroupRange, originTransformFrag))
 
                 if (originTransformFrag != destTransformFrag) {
-                    ops.add(CellTransitionOperation.Transform(originTransformFrag, destTransformFrag))
+                    ops.add(
+                        CellTransitionOperation.Transform(
+                            originTransformFrag,
+                            destTransformFrag
+                        )
+                    )
                 }
 
                 ops.add(CellTransitionOperation.Split(destTransformFrag, destGroupRange))
@@ -223,5 +247,40 @@ class CellComplexRangeTransitionManager(
         }
 
         return CellTransitionGroup(ops)
+    }
+
+    companion object {
+        private fun dependsOnOtherGroup(
+            fragment: CellFragment,
+            iterator: CellFragmentIterator
+        ): Boolean {
+            val nextFrag = iterator.pickNext()
+
+            return nextFrag?.overlapsWith(fragment) ?: false
+        }
+
+        private fun MutableList<CellTransitionGroup>.addSingleOpGroup(op: CellTransitionOperation) {
+            add(CellTransitionGroup.create(op))
+        }
+
+        private fun MutableList<CellTransitionGroup>.addInsertAllTransition(iter: CellFragmentIterator) {
+            addOperationAllTransition(iter, CellTransitionOperation::Insert)
+        }
+
+        private fun MutableList<CellTransitionGroup>.addRemoveAllTransition(iter: CellFragmentIterator) {
+            addOperationAllTransition(iter, CellTransitionOperation::Remove)
+        }
+
+        private inline fun MutableList<CellTransitionGroup>.addOperationAllTransition(
+            iter: CellFragmentIterator,
+            createOp: (CellFragment) -> CellTransitionOperation
+        ) {
+            do {
+                val fragment = iter.current
+
+                val op = createOp(fragment)
+                add(CellTransitionGroup.create(op))
+            } while (iter.moveNext())
+        }
     }
 }

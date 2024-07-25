@@ -40,31 +40,6 @@ class CellTransitionGroupBuilder {
     }
 
     /**
-     * Adds [CellTransitionOperation.Move] operation to the group.
-     *
-     * [origin] and [destination] should not be equal, and they should have the same [CellFragment.elementCount] value.
-     *
-     * @param origin a fragment to begin transition with
-     * @param destination a fragment to end transition with
-     */
-    fun move(origin: CellFragment, destination: CellFragment) {
-        ops.add(CellTransitionOperation.Move(origin, destination))
-    }
-
-    /**
-     * Adds [CellTransitionOperation.Split] operation to the group.
-     *
-     * @param origin a fragment to split
-     * @param destinations an array of fragments to end the split operation with.
-     * The array is transformed into [CellComplexRange],
-     * so that the resulting fragments are mutually non-overlapping and ordered,
-     * even through the initial array of fragments may not have these properties.
-     */
-    fun split(origin: CellFragment, destinations: Array<out CellFragment>) {
-        split(origin, CellComplexRange(destinations))
-    }
-
-    /**
      * Adds [CellTransitionOperation.Split] operation to the group.
      *
      * @param origin a fragment to split
@@ -85,18 +60,6 @@ class CellTransitionGroupBuilder {
     }
 
     /**
-     * Adds [CellTransitionOperation.Join] operation to the group.
-     *
-     * @param origins an array of fragments to join.
-     * The array is transformed to [CellComplexRange],
-     * so that the resulting fragments are mutually non-overlapping and ordered,
-     * even through the initial array of fragments may not have these properties.
-     */
-    fun join(origins: Array<out CellFragment>, destination: CellFragment) {
-        join(CellComplexRange(origins), destination)
-    }
-
-    /**
      * Returns a new instance of [CellTransitionGroup].
      */
     fun build(): CellTransitionGroup = CellTransitionGroup(ops)
@@ -110,18 +73,14 @@ fun CellTransitionGroupBuilder.remove(range: IntRange) {
     remove(CellFragment(range))
 }
 
+fun CellTransitionGroupBuilder.transform(origin: IntRange, dest: IntRange) {
+    transform(CellFragment(origin), CellFragment(dest))
+}
+
 fun CellTransitionGroupBuilder.join(originRanges: Array<IntRange>, destRange: IntRange) {
     join(CellComplexRange(originRanges), CellFragment(destRange))
 }
 
 fun CellTransitionGroupBuilder.split(originRange: IntRange, destRanges: Array<IntRange>) {
     split(CellFragment(originRange), CellComplexRange(destRanges))
-}
-
-fun CellTransitionGroupBuilder.transform(origin: IntRange, dest: IntRange) {
-    transform(CellFragment(origin), CellFragment(dest))
-}
-
-fun CellTransitionGroupBuilder.move(origin: IntRange, dest: IntRange) {
-    move(CellFragment(origin), CellFragment(dest))
 }

@@ -4,6 +4,9 @@ class CellFragment {
     val start: Int
     val endInclusive: Int
 
+    val isSingleCell: Boolean
+        get() = start == endInclusive
+
     val elementCount: Int
         get() = endInclusive - start + 1
 

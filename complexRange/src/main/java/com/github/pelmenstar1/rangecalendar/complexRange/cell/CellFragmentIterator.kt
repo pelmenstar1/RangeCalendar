@@ -6,6 +6,17 @@ interface CellFragmentIterator {
     fun moveNext(): Boolean
     fun movePrevious(): Boolean
 
+    fun pickNext(): CellFragment? {
+        if (!moveNext()) {
+            return null
+        }
+
+        val result = current
+        movePrevious()
+
+        return result
+    }
+
     fun mark()
     fun subRange(): CellComplexRange
 }

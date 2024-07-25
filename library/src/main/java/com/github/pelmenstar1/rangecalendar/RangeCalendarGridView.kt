@@ -14,6 +14,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.*
+import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -976,23 +977,10 @@ internal class RangeCalendarGridView(
         }
     }
 
-    private fun createSelectionTransitionHandler(): TickCallback {
-        return TickCallback { fraction ->
-            selectionTransition?.let { state ->
-                selectionManager.transitionController.handleTransition(
-                    state,
-                    cellMeasureManager,
-                    fraction
-                )
-            }
-        }
-    }
+    private fun createSelectionTransitionHandler(transition: SelectionTransition): TickCallback {
+        val orchestrator = selectionManager.createTransitionOrchestrator(transition, cellMeasureManager)
 
-    private fun getSelectionTransitionHandler(): TickCallback {
-        return getLazyValue(
-            selectionTransitionHandler,
-            ::createSelectionTransitionHandler
-        ) { selectionTransitionHandler = it }
+        return TickCallback { fraction -> orchestrator.handleTransition(fraction) }
     }
 
     private fun getSelectionOnEndHandler(): () -> Unit {
@@ -1004,9 +992,6 @@ internal class RangeCalendarGridView(
     }
 
     private fun startSelectionTransition() {
-        val handler = getSelectionTransitionHandler()
-        val onEnd = getSelectionOnEndHandler()
-
         val selManager = selectionManager
         val measureManager = cellMeasureManager
 
@@ -1027,13 +1012,16 @@ internal class RangeCalendarGridView(
             newTransition = selManager.createTransition(
                 prevSelState, currentSelState,
                 measureManager,
-                selectionRenderOptions
+                selectionRenderOptions,
+                gridInfo
             )
         }
 
-        if (newTransition == null) {
-            // We can't create simple transition between states. We have nothing to do except calling invalidate()
-            // to redraw.
+        if (newTransition == null || newTransition.groups.isEmpty()) {
+            selectionTransition = null
+
+            // We can't create simple transition between states.
+            // We have nothing to do, except calling invalidate() to redraw.
             invalidate()
 
             return
@@ -1047,6 +1035,9 @@ internal class RangeCalendarGridView(
         cancelCalendarAnimation()
 
         selectionTransition = newTransition
+
+        val handler = createSelectionTransitionHandler(newTransition)
+        val onEnd = getSelectionOnEndHandler()
 
         startCalendarAnimation(
             SELECTION_ANIMATION,
@@ -1432,13 +1423,15 @@ internal class RangeCalendarGridView(
         val renderer = selectionRenderer
 
         if (animType == SELECTION_ANIMATION) {
-            /*
-            selectionTransition?.let {
+            selectionTransition?.let { transition ->
                 canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
-                    renderer.drawTransition(canvas, it, selectionRenderOptions)
+                    for (i in transition.groups.indices) {
+                        val stage = transition.getCurrentStage(i)
+
+                        renderer.drawTransitionStage(canvas, stage, selectionRenderOptions)
+                    }
                 }
             }
-            */
         } else {
             currentSelState?.let { state ->
                 canvas.withTranslation(x = cr.hPadding, y = gridTop()) {
@@ -1500,8 +1493,6 @@ internal class RangeCalendarGridView(
         val transitiveSelState = selectionTransition
         val currentSelRange = currentSelState?.complexRange ?: CellComplexRange.Empty
 
-        val rect = tempRect
-
         for (cell in startIndex..endIndex) {
             val day = cells[cell].toInt()
 
@@ -1517,17 +1508,18 @@ internal class RangeCalendarGridView(
                 val textY = centerY + halfTextHeight
 
                 val isSelectionOverlaysCellText = if (transitiveSelState != null) {
-                    rect.set(
-                        textX, centerY - halfTextHeight,
-                        centerX + halfTextWidth, textY
-                    )
+                    val dx = cr.hPadding
+                    val dy = gridTop()
 
                     // Coordinates in selection are relative to the grid. Translate the rect.
-                    rect.offset(-cr.hPadding, -gridTop())
+                    val left = textX - dx
+                    val top = centerY - dy
+                    val right = centerX + halfTextWidth - dx
+                    val bottom = textY - dy
 
-                    false
-                    // TODO: Implement it
-                    // transitiveSelState.overlaysRect(rect)
+                    tempRect.set(left, top, right, bottom)
+
+                    transitiveSelState.overlaysRect(tempRect)
                 } else {
                     cell in currentSelRange
                 }
@@ -1710,7 +1702,7 @@ internal class RangeCalendarGridView(
 
         // Find a x-axis of the cell but without horizontal padding.
         // Also merge rw * cell.gridY to the rw * ((1f / 7f) * (cell.gridX + 0.5f))
-        var result = rw * ((1f / GridConstants.COLUMN_COUNT) * (Cell.gridX(cell) + 0.5f) + Cell.gridX(cell))
+        var result = rw * ((1f / GridConstants.COLUMN_COUNT) * (Cell.gridX(cell) + 0.5f) + Cell.gridY(cell))
         result -= cellWidth * 0.5f
 
         return result

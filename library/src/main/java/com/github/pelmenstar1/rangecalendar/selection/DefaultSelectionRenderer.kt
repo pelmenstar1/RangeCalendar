@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
+import android.util.Log
 import androidx.core.graphics.component1
 import androidx.core.graphics.component2
 import androidx.core.graphics.component3
@@ -24,7 +25,6 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     }
 
     private val primaryShape = SelectionShape()
-    private var secondaryShape: SelectionShape? = null
     private var inMonthShape: SelectionShape? = null
 
     private val tempRect = RectF()
@@ -34,16 +34,13 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
     private fun getRoundRectPathInfo(): RoundRectVisualInfo =
         getLazyValue(roundRectPathInfo, ::RoundRectVisualInfo) { roundRectPathInfo = it }
 
-    private fun getSecondaryShape(): SelectionShape =
-        getLazyValue(secondaryShape, ::SelectionShape) { secondaryShape = it }
-
     private fun getInMonthShape(): SelectionShape =
         getLazyValue(inMonthShape, ::SelectionShape) { inMonthShape = it }
 
     override fun draw(canvas: Canvas, state: SelectionState, options: SelectionRenderOptions) {
         state as DefaultSelectionState
 
-        drawFragments(canvas, state.fragments, options, alpha = 1f, isPrimary = true)
+        drawFragments(canvas, state.fragments, options)
     }
 
     override fun drawTransitionStage(
@@ -51,15 +48,50 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         stage: SelectionTransitionStage,
         options: SelectionRenderOptions
     ) {
-        // TODO: Implement it
+        when (stage) {
+            is DefaultSelectionTransitionStage.AppearAlpha -> {
+                drawRange(canvas, stage.shapeInfo, options, stage.alpha)
+            }
+            is DefaultSelectionTransitionStage.CellAppearBubble -> {
+                val shapeInfo = stage.shapeInfo
+
+                drawOpaqueRect(
+                    canvas,
+                    stage.bounds,
+                    options,
+                    shapeInfo.useInMonthShape, shapeInfo.inMonthShapeInfo
+                )
+            }
+            is DefaultSelectionTransitionStage.MoveCellToCell -> {
+                val shapeInfo = stage.shapeInfo
+                val width = shapeInfo.cellWidth
+                val height = shapeInfo.cellHeight
+
+                drawRect(
+                    canvas,
+                    shapeInfo.startLeft, shapeInfo.startTop, width, height,
+                    options,
+                    alpha = 1f,
+                    shapeInfo.useInMonthShape, shapeInfo.inMonthShapeInfo
+                )
+            }
+            is DefaultSelectionTransitionStage.TransformFragmentToFragment -> {
+                drawGeneralRange(canvas, stage.shapeInfo, options, alpha = 1f)
+            }
+
+            is DefaultSelectionTransitionStage.NoOp -> {
+                for (shapeInfo in stage.shapeInfoArray) {
+                    drawGeneralRange(canvas, shapeInfo, options, alpha = 1f)
+                }
+            }
+        }
     }
 
     private fun drawRange(
         canvas: Canvas,
         shapeInfo: SelectionShapeInfo,
         options: SelectionRenderOptions,
-        alpha: Float,
-        isPrimary: Boolean
+        alpha: Float
     ) {
         val rangeStart = shapeInfo.rangeStart
         val rangeEnd = shapeInfo.rangeEnd
@@ -80,7 +112,7 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
                 shapeInfo.useInMonthShape, shapeInfo.inMonthShapeInfo
             )
         } else {
-            drawGeneralRange(canvas, shapeInfo, options, alpha, isPrimary)
+            drawGeneralRange(canvas, shapeInfo, options, alpha)
         }
     }
 
@@ -88,16 +120,13 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         canvas: Canvas,
         fragments: List<SelectionFragmentState>,
         options: SelectionRenderOptions,
-        alpha: Float,
-        isPrimary: Boolean
     ) {
         for (fragment in fragments) {
             fragment as DefaultSelectionFragmentState
 
-            drawRange(canvas, fragment.shapeInfo, options, alpha, isPrimary)
+            drawRange(canvas, fragment.shapeInfo, options, alpha = 1f)
         }
     }
-
 
     private fun drawOpaqueRect(
         canvas: Canvas,
@@ -194,13 +223,14 @@ internal class DefaultSelectionRenderer : SelectionRenderer {
         canvas: Canvas,
         shapeInfo: SelectionShapeInfo,
         options: SelectionRenderOptions,
-        alpha: Float,
-        isPrimary: Boolean
+        alpha: Float
     ) {
-        val shape = if (isPrimary) primaryShape else getSecondaryShape()
+        val shape = primaryShape
         val fill = options.fill
         val fillState = options.fillState
         val border = options.border
+
+        //Log.i("DefaultSelectionRenderer", "shapeInfo: ${shapeInfo}")
 
         val outMonthAlpha = options.outMonthAlpha
 
